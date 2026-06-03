@@ -3,9 +3,6 @@
 function buildShortGame(){
   const wrap=document.getElementById('shortgame-wrap'); if(!wrap) return;
   wrap.innerHTML=`
-    <div class="section-label" style="margin-top:0">Chip Shot Options</div>
-    <p class="intro-note">Launch = 75% of loft. Roll ratio from Low Runner (1:3–1:5) through Standard Chip (1:2), Toss (1:1), to Flop/Lob (4:1–5:1). Stimp and slope at the bottom adjust rollout.</p>
-
     <!-- 1. Distance slider -->
     <div class="calc-dist-block">
       <div class="calc-yardage-display">
@@ -15,12 +12,12 @@ function buildShortGame(){
       <div class="calc-slider-col">
         <div class="calc-slider-limits"><span>5 yd</span><span>55 yd</span></div>
         <input type="range" class="yard-slider" id="chip-slider" min="5" max="55" value="20" step="1"
-          oninput="window.chipSelectedIdx=-1;document.getElementById('chip-display').textContent=this.value;document.getElementById('chip-input').value=this.value;renderChipDial();renderExpectedShots('es-short',parseInt(this.value)*3,'atg')">
+          oninput="window.chipSelectedIdx=-1;document.getElementById('chip-display').textContent=this.value;document.getElementById('chip-input').value=this.value;renderChipDial()">
       </div>
       <div class="calc-manual-col">
         <label for="chip-input">Type yards</label>
         <input type="number" id="chip-input" min="5" max="55" value="20"
-          oninput="window.chipSelectedIdx=-1;const v=Math.max(5,Math.min(55,parseInt(this.value)||20));document.getElementById('chip-slider').value=v;document.getElementById('chip-display').textContent=v;renderChipDial();renderExpectedShots('es-short',v*3,'atg')">
+          oninput="window.chipSelectedIdx=-1;const v=Math.max(5,Math.min(55,parseInt(this.value)||20));document.getElementById('chip-slider').value=v;document.getElementById('chip-display').textContent=v;renderChipDial()">
       </div>
     </div>
 
@@ -49,11 +46,15 @@ function buildShortGame(){
     </div>
 
     <!-- 6. Chip Matrix -->
-    <div class="section-label">Chip Matrix — Total Distance (yd) by Carry &amp; Club</div>
-    <p class="intro-note" style="margin-bottom:10px">Cells show total distance (carry + rollout) at current stimp and slope.</p>
+    <div class="section-label">Chip Reference Matrix — Total Distance by Club &amp; Carry</div>
+    <p class="intro-note" style="margin-bottom:10px">Launch = 75% of loft. Roll ratio: Low Runner 1:5 (7i) → Standard 1:2 (P) → Toss 1:1 (G) → Flop 5:1 (X). Cells show carry + rollout at current stimp and slope.</p>
     <div class="chip-matrix-wrap"><table class="chip-matrix" id="chip-matrix-table"></table></div>`;
 
   buildChipMatrix();
+  /* Default selection: P wedge */
+  const _clubs=chipClubs();
+  const _pIdx=_clubs.findIndex(c=>c.id==='P');
+  window.chipSelectedIdx=_pIdx>=0?_pIdx:-1;
   renderChipDial();
 }
 
@@ -114,12 +115,13 @@ function renderChipDial(){
     if(displayIdx>=0){
       const {c,carry,roll,loft}=rows[displayIdx];
       trajWrap.innerHTML=`<div class="chip-svg-wrap">
-        <div class="chip-svg-label">${c.label} (${c.loft}) — carry ${carry.toFixed(1)} yd → roll ${roll.toFixed(1)} yd · launch ${(loft*0.75).toFixed(0)}° · ${chipArchetype(loft)}</div>
+        <div class="chip-svg-label" style="font-size:.8rem;font-weight:700;color:var(--ink);letter-spacing:.01em">${c.label} (${c.loft}) — carry ${carry.toFixed(1)} yd → roll ${roll.toFixed(1)} yd · launch ${(loft*0.75).toFixed(0)}° · ${chipArchetype(loft)}</div>
         ${buildChipSVG(carry,roll,loft)}
       </div>`;
     } else { trajWrap.innerHTML=''; }
   }
   results.innerHTML=cards;
+  renderExpectedShots('es-short', totalYd, 'atg');
 }
 
 function buildChipSVG(carryYd, rollYd, loftDeg){

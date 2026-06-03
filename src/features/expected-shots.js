@@ -1,10 +1,10 @@
-// Shared expected-shots strip used by Approach, Short Game and Putting.
+// Shared expected-shots strip used by Approach, Short Game, Putting, and Stock Shots.
 
 /* ============================================================
-   EXPECTED SHOTS STRIP — shared across Inside 150, Short Game, Putting
-   id = element id of the strip div
-   distInput = distance (yards for fairway/atg, feet for green)
-   lie = 'fairway' | 'atg' | 'green'
+   EXPECTED SHOTS STRIP
+   id   = element id of the strip div
+   dist = distance (yards for fairway/atg, feet for green)
+   lie  = 'fairway' | 'atg' | 'green'
    ============================================================ */
 function renderExpectedShots(id, dist, lie){
   const el=document.getElementById(id); if(!el||!dist) return;
@@ -12,24 +12,22 @@ function renderExpectedShots(id, dist, lie){
   const sr=srForPlayer(lie,dist,hcp);
   if(sr==null){ el.innerHTML=''; return; }
   const srScratch=srInterp(lie,dist);
-  const sg=srScratch!=null?(srScratch-sr).toFixed(2):null;
-  const sgColor=sg==null?'var(--muted)':parseFloat(sg)>=0?'var(--green)':'var(--gold)';
-  const sgStr=sg==null?'':parseFloat(sg)>=0?`+${sg}`:sg;
-  const lieLabel=lie==='green'?`${dist}ft from cup`:lie==='atg'?`${dist}yd total (around green)`:`${dist}yd from fairway`;
+  const hcpLabel=hcp>=0?String(hcp):'+'+Math.abs(hcp);
+  const lieLabel=lie==='green'?`${dist}ft from cup`:lie==='atg'?`${dist}yd (around green)`:`${dist}yd from fairway`;
   el.innerHTML=`<div class="es-strip">
     <div class="es-strip-label">${lieLabel}</div>
     <div class="es-strip-body">
       <div class="es-stat">
-        <div class="es-val">${sr.toFixed(2)}</div>
-        <div class="es-lbl">expected shots</div>
+        <div class="es-val">${srScratch!=null?srScratch.toFixed(2):'—'}</div>
+        <div class="es-lbl">scratch avg</div>
       </div>
-      ${sg!=null?`<div class="es-stat">
-        <div class="es-val" style="color:${sgColor}">${sgStr}</div>
-        <div class="es-lbl">SG vs scratch</div>
-      </div>`:''}
       <div class="es-stat">
-        <div class="es-val" style="font-size:.88rem">${hcp>=0?hcp:'+'+Math.abs(hcp)}</div>
-        <div class="es-lbl">your hcp</div>
+        <div class="es-val">${sr.toFixed(2)}</div>
+        <div class="es-lbl">hcp ${hcpLabel} avg</div>
+      </div>
+      <div class="es-stat">
+        <div class="es-val" style="color:var(--muted)">—</div>
+        <div class="es-lbl">my actual</div>
       </div>
     </div>
   </div>`;

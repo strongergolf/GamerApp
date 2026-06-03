@@ -65,18 +65,16 @@
 
 <!-- PARTIALS -->
 <div id="page-partials" class="page">
-  <div class="section-label" style="margin-top:0">Pitch Shot Options</div>
-  <p class="intro-note">Slide to your carry target. Expected strokes, trajectory, and all club options update live. Stimp and slope at the bottom affect chip rollout in the matrix.</p>
 
   <!-- 1. Distance slider -->
   <div class="calc-dist-block">
-    <div class="calc-yardage-display"><div class="calc-yardage-num" id="calc-display">95</div><div class="calc-yardage-label">yards</div></div>
+    <div class="calc-yardage-display"><div class="calc-yardage-num" id="calc-display">95</div><div class="calc-yardage-label">total yards</div></div>
     <div class="calc-slider-col">
-      <div class="calc-slider-limits"><span>35 yd</span><span>165 yd</span></div>
-      <input type="range" class="yard-slider" id="yard-slider" min="35" max="165" value="95" step="1"
+      <div class="calc-slider-limits"><span>37 yd</span><span>170 yd</span></div>
+      <input type="range" class="yard-slider" id="yard-slider" min="37" max="170" value="95" step="1"
         oninput="document.getElementById('calc-display').textContent=this.value;document.getElementById('yard-input').value=this.value;renderCalc(parseInt(this.value));renderExpectedShots('es-150',parseInt(this.value),'fairway')">
     </div>
-    <div class="calc-manual-col"><label for="yard-input">Type yardage</label><input type="number" id="yard-input" min="35" max="165" value="95"
+    <div class="calc-manual-col"><label for="yard-input">Type yardage</label><input type="number" id="yard-input" min="37" max="170" value="95"
       oninput="const v=Math.max(35,Math.min(165,parseInt(this.value)||95));document.getElementById('yard-slider').value=v;document.getElementById('calc-display').textContent=v;renderCalc(v);renderExpectedShots('es-150',v,'fairway')"></div>
   </div>
 
@@ -92,8 +90,8 @@
   <!-- 5. Stimp / Slope -->
   <div class="stimp-bar" style="margin-top:18px">
     <label>Stimp</label>
-    <div class="stimp-val" id="partials-stimp-val">${STATE.stimp.toFixed(1)}</div>
-    <input type="range" min="7" max="14" step="0.5" value="${STATE.stimp}"
+    <div class="stimp-val" id="partials-stimp-val">9.5</div>
+    <input type="range" id="partials-stimp-range" min="7" max="14" step="0.5" value="9.5"
       oninput="STATE.stimp=parseFloat(this.value);document.getElementById('partials-stimp-val').textContent=STATE.stimp.toFixed(1);const sv=document.getElementById('sg-stimp-val');if(sv)sv.textContent=STATE.stimp.toFixed(1);buildChipMatrix();saveState()">
     <label>Slope</label>
     <select id="partials-slope" onchange="buildPartialsTable()"
@@ -104,8 +102,9 @@
     </select>
   </div>
 
-  <!-- 6. Carry Distance Matrix -->
-  <div class="section-label">Carry Distance Matrix</div>
+  <!-- 6. Distance Matrix -->
+  <div class="section-label">Distance Matrix — Total Yards</div>
+  <p class="intro-note" style="margin-bottom:10px">Full (11:00) · ¾ (10:00) · ½ (9:00) swings per club. Values show total distance (carry + green rollout). Adjust stimp and slope to reflect conditions.</p>
   <div class="partials-table-wrap"><table class="partials" id="partials-table"></table></div>
 </div>
 

@@ -99,12 +99,14 @@ function toggleDetail(c,row,group,inner){
       ${statCell('Max Height',p.ht,'feet','')}
       ${statCell('Land Angle',(p.land!=null?p.land+'°':'—'),'degrees','hl-land')}
     </div>
+    <div id="es-bag-${c.id}" class="expected-shots-strip"></div>
     <div class="flight-wrap">
       <div class="flight-row">
         <div class="flight-col-main"><div class="flight-label">Trajectory &amp; Rollout</div><div class="flight-svg-wrap">${buildSideSVG(c,p)}</div></div>
         <div class="flight-col-top"><div class="flight-label">Overhead — Dispersion</div><div class="flight-svg-wrap">${buildTopSVG(c,p)}</div></div>
       </div>
     </div>`;
+  renderExpectedShots(`es-bag-${c.id}`, p.total||p.carry, 'fairway');
   group.classList.add('open');
   setTimeout(()=>group.scrollIntoView({behavior:'smooth',block:'nearest'}),50);
 }

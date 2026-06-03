@@ -19,7 +19,7 @@ function buildPartialsTable(){
     rows.forEach(sw=>{
       const val=pr[sw.key]; const conf=pr.conf[sw.ci];
       if(val==null){ html+=`<td><div class="carry-cell empty">—</div></td>`; }
-      else{ html+=`<td><div class="carry-cell">${val}</div></td>`; }
+      else{ html+=`<td><div class="carry-cell">${val}<span style="font-size:.52rem;font-weight:400;color:var(--muted);margin-left:2px">yds</span></div></td>`; }
     });
     html+=`</tr>`;
   });
@@ -33,7 +33,7 @@ function buildLookupTable(){
   const map={};
   PARTIAL_CLUBS.forEach(id=>{const c=STATE.clubs.find(x=>x.id===id);['full','tq','half'].forEach(k=>{const d=STATE.partials[id][k];if(d==null)return;(map[d]=map[d]||[]).push({label:`${c.label} ${swingName[k]}`,cls:swingTag[k],order:k==='full'?0:k==='tq'?1:2});});});
   const dists=Object.keys(map).map(Number).sort((a,b)=>b-a);
-  let html=`<thead><tr><th>Target Carry</th><th>Club Options</th></tr></thead><tbody>`;
+  let html=`<thead><tr><th>Target Distance</th><th>Club Options</th></tr></thead><tbody>`;
   dists.forEach(d=>{const opts=map[d].sort((a,b)=>a.order-b.order);const tags=opts.map(o=>`<span class="opt-tag ${o.cls}">${o.label}</span>`).join(' ');html+=`<tr><td><span class="lookup-dist">${d} yd</span></td><td>${tags}</td></tr>`;});
   t.innerHTML=html+'</tbody>';
 }
@@ -97,24 +97,41 @@ function calcSuggestions(target){
   });
   return final.slice(0,4);
 }
+window.approachSelectedIdx = -1;
+function selectApproachResult(i){
+  window.approachSelectedIdx=i;
+  renderCalc(parseInt(document.getElementById('yard-slider').value));
+}
+
 function renderCalc(target){
   document.getElementById('calc-display').textContent=target;
   const box=document.getElementById('calc-results');
-  if(target<35||target>165){box.innerHTML=`<div class="calc-no-result">Outside partial-swing range (35–165 yd). Use the Bag ladder for longer distances.</div>`;return;}
+  if(target<37||target>170){box.innerHTML=`<div class="calc-no-result">Outside partial-swing range (37–170 yd). Use the Bag ladder for longer distances.</div>`;return;}
   const sug=calcSuggestions(target);
   if(!sug.length){box.innerHTML=`<div class="calc-no-result">No clean match for ${target} yd.</div>`;return;}
+  const selIdx=window.approachSelectedIdx>=0&&window.approachSelectedIdx<sug.length?window.approachSelectedIdx:0;
   box.innerHTML=sug.map((o,i)=>{
-    const best=i===0,color=effortColor(o.effort);
+    const selected=i===selIdx, color=effortColor(o.effort);
     const swingDesc=o.sw.key==='full'?'Full swing':o.sw.key==='tq'?'¾ swing':'½ swing';
-    const deltaStr=o.delta===0?'Exact anchor':o.delta>0?`+${o.delta} yd above anchor`:`${o.delta} yd below anchor`;
     const effDesc=o.effort>=98?'Full effort — no margin':o.effort>=90?'Near-full — controlled finish':o.effort>=82?'Measured swing — good option':'Easy swing — high control';
     const fl=interpFlight(o.club,o.sw.key,target);
     const checkDesc=(()=>{const hs=fl.spin>=8500,ms=fl.spin>=6500,hh=fl.height>=70,mh=fl.height>=50;if(hs&&hh)return'Stops quickly';if(hs&&mh)return'Checks up';if(hs)return'Bites on landing';if(ms&&hh)return'Some check';if(ms&&mh)return'Moderate release';if(ms)return'Low release';if(hh)return'Soft landing';return'Runs out';})();
-    return `<div class="calc-result-card ${best?'best':''}">
+    /* Carry/rollout estimate using performance total/carry ratio */
+    const perf=STATE.performance[o.club.id]||{};
+    const fTotal=o.club.carries.full||0;
+    const carryFrac=(fTotal>0&&perf.carry>0&&perf.carry<fTotal)?perf.carry/fTotal:0.975;
+    const estCarry=Math.round(target*carryFrac);
+    const estRoll=target-estCarry;
+    /* Anchor mini-stat */
+    const clockPos=o.sw.key==='full'?'11:00':o.sw.key==='tq'?'10:00':'9:00';
+    const diffStr=o.delta===0?'on anchor':`${o.delta>0?'+':''}${o.delta}yds`;
+    return `<div class="calc-result-card ${selected?'best':''}" onclick="selectApproachResult(${i})" style="cursor:pointer">
       <div class="calc-card-header">
         <div class="calc-club-badge">${o.club.label}<small>${o.club.loft}</small></div>
-        <div><div class="calc-swing-label">${swingDesc}</div><div class="calc-swing-sub">${o.sw.short} · Anchor ${o.anchor} yd · ${deltaStr}</div></div>
-        ${best?'<div class="calc-best-tag">Best Match</div>':''}
+        <div style="flex:1;min-width:0">
+          <div class="calc-swing-label">${swingDesc}<span style="font-family:ui-monospace,monospace;font-size:.75rem;font-weight:600;color:var(--ink);letter-spacing:.01em"> — Carry ${estCarry} · Roll ${estRoll} · Total ${target} yds</span></div>
+        </div>
+        ${selected?'<div class="calc-best-tag">Best Match</div>':''}
       </div>
       <div class="calc-card-body">
         <div class="calc-effort-col">
@@ -122,29 +139,29 @@ function renderCalc(target){
           <div class="calc-effort-track"><div class="calc-effort-fill" style="width:${o.effort}%;background:${color}"></div></div>
           <div style="font-family:ui-monospace,monospace;font-size:.56rem;color:var(--muted);margin-top:4px;font-style:italic">${effDesc}</div>
         </div>
-        <div class="calc-mini-stat"><div class="calc-mini-label">Target</div><div class="calc-mini-val">${target} yd</div></div>
         <div class="calc-mini-stat"><div class="calc-mini-label">Launch / Spin</div><div class="calc-mini-val">${fl.launch}° · ${(fl.spin/1000).toFixed(1)}k</div></div>
         <div class="calc-mini-stat"><div class="calc-mini-label">Height / Check</div><div class="calc-mini-val">${fl.height}ft · ${checkDesc}</div></div>
+        <div class="calc-mini-stat"><div class="calc-mini-label">Anchor / Diff</div><div class="calc-mini-val">${clockPos} · ${diffStr}</div></div>
       </div>
     </div>`;
   }).join('');
-  /* Trajectory for best-match shot */
+  /* Trajectory for selected shot */
   const trajWrap=document.getElementById('approach-traj-wrap');
   if(trajWrap && sug.length){
-    const best=sug[0];
-    const p=STATE.performance[best.club.id]||{};
-    const fl=interpFlight(best.club,best.sw.key,target);
-    const swingLabel=best.sw.key==='full'?'Full':best.sw.key==='tq'?'¾':'½';
-    const svgHtml=buildSideSVG(best.club,{carry:target,launch:fl.launch,spin:fl.spin,land:p.land||45,ht:fl.height,bspd:p.bspd||0});
+    const pick=sug[selIdx]||sug[0];
+    const p=STATE.performance[pick.club.id]||{};
+    const fl=interpFlight(pick.club,pick.sw.key,target);
+    const swingLabel=pick.sw.key==='full'?'Full':pick.sw.key==='tq'?'¾':'½';
+    const svgHtml=buildSideSVG(pick.club,{carry:target,launch:fl.launch,spin:fl.spin,land:p.land||45,ht:fl.height,bspd:p.bspd||0});
     trajWrap.innerHTML=`<div class="approach-traj-wrap">
-      <div class="chip-svg-label">${best.club.label} ${swingLabel} — ${target} yd · ${fl.launch}° launch · ${(fl.spin/1000).toFixed(1)}k rpm</div>
+      <div class="chip-svg-label" style="font-size:.8rem;font-weight:700;color:var(--ink);letter-spacing:.01em">${pick.club.label} ${swingLabel} — ${target} yds · ${fl.launch}° launch · ${(fl.spin/1000).toFixed(1)}k rpm</div>
       ${svgHtml}
     </div>`;
   } else if(trajWrap){ trajWrap.innerHTML=''; }
 }
 function initCalc(){
   const s=document.getElementById('yard-slider'),inp=document.getElementById('yard-input');
-  const sync=v=>{const x=Math.max(35,Math.min(165,parseInt(v)||95));s.value=x;inp.value=x;renderCalc(x);renderExpectedShots('es-150',x,'fairway');const pct=((x-35)/130)*100;s.style.background=`linear-gradient(90deg,var(--ink) ${pct}%,var(--bg2) ${pct}%)`;};
+  const sync=v=>{window.approachSelectedIdx=-1;const x=Math.max(37,Math.min(170,parseInt(v)||95));s.value=x;inp.value=x;renderCalc(x);renderExpectedShots('es-150',x,'fairway');const pct=((x-37)/133)*100;s.style.background=`linear-gradient(90deg,var(--ink) ${pct}%,var(--bg2) ${pct}%)`;};
   s.addEventListener('input',()=>sync(s.value));
   inp.addEventListener('input',()=>sync(inp.value));
   sync(95);
@@ -154,4 +171,4 @@ function initCalc(){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { PARTIAL_CLUBS, SWINGS, buildLookupTable, buildPartialsTable, calcSuggestions, effortColor, initCalc, interpFlight, renderCalc, wedgeModel });
+Object.assign(window, { PARTIAL_CLUBS, SWINGS, buildLookupTable, buildPartialsTable, calcSuggestions, effortColor, initCalc, interpFlight, renderCalc, selectApproachResult, wedgeModel });

@@ -49,15 +49,16 @@ const DEFAULT_DATA = {
     X:  {carry:72, total:null,bspd:69,cspd:75,launch:35,spin:10000,ht:70,land:50},
     Pu: {carry:null,total:null,bspd:null,cspd:null,launch:null,spin:null,ht:null,land:null}
   },
-  /* partial swings — single source: {full, tq(10:00), half(9:00)} + confirmed flags */
+  /* partial swings — total distances (carry + green rollout), single source.
+     Full-swing totals match performance.total; partials scaled proportionally. */
   partials: {
-    '7i':{full:165,tq:153,half:139, conf:[true,false,false]},
-    '8i':{full:153,tq:139,half:124, conf:[true,false,false]},
-    '9i':{full:139,tq:124,half:110, conf:[true,false,false]},
-    P:   {full:124,tq:110,half:95,  conf:[true,false,false]},
-    W:   {full:110,tq:95, half:72,  conf:[true,false,false]},
-    S:   {full:95, tq:72, half:55,  conf:[true,false,true]},
-    X:   {full:72, tq:55, half:35,  conf:[true,true,true]}
+    '7i':{full:170,tq:158,half:143, conf:[true,false,false]},
+    '8i':{full:157,tq:143,half:127, conf:[true,false,false]},
+    '9i':{full:142,tq:127,half:112, conf:[true,false,false]},
+    P:   {full:126,tq:112,half:97,  conf:[true,false,false]},
+    W:   {full:112,tq:97, half:74,  conf:[true,false,false]},
+    S:   {full:97, tq:74, half:57,  conf:[true,false,true]},
+    X:   {full:74, tq:57, half:37,  conf:[true,true,true]}
   },
   /* swing data — causation chain, placeholder labels pending StrongerGolf terms */
   swing: {
