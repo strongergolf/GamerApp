@@ -1,0 +1,472 @@
+// Diagnose causal chain (7 levels). Each level renders metric inputs / matrices.
+// Kinematic sequence = 4 segments x 5 phases. Grip profile in L3. Physical profile in L5.
+
+/* ============================================================
+   SWING DATA — causation chain
+   ============================================================ */
+function metricBox(label,unit,path){
+  const val=getPath(STATE.swing,path)||'';
+  return `<div class="metric-box"><div class="metric-label">${label}</div><input class="metric-input" value="${escapeHtml(val)}" data-swing="${path}" placeholder="—"><div class="metric-unit">${unit}</div></div>`;
+}
+function buildChain(){
+  const wrap=document.getElementById('chain-wrap');
+  const s=STATE.swing;
+  /* Level definitions, Score=1 counting down toward the body */
+  const levels=[
+    {n:1,id:'score',title:'Score',cause:'Ball behaviour',status:'live',
+     render:()=>`
+       <div class="chain-caption">The end result of every level below. Two tools here: a <strong>Scenario Calculator</strong> that outputs expected strokes from any position, and a <strong>Strokes Gained tracker</strong> to log rounds and average your SG by category — each category pointing down the chain to its cause.</div>
+
+       <div class="lvl-subhead">Scenario Calculator</div>
+       <div class="chain-caption" style="margin-top:4px">Expected strokes to hole out from any position, calibrated to your handicap. Uses Broadie baseline data adjusted linearly per handicap stroke.</div>
+       <div class="sg-scen-row">
+         <div class="sg-scen-field"><label>Distance (yd / ft if green)</label><input id="sg-scen-dist" type="number" min="1" placeholder="e.g. 150" oninput="sgScenario()"></div>
+         <div class="sg-scen-field"><label>Lie / Position</label><select id="sg-scen-lie" onchange="sgScenario()"><option value="fairway">Fairway</option><option value="rough">Rough</option><option value="sand">Sand / Bunker</option><option value="green">Green (feet)</option></select></div>
+         <div class="sg-scen-field"><label>Handicap</label><input id="sg-scen-hcp" type="text" placeholder="${escapeHtml(STATE.profile.handicap||'0')}" value="${escapeHtml(STATE.profile.handicap||'0')}" oninput="sgScenario()"></div>
+       </div>
+       <div id="sg-scen-out"><span style="color:var(--muted);font-style:italic;font-size:.82rem">Enter a distance above.</span></div>
+
+       <div class="lvl-subhead" style="margin-top:14px">Strokes Gained — Category Averages</div>
+       <div id="sg-summary">${sgSummaryHtml()}</div>
+
+       <div class="lvl-subhead" style="margin-top:18px">Skill Profile — Strokes Gained Diamond</div>
+       <div class="chain-caption" style="margin-top:4px">Visual snapshot of relative performance across the four SG categories. Outer ring = scratch benchmark; your shape shows strengths and gaps. Updates automatically as rounds are logged.</div>
+       <div id="sg-diamond-wrap" style="display:flex;justify-content:center;padding:10px 0 4px">${buildSGDiamond()}</div>
+
+       <div class="lvl-subhead" style="margin-top:14px">Log a Round</div>
+       <div class="sg-add-form">
+         <div class="sg-tournament-row">
+           <div><label>Date</label><br><input id="sg-date" type="date" value="${new Date().toISOString().slice(0,10)}" style="font-family:Arial,sans-serif;font-size:.88rem;font-weight:700;padding:5px 7px;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;color:var(--ink);outline:none;margin-top:3px"></div>
+           <div><label>Course</label><br><input id="sg-course" placeholder="Course name" style="font-family:Arial,sans-serif;font-size:.82rem;padding:5px 7px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--ink);outline:none;margin-top:3px;width:160px"></div>
+           <div><label>Tee</label><br><select id="sg-tee" style="font-family:Arial,sans-serif;font-size:.88rem;font-weight:700;padding:5px 7px;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;color:var(--ink);outline:none;margin-top:3px"><option value="">—</option><option>Black</option><option>Blue</option><option>White</option><option>Gold</option><option>Red</option></select></div>
+           <div style="display:flex;align-items:center;gap:6px;margin-top:16px"><input type="checkbox" id="sg-tournament"><label for="sg-tournament" style="cursor:pointer">Tournament round</label></div>
+         </div>
+         <div class="sg-scorecard">
+           <table>
+             <thead>
+               <tr>
+                 <th>Hole</th>
+                 <th>Par</th>
+                 <th>Score</th>
+                 <th>Putts</th>
+                 <th>FIR</th>
+                 <th>GIR</th>
+                 <th style="color:var(--sky)">OTT</th>
+                 <th style="color:var(--green)">APP</th>
+                 <th style="color:var(--gold)">ATG</th>
+                 <th style="color:var(--red)">PUTT</th>
+               </tr>
+             </thead>
+             <tbody>
+               ${Array.from({length:18},(_,i)=>`
+               <tr class="${i===8?'sg-sc-9':''}">
+                 <td style="font-family:Arial,sans-serif;font-weight:800;font-size:.88rem;color:var(--ink);text-align:center;background:var(--bg2)">${i+1}</td>
+                 <td><input type="number" id="sg-par-${i+1}" min="3" max="5" placeholder="4" oninput="sgUpdateTotals()"></td>
+                 <td><input type="number" id="sg-sc-${i+1}" min="1" max="15" oninput="sgUpdateTotals()"></td>
+                 <td><input type="number" id="sg-putts-${i+1}" min="0" max="6" oninput="sgUpdateTotals()"></td>
+                 <td><select id="sg-fir-${i+1}" style="width:42px"><option value="">—</option><option value="H">✓</option><option value="L">L</option><option value="R">R</option><option value="S">S</option></select></td>
+                 <td><input type="checkbox" id="sg-gir-${i+1}" onchange="sgUpdateTotals()"></td>
+                 <td style="background:var(--sky-pale)"><input type="number" id="sg-h-ott-${i+1}" step="0.1" style="width:36px;border-color:var(--sky)" oninput="sgUpdateTotals()"></td>
+                 <td style="background:var(--green-pale)"><input type="number" id="sg-h-app-${i+1}" step="0.1" style="width:36px;border-color:var(--green2)" oninput="sgUpdateTotals()"></td>
+                 <td style="background:var(--gold-pale)"><input type="number" id="sg-h-atg-${i+1}" step="0.1" style="width:36px;border-color:var(--gold)" oninput="sgUpdateTotals()"></td>
+                 <td style="background:var(--red-pale)"><input type="number" id="sg-h-putt-${i+1}" step="0.1" style="width:36px;border-color:var(--red)" oninput="sgUpdateTotals()"></td>
+               </tr>`).join('')}
+               <tr style="background:var(--bg2);font-weight:700">
+                 <td style="font-family:Arial,sans-serif;font-weight:800;font-size:.8rem;color:var(--muted)">Out</td>
+                 <td id="sg-tot-par-out">—</td><td id="sg-tot-sc-out">—</td><td id="sg-tot-putts-out">—</td>
+                 <td colspan="2" id="sg-tot-fir" style="font-size:.58rem;color:var(--muted)">—</td>
+                 <td id="sg-tot-h-ott-out" style="color:var(--sky)">—</td>
+                 <td id="sg-tot-h-app-out" style="color:var(--green)">—</td>
+                 <td id="sg-tot-h-atg-out" style="color:var(--gold)">—</td>
+                 <td id="sg-tot-h-putt-out" style="color:var(--red)">—</td>
+               </tr>
+               <tr style="background:var(--bg2);font-weight:700">
+                 <td style="font-family:Arial,sans-serif;font-weight:800;font-size:.8rem;color:var(--muted)">In</td>
+                 <td id="sg-tot-par-in">—</td><td id="sg-tot-sc-in">—</td><td id="sg-tot-putts-in">—</td>
+                 <td colspan="2" id="sg-tot-gir" style="font-size:.58rem;color:var(--muted)">—</td>
+                 <td id="sg-tot-h-ott-in" style="color:var(--sky)">—</td>
+                 <td id="sg-tot-h-app-in" style="color:var(--green)">—</td>
+                 <td id="sg-tot-h-atg-in" style="color:var(--gold)">—</td>
+                 <td id="sg-tot-h-putt-in" style="color:var(--red)">—</td>
+               </tr>
+               <tr style="background:var(--ink);color:#f4f0e8">
+                 <td style="font-family:Arial,sans-serif;font-weight:800;font-size:.8rem">Total</td>
+                 <td id="sg-tot-par-all">—</td>
+                 <td id="sg-tot-sc-all" style="font-family:Arial,sans-serif;font-weight:800;font-size:.95rem;color:var(--gold2)">—</td>
+                 <td id="sg-tot-putts-all">—</td>
+                 <td colspan="2"></td>
+                 <td id="sg-tot-h-ott-all" style="color:#7ae0b8;font-weight:800">—</td>
+                 <td id="sg-tot-h-app-all" style="color:#7ae0b8;font-weight:800">—</td>
+                 <td id="sg-tot-h-atg-all" style="color:var(--gold2);font-weight:800">—</td>
+                 <td id="sg-tot-h-putt-all" style="color:#f08080;font-weight:800">—</td>
+               </tr>
+             </tbody>
+           </table>
+         </div>
+         <div class="lvl-subhead-sm" style="margin:10px 0 6px">Notes</div>
+         <div class="edit-grid" style="margin-bottom:10px">
+           <div class="edit-field" style="grid-column:1/-1"><label>Round Notes</label><input id="sg-rnotes" placeholder="conditions, observations, etc."></div>
+         </div>
+         <button class="btn btn-primary" onclick="sgAddRound()">Save Round</button>
+       </div>
+
+       <div class="lvl-subhead">Round History</div>
+       <div id="sg-rounds">${sgRoundsHtml()}</div>`},
+    {n:2,id:'ball',title:'Ball Flight &amp; Club Behaviour',cause:'Forces &amp; torques',status:'live',
+     render:()=>`
+       <div class="chain-caption">The D-plane covers both layers: ball flight is the <em>outcome</em> of club behaviour at impact, and the same impact variables explain both simultaneously. Ball data is captured on the Bag tab; D-plane inputs are editable here. <span class="placeholder-flag">Labels pending StrongerGolf terms</span></div>
+
+       <div class="lvl-subhead">Ball Flight — from Bag Data</div>
+       ${ballRefHtml()}
+
+       <div class="lvl-subhead" style="margin-top:14px">Club Behaviour at Impact — D-Plane</div>
+       <div class="chain-caption" style="margin-top:4px">3D face &amp; path, strike location, delivered loft and attack angle — the only things the ball responds to.</div>
+       <div class="metric-grid">
+         ${metricBox('3D Face Angle','open(+) / closed(−) deg','impact.faceAngle')}
+         ${metricBox('3D Club Path','in-out(+) / out-in(−) deg','impact.clubPath')}
+         ${metricBox('Face-to-Path','deg','impact.faceToPath')}
+         ${metricBox('Strike — Horizontal','toe(+) / heel(−) mm','impact.strikeH')}
+         ${metricBox('Strike — Vertical','high(+) / low(−) mm','impact.strikeV')}
+         ${metricBox('Dynamic Loft','deg','impact.dynamicLoft')}
+         ${metricBox('Attack Angle','up(+) / down(−) deg','impact.attackAngle')}
+       </div>
+
+       <div class="lvl-subhead" style="margin-top:18px">D-Plane Visualisation</div>
+       <div class="chain-caption" style="margin-top:4px">Three orthogonal 2D views of the D-plane, populated from the fields above. Full 3D visualisation is on the roadmap; this framework establishes the three reference planes used in StrongerGolf diagnosis. <span class="placeholder-flag">Coming — interactive SVG views</span></div>
+       <div class="dplane-views-wrap">
+         <div class="dplane-view-card">
+           <div class="dplane-view-label">↑ Side Profile</div>
+           <div class="dplane-view-sub">Attack angle vs. dynamic loft · vertical D-plane tilt</div>
+           <div class="dplane-view-placeholder">Side Profile View<br><span style="font-size:.52rem">Attack angle / Dynamic loft / Vertical launch</span></div>
+         </div>
+         <div class="dplane-view-card">
+           <div class="dplane-view-label">↑ Down the Line</div>
+           <div class="dplane-view-sub">Club path · face-to-path · spin axis tilt</div>
+           <div class="dplane-view-placeholder">Down the Line View<br><span style="font-size:.52rem">Club path / Face angle / Spin axis</span></div>
+         </div>
+         <div class="dplane-view-card">
+           <div class="dplane-view-label">↑ Overhead</div>
+           <div class="dplane-view-sub">Horizontal path · face angle · dispersion cone</div>
+           <div class="dplane-view-placeholder">Overhead View<br><span style="font-size:.52rem">Horizontal path / Face / Dispersion</span></div>
+         </div>
+       </div>
+
+       <div class="lvl-subhead" style="margin-top:18px">Maximize Distance — Driver Optimizer</div>
+       <div class="chain-caption" style="margin-top:4px">Anchored to Foresight Sports driver reference data. Launch window 10–14° across all speeds. Spin window decreases with ball speed. Neutral AoA assumed — positive AoA adds carry beyond model output.</div>
+       <div class="drv-opt-wrap">
+         <div class="drv-opt-body">
+           <div class="drv-result-display" id="drv-carry-display">
+             <div class="drv-carry-num" id="drv-carry-num">—</div>
+             <div class="drv-carry-lbl">yards carry</div>
+             <div class="drv-carry-sub" id="drv-carry-sub"></div>
+           </div>
+           <div class="drv-controls">
+             <div class="drv-slider-group">
+               <div class="drv-slider-label"><span>Ball Speed</span><span class="drv-val" id="drv-bspd-val">153 mph</span></div>
+               <input type="range" class="drv-slider" id="drv-bspd" min="100" max="200" step="1" value="153" oninput="updateDriverOpt()">
+               <div class="drv-slider-limits"><span>100</span><span>200 mph</span></div>
+             </div>
+             <div class="drv-slider-group">
+               <div class="drv-slider-label"><span>Launch Angle</span><span class="drv-val" id="drv-launch-val">11°</span></div>
+               <input type="range" class="drv-slider" id="drv-launch" min="6" max="20" step="0.5" value="11" oninput="updateDriverOpt()">
+               <div class="drv-slider-limits"><span>6°</span><span>20°</span></div>
+             </div>
+             <div class="drv-slider-group">
+               <div class="drv-slider-label"><span>Spin Rate</span><span class="drv-val" id="drv-spin-val">2400 rpm</span></div>
+               <input type="range" class="drv-slider" id="drv-spin" min="1500" max="4500" step="50" value="2400" oninput="updateDriverOpt()">
+               <div class="drv-slider-limits"><span>1500</span><span>4500 rpm</span></div>
+             </div>
+           </div>
+         </div>
+         <div class="drv-opt-zones" id="drv-opt-zones"></div>
+         <div class="drv-traj-wrap">
+           <div class="drv-traj-label">Trajectory</div>
+           <div id="drv-traj-svg"></div>
+         </div>
+       </div>`},
+    {n:3,id:'forces',title:'Forces &amp; Torques — Grip &amp; Hands',cause:'Kinematic sequence',status:'live',
+     render:()=>`<div class="chain-caption">After Nesbit: the club only "knows" the forces and torques applied to it. Anything you can do to a golf club can be described by combining three actions — Pull, Push, and Twist — each characterised by its type, timing, direction, and magnitude. Each is tracked across three downswing stages.</div>
+       <div class="force-legend">Each stage: <b>top field</b> = direction · <b>bottom field</b> = magnitude</div>
+       ${forceRow('Pull','Moving the grip of the club in the direction that the grip\'s butt is pointed — a linear force along the shaft\'s long axis.','pull')}
+       ${forceRow('Push','The releasing of the clubhead in relation to the grip — the grip stays in the same spot, but the clubhead is orbiting around it. A rotational torque around the grip.','push')}
+       ${forceRow('Twist','A screwdriver-like motion with the hands and forearms, causing the clubhead\'s sweetspot to rotate around the club shaft\'s longitudinal axis.','twist')}
+
+       <div class="lvl-subhead" style="margin-top:16px">Grip Profile</div>
+       <div class="chain-caption" style="margin-top:4px">Grip position directly influences the Twist torque available and its timing. Rated on two independent spectrums — strength position and palm-to-fingers depth.</div>
+       <div class="grip-profile-wrap">
+         <div class="grip-spectrum-block">
+           <div class="grip-spectrum-label">Strength / Rotation</div>
+           <div class="grip-spectrum-sub">How far the hands are rotated relative to the club face</div>
+           <div class="grip-spectrum-row" id="grip-strength-row">
+             ${['Very Strong','Strong','Neutral','Weak','Very Weak'].map((l,i)=>`
+             <label class="grip-option">
+               <input type="radio" name="grip-strength" value="${i+1}"
+                 ${(()=>{const v=getPath(STATE.swing,'grip.strength');return v==i+1?'checked':'';})()}
+                 onchange="setPath(STATE.swing,'grip.strength',${i+1});saveSwing()">
+               <span class="grip-pip"></span>
+               <span class="grip-pip-label">${l}</span>
+             </label>`).join('')}
+           </div>
+           <div class="grip-spectrum-axis"><span>◀ Strong</span><span>Weak ▶</span></div>
+         </div>
+         <div class="grip-spectrum-block" style="margin-top:14px">
+           <div class="grip-spectrum-label">Depth — Fingers vs Palm</div>
+           <div class="grip-spectrum-sub">Where in the hand the club sits at address</div>
+           <div class="grip-spectrum-row" id="grip-depth-row">
+             ${['Fully Palmed','Palm-biased','Neutral','Finger-biased','Fully in Fingers'].map((l,i)=>`
+             <label class="grip-option">
+               <input type="radio" name="grip-depth" value="${i+1}"
+                 ${(()=>{const v=getPath(STATE.swing,'grip.depth');return v==i+1?'checked':'';})()}
+                 onchange="setPath(STATE.swing,'grip.depth',${i+1});saveSwing()">
+               <span class="grip-pip"></span>
+               <span class="grip-pip-label">${l}</span>
+             </label>`).join('')}
+           </div>
+           <div class="grip-spectrum-axis"><span>◀ Palm</span><span>Fingers ▶</span></div>
+         </div>
+         <div class="edit-field" style="margin-top:12px;grid-column:1/-1">
+           <label>Grip Notes</label>
+           <textarea class="metric-input" data-swing="grip.notes" style="width:100%;min-height:52px;font-family:Arial,sans-serif;font-size:.82rem;line-height:1.4" placeholder="pressure points, interlocking/overlap/baseball, glove hand observations…">${escapeHtml(getPath(STATE.swing,'grip.notes'))}</textarea>
+         </div>
+       </div>`},
+    {n:4,id:'kinematics',title:'Kinematic Sequence &amp; Ground Forces',cause:'Body movement',status:'live',
+     render:()=>{
+      const segments=[
+        {id:'pelvis',label:'Pelvis',     color:'var(--c-wood)',  bench:'~480°/s'},
+        {id:'thorax',label:'Thorax',     color:'var(--c-iron)',  bench:'~605°/s'},
+        {id:'arm',   label:'Lead Arm',   color:'var(--c-wedge)', bench:'~1310°/s'},
+        {id:'club',  label:'Club',       color:'var(--grey)',    bench:'~1650°/s'},
+      ];
+      const phases=[
+        {id:'bs',   label:'Backswing',     sub:'takeaway→top'},
+        {id:'trans',label:'Transition',    sub:'first move down'},
+        {id:'mid',  label:'Mid-Down',      sub:'halfway to impact'},
+        {id:'imp',  label:'Impact Zone',   sub:'pre→contact'},
+        {id:'ft',   label:'Follow-Thru',   sub:'release→finish'},
+      ];
+      const phHdrs=phases.map(ph=>`<th style="padding:5px 4px;font-family:Arial,sans-serif;font-size:.58rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--border);background:var(--bg2);text-align:center;white-space:nowrap">${ph.label}<br><span style="font-family:ui-monospace,monospace;font-size:.42rem;font-weight:400;color:var(--border2)">${ph.sub}</span></th>`).join('');
+      const rows=segments.map(seg=>
+        `<tr><td style="padding:6px 8px;white-space:nowrap;border-bottom:1px solid var(--border)">
+           <span style="font-family:Arial,sans-serif;font-weight:800;font-size:.88rem;color:${seg.color}">${seg.label}</span>
+           <span style="display:block;font-family:ui-monospace,monospace;font-size:.44rem;color:var(--muted)">${seg.bench}</span>
+         </td>${phases.map(ph=>{
+           const key='kinematics.'+seg.id+'.'+ph.id;
+           const val=getPath(STATE.swing,key)||'';
+           return '<td style="padding:4px 3px;border-bottom:1px solid var(--border);border-left:1px solid var(--border)"><input class="metric-input" style="font-size:.72rem;padding:4px 5px;width:100%;min-width:0;border-color:'+seg.color+'33" value="'+escapeHtml(val)+'" data-swing="'+key+'" placeholder="°/s"></td>';
+         }).join('')}</tr>`
+      ).join('');
+      return '<div class="chain-caption">Proximal-to-distal energy transfer. <strong>Each segment accelerates, peaks, then decelerates to hand energy to the next link.</strong> Efficient sequencing: Pelvis → Thorax → Lead Arm → Club, each peaking faster and later than the one before. Source: TPI / K-Vest / Dr Phil Cheetham research.</div>'
+       +'<div class="lvl-subhead">Peak Angular Velocity by Segment &amp; Phase (°/s)</div>'
+       +'<div style="overflow-x:auto;margin-bottom:12px"><table style="border-collapse:collapse;width:100%;font-size:.78rem"><thead><tr>'
+       +'<th style="padding:6px 8px;font-family:Arial,sans-serif;font-size:.58rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--border);background:var(--bg2);text-align:left;min-width:80px">Segment</th>'
+       +phHdrs+'</tr></thead><tbody>'+rows+'</tbody></table></div>'
+       +'<div style="font-family:ui-monospace,monospace;font-size:.5rem;color:var(--muted);line-height:1.6;margin-bottom:12px;padding:8px 10px;background:var(--bg2);border-radius:6px;border:1px solid var(--border)">'
+       +'<strong style="color:var(--ink2)">K-Vest / Cheetham benchmarks (skilled golfers):</strong> '
+       +'Pelvis peaks &amp; decelerates before thorax peaks · each segment peaks later &amp; faster · arm→club ratio ~1.26× · club should reach peak at or just after impact</div>'
+       +'<div class="edit-field" style="margin-bottom:10px"><label>Sequence Order Observed</label>'
+       +'<input class="metric-input" data-swing="kinematics.sequenceOrder" value="'+escapeHtml(getPath(STATE.swing,'kinematics.sequenceOrder'))+'" placeholder="e.g. Pelvis → Thorax → Arm → Club (ideal) or Thorax first (OTT)"></div>'
+       +'<div class="edit-field" style="margin-bottom:14px"><label>Transition Trigger</label>'
+       +'<input class="metric-input" data-swing="kinematics.transitionTrigger" value="'+escapeHtml(getPath(STATE.swing,'kinematics.transitionTrigger'))+'" placeholder="what initiates the downswing — lateral shift, trail foot push-off, etc."></div>'
+       +'<div class="lvl-subhead">Ground Reaction Forces — Force Plate / Swing Catalyst</div>'
+       +'<div class="metric-grid">'
+       +metricBox('Weight at Address','% on lead foot','forcePlate.wtAddress')
+       +metricBox('Weight at Top','% on lead foot','forcePlate.wtTop')
+       +metricBox('Weight at Impact','% on lead foot','forcePlate.wtImpact')
+       +metricBox('Loading Pattern','trail/lead bias','forcePlate.loadingPattern')
+       +metricBox('GRF Transition Trigger','GRF initiation','forcePlate.transitionTrigger')
+       +metricBox('Peak Lead Force Timing','relative to impact','forcePlate.peakLeadTiming')
+       +metricBox('Peak Trail Force Timing','relative to impact','forcePlate.peakTrailTiming')
+       +metricBox('Push-Off Magnitude','trail foot','forcePlate.pushOffMagnitude')
+       +metricBox('COP Path','centre of pressure trace','forcePlate.copPath')
+       +'</div>'
+       +'<div class="edit-field" style="margin-top:10px"><label style="font-family:ui-monospace,monospace;font-size:.5rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">Force Plate Notes</label>'
+       +'<textarea class="metric-input" data-swing="forcePlate.notes" style="width:100%;min-height:60px;font-family:Arial,sans-serif;font-size:.82rem;line-height:1.4" placeholder="Trace patterns, anomalies, observations…">'+escapeHtml(getPath(STATE.swing,'forcePlate.notes'))+'</textarea></div>'
+       +'<div class="btn-row" style="margin-top:12px"><button class="btn btn-primary" onclick="saveSwing()">Save</button></div>';
+     }},
+    {n:5,id:'body',title:'Body &amp; Movement',cause:null,status:'live',
+     render:()=>`
+       <div class="chain-caption">The most variable, most individual link. Framed not as "correct positions" but as <em>the movements that, for this golfer, produce the needed forces above</em>. Physical characteristics determine what movement patterns are even available; TPI screens identify the limiting factors.</div>
+
+       <div class="lvl-subhead">Physical Profile</div>
+       <div class="chain-caption" style="margin-top:4px">Body measurements and physical context. These inform what is physically possible and help explain why certain force/torque patterns emerge.</div>
+       <div class="edit-grid">
+         <div class="edit-field"><label>Handedness</label>${sel('pf-hand',['','RH','LH'],STATE.profile.handedness||'')}</div>
+         <div class="edit-field"><label>Age Range</label>${sel('pf-age',['','Under 20','20s','30s','40s','50s','60s','70+'],STATE.profile.ageRange||'')}</div>
+         <div class="edit-field"><label>Height — ft</label><input id="pf-htft" type="number" min="3" max="8" value="${escapeHtml(STATE.profile.heightFt||'')}"></div>
+         <div class="edit-field"><label>Height — in</label><input id="pf-htin" type="number" min="0" max="11" value="${escapeHtml(STATE.profile.heightIn||'')}"></div>
+         <div class="edit-field"><label>Arm-to-Floor (in)</label><input id="pf-atf" type="number" step="0.25" value="${escapeHtml(STATE.profile.armToFloor||'')}" placeholder="wrist-to-floor at address"></div>
+         <div class="edit-field"><label>Glove Size</label>${sel('pf-glove',[
+           '','Men\'s S','Men\'s M','Men\'s M/L','Men\'s L','Men\'s XL','Men\'s XXL',
+           'Men\'s Cadet S','Men\'s Cadet M','Men\'s Cadet M/L','Men\'s Cadet L','Men\'s Cadet XL',
+           'Women\'s S','Women\'s M','Women\'s M/L','Women\'s L','Women\'s XL'
+         ],STATE.profile.gloveSize||'')}</div>
+       </div>
+       <div class="btn-row"><button class="btn btn-accent" onclick="savePhysical()">Save Physical Profile</button></div>
+
+       <div class="lvl-subhead" style="margin-top:16px">TPI Physical Screen</div>
+       <div class="chain-caption" style="margin-top:4px">Pass / Fail / note — all optional. <span class="placeholder-flag">Expand categories as needed</span></div>
+       <div class="lvl-subhead-sm">Mobility</div>
+       <div class="metric-grid">
+         ${metricBox('Overhead Deep Squat','P/F/note','tpi.overheadSquat')}
+         ${metricBox('Pelvic Tilt','P/F/note','tpi.pelvicTilt')}
+         ${metricBox('Pelvic Rotation','P/F/note','tpi.pelvicRotation')}
+         ${metricBox('Thoracic Rotation','P/F/note','tpi.thoracicRotation')}
+         ${metricBox('Hip Internal Rotation','P/F/note','tpi.hipInternal')}
+         ${metricBox('Hip External Rotation','P/F/note','tpi.hipExternal')}
+         ${metricBox('Hamstring Length','P/F/note','tpi.hamstring')}
+         ${metricBox('Wrist Hinge','P/F/note','tpi.wristHinge')}
+       </div>
+       <div class="lvl-subhead-sm" style="margin-top:12px">Stability</div>
+       <div class="metric-grid">
+         ${metricBox('Single Leg Balance','P/F/note','tpi.singleLegBalance')}
+         ${metricBox('Seated Trunk Rotation','P/F/note','tpi.seatedTrunkRot')}
+         ${metricBox('Lower Quarter Rotation','P/F/note','tpi.lowerQuarterRot')}
+       </div>
+       <div class="edit-field" style="margin-top:10px"><label style="font-family:ui-monospace,monospace;font-size:.5rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">Screen Notes</label><textarea class="metric-input" data-swing="tpi.notes" style="width:100%;min-height:60px;font-family:Arial,sans-serif;font-size:.82rem;line-height:1.4" placeholder="Limitations, compensations, priorities…">${escapeHtml(getPath(STATE.swing,'tpi.notes'))}</textarea></div>`},
+    {n:6,id:'psych',title:'Psychology &amp; Philosophy',cause:null,status:'live',
+     render:()=>`
+       <div class="chain-caption">The mental and philosophical layer — how a player thinks, believes, and approaches the game. Pre-shot routine, pressure management, competitive mindset, and the deeper relationship a golfer has with the game. Aim ability, eye dominance, and attentional style also attach here as perceptual inputs that precede every shot.</div>
+
+       <div class="lvl-subhead">MindTrak</div>
+       <div class="chain-caption" style="margin-top:4px">Data-driven mental performance tracking — quantifying the psychological side of scoring. <span class="placeholder-flag">Coming</span></div>
+       <div class="metric-grid">
+         ${metricBox('Focus Rating','1–10 per round','psych.mindtrak.focus')}
+         ${metricBox('Commitment Level','1–10 per round','psych.mindtrak.commitment')}
+         ${metricBox('Emotional Control','1–10 per round','psych.mindtrak.emotional')}
+         ${metricBox('Pre-Shot Routine Consistency','1–10','psych.mindtrak.routine')}
+         ${metricBox('Mental Errors (count)','per round','psych.mindtrak.errors')}
+         ${metricBox('Recovery Rate','after bad shots','psych.mindtrak.recovery')}
+       </div>
+
+       <div class="lvl-subhead" style="margin-top:14px">Vision54</div>
+       <div class="chain-caption" style="margin-top:4px">Play-box / think-box process, human skills, and the pursuit of 18 birdies. <span class="placeholder-flag">Coming</span></div>
+       <div class="metric-grid">
+         ${metricBox('Think Box Quality','decision clarity','psych.vision54.thinkBox')}
+         ${metricBox('Play Box Commitment','trust / let go','psych.vision54.playBox')}
+         ${metricBox('Human Skills','attitude, focus, emotion, body lang','psych.vision54.humanSkills')}
+         ${metricBox('Best Ever Score (18 holes)','personal ceiling','psych.vision54.bestScore')}
+         ${metricBox('Notes','pattern observations','psych.vision54.notes')}
+       </div>
+
+       <div class="lvl-subhead" style="margin-top:14px">Fearless Golf</div>
+       <div class="chain-caption" style="margin-top:4px">Gio Valiante's framework — mastery vs. ego orientation, courage under pressure. <span class="placeholder-flag">Coming</span></div>
+       <div class="metric-grid">
+         ${metricBox('Orientation','mastery / ego / mixed','psych.fearless.orientation')}
+         ${metricBox('Courage Rating','1–10 in pressure','psych.fearless.courage')}
+         ${metricBox('Identity Statement','I am a golfer who…','psych.fearless.identity')}
+         ${metricBox('Primary Fear / Block','what triggers ego mode','psych.fearless.fear')}
+         ${metricBox('Notes','observations and cues','psych.fearless.notes')}
+       </div>
+
+       <div class="lvl-subhead" style="margin-top:14px">Goals</div>
+       <div class="chain-caption" style="margin-top:4px">Goal-setting across time horizons. Specific, process-oriented goals connect directly to the levels above — each goal should have a clear link to which part of the chain it targets.</div>
+       <div class="metric-grid">
+         ${metricBox('Daily','today\'s focus or practice intention','psych.goals.daily')}
+         ${metricBox('Weekly','this week\'s priority','psych.goals.weekly')}
+         ${metricBox('Monthly','this month\'s objective','psych.goals.monthly')}
+         ${metricBox('This Season','season target / theme','psych.goals.season')}
+         ${metricBox('Career','long-term aspiration','psych.goals.career')}
+       </div>
+       <div class="btn-row" style="margin-top:12px"><button class="btn btn-primary" onclick="saveSwing()">Save</button></div>`},
+    {n:7,id:'strategy',title:'Course Management &amp; Strategy',cause:null,status:'soon',
+     render:()=>`
+       <div class="chain-caption">Where every level above cashes out into a real decision on a real hole. Strategy synthesises ball-flight data (L2), dispersion patterns, and scoring tendencies (L1) into optimal targets, shot shapes, and risk/reward choices. The eventual home for course overlays and hole-by-hole planning.</div>
+
+       <div class="lvl-subhead">Strokes Gained — Decision Quality</div>
+       <div class="lvl-soon-note">Future: flag shots where club or target selection cost strokes vs. the optimal decision, separate from execution error. A bad decision with a good swing still costs shots.</div>
+
+       <div class="lvl-subhead" style="margin-top:14px">Dispersion-Based Aim Points</div>
+       <div class="lvl-soon-note">Your overhead dispersion cone (computed on the Stock Shots tab) overlaid on hole layouts. Given your L/R spread for each club, the system will compute the expected-value aim point that minimises expected strokes — accounting for hazard locations, miss penalties, and green shape.</div>
+
+       <div class="lvl-subhead" style="margin-top:14px">Risk / Reward Profiles</div>
+       <div class="lvl-soon-note">Per-hole: lay-up vs. go yardage thresholds, preferred miss sides, and safe-zone targets. Feeds directly from your carry and dispersion data. Will eventually allow scenario input ("230 carry over water or lay up to 80") and output an expected-score comparison.</div>
+
+       <div class="lvl-subhead" style="margin-top:14px">Course Notes</div>
+       <div class="lvl-soon-note">Hole-by-hole strategy log: playing notes, wind tendencies, pin position adjustments, and lessons learned. Will link to the round log in the Score tab so notes are attached to specific rounds.</div>`}
+  ];
+
+  wrap.innerHTML=levels.map((lv,i)=>{
+    const hasData=lv.status==='live'||lv.status==='ref';
+    const statusLabel=lv.status==='live'?'editable':lv.status==='ref'?'from Bag data':'coming';
+    const causeLine=lv.cause?`caused by → <b>${lv.cause}</b>`:'the end result';
+    return `${i>0?'<div class="lvl-connector"></div>':''}
+    <div class="lvl-card ${hasData?'has-data':''}" data-lvl="${lv.id}">
+      <div class="lvl-head" onclick="toggleLevel('${lv.id}')">
+        <div class="lvl-num">${lv.n}</div>
+        <div class="lvl-titles">
+          <div class="lvl-title">${lv.title}</div>
+        </div>
+        <div class="lvl-right">
+          <div class="lvl-status ${lv.status}">${statusLabel}</div>
+          <div class="lvl-chev">▾</div>
+        </div>
+      </div>
+      <div class="lvl-body"><div class="lvl-inner">${lv.render()}</div></div>
+    </div>`;
+  }).join('') + `
+    <div class="section-label">Diagnostic Notes</div>
+    <textarea data-swing="notes" class="metric-input" style="width:100%;min-height:90px;font-family:Arial,sans-serif;font-size:.85rem;font-weight:400;line-height:1.5" placeholder="Working diagnosis, feels and cues…">${escapeHtml(STATE.swing.notes||'')}</textarea>
+    <div class="btn-row" style="margin-top:14px"><button class="btn btn-primary" onclick="saveSwing()">Save Diagnostic Data</button></div>`;
+}
+
+function ballRefHtml(){
+  /* pull a compact read-only summary from the bag performance data */
+  const ids=['D','7i','P','S'];
+  const stats=ids.map(id=>{const c=STATE.clubs.find(x=>x.id===id);const p=perf(id);if(!c||!p)return '';return `<span class="lvl-ref-stat">${c.label}: <b>${p.carry}</b>yd · ${p.spin?p.spin.toLocaleString()+'rpm':'—'} · ${p.land!=null?p.land+'°':'—'} land</span>`;}).join('');
+  return `<div class="chain-caption">What the ball did — carry, launch, spin, height, descent and dispersion. This is the most directly measurable cause of score, and it's already captured in full on the <strong>Bag</strong> tab. A sample:</div>
+    <div>${stats}</div>
+    <div class="lvl-soon-note" style="margin-top:10px">Open the Bag tab to edit every club's full ball-flight profile and see trajectory &amp; dispersion plots.</div>`;
+}
+
+function toggleLevel(id){
+  const card=document.querySelector(`.lvl-card[data-lvl="${id}"]`);
+  if(!card)return;
+  const open=card.classList.contains('open');
+  document.querySelectorAll('.lvl-card').forEach(c=>c.classList.remove('open'));
+  if(!open){ card.classList.add('open'); setTimeout(()=>card.scrollIntoView({behavior:'smooth',block:'nearest'}),60); }
+}
+function forceRow(name,desc,key){
+  const f=STATE.swing.forces[key];
+  const stages=[['transition','Transition'],['mid','Mid'],['impact','Impact']];
+  const stageCells=stages.map(([sk,slabel])=>{
+    const s=f[sk]||{};
+    return `<div class="force-stage">
+      <div class="force-stage-label">${slabel}</div>
+      <input class="metric-input fs-input" value="${escapeHtml(s.direction||'')}" data-swing="forces.${key}.${sk}.direction" placeholder="dir">
+      <input class="metric-input fs-input" value="${escapeHtml(s.magnitude||'')}" data-swing="forces.${key}.${sk}.magnitude" placeholder="mag">
+    </div>`;
+  }).join('');
+  const imgMap={
+    pull:`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`,
+    push:`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`,
+    twist:`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`
+  };
+  const viewLabel={pull:'Grip-end view',push:'Side view',twist:'Angle view'};
+  const imgSlot=`<div class="force-diagram">
+    <img src="data:image/png;base64,${imgMap[key]}" alt="${name} diagram">
+    <div class="force-diagram-caption">${viewLabel[key]}</div>
+  </div>`;
+  return `<div class="force-block">
+    <div class="force-block-top">
+      <div class="force-name-col">
+        <div class="force-name">${name}</div>
+        <div class="force-desc">${desc}</div>
+      </div>
+      ${imgSlot}
+    </div>
+    <div class="force-stages">${stageCells}</div>
+  </div>`;
+}
+function saveSwing(){
+  document.querySelectorAll('[data-swing]').forEach(el=>setPath(STATE.swing,el.getAttribute('data-swing'),el.value));
+  saveState(); toast('Swing data saved');
+}
+function getPath(o,p){return p.split('.').reduce((a,k)=>a&&a[k]!=null?a[k]:'',o);}
+function setPath(o,p,v){const ks=p.split('.');let cur=o;for(let i=0;i<ks.length-1;i++){cur[ks[i]]=cur[ks[i]]||{};cur=cur[ks[i]];}cur[ks[ks.length-1]]=v;}
+function escapeHtml(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
+
+
+
+// Expose top-level declarations on window so inline handlers and
+// other modules can resolve them during the staged ES-module migration.
+Object.assign(window, { ballRefHtml, buildChain, escapeHtml, forceRow, getPath, metricBox, saveSwing, setPath, toggleLevel });

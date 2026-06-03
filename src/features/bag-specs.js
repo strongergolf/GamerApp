@@ -1,0 +1,238 @@
+// My Bag tab: ball listing + club specs (sorted putter first, then descending loft),
+// expandable spec/edit panels, add-club form, profile (Myself) and calibration.
+
+/* ============================================================
+   SPECS — editable specs + performance + replacements
+   ============================================================ */
+function buildSpecs(){
+  /* Ball listing at top */
+  const bw=document.getElementById('ball-specs-wrap');
+  if(bw){
+    const pf=STATE.profile;
+    const ballLabel=pf.ballMake&&pf.ballModel?`${pf.ballMake} ${pf.ballModel}`:'No ball on file';
+    const ballSub=[ pf.ballLayers, pf.ballCover, pf.ballCompression?`comp ${pf.ballCompression}`:'', pf.ballFirmness, pf.ballSpin?pf.ballSpin+' spin':'' ].filter(Boolean).join(' · ');
+    bw.innerHTML=`<div class="specs-col-head"><span></span><span>Model</span><span>Cover</span><span>Comp</span><span>Spin</span><span></span></div>
+      <div class="specs-club-row" onclick="showGroup('setup',document.querySelector('.ngroup:last-child'));setTimeout(()=>document.getElementById('ball-grid')?.scrollIntoView({behavior:'smooth'}),200)">
+        <span class="spec-club" style="font-family:Arial,sans-serif;font-weight:800;font-size:1.1rem;color:var(--grey)">B</span>
+        <div class="spec-model">${ballLabel}<small>${ballSub||'tap to edit in Profile'}</small></div>
+        <div class="spec-val">${pf.ballCover||'—'}</div>
+        <div class="spec-val">${pf.ballCompression||'—'}</div>
+        <div class="spec-val">${pf.ballSpin||'—'}</div>
+        <div class="specs-chevron">▸</div>
+      </div>`;
+  }
+  /* Clubs */
+  const wrap=document.getElementById('specs-wrap'); wrap.innerHTML='';
+  const head=document.createElement('div'); head.className='specs-col-head';
+  head.innerHTML=`<span></span><span>Model</span><span>Length</span><span>Loft</span><span>Lie</span><span></span>`;
+  wrap.appendChild(head);
+  const typeOrder={putter:0,wood:1,iron:2,wedge:3};
+  const loftNum=c=>parseFloat((c.loft||'0').replace(/[^\d.]/g,''))||0;
+  const sorted=[...STATE.clubs].sort((a,b)=>{
+    if(a.type==='putter') return -1;
+    if(b.type==='putter') return 1;
+    return loftNum(b)-loftNum(a); /* descending loft: X wedge first, driver last */
+  });
+  let lastType=null;
+  sorted.forEach(c=>{
+    if(c.type!==lastType){
+      const div=document.createElement('div'); div.className='ladder-divider';
+      div.textContent=typeLabel(c.type); wrap.appendChild(div); lastType=c.type;
+    }
+    const row=document.createElement('div'); row.className='specs-club-row';
+    row.innerHTML=`
+      <span class="spec-club ${c.type}">${c.label}</span>
+      <div class="spec-model">${c.make} ${c.model}<small>${c.year} · ${c.shaft}</small></div>
+      <div class="spec-val">${c.length}</div>
+      <div class="spec-val">${c.loft}</div>
+      <div class="spec-val">${c.lie}</div>
+      <div class="specs-chevron">▾</div>`;
+    const group=document.createElement('div'); group.className='specs-rep-group';
+    row.addEventListener('click',()=>toggleSpecs(c,row,group));
+    wrap.appendChild(row); wrap.appendChild(group);
+  });
+}
+function toggleSpecs(c,row,group){
+  const open=group.classList.contains('open');
+  document.querySelectorAll('.specs-club-row').forEach(r=>r.classList.remove('selected'));
+  document.querySelectorAll('.specs-rep-group').forEach(g=>g.classList.remove('open'));
+  if(open) return;
+  row.classList.add('selected');
+  const p=perf(c.id);
+  const sf=(label,key,val,kind)=>`<div class="edit-field"><label>${label}</label><input data-club="${c.id}" data-kind="${kind}" data-key="${key}" value="${escapeHtml(val==null?'':val)}"></div>`;
+  const putterExtra = c.type==='putter'
+    ? `${sf('Grip','grip',c.grip||'','spec')}${sf('Weight (oz)','weightOz',c.weightOz||'','spec')}`
+    : '';
+  const editHtml=`
+    <div class="specs-edit-panel">
+      <div class="edit-grid">
+        <div class="edit-subhead">Physical Spec</div>
+        ${sf('Make','make',c.make,'spec')}${sf('Model','model',c.model,'spec')}${sf('Shaft','shaft',c.shaft,'spec')}
+        ${sf('Length','length',c.length,'spec')}${sf('Eff. Loft','loft',c.loft,'spec')}${sf('Lie','lie',c.lie,'spec')}
+        ${sf('Orig. Loft','origLoft',c.origLoft,'spec')}${sf('Swing Wt','swt',c.swt,'spec')}${sf('Year','year',c.year,'spec')}
+        ${putterExtra}
+        ${c.type!=='putter'?`<div class="edit-subhead">Stock Shot</div>
+        ${sf('Carry (yd)','carry',p.carry,'perf')}${sf('Total (yd)','total',p.total,'perf')}${sf('Ball Spd (mph)','bspd',p.bspd,'perf')}
+        ${sf('Club Spd (mph)','cspd',p.cspd,'perf')}${sf('Launch (°)','launch',p.launch,'perf')}${sf('Spin (rpm)','spin',p.spin,'perf')}
+        ${sf('Max Ht (ft)','ht',p.ht,'perf')}${sf('Land (°)','land',p.land,'perf')}`:''}
+      </div>
+      <div class="btn-row"><button class="btn btn-primary" onclick="saveClub('${c.id}')">Save ${c.label}</button></div>
+    </div>`;
+  const effLoft=parseFloat(c.loft);
+  const loftTol = c.type==='putter' ? 1 : 2;   /* putters: ±1°, others: ±2° */
+  const matches=STATE.otherClubs
+    .filter(o=>{
+      if(c.type==='putter') return o.type==='putter' && Math.abs(o.effLoft-effLoft)<=loftTol;
+      return (!o.type||o.type!=='putter') && Math.abs(o.effLoft-effLoft)<=loftTol;
+    })
+    .sort((a,b)=>Math.abs(a.effLoft-effLoft)-Math.abs(b.effLoft-effLoft));
+  const repLabel=`<div class="specs-rep-label">Replacement Options — ±${loftTol}° Effective Loft${c.type==='putter'?' · putters only':''}</div>`;
+  const repHtml=!matches.length?`<div class="specs-no-rep">No matching clubs found in your other bags.</div>`:matches.map(o=>{
+    const d=o.effLoft-effLoft, ds=d===0?'=':d>0?`+${d}°`:`${d}°`, dc=d===0?'exact':Math.abs(d)<=1?'close':'off';
+    const extraDetail = c.type==='putter'
+      ? `<div class="spec-val" style="font-size:.58rem;color:var(--muted)">${o.grip||''} · ${o.weightOz||''}oz · ${o.swt||''}</div>`
+      : `<div class="rep-inline-bag">${o.bag.replace(' Bag','').replace(' Staff','')}</div>`;
+    return `<div class="specs-rep-row">
+      <span class="spec-club ${c.type}" style="font-size:1rem">${o.label}</span>
+      <div class="spec-model">${o.make} ${o.model}<small>${o.year} · ${o.shaft} · ${o.length||''}</small></div>
+      <div class="spec-val">${o.length||''}</div>
+      <div class="spec-val">${o.effLoft}°</div>
+      ${extraDetail}
+      <div class="rep-inline-delta ${dc}">${ds}</div>
+    </div>`;
+  }).join('');
+  group.innerHTML=editHtml+repLabel+repHtml;
+  group.classList.add('open');
+  setTimeout(()=>group.scrollIntoView({behavior:'smooth',block:'nearest'}),50);
+}
+function saveClub(id){
+  const club=STATE.clubs.find(c=>c.id===id); const p=STATE.performance[id]=STATE.performance[id]||{};
+  document.querySelectorAll(`[data-club="${id}"]`).forEach(el=>{
+    const key=el.getAttribute('data-key'), kind=el.getAttribute('data-kind'); let v=el.value.trim();
+    if(kind==='spec'){ club[key]= key==='year'?(parseInt(v)||club[key]):v; }
+    else{ p[key]= v===''? null : (isNaN(parseFloat(v))?v:parseFloat(v)); }
+  });
+  saveState(); buildSpecs(); buildLadder(); buildPartialsTable();
+  renderCalc(parseInt(document.getElementById('yard-input').value)||95);
+  toast(club.label+' updated');
+}
+
+/* ============================================================
+   PROFILE / CONDITIONS / GENERATOR / DATA
+   ============================================================ */
+/* Shared select builder — module scope so all render functions can use it */
+
+/* Shared select builder — module scope so all render functions can use it */
+const sel=(id,opts,val)=>`<select id="${id}">${opts.map(o=>`<option value="${o}"${o===val?' selected':''}>${o||'—'}</option>`).join('')}</select>`;
+
+function buildProfile(){
+  const pf=STATE.profile;
+  // sel is module-scope
+  document.getElementById('profile-grid').innerHTML=`
+    <div class="edit-field"><label>Name</label><input id="pf-name" value="${escapeHtml(pf.name||'')}"></div>
+    <div class="edit-field"><label>Handicap</label><input id="pf-hcp" value="${escapeHtml(pf.handicap||'')}"></div>
+    <div class="edit-field"><label>Driver Swing Speed (mph)</label><input id="pf-ss" type="number" value="${pf.driverSwingSpeed||''}"></div>
+    <div class="edit-field"><label>Rounds per Year</label><input id="pf-rounds" type="number" value="${escapeHtml(pf.roundsPerYear||'')}"></div>
+    <div class="edit-field"><label>Practice Shots per Year (est.)</label><input id="pf-practice" type="number" value="${escapeHtml(pf.practicePerYear||'')}"></div>
+    <div class="edit-field"><label>Handicap Service</label>${sel('pf-hcpsvc',['','GHIN (USGA)','Golf Canada','Golf Australia','CONGU (GB&I)','Golf NZ','Other'],pf.hcpService||'')}</div>
+    <div class="edit-field"><label>Handicap / GHIN ID</label><input id="pf-hcpid" value="${escapeHtml(pf.hcpId||'')}" placeholder="Member number"></div>
+    <div class="edit-field"><label>Glove Size</label>${sel('pf-glove',[
+      '','Men\'s S','Men\'s M','Men\'s M/L','Men\'s L','Men\'s XL','Men\'s XXL',
+      'Men\'s Cadet S','Men\'s Cadet M','Men\'s Cadet M/L','Men\'s Cadet L','Men\'s Cadet XL',
+      'Women\'s S','Women\'s M','Women\'s M/L','Women\'s L','Women\'s XL',
+      'Women\'s Cadet S','Women\'s Cadet M','Women\'s Cadet M/L','Women\'s Cadet L'
+    ],pf.gloveSize||'')}</div>`;
+  /* Ball */
+  document.getElementById('ball-grid').innerHTML=`
+    <div class="edit-field"><label>Make</label><input id="ball-make" value="${escapeHtml(pf.ballMake||'')}" placeholder="e.g. Titleist"></div>
+    <div class="edit-field"><label>Model</label><input id="ball-model" value="${escapeHtml(pf.ballModel||'')}" placeholder="e.g. Pro V1x"></div>
+    <div class="edit-field"><label>Alignment Marking</label><input id="ball-align" value="${escapeHtml(pf.ballAlignment||'')}" placeholder="e.g. line, dot, none"></div>
+    <div class="edit-field"><label>Cover Material</label>${sel('ball-cover',['','Urethane','Ionomer / Surlyn','TPU','Hybrid'],pf.ballCover||'')}</div>
+    <div class="edit-field"><label>Cover Firmness</label>${sel('ball-firmness',['','Firm','Medium','Soft'],pf.ballFirmness||'')}</div>
+    <div class="edit-field"><label>Construction</label>${sel('ball-layers',['','2-piece','3-piece','4-piece','5-piece'],pf.ballLayers||'')}</div>
+    <div class="edit-field"><label>Compression</label><input id="ball-compression" type="number" value="${escapeHtml(pf.ballCompression||'')}" placeholder="e.g. 90 (30–120+)"></div>
+    <div class="edit-field"><label>Spin Characteristics</label>${sel('ball-spin',['','Low','Medium','High'],pf.ballSpin||'')}</div>
+    <div class="edit-field"><label>Trajectory Tendency</label>${sel('ball-trajectory',['','Low','Mid','High'],pf.ballTrajectory||'')}</div>
+    <div class="edit-field" style="grid-column:1/-1"><label>Notes</label><input id="ball-notes" value="${escapeHtml(pf.ballNotes||'')}" placeholder="feel preference, conditions, wind performance, short game control…"></div>`;
+  const b=STATE.baseline;
+  document.getElementById('baseline-grid').innerHTML=`
+    <div class="edit-field"><label>Temp °F</label><input id="bl-temp" type="number" value="${b.tempF}"></div>
+    <div class="edit-field"><label>Altitude ft</label><input id="bl-alt" type="number" value="${b.altitudeFt}"></div>
+    <div class="edit-field"><label>Humidity %</label><input id="bl-hum" type="number" value="${b.humidity}"></div>
+    <div class="edit-field"><label>Pressure inHg</label><input id="bl-pres" type="number" step="0.01" value="${b.pressureInHg}"></div>
+    <div class="edit-field"><label>Air Density Sensitivity (k)</label><input id="dens-k" type="number" step="0.05" min="0" max="2" value="${STATE.densityK}">
+      <div style="font-family:ui-monospace,monospace;font-size:.48rem;color:var(--muted);margin-top:3px;line-height:1.4">Default 0.65 ≈ 2 yd/10°F, 2%/1000 ft. Raise if your LM data shows bigger swings.</div>
+    </div>`;
+  document.getElementById('gen-ss').value=pf.driverSwingSpeed||'';
+  document.getElementById('dens-k').value=STATE.densityK;
+}
+function saveProfile(){
+  const pf=STATE.profile;
+  pf.name=document.getElementById('pf-name').value;
+  pf.handicap=document.getElementById('pf-hcp').value;
+  pf.driverSwingSpeed=parseFloat(document.getElementById('pf-ss').value)||pf.driverSwingSpeed;
+  pf.handedness=document.getElementById('pf-hand')?.value??pf.handedness;
+  pf.heightFt=document.getElementById('pf-htft')?.value??pf.heightFt;
+  pf.heightIn=document.getElementById('pf-htin')?.value??pf.heightIn;
+  pf.armToFloor=document.getElementById('pf-atf')?.value??pf.armToFloor;
+  pf.ageRange=document.getElementById('pf-age')?.value??pf.ageRange;
+  pf.gloveSize=document.getElementById('pf-glove')?.value??pf.gloveSize;
+  pf.roundsPerYear=document.getElementById('pf-rounds')?.value??pf.roundsPerYear;
+  pf.practicePerYear=document.getElementById('pf-practice').value;
+  pf.hcpService=document.getElementById('pf-hcpsvc').value;
+  pf.hcpId=document.getElementById('pf-hcpid').value;
+  pf.gloveSize=document.getElementById('pf-glove').value;
+  pf.ballMake=document.getElementById('ball-make').value;
+  pf.ballModel=document.getElementById('ball-model').value;
+  pf.ballAlignment=document.getElementById('ball-align').value;
+  pf.ballNotes=document.getElementById('ball-notes').value;
+  pf.ballCompression=document.getElementById('ball-compression')?.value||'';
+  pf.ballCover=document.getElementById('ball-cover')?.value||'';
+  pf.ballLayers=document.getElementById('ball-layers')?.value||'';
+  pf.ballFirmness=document.getElementById('ball-firmness')?.value||'';
+  pf.ballSpin=document.getElementById('ball-spin')?.value||'';
+  pf.ballTrajectory=document.getElementById('ball-trajectory')?.value||'';
+  STATE.baseline.tempF=parseFloat(document.getElementById('bl-temp').value)||STATE.baseline.tempF;
+  STATE.baseline.altitudeFt=parseFloat(document.getElementById('bl-alt').value)||0;
+  STATE.baseline.humidity=parseFloat(document.getElementById('bl-hum').value)||STATE.baseline.humidity;
+  STATE.baseline.pressureInHg=parseFloat(document.getElementById('bl-pres').value)||STATE.baseline.pressureInHg;
+  STATE.densityK=Math.max(0,Math.min(2,parseFloat(document.getElementById('dens-k').value)||0.65));
+  saveState(); buildLadder(); buildSpecs(); updateCondSummary(); toast('Profile saved');
+}
+function saveCalibration(){ STATE.densityK=Math.max(0,Math.min(2,parseFloat(document.getElementById('dens-k').value)||0.65)); saveState(); buildLadder(); updateCondSummary(); toast('Calibration saved'); }
+function generateFromSwingSpeed(){
+  const target=parseFloat(document.getElementById('gen-ss').value);
+  const base=STATE.profile.driverSwingSpeed;
+  if(!target||!base){ toast('Enter a driver swing speed'); return; }
+  const ratio=target/base;
+  STATE.clubs.forEach(c=>{const p=STATE.performance[c.id];if(!p)return;
+    if(p.carry!=null)p.carry=Math.round(p.carry*ratio);
+    if(p.total!=null)p.total=Math.round(p.total*ratio);
+    if(p.bspd!=null)p.bspd=Math.round(p.bspd*ratio);
+    if(p.cspd!=null)p.cspd=Math.round(p.cspd*ratio);
+  });
+  Object.keys(STATE.partials).forEach(id=>{const pr=STATE.partials[id];['full','tq','half'].forEach(k=>{if(pr[k]!=null)pr[k]=Math.round(pr[k]*ratio);});});
+  STATE.profile.driverSwingSpeed=target;
+  saveState(); buildLadder(); buildPartialsTable();
+  buildProfile(); renderCalc(95); toast('Ladder generated — refine from real data');
+}
+function exportData(){
+  const blob=new Blob([JSON.stringify(STATE,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='strongergolf-bag-'+(STATE.profile.name||'data').replace(/\s+/g,'-').toLowerCase()+'.json';
+  a.click(); URL.revokeObjectURL(a.href); toast('Exported');
+}
+function importData(e){
+  const f=e.target.files[0]; if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{ try{ window.STATE=mergeDefaults(JSON.parse(r.result)); saveState(); renderAll(); toast('Imported'); }catch(err){ toast('Import failed — invalid file'); } };
+  r.readAsText(f); e.target.value='';
+}
+function resetData(){ window.STATE=deepClone(DEFAULT_DATA); saveState(); renderAll(); toast('Reset to demo bag'); }
+
+
+
+
+// Expose top-level declarations on window so inline handlers and
+// other modules can resolve them during the staged ES-module migration.
+Object.assign(window, { buildProfile, buildSpecs, exportData, generateFromSwingSpeed, importData, resetData, saveCalibration, saveClub, saveProfile, sel, toggleSpecs });

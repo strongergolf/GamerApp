@@ -1,0 +1,69 @@
+// Navigation, toast, renderAll orchestrator, init.
+
+/* ============================================================
+   NAV + TOAST + INIT
+   ============================================================ */
+/* group → ordered list of {id,label} sub-tabs */
+const GROUPS={
+  play:[
+    {id:'bag',      label:'Stock Shots'},
+    {id:'partials', label:'Approach'},
+    {id:'shortgame',label:'Short Game'},
+    {id:'putting',  label:'Putting'}
+  ],
+  diagnose:[{id:'diagnose',label:'Causal Chain'}],
+  setup:[{id:'specs',label:'My Bag'},{id:'courses',label:'My Courses'},{id:'profile',label:'Myself'}]
+};
+let currentGroup='play';
+
+function showGroup(group,el){
+  currentGroup=group;
+  document.querySelectorAll('.ngroup').forEach(g=>g.classList.remove('active'));
+  if(el)el.classList.add('active');
+  const sub=document.getElementById('nav-sub');
+  const tabs=GROUPS[group];
+  /* single-surface groups don't need a sub-strip */
+  if(tabs.length<=1){ sub.innerHTML=''; showPage(tabs[0].id); }
+  else { sub.innerHTML=tabs.map((t,i)=>`<div class="nav-tab${i===0?' active':''}" onclick="showPage('${t.id}',this)">${t.label}</div>`).join(''); showPage(tabs[0].id); }
+}
+function showPage(id,tab){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  const pg=document.getElementById('page-'+id); if(pg)pg.classList.add('active');
+  if(tab)tab.classList.add('active');
+}
+let toastTimer;
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),1900); }
+
+function renderAll(){
+  /* header eyebrow removed */
+  renderConditions();
+  buildLadder();
+  buildPartialsTable();
+    buildShortGame();
+  buildPutting();
+  renderPuttSG();
+  renderExpectedShots('es-150', 95, 'fairway');
+  renderExpectedShots('es-short', 60, 'atg');
+  renderExpectedShots('es-putting', 15, 'green');
+  buildChain();
+  buildSpecs();
+  buildProfile();
+  renderCalc(95);
+  updateDriverOpt();
+  showGroup(currentGroup, document.querySelector('.ngroup.active'));
+}
+function initConditions(){
+  ['c-temp','c-alt','c-hum','c-pres'].forEach(id=>document.getElementById(id).addEventListener('input',()=>{ buildLadder(); updateCondSummary(); }));
+  document.getElementById('adj-toggle').addEventListener('change',e=>{ window.adjustOn=e.target.checked; buildLadder(); updateCondSummary(); });
+}
+
+loadState();
+renderAll();
+initConditions();
+initCalc();
+
+
+// Expose top-level declarations on window so inline handlers and
+// other modules can resolve them during the staged ES-module migration.
+Object.assign(window, { GROUPS, currentGroup, initConditions, renderAll, showGroup, showPage, toast, toastTimer });
