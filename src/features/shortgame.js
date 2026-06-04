@@ -2,8 +2,10 @@
 
 function buildShortGame(){
   const wrap=document.getElementById('shortgame-wrap'); if(!wrap) return;
+  const stimpOpts=[7,7.5,8,8.5,9,9.5,10,10.5,11,11.5,12,12.5,13,13.5,14]
+    .map(v=>`<option value="${v}"${v===STATE.stimp?' selected':''}>${v.toFixed(1)}</option>`).join('');
   wrap.innerHTML=`
-    <!-- 1. Distance slider -->
+    <!-- 1. Distance slider + stimp dropdown -->
     <div class="calc-dist-block">
       <div class="calc-yardage-display">
         <div class="calc-yardage-num" id="chip-display">20</div>
@@ -15,9 +17,23 @@ function buildShortGame(){
           oninput="window.chipSelectedIdx=-1;document.getElementById('chip-display').textContent=this.value;document.getElementById('chip-input').value=this.value;renderChipDial()">
       </div>
       <div class="calc-manual-col">
-        <label for="chip-input">Type yards</label>
+        <label for="chip-input">Yards</label>
         <input type="number" id="chip-input" min="5" max="55" value="20"
           oninput="window.chipSelectedIdx=-1;const v=Math.max(5,Math.min(55,parseInt(this.value)||20));document.getElementById('chip-slider').value=v;document.getElementById('chip-display').textContent=v;renderChipDial()">
+      </div>
+      <div class="calc-manual-col">
+        <label for="sg-stimp-select">Stimp</label>
+        <select id="sg-stimp-select" onchange="STATE.stimp=parseFloat(this.value);const _puS=document.getElementById('putt-stimp-select');if(_puS)_puS.value=this.value;renderChipDial();buildChipMatrix();saveState()" style="font-family:Arial,sans-serif;font-size:.9rem;font-weight:700;padding:6px 8px;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;color:var(--ink);outline:none;width:100%">${stimpOpts}</select>
+      </div>
+      <div class="calc-manual-col" style="flex:0 0 105px">
+        <label>Slope</label>
+        <select id="chip-slope" onchange="renderChipDial();buildChipMatrix()" style="font-family:Arial,sans-serif;font-size:.9rem;font-weight:700;padding:6px 8px;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;color:var(--ink);outline:none;width:100%">
+          <option value="very-uphill">⬆⬆ V. Up</option>
+          <option value="uphill">⬆ Uphill</option>
+          <option value="level" selected>→ Level</option>
+          <option value="downhill">⬇ Down</option>
+          <option value="very-downhill">⬇⬇ V. Down</option>
+        </select>
       </div>
     </div>
 
@@ -30,20 +46,6 @@ function buildShortGame(){
     <!-- 4. Shot options -->
     <div id="chip-results"></div>
 
-    <!-- 5. Stimp / Slope -->
-    <div class="stimp-bar" style="margin-top:18px">
-      <label>Stimp</label>
-      <div class="stimp-val" id="sg-stimp-val">${STATE.stimp.toFixed(1)}</div>
-      <input type="range" min="7" max="14" step="0.5" value="${STATE.stimp}"
-        oninput="STATE.stimp=parseFloat(this.value);document.getElementById('sg-stimp-val').textContent=STATE.stimp.toFixed(1);renderChipDial();buildChipMatrix();saveState()">
-      <label>Slope</label>
-      <select id="chip-slope" onchange="renderChipDial();buildChipMatrix()"
-        style="font-family:Arial,sans-serif;font-size:.9rem;font-weight:700;padding:5px 9px;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;color:var(--ink);outline:none">
-        <option value="level">→ Level</option>
-        <option value="uphill">⬆ Uphill</option>
-        <option value="downhill">⬇ Downhill</option>
-      </select>
-    </div>
 
     <!-- 6. Chip Matrix -->
     <div class="section-label">Chip Reference Matrix — Total Distance by Club &amp; Carry</div>
@@ -84,27 +86,17 @@ function renderChipDial(){
   const typeColor=c=>c.type==='wedge'?'var(--c-wedge)':c.type==='iron'?'var(--c-iron)':c.type==='putter'?'var(--c-putter)':'var(--c-wood)';
   const cards=rows.map(({c,loft,carry,roll,total,practical},i)=>{
     const selected = i===displayIdx;
-    const carryPct=Math.round((carry/Math.max(total,0.01))*100);
+    const tc=typeColor(c);
     const note = carry<0.5 ? 'carry too short' : carry>25 ? 'pitch / full shot territory' : '';
-    return `<div class="chip-club-row${selected?' best':''}"
-        style="cursor:pointer;${!practical&&!selected?'opacity:.5':''}"
-        onclick="selectChipClub(${i})">
-      <div class="chip-club-badge" style="color:${typeColor(c)}">${c.label}<small>${c.loft}</small></div>
-      <div class="chip-club-meta">
-        <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:3px">
-          <span style="font-family:Arial,sans-serif;font-weight:800;font-size:1.55rem;letter-spacing:.02em;line-height:1;color:${selected?'var(--gold)':typeColor(c)}">${carry.toFixed(1)}</span>
-          <span style="font-family:ui-monospace,monospace;font-size:.5rem;color:var(--muted);line-height:1">yd<br>carry</span>
-          <span style="font-family:ui-monospace,monospace;font-size:.54rem;color:var(--muted);margin-left:4px">+ ${roll.toFixed(1)} roll · ${carryPct}:${100-carryPct}</span>
-          ${note?`<span style="font-family:ui-monospace,monospace;font-size:.5rem;color:var(--gold)">· ${note}</span>`:''}
+    const noteStr = note ? ` <span style="color:var(--gold);font-size:.68rem">· ${note}</span>` : '';
+    return `<div class="calc-result-card ${selected?'best':''}"
+        onclick="selectChipClub(${i})" style="cursor:pointer${!practical&&!selected?';opacity:.5':''}">
+      <div class="calc-card-header">
+        <div class="calc-club-badge" style="color:${tc}">${c.label}<small>${c.loft}</small></div>
+        <div style="flex:1;min-width:0">
+          <div class="calc-swing-label" style="color:${tc}">${chipArchetype(loft)}<span style="font-family:ui-monospace,monospace;font-size:.65rem;font-weight:500;color:var(--muted)"> — </span><span style="font-family:Arial,sans-serif;font-size:1.15rem;font-weight:800;color:${selected?'var(--gold)':tc}">${carry.toFixed(1)}</span><span style="font-family:ui-monospace,monospace;font-size:.65rem;font-weight:500;color:var(--muted)"> carry · ${roll.toFixed(1)} roll · ${total.toFixed(1)} total</span>${noteStr}</div>
         </div>
-        <div style="font-family:ui-monospace,monospace;font-size:.5rem;color:var(--muted);margin-bottom:3px">${chipArchetype(loft)} · ${(loft*0.75).toFixed(0)}° launch</div>
-        <div class="chip-carry-bar">
-          <div class="chip-carry-fill" style="width:${Math.max(2,Math.min(100,carryPct))}%;background:${typeColor(c)}88"></div>
-        </div>
-      </div>
-      <div class="chip-stat">
-        <div class="chip-stat-val" style="color:${selected?'var(--gold)':'var(--muted)'}">${total.toFixed(1)}</div>
-        <div class="chip-stat-lbl">total</div>
+        ${selected?'<div class="calc-best-tag">Best Match</div>':''}
       </div>
     </div>`;
   }).join('');
@@ -184,7 +176,7 @@ function buildChipSVG(carryYd, rollYd, loftDeg){
 
   /* Labels */
   const peakY=groundY-peakH;
-  const carryLabel=`<text x="${(ballX+carryPx/2).toFixed(1)}" y="${Math.max(7,peakY-4)}" text-anchor="middle" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="7" fill="var(--c-wedge)">${carryYd.toFixed(1)}yd carry</text>`;
+  const carryLabel=`<text x="${landX.toFixed(1)}" y="${Math.max(7,peakY-4)}" text-anchor="middle" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="7" fill="var(--c-wedge)">${carryYd.toFixed(1)}yd carry</text>`;
   const rollLabel=rollPx>22?`<text x="${(landX+rollPx/2).toFixed(1)}" y="${groundY+14}" text-anchor="middle" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="7" fill="var(--green)">${rollYd.toFixed(1)}yd roll</text>`:'';
 
   return `<svg viewBox="0 0 ${W} ${H+10}" style="width:100%;display:block" xmlns="http://www.w3.org/2000/svg">

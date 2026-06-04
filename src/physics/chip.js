@@ -46,13 +46,13 @@ function chipArchetype(loftDeg){
 function chipRollout(carry, loftDeg, stimp, slope){
   const R=chipRollRatio(loftDeg);
   const sa=Math.pow(stimp/9.5, 1.3);
-  const sl=slope==='uphill'?0.62 : slope==='downhill'?1.50 : 1.0;
+  const sl=slope==='very-uphill'?0.38 : slope==='uphill'?0.62 : slope==='downhill'?1.50 : slope==='very-downhill'?2.20 : 1.0;
   return carry * R * sa * sl;
 }
 function chipCarryForTotal(total, loftDeg, stimp, slope){
   const R=chipRollRatio(loftDeg);
   const sa=Math.pow(stimp/9.5, 1.3);
-  const sl=slope==='uphill'?0.62 : slope==='downhill'?1.50 : 1.0;
+  const sl=slope==='very-uphill'?0.38 : slope==='uphill'?0.62 : slope==='downhill'?1.50 : slope==='very-downhill'?2.20 : 1.0;
   return total / (1 + R * sa * sl);
 }
 function chipClubs(){

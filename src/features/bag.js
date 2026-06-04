@@ -87,14 +87,14 @@ function toggleDetail(c,row,group,inner){
   inner.innerHTML=`
     <div class="detail-header">
       <div class="detail-club-name ${c.type}">${c.label} — ${c.loft}</div>
-      <div class="detail-club-spec">${c.make} ${c.model}<br><span style="color:var(--muted)">${c.shaft} · ${c.length}</span></div>
+      <div class="detail-club-spec" style="font-size:.88rem;color:var(--ink2)">${c.make} ${c.model}<br><span style="color:var(--ink2)">${c.shaft} · ${c.length}</span></div>
     </div>
     <div class="detail-stats">
       ${statCell('Carry',p.carry,'yards','hl-carry')}
       ${statCell('Total',p.total||'—','yards','')}
       ${statCell('Ball Speed',p.bspd,'mph','hl-speed')}
       ${statCell('Club Speed',p.cspd,'mph','hl-speed')}
-      ${statCell('V. Launch',(p.launch!=null?p.launch+'°':'—'),'degrees','')}
+      ${statCell('Vert. Launch',(p.launch!=null?p.launch+'°':'—'),'degrees','')}
       ${statCell('Spin Rate',(p.spin!=null?p.spin.toLocaleString():'—'),'rpm','hl-spin')}
       ${statCell('Max Height',p.ht,'feet','')}
       ${statCell('Land Angle',(p.land!=null?p.land+'°':'—'),'degrees','hl-land')}
@@ -193,24 +193,24 @@ function buildTopSVG(c,p){
   const isLong = loftDeg <= 23;  /* D, F, H, U */
   let bgElem='';
   if(isLong){
-    /* Fairway: tall rounded rectangle with rough on sides */
-    const fwyWidthPx = availHW*2;  /* full available width = fairway */
-    const roughW = Math.max(0,(W-fwyWidthPx)/2);
+    /* Fairway: 30yd wide, scaled using the same px/yd as the dispersion cone */
+    const fwyScale=fullHW/fullDisp;                          // px per yard at full distance
+    const fwyHW=Math.min(availHW, 15*fwyScale);              // 15yd = half of 30yd fairway
+    const fwyX=ox-fwyHW;
     bgElem=`
       <rect x="0" y="${PAD_T}" width="${W}" height="${drawH}" fill="#00853F" rx="3"/>
-      <rect x="${roughW.toFixed(1)}" y="${PAD_T}" width="${fwyWidthPx.toFixed(1)}" height="${drawH}" fill="#00a84f" rx="3"/>
-      <text x="${W/2}" y="${PAD_T+7}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="5" fill="rgba(255,255,255,0.5)">fairway ~40yd wide</text>`;
+      <rect x="${fwyX.toFixed(1)}" y="${PAD_T}" width="${(fwyHW*2).toFixed(1)}" height="${drawH}" fill="#00a84f" rx="3"/>
+      <text x="${W/2}" y="${PAD_T+7}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="5" fill="rgba(255,255,255,0.5)">fairway 30yd wide</text>`;
   } else {
-    /* Green: ellipse — typical green ~30yd wide, depth variance shown as ellipse height
-       Depth variance: ±1 club difference in carry (~8-12yd) shown as semi-height */
-    const gR_x=Math.min(fullHW*0.85, availHW-2);  /* green width = ~90% of full disp */
-    const gR_y=drawH*0.45;                          /* green depth proportional to carry variance */
-    const gCy=fullY+(oy-fullY)*0.3;                 /* green centre ~30% between carry and ball */
+    /* Green: circle with 10yd radius, same px/yd scale as cone */
+    const gScale=fullHW/fullDisp;
+    const gR=Math.min(availHW-2, 10*gScale);                 // 10yd radius
+    const gCy=fullY+(oy-fullY)*0.3;
     bgElem=`
       <rect x="0" y="${PAD_T}" width="${W}" height="${drawH}" fill="#0a5a2a" rx="3"/>
-      <ellipse cx="${ox}" cy="${gCy.toFixed(1)}" rx="${gR_x.toFixed(1)}" ry="${gR_y.toFixed(1)}" fill="#00a84f"/>
-      <ellipse cx="${ox}" cy="${gCy.toFixed(1)}" rx="${(gR_x*0.55).toFixed(1)}" ry="${(gR_y*0.55).toFixed(1)}" fill="rgba(255,255,255,0.08)"/>
-      <text x="${W/2}" y="${PAD_T+7}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="5" fill="rgba(255,255,255,0.5)">green ~30yd</text>`;
+      <ellipse cx="${ox}" cy="${gCy.toFixed(1)}" rx="${gR.toFixed(1)}" ry="${gR.toFixed(1)}" fill="#00a84f"/>
+      <ellipse cx="${ox}" cy="${gCy.toFixed(1)}" rx="${(gR*0.55).toFixed(1)}" ry="${(gR*0.55).toFixed(1)}" fill="rgba(255,255,255,0.08)"/>
+      <text x="${W/2}" y="${PAD_T+7}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="5" fill="rgba(255,255,255,0.5)">green r=10yd</text>`;
     /* Landing zone ellipse — depth variance ±~6yd shown proportionally */
     const lz_x=fullHW*0.7;
     const lz_y=drawH*0.12;

@@ -19,7 +19,7 @@ function buildPartialsTable(){
     rows.forEach(sw=>{
       const val=pr[sw.key]; const conf=pr.conf[sw.ci];
       if(val==null){ html+=`<td><div class="carry-cell empty">—</div></td>`; }
-      else{ html+=`<td><div class="carry-cell">${val}<span style="font-size:.52rem;font-weight:400;color:var(--muted);margin-left:2px">yds</span></div></td>`; }
+      else{ const dv=val+(window.approachGreenFirmness||0); html+=`<td><div class="carry-cell">${dv}<span style="font-size:.52rem;font-weight:400;color:var(--muted);margin-left:2px">yds</span></div></td>`; }
     });
     html+=`</tr>`;
   });
@@ -97,7 +97,20 @@ function calcSuggestions(target){
   });
   return final.slice(0,4);
 }
+/* Rollout in yards derived from ball-flight characteristics — makes each shot's carry/roll split
+   match its actual behaviour (Stops quickly vs Moderate release vs Runs out). */
+function approachRolloutYds(spin,height){
+  if(spin>=8500&&height>=70) return 1;  // Stops quickly
+  if(spin>=8500) return 2;              // Checks up / Bites
+  if(spin>=6500&&height>=70) return 2;  // Some check
+  if(spin>=6500&&height>=50) return 4;  // Moderate release
+  if(spin>=6500) return 5;             // Low release
+  if(height>=70) return 4;             // Soft landing
+  return 7;                            // Runs out
+}
 window.approachSelectedIdx = -1;
+/* Green firmness offset (yards added to rollout): Very Soft=-2  Soft=-1  Average=0  Firm=+2  Very Firm=+4 */
+window.approachGreenFirmness = 0;
 function selectApproachResult(i){
   window.approachSelectedIdx=i;
   renderCalc(parseInt(document.getElementById('yard-slider').value));
@@ -116,12 +129,9 @@ function renderCalc(target){
     const effDesc=o.effort>=98?'Full effort — no margin':o.effort>=90?'Near-full — controlled finish':o.effort>=82?'Measured swing — good option':'Easy swing — high control';
     const fl=interpFlight(o.club,o.sw.key,target);
     const checkDesc=(()=>{const hs=fl.spin>=8500,ms=fl.spin>=6500,hh=fl.height>=70,mh=fl.height>=50;if(hs&&hh)return'Stops quickly';if(hs&&mh)return'Checks up';if(hs)return'Bites on landing';if(ms&&hh)return'Some check';if(ms&&mh)return'Moderate release';if(ms)return'Low release';if(hh)return'Soft landing';return'Runs out';})();
-    /* Carry/rollout estimate using performance total/carry ratio */
-    const perf=STATE.performance[o.club.id]||{};
-    const fTotal=o.club.carries.full||0;
-    const carryFrac=(fTotal>0&&perf.carry>0&&perf.carry<fTotal)?perf.carry/fTotal:0.975;
-    const estCarry=Math.round(target*carryFrac);
-    const estRoll=target-estCarry;
+    /* Carry/rollout: spin/height check behaviour + green firmness condition */
+    const estRoll=Math.max(0,approachRolloutYds(fl.spin,fl.height)+(window.approachGreenFirmness||0));
+    const estCarry=target-estRoll;
     /* Anchor mini-stat */
     const clockPos=o.sw.key==='full'?'11:00':o.sw.key==='tq'?'10:00':'9:00';
     const diffStr=o.delta===0?'on anchor':`${o.delta>0?'+':''}${o.delta}yds`;
@@ -152,9 +162,11 @@ function renderCalc(target){
     const p=STATE.performance[pick.club.id]||{};
     const fl=interpFlight(pick.club,pick.sw.key,target);
     const swingLabel=pick.sw.key==='full'?'Full':pick.sw.key==='tq'?'¾':'½';
-    const svgHtml=buildSideSVG(pick.club,{carry:target,launch:fl.launch,spin:fl.spin,land:p.land||45,ht:fl.height,bspd:p.bspd||0});
+    const tRoll=Math.max(0,approachRolloutYds(fl.spin,fl.height)+(window.approachGreenFirmness||0));
+    const tCarry=target-tRoll;
+    const svgHtml=buildSideSVG(pick.club,{carry:tCarry,total:target,launch:fl.launch,spin:fl.spin,land:p.land||45,ht:fl.height,bspd:p.bspd||0});
     trajWrap.innerHTML=`<div class="approach-traj-wrap">
-      <div class="chip-svg-label" style="font-size:.8rem;font-weight:700;color:var(--ink);letter-spacing:.01em">${pick.club.label} ${swingLabel} — ${target} yds · ${fl.launch}° launch · ${(fl.spin/1000).toFixed(1)}k rpm</div>
+      <div class="chip-svg-label" style="font-size:.8rem;font-weight:700;color:var(--ink);letter-spacing:.01em">${pick.club.label} ${swingLabel} — carry ${tCarry} · roll ${tRoll} · total ${target} yds · ${fl.launch}° · ${(fl.spin/1000).toFixed(1)}k</div>
       ${svgHtml}
     </div>`;
   } else if(trajWrap){ trajWrap.innerHTML=''; }

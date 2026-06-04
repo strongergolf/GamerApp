@@ -2,108 +2,85 @@
 
 function buildPutting(){
   const wrap=document.getElementById('putting-wrap'); if(!wrap) return;
+  const stimpOpts=[7,7.5,8,8.5,9,9.5,10,10.5,11,11.5,12,12.5,13,13.5,14]
+    .map(v=>`<option value="${v}"${v===STATE.stimp?' selected':''}>${v.toFixed(1)}</option>`).join('');
+  const lbl='font-family:ui-monospace,monospace;font-size:.62rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:4px';
+  const sel='font-family:Arial,sans-serif;font-size:.9rem;font-weight:700;padding:6px 8px;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;color:var(--ink);outline:none;width:100%';
   wrap.innerHTML=`
-    <p class="intro-note">AimPoint Express. Set distance, slope grade, and break direction. Pace slider shows the cone of valid speed/line combinations.</p>
-    <div class="putt-layout">
-      <div class="putt-controls">
-        <div class="stimp-bar" style="margin-bottom:14px">
-          <label>Stimp</label>
-          <div class="stimp-val" id="putt-stimp-val">${STATE.stimp.toFixed(1)}</div>
-          <input type="range" min="7" max="14" step="0.5" value="${STATE.stimp}"
-            oninput="STATE.stimp=parseFloat(this.value);
-              document.getElementById('putt-stimp-val').textContent=STATE.stimp.toFixed(1);
-              const sv=document.getElementById('sg-stimp-val');if(sv)sv.textContent=STATE.stimp.toFixed(1);
-              renderPutt();saveState()">
-        </div>
+    <!-- 1. Distance slider + stimp dropdown -->
+    <div class="calc-dist-block">
+      <div class="calc-yardage-display">
+        <div class="calc-yardage-num" id="putt-dist-display">15</div>
+        <div class="calc-yardage-label">feet from cup</div>
+      </div>
+      <div class="calc-slider-col">
+        <div class="calc-slider-limits"><span>2 ft</span><span>60 ft</span></div>
+        <input type="range" class="yard-slider" id="putt-dist" min="2" max="60" step="1" value="15"
+          oninput="const _v=parseInt(this.value);document.getElementById('putt-dist-display').textContent=_v;document.getElementById('putt-dist-input').value=_v;renderPutt();renderExpectedShots('es-putting',_v,'green');const _p=((_v-2)/58)*100;this.style.background='linear-gradient(90deg,var(--ink) '+_p+'%,var(--bg2) '+_p+'%)'">
+      </div>
+      <div class="calc-manual-col">
+        <label for="putt-dist-input">Feet</label>
+        <input type="number" id="putt-dist-input" min="2" max="60" value="15"
+          oninput="const _v=Math.max(2,Math.min(60,parseInt(this.value)||15));document.getElementById('putt-dist').value=_v;document.getElementById('putt-dist-display').textContent=_v;renderPutt();renderExpectedShots('es-putting',_v,'green')">
+      </div>
+      <div class="calc-manual-col">
+        <label for="putt-stimp-select">Stimp</label>
+        <select id="putt-stimp-select" onchange="STATE.stimp=parseFloat(this.value);const _sgS=document.getElementById('sg-stimp-select');if(_sgS)_sgS.value=this.value;renderPutt();saveState()" style="${sel}">${stimpOpts}</select>
+      </div>
+    </div>
 
-        <!-- Distance -->
-        <div class="putt-field">
-          <label style="font-size:.82rem;font-weight:700;color:var(--ink)">Distance (feet)</label>
-          <input type="range" id="putt-dist" min="2" max="60" step="1" value="15"
-            style="width:100%;margin-bottom:4px" oninput="document.getElementById('putt-dist-val').textContent=this.value+' ft';renderPutt();renderPuttSG();renderExpectedShots('es-putting',parseInt(this.value),'green')">
-          <div id="putt-dist-val" style="font-family:Arial,sans-serif;font-size:1.4rem;font-weight:800;color:var(--ink);text-align:center">15 ft</div>
-        </div>
+    <!-- 2. Expected shots strip -->
+    <div id="es-putting" class="expected-shots-strip"></div>
 
-        <!-- Grade — label below slider like distance -->
-        <div class="putt-field">
-          <label style="font-size:.82rem;font-weight:700;color:var(--ink)">Side Slope at Point of Influence</label>
-          <input type="range" id="putt-grade" min="0" max="5" step="0.5" value="2"
-            style="width:100%;margin-bottom:4px" oninput="document.getElementById('putt-grade-display').textContent=this.value;renderPutt()">
-          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px">
-            <span style="font-family:ui-monospace,monospace;font-size:.5rem;color:var(--muted)">0 — Flat</span>
-            <div class="grade-display" id="putt-grade-display" style="font-size:1.4rem;font-weight:800;font-family:Arial,sans-serif;color:var(--ink);line-height:1">2</div>
-            <span style="font-family:ui-monospace,monospace;font-size:.5rem;color:var(--muted)">5 — Extreme</span>
-          </div>
+    <!-- 3. 4-control box: break · slope · grade · pace -->
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin:12px 0 14px;display:grid;grid-template-columns:1fr 1fr;gap:10px 18px">
+      <div>
+        <label style="${lbl}">Break</label>
+        <select id="putt-dir" onchange="renderPutt()" style="${sel}">
+          <option value="lr">↩ L → R</option>
+          <option value="rl">↪ R → L</option>
+        </select>
+      </div>
+      <div>
+        <label style="${lbl}">Green Slope</label>
+        <select id="putt-slope" onchange="renderPutt()" style="${sel}">
+          <option value="very-uphill">⬆⬆ Very Uphill</option>
+          <option value="uphill">⬆ Uphill</option>
+          <option value="level" selected>→ Level</option>
+          <option value="downhill">⬇ Downhill</option>
+          <option value="very-downhill">⬇⬇ Very Downhill</option>
+        </select>
+      </div>
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <label style="${lbl};margin-bottom:0">Side Slope at P.O.I.</label>
+          <span class="stimp-val" id="putt-grade-display">2</span>
         </div>
-
-        <!-- Green Slope -->
-        <div class="putt-field">
-          <label style="font-size:.82rem;font-weight:700;color:var(--ink)">Green Slope</label>
-          <select id="putt-slope" onchange="renderPutt()" style="font-size:.95rem;font-weight:600;color:var(--ink);width:100%;padding:7px 9px;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;outline:none">
-            <option value="very-uphill">⬆⬆ Very Uphill (breaks much less)</option>
-            <option value="uphill">⬆ Uphill (breaks less)</option>
-            <option value="level">→ Level</option>
-            <option value="downhill">⬇ Downhill (breaks more)</option>
-            <option value="very-downhill">⬇⬇ Very Downhill (breaks much more)</option>
-          </select>
+        <input type="range" id="putt-grade" min="0" max="5" step="0.5" value="2" style="width:100%"
+          oninput="document.getElementById('putt-grade-display').textContent=this.value;renderPutt()">
+      </div>
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <label style="${lbl};margin-bottom:0">Pace (inches past)</label>
+          <span class="stimp-val" id="putt-pace-val">12&quot;</span>
         </div>
+        <input type="range" id="putt-pace" min="4" max="36" step="2" value="12" style="width:100%"
+          oninput="document.getElementById('putt-pace-val').textContent=this.value+'&quot;';renderPutt()">
+      </div>
+    </div>
 
-        <!-- Break Direction -->
-        <div class="putt-field">
-          <label style="font-size:.82rem;font-weight:700;color:var(--ink)">Break Direction</label>
-          <select id="putt-dir" onchange="renderPutt()" style="font-size:.95rem;font-weight:600;color:var(--ink);width:100%;padding:7px 9px;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;outline:none">
-            <option value="lr">↩ Left-to-Right</option>
-            <option value="rl">↪ Right-to-Left</option>
-          </select>
-        </div>
-
-        <!-- Pace -->
-        <div class="putt-field">
-          <label style="font-size:.82rem;font-weight:700;color:var(--ink)">Intended Pace</label>
-          <input type="range" id="putt-pace" min="4" max="36" step="2" value="12"
-            style="width:100%;margin-bottom:4px" oninput="document.getElementById('putt-pace-val').textContent=this.value+'\" past hole';renderPutt()">
-          <div style="display:flex;justify-content:space-between;align-items:baseline">
-            <span style="font-family:ui-monospace,monospace;font-size:.5rem;color:var(--muted)">4" — dying</span>
-            <div id="putt-pace-val" style="font-family:Arial,sans-serif;font-size:1.1rem;font-weight:800;color:var(--ink);line-height:1">12" past hole</div>
-            <span style="font-family:ui-monospace,monospace;font-size:.5rem;color:var(--muted)">36" — firm</span>
-          </div>
-          <div style="font-family:ui-monospace,monospace;font-size:.5rem;color:var(--muted);margin-top:4px;line-height:1.4">Pace = how far past the cup the ball would roll if the hole weren't there. Faster pace narrows the break; slower pace reads more slope. AimPoint standard ≈ 12".</div>
-        </div>
-
+    <!-- 4. Required Break card + caption (left) · Putt SVG (right) -->
+    <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:start">
+      <div style="flex:1;min-width:220px">
         <div id="putt-result-wrap"></div>
+        <div class="putt-svg-caption" id="putt-caption" style="margin-top:8px;font-family:ui-monospace,monospace;font-size:.58rem;color:var(--muted);text-align:center;line-height:1.5"></div>
       </div>
-      <div class="putt-visual">
+      <div style="flex:0 0 260px">
         <div id="putt-svg-wrap" style="width:100%"></div>
-        <div class="putt-svg-caption" id="putt-caption"></div>
       </div>
-    </div>
-
-    <div class="section-label" style="margin-top:22px">Expected Putts — Strokes Gained Reference</div>
-    <p class="intro-note">Broadie strokes-remaining data, adjusted for your handicap. Shows expected putts and SG vs scratch from any distance.</p>
-    <div class="putt-sg-wrap">
-      <div class="putt-sg-header">
-        <div class="putt-sg-title">Expected Putts Calculator</div>
-        <div class="putt-sg-sub">Drag the slider · handicap auto-filled from your profile</div>
-      </div>
-      <div class="putt-sg-body">
-        <div class="putt-sg-result" id="psg-result-box">
-          <div class="psg-putts" id="psg-putts">—</div>
-          <div class="psg-putts-lbl">expected putts</div>
-          <div class="psg-sg" id="psg-sg"></div>
-        </div>
-        <div class="putt-sg-controls">
-          <div class="drv-slider-label" style="margin-top:4px"><span>Handicap</span><span class="drv-val" id="psg-hcp-val">${escapeHtml(STATE.profile.handicap||'0')}</span></div>
-          <input type="range" class="drv-slider" id="psg-hcp" min="-5" max="36" step="0.5"
-            value="${parseHcp(STATE.profile.handicap)||0}"
-            oninput="document.getElementById('psg-hcp-val').textContent=(this.value>0?this.value:(this.value<0?'+'+Math.abs(this.value):'0'));renderPuttSG()">
-          <div class="drv-slider-limits"><span>+5</span><span>36 hcp</span></div>
-        </div>
-      </div>
-      <div class="putt-sg-chart" id="psg-chart"></div>
-    </div>
-    <div id="es-putting" class="expected-shots-strip"></div>`;
+    </div>`;
   renderPutt();
-  renderPuttSG();
+  renderExpectedShots('es-putting', 15, 'green');
 }
 
 function renderPutt(){
@@ -118,6 +95,21 @@ function renderPutt(){
   const res=document.getElementById('putt-result-wrap'); if(!res) return;
   const edgeLabel=dir==='lr'?'left':'right';
   const dirWord=dir==='lr'?'Left-to-Right':'Right-to-Left';
+  /* Hole radius = 2.125" (4.25" diameter). When breakIn ≤ radius the aim point is
+     inside the cup — use descriptive language instead of "X" outside the edge". */
+  const HOLE_R=2.125;
+  let aimNote;
+  if(breakIn<0.1){
+    aimNote='Dead straight';
+  } else if(breakIn<0.5){
+    aimNote=`${dirWord} — just ${edgeLabel} of centre`;
+  } else if(breakIn<HOLE_R*0.85){
+    aimNote=`${dirWord} — inside the ${edgeLabel} edge · ${breakIn.toFixed(1)}" from centre`;
+  } else if(breakIn<=HOLE_R+0.4){
+    aimNote=`${dirWord} — on the ${edgeLabel} edge`;
+  } else {
+    aimNote=`${dirWord} · aim <strong>${breakIn.toFixed(1)}"</strong> outside the <strong>${edgeLabel}</strong> edge`;
+  }
   res.innerHTML=`
     <div class="putt-result-card">
       <h4>Required Break</h4>
@@ -127,7 +119,7 @@ function renderPutt(){
         <div class="putt-stat"><div class="putt-stat-val">${grade}</div><div class="putt-stat-lbl">Slope grade</div></div>
         <div class="putt-stat"><div class="putt-stat-val">${dist} ft</div><div class="putt-stat-lbl">Distance</div></div>
       </div>
-      <div class="putt-aim-note">${dirWord} · aim <strong>${breakIn.toFixed(1)}"</strong> outside the <strong>${edgeLabel}</strong> edge · pace ${pace}" past hole</div>
+      <div class="putt-aim-note">${aimNote}</div>
     </div>`;
   const svgWrap=document.getElementById('putt-svg-wrap'); if(!svgWrap) return;
   svgWrap.innerHTML=buildPuttSVG(dist,breakIn,dir,slope,pace);
@@ -135,6 +127,7 @@ function renderPutt(){
 }
 
 function renderPuttSG(){
+  if(!document.getElementById('psg-putts')) return;
   const dist=parseInt(document.getElementById('putt-dist')?.value||document.getElementById('psg-dist')?.value||15);
   const hcpSlider=parseFloat(document.getElementById('psg-hcp')?.value||0);
   /* slider is inverted: negative slider = positive handicap (scratch+) */
@@ -180,7 +173,8 @@ function renderPuttSG(){
 function buildPuttSVG(distFt,breakIn,dir,slope,pace){
   const W=260,H=360,cx=W/2,ballY=H-38,holeY=62;
   pace=pace||12;
-  const aimPx=Math.min(78, breakIn*2.8);
+  /* Scale: inner hole circle r=9.5px, real hole radius=2.125", so 9.5/2.125 px per inch */
+  const aimPx=Math.min(78, breakIn*(9.5/2.125));
   const sign=dir==='lr'?-1:1;
   const aimX=cx+sign*aimPx;
 
@@ -220,9 +214,9 @@ function buildPuttSVG(distFt,breakIn,dir,slope,pace){
   /* Break indicator line and label */
   const breakLabel=aimPx>2?`
     <line x1="${cx}" y1="${holeY}" x2="${aimX.toFixed(1)}" y2="${holeY}" stroke="var(--gold2)" stroke-width="1.6" opacity="0.75"/>
-    <text x="${((cx+aimX)/2).toFixed(1)}" y="${holeY-7}" text-anchor="middle" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="9" font-weight="700" fill="var(--gold2)">${breakIn.toFixed(1)}"</text>`:'';
+    <text x="${(cx+sign*10).toFixed(1)}" y="${holeY-20}" text-anchor="${dir==='lr'?'end':'start'}" font-family="Arial,sans-serif" font-size="16" font-weight="800" fill="var(--gold2)">${breakIn.toFixed(1)}"</text>`:'';
 
-  const slopeLabel=slope!=='level'?`<text x="10" y="${(isVeryDn||isDn)?18:H-14}" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="7" fill="rgba(255,255,255,0.5)">${isVeryDn?'⬇⬇ very downhill':isDn?'⬇ downhill':isVeryUp?'⬆⬆ very uphill':'⬆ uphill'}</text>`:'';
+  const slopeLabel='';
 
   return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block;border-radius:14px;overflow:hidden" xmlns="http://www.w3.org/2000/svg">
     <defs>
@@ -244,8 +238,6 @@ function buildPuttSVG(distFt,breakIn,dir,slope,pace){
     <!-- cone edge paths -->
     <path d="${slowPath}" fill="none" stroke="rgba(244,212,122,0.45)" stroke-width="1" stroke-dasharray="4,3" stroke-linecap="round"/>
     <path d="${fastPath}" fill="none" stroke="rgba(244,212,122,0.45)" stroke-width="1" stroke-dasharray="4,3" stroke-linecap="round"/>
-    <!-- cone label -->
-    <text x="${(cx+sign*4).toFixed(1)}" y="${(ballY-holeY)*0.35+holeY+10}" text-anchor="${dir==='lr'?'end':'start'}" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="6.5" fill="rgba(244,212,122,0.7)">speed / line cone</text>
     <!-- aim dashed line -->
     <line x1="${cx}" y1="${ballY}" x2="${aimX.toFixed(1)}" y2="${holeY}" stroke="#f4d47a" stroke-width="1.4" stroke-dasharray="5,4" opacity="0.5"/>
     ${breakLabel}

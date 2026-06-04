@@ -35,13 +35,7 @@
   <div class="section-label" style="margin-top:14px">Full Carry Distances</div>
   <div class="ladder-wrap" id="ladder-wrap"></div>
 
-  <div class="legend" style="margin-top:14px">
-    <div class="legend-item"><div class="legend-dot" style="background:var(--c-wood)"></div>Woods/Hybrids</div>
-    <div class="legend-item"><div class="legend-dot" style="background:var(--c-iron)"></div>Irons</div>
-    <div class="legend-item"><div class="legend-dot" style="background:var(--c-wedge)"></div>Wedges</div>
-    <div class="legend-item"><div class="legend-dot" style="background:var(--c-putter)"></div>Putter</div>
-  </div>
-  <div class="legend">
+  <div class="legend" style="justify-content:flex-end;margin-top:14px">
     <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>Tight (&lt;5 yd L/R)</div>
     <div class="legend-item"><div class="legend-dot" style="background:var(--sky)"></div>Moderate (5–10 yd L/R)</div>
     <div class="legend-item"><div class="legend-dot" style="background:var(--gold)"></div>Wide (&gt;10 yd L/R)</div>
@@ -74,8 +68,18 @@
       <input type="range" class="yard-slider" id="yard-slider" min="37" max="170" value="95" step="1"
         oninput="document.getElementById('calc-display').textContent=this.value;document.getElementById('yard-input').value=this.value;renderCalc(parseInt(this.value));renderExpectedShots('es-150',parseInt(this.value),'fairway')">
     </div>
-    <div class="calc-manual-col"><label for="yard-input">Type yardage</label><input type="number" id="yard-input" min="37" max="170" value="95"
+    <div class="calc-manual-col"><label for="yard-input">Yards</label><input type="number" id="yard-input" min="37" max="170" value="95"
       oninput="const v=Math.max(35,Math.min(165,parseInt(this.value)||95));document.getElementById('yard-slider').value=v;document.getElementById('calc-display').textContent=v;renderCalc(v);renderExpectedShots('es-150',v,'fairway')"></div>
+    <div class="calc-manual-col" style="flex:0 0 100px">
+      <label for="approach-firmness">Firmness</label>
+      <select id="approach-firmness" onchange="window.approachGreenFirmness=parseInt(this.value);window.approachSelectedIdx=-1;buildPartialsTable();renderCalc(parseInt(document.getElementById('yard-slider').value))" style="font-family:Arial,sans-serif;font-size:.85rem;font-weight:700;padding:7px 10px;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;color:var(--ink);outline:none;width:100%">
+        <option value="-2">Very Soft</option>
+        <option value="-1">Soft</option>
+        <option value="0" selected>Average</option>
+        <option value="2">Firm</option>
+        <option value="4">Very Firm</option>
+      </select>
+    </div>
   </div>
 
   <!-- 2. Expected shots -->
@@ -92,7 +96,7 @@
     <label>Stimp</label>
     <div class="stimp-val" id="partials-stimp-val">9.5</div>
     <input type="range" id="partials-stimp-range" min="7" max="14" step="0.5" value="9.5"
-      oninput="STATE.stimp=parseFloat(this.value);document.getElementById('partials-stimp-val').textContent=STATE.stimp.toFixed(1);const sv=document.getElementById('sg-stimp-val');if(sv)sv.textContent=STATE.stimp.toFixed(1);buildChipMatrix();saveState()">
+      oninput="STATE.stimp=parseFloat(this.value);document.getElementById('partials-stimp-val').textContent=STATE.stimp.toFixed(1);const sv=document.getElementById('sg-stimp-val');if(sv)sv.textContent=STATE.stimp.toFixed(1);const _sgS=document.getElementById('sg-stimp-select');if(_sgS)_sgS.value=this.value;const _puS=document.getElementById('putt-stimp-select');if(_puS)_puS.value=this.value;buildChipMatrix();saveState()">
     <label>Slope</label>
     <select id="partials-slope" onchange="buildPartialsTable()"
       style="font-family:Arial,sans-serif;font-size:.9rem;font-weight:700;padding:5px 9px;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;color:var(--ink);outline:none">

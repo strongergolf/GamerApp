@@ -14,6 +14,9 @@ function renderExpectedShots(id, dist, lie){
   const srScratch=srInterp(lie,dist);
   const hcpLabel=hcp>=0?String(hcp):'+'+Math.abs(hcp);
   const lieLabel=lie==='green'?`${dist}ft from cup`:lie==='atg'?`${dist}yd (around green)`:`${dist}yd from fairway`;
+  const sg=srScratch!=null?srScratch-sr:null;
+  const sgStr=sg==null?'—':(sg>=0?'+':'')+sg.toFixed(2);
+  const sgColor=sg==null?'var(--muted)':sg>=0?'var(--green)':'var(--gold)';
   el.innerHTML=`<div class="es-strip">
     <div class="es-strip-label">${lieLabel}</div>
     <div class="es-strip-body">
@@ -28,6 +31,10 @@ function renderExpectedShots(id, dist, lie){
       <div class="es-stat">
         <div class="es-val" style="color:var(--muted)">—</div>
         <div class="es-lbl">my actual</div>
+      </div>
+      <div class="es-stat">
+        <div class="es-val" style="color:${sgColor}">${sgStr}</div>
+        <div class="es-lbl">SG vs scratch</div>
       </div>
     </div>
   </div>`;
