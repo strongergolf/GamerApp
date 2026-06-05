@@ -137,7 +137,7 @@ All full-swing long-club trajectory SVGs use an **asymmetric cubic bezier** refl
 - Wordmark: "Stronger" green + "Golf" pink; trajectory arc above in pink. Tagline "Club, Shot & Swing Data".
 
 ## Naming conventions (preserve exactly)
-Mark uses specific teaching language. Keep these strings verbatim: "Side Slope at Point of Influence", "Chip Shot Options", "Pitch Shot Options", "Expected Putts Calculator". Nav: Play (Stock Shots / Approach / Short Game / Putting), Diagnose (Causal Chain), Locker Room group → My Bag / My Courses / Myself.
+Mark uses specific teaching language. Keep these strings verbatim: "Side Slope at Point of Influence", "Chip Shot Options", "Pitch Shot Options", "Expected Putts Calculator". Nav: Play (Stock Shots / Approach / Short Game / Putting), Diagnose (Causal Chain), Locker Room group → My Bag / My Courses / Myself / Reference.
 
 ## Working style
 Mark describes changes in plain golf terms and reviews each revision closely — he catches calibration drift and regressions quickly. Match real-world reference data (Foresight table, measured landing angles, stimp 9.5); approximations get caught. Keep responses precise.

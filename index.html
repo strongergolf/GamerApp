@@ -216,6 +216,53 @@
   </div>
 </div>
 
+<!-- REFERENCE -->
+<div id="page-reference" class="page">
+  <div class="section-label" style="margin-top:0">Impact Geometry &amp; Ball Flight — Reference</div>
+  <p class="intro-note">The StrongerGolf vocabulary, worded to keep front-of-mind that <strong>impact is a 3D event</strong>: every variable has a Vertical and a Horizontal component of one 3D vector. This grounds every model and tool in the app.</p>
+
+  <div class="section-label">Definitions</div>
+  <div class="ref-grid">
+    <div class="ref-card"><div class="ref-term">Impact Plane <span class="ref-sub">VPlane · HPlane</span></div><div class="ref-def">The shape of the clubhead's <em>motion</em> through the bottom of the swing. <b>VPlane</b> = the "lie angle" of that motion (upright/flat, DTL). <b>HPlane</b> = its horizontal aim (overhead). Not to be confused with Path.</div></div>
+    <div class="ref-card"><div class="ref-term">3D Path <span class="ref-sub">VPath · HPath</span></div><div class="ref-def">Direction the clubhead is <em>moving</em> at impact. <b>VPath</b> = Angle of Attack (up+/down−). <b>HPath</b> = left/right of target line.</div></div>
+    <div class="ref-card"><div class="ref-term">3D Face <span class="ref-sub">VFace · HFace</span></div><div class="ref-def">Direction the face <em>points</em> at impact. <b>VFace</b> = Dynamic Loft (incl. shaft lean). <b>HFace</b> = open/closed vs target.</div></div>
+    <div class="ref-card"><div class="ref-term">Spin Loft <span class="ref-sub">VDiff · HDiff</span></div><div class="ref-def">3D angle between Face and Path, along the D-plane. <b>VDiff</b> = VFace − VPath (drives launch &amp; spin). <b>HDiff</b> = HFace − HPath (tilts the spin axis = curve).</div></div>
+    <div class="ref-card"><div class="ref-term">Spin Axis</div><div class="ref-def">Tilt of the ball's spin axis vs the horizon — the curve. Left(−) / Right(+).</div></div>
+    <div class="ref-card"><div class="ref-term">3D Launch <span class="ref-sub">VLaunch · HLaunch</span></div><div class="ref-def">Initial ball direction. Ball starts on the D-plane, <b>75–85% toward the Face</b> (≈75% wedges, 85% driver), then curves off the path.</div></div>
+  </div>
+
+  <div class="section-label" style="margin-top:20px">Gear Effect — off-centre strike (RH; mirror for LH)</div>
+  <p class="intro-note" style="margin-bottom:8px">Why predicted ("estimated") spin axis diverges from actual: contact location bends the result.</p>
+  <div class="ref-grid">
+    <div class="ref-card"><div class="ref-term">Toe contact</div><div class="ref-def">Spin axis tilts <b>left</b> → more hook/draw spin.</div></div>
+    <div class="ref-card"><div class="ref-term">Heel contact</div><div class="ref-def">Spin axis tilts <b>right</b> → more fade/slice spin.</div></div>
+    <div class="ref-card"><div class="ref-term">High on face</div><div class="ref-def"><b>Decreases</b> spin rate.</div></div>
+    <div class="ref-card"><div class="ref-term">Low on face</div><div class="ref-def"><b>Increases</b> spin rate.</div></div>
+  </div>
+
+  <div class="section-label" style="margin-top:20px">Launch-Monitor Terminology Cross-Map</div>
+  <p class="intro-note" style="margin-bottom:8px">StrongerGolf vs Trackman vs FlightScope. <strong>Watch-out:</strong> Trackman "Spin Loft" is only the <em>Vertical</em> Differential (VDiff), not the full 3D Spin Loft.</p>
+  <div class="ref-table-wrap">
+    <table class="ref-table">
+      <thead><tr><th>StrongerGolf</th><th>Trackman</th><th>FlightScope</th></tr></thead>
+      <tbody>
+        <tr><td>Vertical Plane (VPlane)</td><td>Swing Plane</td><td>Swing Plane (V)</td></tr>
+        <tr><td>Horizontal Plane (HPlane)</td><td>Swing Direction</td><td>Swing Plane (H)</td></tr>
+        <tr><td>Vertical Path (VPath)</td><td>Attack Angle</td><td>Club Attack</td></tr>
+        <tr><td>Horizontal Path (HPath)</td><td>Club Path</td><td>Club Strike</td></tr>
+        <tr><td>Vertical Face (VFace)</td><td>Dynamic Loft</td><td>Dynamic Loft</td></tr>
+        <tr><td>Horizontal Face (HFace)</td><td>Face Angle</td><td>Face Angle</td></tr>
+        <tr><td>Vertical Differential (VDiff)</td><td>Spin Loft <span style="color:var(--gold)">⚠</span></td><td>—</td></tr>
+        <tr><td>Horizontal Differential (HDiff)</td><td>Cut/Curve Angle</td><td>—</td></tr>
+        <tr><td>Spin Axis</td><td>Spin Axis</td><td>Ball Spin Axis</td></tr>
+        <tr><td>Vertical Launch (VLaunch)</td><td>Launch Angle</td><td>Ball Angle (V)</td></tr>
+        <tr><td>Horizontal Launch (HLaunch)</td><td>Launch Direction</td><td>Ball Angle (H)</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="intro-note" style="margin-top:10px;font-size:.62rem">Source: StrongerGolf research corpus — D-Plane (Jorgensen, <em>Physics of Golf</em>), 3 Phases of the Downswing (Strong &amp; Zibrik), and impact-geometry glossary.</p>
+</div>
+
 <div class="toast" id="toast"></div>
 
 

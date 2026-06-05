@@ -468,3 +468,17 @@ table.chip-matrix tr:hover td{background:var(--surface2)}
 .putt-svg-caption{font-family:ui-monospace,monospace;font-size:.58rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:8px;text-align:center}
 @media(max-width:520px){.putt-layout{flex-direction:column}.putt-visual{flex:none;width:100%}}
 .gen-note{font-size:.78rem;font-style:italic;color:var(--muted);margin-top:8px;line-height:1.5}
+
+/* Reference tab (Locker Room) */
+.ref-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+.ref-card{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--green);border-radius:8px;padding:10px 12px}
+.ref-term{font-family:Arial,sans-serif;font-weight:800;font-size:.92rem;color:var(--ink);letter-spacing:.01em;margin-bottom:4px}
+.ref-term .ref-sub{font-family:ui-monospace,monospace;font-size:.56rem;font-weight:600;color:var(--muted);letter-spacing:.04em;margin-left:5px}
+.ref-def{font-family:Arial,sans-serif;font-size:.76rem;line-height:1.45;color:var(--ink2)}
+.ref-def b{color:var(--ink)}
+.ref-table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:8px}
+.ref-table{border-collapse:collapse;width:100%;font-family:Arial,sans-serif;font-size:.8rem}
+.ref-table th{text-align:left;padding:8px 12px;background:var(--bg2);color:var(--ink);font-weight:800;font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;border-bottom:2px solid var(--border)}
+.ref-table td{padding:7px 12px;border-bottom:1px solid var(--border);color:var(--ink2)}
+.ref-table td:first-child{font-weight:700;color:var(--ink)}
+.ref-table tr:last-child td{border-bottom:none}

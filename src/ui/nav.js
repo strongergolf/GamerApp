@@ -12,7 +12,7 @@ const GROUPS={
     {id:'putting',  label:'Putting'}
   ],
   diagnose:[{id:'diagnose',label:'Causal Chain'}],
-  setup:[{id:'specs',label:'My Bag'},{id:'courses',label:'My Courses'},{id:'profile',label:'Myself'}]
+  setup:[{id:'specs',label:'My Bag'},{id:'courses',label:'My Courses'},{id:'profile',label:'Myself'},{id:'reference',label:'Reference'}]
 };
 let currentGroup='play';
 

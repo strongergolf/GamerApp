@@ -191,6 +191,10 @@ function buildChain(){
        ${forceRow('Push','The releasing of the clubhead in relation to the grip — the grip stays in the same spot, but the clubhead is orbiting around it. A rotational torque around the grip.','push')}
        ${forceRow('Twist','A screwdriver-like motion with the hands and forearms, causing the clubhead\'s sweetspot to rotate around the club shaft\'s longitudinal axis.','twist')}
 
+       <div class="lvl-subhead" style="margin-top:16px">Elite Force Profile — 3 Phases of the Downswing</div>
+       <div class="chain-caption" style="margin-top:4px">Reference Pull / Push / Twist magnitudes about the Point of Influence through the downswing, from the StrongerGolf "3 Phases" study (Strong &amp; Zibrik, 2013). Phases end at hand clock-positions: <b>9:00</b> (end Phase 1) → <b>7:00 / max effort</b> (end Phase 2) → <b>Impact</b>. The signature: <b style="color:var(--c-wood)">Push</b> peaks mid-downswing then releases to zero; <b style="color:var(--c-iron)">Pull</b> climbs to a 100% inward force (~100 lb) at impact; <b style="color:var(--c-wedge)">Twist</b> spikes last to square the face.</div>
+       <div style="display:flex;justify-content:center;padding:8px 0 4px">${buildForceProfileSVG()}</div>
+
        <div class="lvl-subhead" style="margin-top:16px">Grip Profile</div>
        <div class="chain-caption" style="margin-top:4px">Grip position directly influences the Twist torque available and its timing. Rated on two independent spectrums — strength position and palm-to-fingers depth.</div>
        <div class="grip-profile-wrap">
@@ -263,6 +267,13 @@ function buildChain(){
        +'<div style="font-family:ui-monospace,monospace;font-size:.5rem;color:var(--muted);line-height:1.6;margin-bottom:12px;padding:8px 10px;background:var(--bg2);border-radius:6px;border:1px solid var(--border)">'
        +'<strong style="color:var(--ink2)">K-Vest / Cheetham benchmarks (skilled golfers):</strong> '
        +'Pelvis peaks &amp; decelerates before thorax peaks · each segment peaks later &amp; faster · arm→club ratio ~1.26× · club should reach peak at or just after impact</div>'
+       +'<div class="lvl-subhead">StrongerGolf Measured — Kinematic Sequence</div>'
+       +'<div class="chain-caption" style="margin-top:4px">Peak angular velocities from the Strong &amp; Zibrik K-Vest study (tour-level player, full driver). Proximal-to-distal order confirmed — each segment peaks faster than the one below it.</div>'
+       +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:stretch;margin:8px 0 6px">'
+       +['Pelvis|410|var(--c-wood)','Upper Body|552|var(--c-iron)','Club (grip)|1479|var(--grey)'].map(c=>{const[lbl,v,col]=c.split('|');return '<div style="flex:1;min-width:84px;text-align:center;background:var(--bg2);border:1px solid var(--border);border-top:3px solid '+col+';border-radius:7px;padding:9px 6px"><div style="font-family:Arial,sans-serif;font-size:1.35rem;font-weight:800;color:'+col+';line-height:1">'+v+'</div><div style="font-family:ui-monospace,monospace;font-size:.46rem;color:var(--muted);letter-spacing:.06em">°/s peak</div><div style="font-family:Arial,sans-serif;font-size:.72rem;font-weight:700;color:var(--ink2);margin-top:3px">'+lbl+'</div></div>';}).join('')
+       +'</div>'
+       +'<div style="font-family:ui-monospace,monospace;font-size:.5rem;color:var(--muted);line-height:1.6;margin-bottom:12px;padding:7px 10px;background:var(--bg2);border-radius:6px;border:1px solid var(--border)">'
+       +'<strong style="color:var(--ink2)">Speed-gain ratios:</strong> Upper Body / Pelvis = <b>1.35×</b> · Club / Upper Body = <b>2.68×</b> — the summation-of-speed multiplier elite players share.</div>'
        +'<div class="edit-field" style="margin-bottom:10px"><label>Sequence Order Observed</label>'
        +'<input class="metric-input" data-swing="kinematics.sequenceOrder" value="'+escapeHtml(getPath(STATE.swing,'kinematics.sequenceOrder'))+'" placeholder="e.g. Pelvis → Thorax → Arm → Club (ideal) or Thorax first (OTT)"></div>'
        +'<div class="edit-field" style="margin-bottom:14px"><label>Transition Trigger</label>'
@@ -457,6 +468,34 @@ function forceRow(name,desc,key){
     <div class="force-stages">${stageCells}</div>
   </div>`;
 }
+/* Elite Pull/Push/Twist magnitude profile through the downswing —
+   StrongerGolf "3 Phases" study (Strong/Zibrik). % of max about the POI. */
+function buildForceProfileSVG(){
+  const W=340,H=152,padL=26,padR=66,padT=14,padB=24;
+  const plotW=W-padL-padR, plotH=H-padT-padB;
+  const labels=['Top','9:00','7:00','Impact'];
+  const series=[
+    {name:'Pull', color:'var(--c-iron)',  vals:[22,53,88,100]},
+    {name:'Push', color:'var(--c-wood)',  vals:[25,66,100,0]},
+    {name:'Twist',color:'var(--c-wedge)', vals:[15,45,50,95]},
+  ];
+  const X=i=>padL+(i/(labels.length-1))*plotW;
+  const Y=v=>padT+(1-v/100)*plotH;
+  let grid='';
+  [0,25,50,75,100].forEach(g=>{const y=Y(g);grid+=`<line x1="${padL}" y1="${y.toFixed(1)}" x2="${(padL+plotW).toFixed(1)}" y2="${y.toFixed(1)}" stroke="var(--border)" stroke-width="0.5"/><text x="${padL-4}" y="${(y+2.5).toFixed(1)}" text-anchor="end" font-family="ui-monospace,monospace" font-size="6" fill="var(--muted)">${g}</text>`;});
+  let xlab='';
+  labels.forEach((l,i)=>{xlab+=`<text x="${X(i).toFixed(1)}" y="${H-padB+12}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="6.5" fill="var(--ink2)">${l}</text>`;});
+  let lines='', legend='';
+  series.forEach((s,si)=>{
+    const pts=s.vals.map((v,i)=>`${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' ');
+    lines+=`<polyline points="${pts}" fill="none" stroke="${s.color}" stroke-width="2" stroke-linejoin="round"/>`;
+    s.vals.forEach((v,i)=>{lines+=`<circle cx="${X(i).toFixed(1)}" cy="${Y(v).toFixed(1)}" r="2.4" fill="${s.color}"/>`;});
+    const ly=padT+2+si*13;
+    legend+=`<line x1="${(padL+plotW+10).toFixed(1)}" y1="${ly+4}" x2="${(padL+plotW+22).toFixed(1)}" y2="${ly+4}" stroke="${s.color}" stroke-width="2.5"/><text x="${(padL+plotW+26).toFixed(1)}" y="${ly+6.5}" font-family="ui-monospace,monospace" font-size="7" fill="var(--ink2)">${s.name}</text>`;
+  });
+  const ann=`<text x="${X(2).toFixed(1)}" y="${(Y(100)-4).toFixed(1)}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="5.5" fill="var(--c-wood)">~30 lb</text><text x="${X(3).toFixed(1)}" y="${(Y(100)-4).toFixed(1)}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="5.5" fill="var(--c-iron)">~100 lb</text>`;
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:360px;display:block" xmlns="http://www.w3.org/2000/svg">${grid}${lines}${ann}${xlab}${legend}</svg>`;
+}
 function saveSwing(){
   document.querySelectorAll('[data-swing]').forEach(el=>setPath(STATE.swing,el.getAttribute('data-swing'),el.value));
   saveState(); toast('Swing data saved');
@@ -469,4 +508,4 @@ function escapeHtml(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quo
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { ballRefHtml, buildChain, escapeHtml, forceRow, getPath, metricBox, saveSwing, setPath, toggleLevel });
+Object.assign(window, { ballRefHtml, buildChain, buildForceProfileSVG, escapeHtml, forceRow, getPath, metricBox, saveSwing, setPath, toggleLevel });
