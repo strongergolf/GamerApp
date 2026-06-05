@@ -40,6 +40,7 @@ function renderAll(){
   renderConditions();
   buildLadder();
   buildPartialsTable();
+  buildShotShaper();
   /* Sync approach stimp control from STATE (values are in static HTML so can't use template literals) */
   const _psv=document.getElementById('partials-stimp-val'); if(_psv) _psv.textContent=STATE.stimp.toFixed(1);
   const _psr=document.getElementById('partials-stimp-range'); if(_psr) _psr.value=STATE.stimp;

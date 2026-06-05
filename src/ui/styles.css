@@ -482,3 +482,27 @@ table.chip-matrix tr:hover td{background:var(--surface2)}
 .ref-table td{padding:7px 12px;border-bottom:1px solid var(--border);color:var(--ink2)}
 .ref-table td:first-child{font-weight:700;color:var(--ink)}
 .ref-table tr:last-child td{border-bottom:none}
+
+/* Prototype features (Play tab) */
+.proto-badge{font-family:ui-monospace,monospace;font-size:.5rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--gold);background:var(--gold-pale);border:1px solid var(--gold2);border-radius:4px;padding:1px 5px;margin-left:7px;vertical-align:middle}
+/* Shot Shaper */
+.shaper-controls{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.shaper-ctrl{flex:1;min-width:96px}
+.shaper-ctrl label{display:block;font-family:ui-monospace,monospace;font-size:.56rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:4px}
+.shaper-ctrl select{width:100%;font-family:Arial,sans-serif;font-size:.88rem;font-weight:700;padding:7px 8px;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;color:var(--ink);outline:none}
+.shaper-grid{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.shaper-readout{flex:1;min-width:220px}
+.shaper-line{display:flex;justify-content:space-between;align-items:baseline;padding:6px 0;border-bottom:1px solid var(--border)}
+.shaper-line span{font-family:ui-monospace,monospace;font-size:.6rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.shaper-line b{font-family:Arial,sans-serif;font-size:1rem;font-weight:800;color:var(--ink)}
+.shaper-note{font-family:Arial,sans-serif;font-size:.74rem;line-height:1.5;color:var(--ink2);margin-top:8px}
+.shaper-note b{color:var(--ink)}
+/* Gear-effect + driver nudge panels */
+.gear-panel{background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:11px 13px;margin-top:10px}
+.gear-title{font-family:Arial,sans-serif;font-weight:800;font-size:.85rem;color:var(--ink);margin-bottom:3px}
+.gear-sub{font-family:Arial,sans-serif;font-size:.72rem;line-height:1.45;color:var(--ink2)}
+.gear-sub b{color:var(--ink)}
+.nudge-row{display:flex;gap:8px;margin-top:9px}
+.nudge-cell{flex:1;text-align:center;background:var(--bg2);border:1px solid var(--border);border-radius:7px;padding:8px 4px}
+.nudge-val{font-family:Arial,sans-serif;font-size:1.3rem;font-weight:800;color:var(--ink);line-height:1}
+.nudge-lbl{font-family:ui-monospace,monospace;font-size:.46rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-top:3px;line-height:1.3}

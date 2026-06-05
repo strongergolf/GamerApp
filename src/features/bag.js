@@ -105,7 +105,9 @@ function toggleDetail(c,row,group,inner){
         <div class="flight-col-main"><div class="flight-label">Trajectory &amp; Rollout</div><div class="flight-svg-wrap">${buildSideSVG(c,p)}</div></div>
         <div class="flight-col-top"><div class="flight-label">Overhead — Dispersion</div><div class="flight-svg-wrap">${buildTopSVG(c,p)}</div></div>
       </div>
-    </div>`;
+    </div>
+    ${c.type!=='putter'?buildGearEffectPanel(c):''}
+    ${c.id==='D'?buildDriverCarryNudge(p):''}`;
   renderExpectedShots(`es-bag-${c.id}`, p.total||p.carry, 'fairway');
   group.classList.add('open');
   setTimeout(()=>group.scrollIntoView({behavior:'smooth',block:'nearest'}),50);
@@ -256,6 +258,48 @@ function buildTopSVG(c,p){
 
 
 
+/* ============================================================
+   GEAR-EFFECT MISS PATTERN (prototype) — Study 01 obs #2 + glossary rules
+   Off-centre contact materially shapes ball flight (RH; mirror for LH).
+   ============================================================ */
+function buildGearFaceSVG(){
+  const W=280,H=128,fx=88,fy=26,fw=104,fh=72,cx=fx+fw/2,cy=fy+fh/2;
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:300px;display:block;margin:0 auto" xmlns="http://www.w3.org/2000/svg">
+    <rect x="${fx}" y="${fy}" width="${fw}" height="${fh}" rx="10" fill="var(--bg2)" stroke="var(--border2)" stroke-width="1.5"/>
+    <line x1="${cx}" y1="${fy}" x2="${cx}" y2="${fy+fh}" stroke="var(--border)" stroke-width="0.5"/>
+    <line x1="${fx}" y1="${cy}" x2="${fx+fw}" y2="${cy}" stroke="var(--border)" stroke-width="0.5"/>
+    <circle cx="${cx}" cy="${cy}" r="4" fill="var(--green)"/>
+    <text x="${cx}" y="${cy+13}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="5.5" fill="var(--muted)">sweet spot</text>
+    <text x="${fx+fw+5}" y="${cy-1}" font-family="Arial,sans-serif" font-size="8" font-weight="800" fill="var(--c-wood)">TOE</text>
+    <text x="${fx+fw+5}" y="${cy+8}" font-family="ui-monospace,monospace" font-size="6" fill="var(--muted)">→ hook</text>
+    <text x="${fx-5}" y="${cy-1}" text-anchor="end" font-family="Arial,sans-serif" font-size="8" font-weight="800" fill="var(--c-iron)">HEEL</text>
+    <text x="${fx-5}" y="${cy+8}" text-anchor="end" font-family="ui-monospace,monospace" font-size="6" fill="var(--muted)">→ fade</text>
+    <text x="${cx}" y="${fy-6}" text-anchor="middle" font-family="Arial,sans-serif" font-size="7.5" font-weight="700" fill="var(--ink2)">HIGH → less spin</text>
+    <text x="${cx}" y="${fy+fh+13}" text-anchor="middle" font-family="Arial,sans-serif" font-size="7.5" font-weight="700" fill="var(--ink2)">LOW → more spin</text>
+  </svg>`;
+}
+function buildGearEffectPanel(c){
+  return `<div class="gear-panel">
+    <div class="gear-title">Gear-Effect Miss Pattern <span class="proto-badge">prototype</span></div>
+    <div class="gear-sub">How off-centre contact bends this shot (RH). StrongerGolf study: strike quality materially shapes ball flight — even for tournament pros.</div>
+    ${buildGearFaceSVG()}
+  </div>`;
+}
+function buildDriverCarryNudge(p){
+  const carry=p.carry||270, perDeg=2;
+  const g3=Math.round(3*perDeg), g5=Math.round(5*perDeg);
+  return `<div class="gear-panel">
+    <div class="gear-title">Driver Carry Potential — Attack Angle <span class="proto-badge">prototype</span></div>
+    <div class="gear-sub">StrongerGolf study: even skilled players average a <b>negative</b> driver attack angle (~−3°). The driver rewards hitting <b>up</b> — at the same ball speed, a positive AoA adds carry.</div>
+    <div class="nudge-row">
+      <div class="nudge-cell"><div class="nudge-val">${carry}</div><div class="nudge-lbl">carry now (neutral AoA)</div></div>
+      <div class="nudge-cell"><div class="nudge-val" style="color:var(--green)">+${g3}</div><div class="nudge-lbl">est. yds at +3° up</div></div>
+      <div class="nudge-cell"><div class="nudge-val" style="color:var(--green)">+${g5}</div><div class="nudge-lbl">est. yds at +5° up</div></div>
+    </div>
+    <div class="gear-sub" style="margin-top:6px">Rough estimate (~2 yds per +1° AoA at driver speed). Tune precisely in the Driver Optimizer (Diagnose → Ball Flight).</div>
+  </div>`;
+}
+
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { buildLadder, buildSideSVG, buildTopSVG, renderConditions, statCell, toggleDetail, updateCondSummary });
+Object.assign(window, { buildDriverCarryNudge, buildGearEffectPanel, buildGearFaceSVG, buildLadder, buildSideSVG, buildTopSVG, renderConditions, statCell, toggleDetail, updateCondSummary });
