@@ -24,7 +24,8 @@ const DEFAULT_DATA = {
     teeTarget: 'centre',          // left-edge|left-centre|centre|right-centre|right-edge|shortest|widest
     teeClub: 'optimal',           // driver-often|optimal|conservative
     approachTarget: 'flag-centre',// left-edge|left-centre|centre|right-centre|right-edge|at-flag|flag-centre
-    approachDistance: 'middle'    // pin-high|middle|fat|pin-seek
+    approachDistance: 'middle',   // pin-high|middle|fat|pin-seek
+    riskPosture: 'balanced'       // balanced|chase|protect|match — the aim-optimizer's objective
   },
   /* each course: {id, name, holes:[ {num, par, yards, scaleYpu, bg(dataURL|null),
        tee:{x,y}|null, pin:{x,y}|null, green:[{x,y}], fairway:[{x,y}],

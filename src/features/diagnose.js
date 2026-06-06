@@ -525,9 +525,19 @@ const STRAT_OPTS = {
   teeTarget:[['left-edge','Left edge of fairway'],['left-centre','Left-centre of fairway'],['centre','Centre of fairway'],['right-centre','Right-centre of fairway'],['right-edge','Right edge of fairway'],['shortest','Favour the shortest / most direct route'],['widest','Favour the widest side']],
   teeClub:[['driver-often','Driver as often as possible'],['optimal','Whatever the optimal shot is'],['conservative','Conservative — club down when in doubt']],
   approachTarget:[['left-edge','Left edge of green'],['left-centre','Left-centre of green'],['centre','Centre of green'],['right-centre','Right-centre of green'],['right-edge','Right edge of green'],['at-flag','At the flag'],['flag-centre','Between the flag and the centre']],
-  approachDistance:[['pin-high','Always play pin-high'],['middle','Always play the middle of the green'],['fat','Short of back pins, long of front pins (favour centre depth)'],['pin-seek','Attack the pin when comfortable']]
+  approachDistance:[['pin-high','Always play pin-high'],['middle','Always play the middle of the green'],['fat','Short of back pins, long of front pins (favour centre depth)'],['pin-seek','Attack the pin when comfortable']],
+  riskPosture:[['balanced','Stroke play — balanced (lowest expected score)'],['chase','Chasing — aggressive (chase birdies, accept risk)'],['protect','Protecting a lead — conservative (avoid big numbers)'],['match','Match play — hole-by-hole vs opponent']]
 };
-function setStrategy(key,val){ STATE.strategy=STATE.strategy||{}; STATE.strategy[key]=val; saveState(); document.querySelectorAll('.strat-summary').forEach(s=>s.innerHTML=stratSummary()); }
+const RISK_NOTE={
+  balanced:'Aim optimiser minimises <b>expected strokes</b> — the standard, all-round play.',
+  chase:'Final-9 chase: optimiser favours <b>upside</b> (birdie chances) over the mean — attack flags, take on carries, accept more bogey risk to make up ground.',
+  protect:'Protecting a lead: optimiser minimises <b>downside</b> — fat of the green, lay up from trouble, club down. Trades a little expected score to kill double-bogeys.',
+  match:'Match play: the goal each hole is to <b>beat your opponent</b>, not shoot the lowest mean. Truly opponent-aware aim needs to know their lie/score — a future feature (e.g. Trackman online matches feeding live opponent status). For now it plays a touch more aggressive than balanced.'
+};
+function setStrategy(key,val){ STATE.strategy=STATE.strategy||{}; STATE.strategy[key]=val; saveState();
+  document.querySelectorAll('.strat-summary').forEach(s=>s.innerHTML=stratSummary());
+  if(key==='riskPosture'){ const n=RISK_NOTE[val]||''; document.querySelectorAll('.strat-risk-note').forEach(e=>e.innerHTML=n); }
+}
 function stratLabel(key){ const cur=(STATE.strategy||{})[key]; const o=(STRAT_OPTS[key]||[]).find(x=>x[0]===cur); return o?o[1]:'—'; }
 function stratSelect(key){
   const cur=(STATE.strategy||{})[key];
@@ -547,6 +557,10 @@ function buildStrategyPrefs(){
     <div class="strat-block"><div class="strat-block-h" style="color:var(--green)">Approach Shots</div>
       <div class="strat-card"><div class="strat-q">Target preference</div>${stratSelect('approachTarget')}</div>
       <div class="strat-card"><div class="strat-q">Distance strategy</div>${stratSelect('approachDistance')}</div>
+    </div>
+    <div class="strat-block"><div class="strat-block-h" style="color:var(--gold)">Round Situation</div>
+      <div class="strat-card"><div class="strat-q">Risk posture</div>${stratSelect('riskPosture')}</div>
+      <div class="strat-risk-note">${RISK_NOTE[(STATE.strategy||{}).riskPosture||'balanced']}</div>
     </div>
     <div class="strat-note strat-summary">${stratSummary()}</div>`;
 }
@@ -591,7 +605,7 @@ function dpWorldVectors(hFace,hPath,vFace,vPath){
    offset from its main axis so the D-plane reads in 3D rather than flat. */
 const DP_VIEWS=[
   {key:'dtl', name:'Down the Line', R:[1,0,0.34],  U:[0,1,0.20]},
-  {key:'over',name:'Overhead',      R:[1,0.04,0],  U:[0,0.16,1]},
+  {key:'over',name:'Overhead',      R:[1,0.04,0],  U:[0,0.16,1], ground:true},
   {key:'face',name:'Face-On',       R:[0,0.04,1],  U:[0.22,1,0]}
 ];
 function dpDot(p,b){ return p.x*b[0]+p.y*b[1]+p.z*b[2]; }
@@ -608,12 +622,16 @@ function buildDPlaneView(v,wv){
   const O=P(wv.O),pe=P(wv.path),fe=P(wv.face),te=P(wv.tgt),le=P(wv.launch),aA=P(A),aB=P(B);
   const ln=(a,b,c,w)=>`<line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}" stroke="${c}" stroke-width="${w}"/>`;
   const hz=VH*0.5;
-  return `<div class="dpv-panel"><div class="dpv-title">${v.name}</div>
-    <svg viewBox="0 0 ${VW} ${VH}" style="width:100%;display:block" xmlns="http://www.w3.org/2000/svg">
-      <defs><linearGradient id="dps-${v.key}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#cfe6f6"/><stop offset="100%" stop-color="#eef6fc"/></linearGradient></defs>
+  /* Overhead = looking straight down, all ground (no horizon); DTL & Face-On get sky+ground. */
+  const bg = v.ground
+    ? `<rect width="${VW}" height="${VH}" fill="#8cbb6e"/>`
+    : `<defs><linearGradient id="dps-${v.key}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#cfe6f6"/><stop offset="100%" stop-color="#eef6fc"/></linearGradient></defs>
       <rect width="${VW}" height="${VH}" fill="url(#dps-${v.key})"/>
       <rect x="0" y="${hz}" width="${VW}" height="${VH-hz}" fill="#8cbb6e"/>
-      <line x1="0" y1="${hz}" x2="${VW}" y2="${hz}" stroke="#7aa860" stroke-width="1"/>
+      <line x1="0" y1="${hz}" x2="${VW}" y2="${hz}" stroke="#7aa860" stroke-width="1"/>`;
+  return `<div class="dpv-panel"><div class="dpv-title">${v.name}</div>
+    <svg viewBox="0 0 ${VW} ${VH}" style="width:100%;display:block" xmlns="http://www.w3.org/2000/svg">
+      ${bg}
       <line x1="${O.x.toFixed(1)}" y1="${O.y.toFixed(1)}" x2="${te.x.toFixed(1)}" y2="${te.y.toFixed(1)}" stroke="#555" stroke-width="1.2" stroke-dasharray="5,4" opacity="0.5"/>
       <polygon points="${O.x.toFixed(1)},${O.y.toFixed(1)} ${pe.x.toFixed(1)},${pe.y.toFixed(1)} ${fe.x.toFixed(1)},${fe.y.toFixed(1)}" fill="#e08a2e" fill-opacity="0.5" stroke="#c8721e" stroke-width="1"/>
       ${ln(O,pe,'#c43c9e',2.4)}${ln(O,fe,'#2a6fc4',2.4)}${ln(aB,aA,'#cc2a2a',1.8)}${ln(O,le,'#222',1.2)}
