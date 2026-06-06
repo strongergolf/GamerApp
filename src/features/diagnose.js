@@ -483,14 +483,19 @@ function escapeHtml(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quo
    Stock shape & curve derived from horizontal face vs path, loft-scaled
    (lower loft curves more). Feeds Bag dispersion + Plan hole overlays.
    ============================================================ */
-function dplaneShape(hFace,hPath,loft,carry){
-  hFace=+hFace||0; hPath=+hPath||0; loft=loft||30; carry=carry||150;
-  const hdiff=hFace-hPath;                              // <0 = draw (RH)
-  const shape = hdiff<-0.3?'Draw' : hdiff>0.3?'Fade' : 'Straight';
-  const start = +(hPath+0.8*(hFace-hPath)).toFixed(1);  // HLaunch ≈ toward face
-  const loftFac = Math.sqrt(31/Math.max(8,loft));       // lower loft curves more
-  const curve = Math.round(Math.abs(hdiff)*(carry/160)*loftFac*2.5);
-  return {shape,start,curve,hdiff};
+function dplaneShape(hFace,hPath,loft,aoa,carry){
+  hFace=+hFace||0; hPath=+hPath||0; loft=loft||30; aoa=+aoa||0; carry=carry||150;
+  /* Exact engine: VFace ≈ dynamic loft (≈ static loft for a stock shot), VPath = AoA.
+     SpinAxis = atan(HDiff/VDiff); 3D SpinLoft = √(VDiff²+HDiff²). */
+  const r = dpSolve(hFace, hPath, loft, aoa, carry);
+  return {
+    shape: r.shape,
+    start: +r.hLaunch.toFixed(1),
+    curve: Math.round(Math.abs(r.curveYds)),
+    spinAxis: +r.spinAxis.toFixed(1),
+    spinLoft: +r.spinLoft.toFixed(1),
+    hdiff: r.hDiff
+  };
 }
 function dplShapeCell(sh){
   const col = sh.shape==='Draw'?'var(--green)' : sh.shape==='Fade'?'var(--c-wood)' : 'var(--muted)';
@@ -504,11 +509,11 @@ function buildDplaneGrid(){
   let html=`<div style="overflow-x:auto"><table class="dpl-table"><thead><tr>
     <th style="${th};text-align:left;padding-left:8px">Club</th>
     <th style="${th}">H-Face°</th><th style="${th}">H-Path°</th><th style="${th}">AoA°</th>
-    <th style="${th}">Stock Shape</th><th style="${th}">Start°</th></tr></thead><tbody>`;
+    <th style="${th}">Stock Shape</th><th style="${th}">Spin Loft</th></tr></thead><tbody>`;
   clubs.forEach(c=>{
     const d=(STATE.dplane&&STATE.dplane[c.id])||{hFace:0,hPath:0,aoa:0};
     const p=perf(c.id)||{};
-    const sh=dplaneShape(d.hFace,d.hPath,parseFloat(c.loft)||30,p.carry||150);
+    const sh=dplaneShape(d.hFace,d.hPath,parseFloat(c.loft)||30,d.aoa,p.carry||150);
     const inp=(field,val)=>`<input class="dpl-input" value="${escapeHtml(val)}" inputmode="decimal" oninput="setDplaneCell('${c.id}','${field}',this.value)">`;
     html+=`<tr>
       <td style="padding:5px 8px;white-space:nowrap"><span style="font-family:Arial,sans-serif;font-weight:800;font-size:.85rem;color:var(--ink)">${c.label}</span> <span style="font-family:ui-monospace,monospace;font-size:.56rem;color:var(--muted)">${c.loft}</span></td>
@@ -516,7 +521,7 @@ function buildDplaneGrid(){
       <td>${inp('hPath',d.hPath)}</td>
       <td>${inp('aoa',d.aoa)}</td>
       <td id="dpc-shape-${c.id}" style="text-align:center;white-space:nowrap">${dplShapeCell(sh)}</td>
-      <td id="dpc-start-${c.id}" style="text-align:center;font-family:ui-monospace,monospace;font-size:.62rem;color:var(--ink2)">${dplFmt(sh.start)}</td>
+      <td id="dpc-sl-${c.id}" style="text-align:center;font-family:ui-monospace,monospace;font-size:.62rem;color:var(--ink2)">${sh.spinLoft.toFixed(1)}°</td>
     </tr>`;
   });
   return html+'</tbody></table></div>';
@@ -527,9 +532,9 @@ function setDplaneCell(id,field,value){
   STATE.dplane[id][field]=parseFloat(value)||0;
   const c=STATE.clubs.find(x=>x.id===id); if(!c) return;
   const p=perf(id)||{}, d=STATE.dplane[id];
-  const sh=dplaneShape(d.hFace,d.hPath,parseFloat(c.loft)||30,p.carry||150);
+  const sh=dplaneShape(d.hFace,d.hPath,parseFloat(c.loft)||30,d.aoa,p.carry||150);
   const shEl=document.getElementById('dpc-shape-'+id); if(shEl) shEl.innerHTML=dplShapeCell(sh);
-  const stEl=document.getElementById('dpc-start-'+id); if(stEl) stEl.textContent=dplFmt(sh.start);
+  const slEl=document.getElementById('dpc-sl-'+id); if(slEl) slEl.textContent=sh.spinLoft.toFixed(1)+'°';
   if(typeof buildCourseStrategy==='function') buildCourseStrategy();
   saveState();
 }
@@ -540,7 +545,7 @@ function buildCourseStrategy(){
   const rows=clubs.map(c=>{
     const d=(STATE.dplane&&STATE.dplane[c.id])||{hFace:0,hPath:0,aoa:0};
     const p=perf(c.id)||{};
-    const sh=dplaneShape(d.hFace,d.hPath,parseFloat(c.loft)||30,p.carry||150);
+    const sh=dplaneShape(d.hFace,d.hPath,parseFloat(c.loft)||30,d.aoa,p.carry||150);
     if(sh.shape==='Draw')draws++; else if(sh.shape==='Fade')fades++; else straight++;
     const col=sh.shape==='Draw'?'var(--green)':sh.shape==='Fade'?'var(--c-wood)':'var(--muted)';
     const curveTxt=sh.shape==='Straight'?'':sh.curve<1?' min':` ~${sh.curve}y`;

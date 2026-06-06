@@ -186,20 +186,28 @@ function initCalc(){
    Lower loft curves more (spin axis 4.5° wedge vs 15° driver) → less face/path
    needed. All numbers are population defaults — refine with own LM data.
    ============================================================ */
+function shaperStockAoA(clubId,type){ return type==='wood'?(clubId==='D'?1:-1):type==='iron'?-4:-6; }
 function shaperModel(clubId,shape,amount){
   const c=STATE.clubs.find(x=>x.id===clubId);
   const loft=c?parseFloat(c.loft)||31:31, type=c?c.type:'iron', label=c?c.label:'7';
   const carry=(perf(clubId)||{}).carry||160;
-  if(shape==='straight') return {face:0,path:0,start:0,curve:0,loft,type,label,carry};
+  const aoa=shaperStockAoA(clubId,type);
+  if(shape==='straight') return {face:0,path:0,start:0,curve:0,spinAxis:0,spinLoft:+(loft-aoa).toFixed(1),loft,type,label,carry};
+  /* Reference face/path that finish on target (Study 01: 6i draw 2.2R/4.7R), loft-scaled.
+     Exact spin axis / 3D spin loft / start / curve come from the shared D-plane engine. */
   const refFace=shape==='draw'?2.2:2.6, refPath=shape==='draw'?4.7:5.4;
   const amt=amount==='slight'?0.6:amount==='strong'?1.4:1.0;
   const lf=Math.sqrt(loft/31);                 // lower loft ⇒ less face/path for same curve
-  const dir=shape==='draw'?1:-1;               // draw: face/path RIGHT(+); fade: LEFT(−)
-  const faceMag=refFace*amt*lf, pathMag=refPath*amt*lf;
-  const k=type==='wood'?0.85:0.78;             // start ≈ 78–85% toward face
-  const start=+((pathMag*dir)+k*((faceMag*dir)-(pathMag*dir))).toFixed(1);
-  const curve=Math.round((pathMag-faceMag)*(carry/160)*1.7);
-  return {face:+(faceMag*dir).toFixed(1),path:+(pathMag*dir).toFixed(1),start,curve,loft,type,label,carry};
+  const dir=shape==='draw'?1:-1;               // draw: face/path RIGHT(+) of target
+  const face=+(refFace*amt*lf*dir).toFixed(1);
+  const path=+(refPath*amt*lf*dir).toFixed(1);
+  const r=dpSolve(face,path,loft,aoa,carry);   // exact engine
+  return {face,path,
+    start:+r.hLaunch.toFixed(1),
+    curve:Math.round(Math.abs(r.curveYds)),
+    spinAxis:+r.spinAxis.toFixed(1),
+    spinLoft:+r.spinLoft.toFixed(1),
+    loft,type,label,carry};
 }
 function buildShaperSVG(start,shape){
   const W=220,H=240,cx=W/2,by=H-22,ty=26;
@@ -245,8 +253,9 @@ function renderShotShaper(){
       <div class="shaper-line"><span>3D Face (HFace)</span><b>${fmt(m.face)}</b></div>
       <div class="shaper-line"><span>3D Path (HPath)</span><b>${fmt(m.path)}</b></div>
       <div class="shaper-line"><span>Start line</span><b>${fmt(m.start)} of target</b></div>
+      <div class="shaper-line"><span>Spin axis / 3D loft</span><b>${Math.abs(m.spinAxis).toFixed(1)}° ${m.spinAxis<0?'L':'R'} · ${m.spinLoft.toFixed(0)}°</b></div>
       <div class="shaper-line"><span>Curve</span><b>~${Math.abs(m.curve)} yds ${side}</b></div>
-      <div class="shaper-note">Ball starts ${fmt(m.start)} (≈80% toward the face), then curves ${side} back to target. Face ≈ ½ the path — the D-plane relationship that lands a shaped shot on line. ${launchNote}</div>
+      <div class="shaper-note">Ball starts ${fmt(m.start)} (≈80% toward the face), then curves ${side} back to target via a ${Math.abs(m.spinAxis).toFixed(1)}° spin-axis tilt. Spin axis = atan(HDiff/VDiff) — lower spin loft curves more. ${launchNote}</div>
     </div>
     <div>${buildShaperSVG(m.start,shape)}</div>
   </div>`;
@@ -270,4 +279,4 @@ function buildShotShaper(){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { PARTIAL_CLUBS, SWINGS, buildLookupTable, buildPartialsTable, buildShaperSVG, buildShotShaper, calcSuggestions, effortColor, initCalc, interpFlight, renderCalc, renderShotShaper, selectApproachResult, shaperModel, wedgeModel });
+Object.assign(window, { PARTIAL_CLUBS, SWINGS, buildLookupTable, buildPartialsTable, buildShaperSVG, buildShotShaper, calcSuggestions, effortColor, initCalc, interpFlight, renderCalc, renderShotShaper, selectApproachResult, shaperModel, shaperStockAoA, wedgeModel });

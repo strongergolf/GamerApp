@@ -279,10 +279,16 @@ function buildGearFaceSVG(){
   </svg>`;
 }
 function buildGearEffectPanel(c){
+  const toe=dpGearAxisShift(3,c.type), heel=dpGearAxisShift(-3,c.type);
+  const mag=Math.abs(toe).toFixed(0);
   return `<div class="gear-panel">
     <div class="gear-title">Gear-Effect Miss Pattern <span class="proto-badge">prototype</span></div>
-    <div class="gear-sub">How off-centre contact bends this shot (RH). StrongerGolf study: strike quality materially shapes ball flight — even for tournament pros.</div>
+    <div class="gear-sub">How off-centre contact bends this shot (RH). StrongerGolf study: strike quality materially shapes ball flight — even for tournament pros. A ~3-dimple miss shifts the spin axis about <b>${mag}°</b> for this club (${c.type==='wood'?'woods gear far more than irons':'irons gear less than woods'}).</div>
     ${buildGearFaceSVG()}
+    <div class="nudge-row">
+      <div class="nudge-cell"><div class="nudge-val" style="color:var(--c-iron)">${toe.toFixed(0)}°</div><div class="nudge-lbl">toe → axis (draw)</div></div>
+      <div class="nudge-cell"><div class="nudge-val" style="color:var(--c-wood)">+${heel.toFixed(0)}°</div><div class="nudge-lbl">heel → axis (fade)</div></div>
+    </div>
   </div>`;
 }
 function buildDriverCarryNudge(p){
