@@ -136,8 +136,9 @@ function buildCourses(){
   if(!cs.length){
     wrap.innerHTML=`
       <div class="section-label" style="margin-top:0">Course Editor <span class="proto-badge">prototype</span></div>
-      <p class="intro-note">Build a hole map by tracing over a satellite screenshot. Calibrate the scale, then trace the tee, fairway, green and hazards. Holes feed the Plan strategy overlays. Stored on this device only.</p>
-      <button class="btn btn-primary" onclick="cfAddCourse()">+ New Course</button>`;
+      ${cfImportBox()}
+      <p class="intro-note" style="margin-top:14px">…or build a course by hand (trace over a satellite screenshot):</p>
+      <button class="btn" onclick="cfAddCourse()">+ Blank course (manual)</button>`;
     return;
   }
   const courseOpts=cs.map((x,i)=>`<option value="${i}"${i===e.cIdx?' selected':''}>${escapeHtml(x.name||'Course')}</option>`).join('');
@@ -146,7 +147,8 @@ function buildCourses(){
   const scaleTxt = h&&h.scaleYpu ? `${h.scaleYpu.toFixed(2)} yds/unit (calibrated)` : (h&&h.tee&&h.pin&&h.yards ? `${(h.yards/Math.hypot(h.pin.x-h.tee.x,h.pin.y-h.tee.y)).toFixed(2)} yds/unit (from tee→pin)` : 'not set');
   wrap.innerHTML=`
     <div class="section-label" style="margin-top:0">Course Editor <span class="proto-badge">prototype</span></div>
-    <div class="cf-course-row">
+    ${cfImportBox()}
+    <div class="cf-course-row" style="margin-top:12px">
       <select onchange="cfSelectCourse(this.value)" class="cf-select">${courseOpts}</select>
       <input class="cf-name" value="${escapeHtml(c.name||'')}" oninput="cfRenameCourse(this.value)" placeholder="Course name">
       <button class="btn" onclick="cfAddCourse()">+ Course</button>
@@ -199,8 +201,108 @@ function cfRefreshCanvas(){
   const hint=document.querySelector('.cf-hint'); if(hint) hint.textContent=cfModeHint(window.courseEdit.mode);
 }
 
+/* ---------- OpenStreetMap import (primary acquisition) ----------
+   Geocode (Nominatim) → fetch golf features (Overpass, with geometry) → parse →
+   project lat/lon to field units per hole (oriented tee→green up) → store. */
+function osmToMeters(lat,lon,lat0,lon0){
+  const R=6378137, D=Math.PI/180;
+  return { x:(lon-lon0)*D*R*Math.cos(lat0*D), y:(lat-lat0)*D*R };
+}
+function osmCentroid(geo){ let la=0,lo=0; geo.forEach(p=>{la+=p.lat;lo+=p.lon;}); return {lat:la/geo.length, lon:lo/geo.length}; }
+function osmParse(elements){
+  const f={holes:[],greens:[],fairways:[],tees:[],bunkers:[],water:[]};
+  (elements||[]).forEach(el=>{
+    const t=el.tags, geo=el.geometry; if(!t||!geo||!geo.length) return;
+    const g=t.golf; if(!g) return;
+    if(g==='hole') f.holes.push({num:parseInt(t.ref||t.name)||null, par:parseInt(t.par)||null, line:geo});
+    else if(g==='green') f.greens.push(geo);
+    else if(g==='fairway') f.fairways.push(geo);
+    else if(g==='tee') f.tees.push(geo);
+    else if(g==='bunker') f.bunkers.push(geo);
+    else if(g==='water_hazard'||g==='lateral_water_hazard') f.water.push(geo);
+  });
+  return f;
+}
+function osmNearestHoleIdx(centroid, holes, ref){
+  const cm=osmToMeters(centroid.lat,centroid.lon,ref.lat0,ref.lon0);
+  let best=0,bd=Infinity;
+  holes.forEach((h,i)=>h.line.forEach(p=>{ const m=osmToMeters(p.lat,p.lon,ref.lat0,ref.lon0); const d=Math.hypot(cm.x-m.x,cm.y-m.y); if(d<bd){bd=d;best=i;} }));
+  return best;
+}
+function osmBuildHole(h, feats, ref){
+  const line=h.line.map(p=>osmToMeters(p.lat,p.lon,ref.lat0,ref.lon0));
+  const T=line[0], G=line[line.length-1];
+  const vx=G.x-T.x, vy=G.y-T.y, vlen=Math.hypot(vx,vy)||1;
+  const vhat={x:vx/vlen,y:vy/vlen}, uhat={x:vhat.y,y:-vhat.x};            // along-play & lateral
+  const toUV=m=>{const dx=m.x-T.x,dy=m.y-T.y; return {u:dx*uhat.x+dy*uhat.y, v:dx*vhat.x+dy*vhat.y};};
+  const projGeo=geo=>geo.map(p=>toUV(osmToMeters(p.lat,p.lon,ref.lat0,ref.lon0)));
+  const all=[]; const gather=arr=>arr.forEach(geo=>projGeo(geo).forEach(pt=>all.push(pt)));
+  line.map(toUV).forEach(pt=>all.push(pt));
+  gather(feats.greens);gather(feats.fairways);gather(feats.tees);gather(feats.bunkers);gather(feats.water);
+  let minU=1e9,maxU=-1e9,minV=1e9,maxV=-1e9;
+  all.forEach(p=>{minU=Math.min(minU,p.u);maxU=Math.max(maxU,p.u);minV=Math.min(minV,p.v);maxV=Math.max(maxV,p.v);});
+  const FW=CF_W, FH=CF_H, PADx=90, PADy=80;
+  const spanU=Math.max(1,maxU-minU), spanV=Math.max(1,maxV-minV);
+  const scale=Math.min((FW-2*PADx)/spanU,(FH-2*PADy)/spanV), cx=(minU+maxU)/2;
+  const toField=p=>({x:Math.round(FW/2+(p.u-cx)*scale), y:Math.round(FH-PADy-(p.v-minV)*scale)});
+  const fGeo=geo=>projGeo(geo).map(toField);
+  const biggest=arr=>arr.length?arr.slice().sort((a,b)=>b.length-a.length)[0]:null;
+  const hazards=feats.bunkers.map(g=>({type:'sand',pts:fGeo(g)})).concat(feats.water.map(g=>({type:'water',pts:fGeo(g)})));
+  return { num:h.num||0, par:h.par||4, yards:Math.round(vlen*1.09361), scaleYpu:null, bg:null,
+    tee:toField(toUV(T)), pin:toField(toUV(G)),
+    green:biggest(feats.greens)?fGeo(biggest(feats.greens)):[],
+    fairway:biggest(feats.fairways)?fGeo(biggest(feats.fairways)):[],
+    hazards };
+}
+function osmBuildCourse(name, parsed){
+  let la=0,lo=0,n=0; parsed.holes.forEach(h=>h.line.forEach(p=>{la+=p.lat;lo+=p.lon;n++;}));
+  const ref={lat0:la/n, lon0:lo/n};
+  const assign=list=>list.map(geo=>({geo, hi:osmNearestHoleIdx(osmCentroid(geo),parsed.holes,ref)}));
+  const A={greens:assign(parsed.greens),fairways:assign(parsed.fairways),tees:assign(parsed.tees),bunkers:assign(parsed.bunkers),water:assign(parsed.water)};
+  const pick=(arr,hi)=>arr.filter(x=>x.hi===hi).map(x=>x.geo);
+  const holes=parsed.holes.map((h,hi)=>osmBuildHole(h,{
+    greens:pick(A.greens,hi),fairways:pick(A.fairways,hi),tees:pick(A.tees,hi),bunkers:pick(A.bunkers,hi),water:pick(A.water,hi)
+  },ref)).sort((a,b)=>(a.num||99)-(b.num||99));
+  return {id:cfUID(), name, source:'osm', attribution:'© OpenStreetMap contributors', holes};
+}
+async function cfOsmImport(){
+  const inp=document.getElementById('osm-q'), status=document.getElementById('osm-status');
+  const q=((inp&&inp.value)||'').trim(); if(!q){ if(status)status.textContent='Enter a course name.'; return; }
+  const set=t=>{ if(status) status.textContent=t; };
+  try{
+    set('Locating course…');
+    const geo=await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q='+encodeURIComponent(q)).then(r=>r.json());
+    if(!geo.length){ set('Course not found — try adding the town/city.'); return; }
+    const bb=geo[0].boundingbox.map(Number);  // [S,N,W,E]
+    const S=bb[0]-0.004,N=bb[1]+0.004,W=bb[2]-0.004,E=bb[3]+0.004;
+    set('Fetching map from OpenStreetMap…');
+    const oq='[out:json][timeout:25];(way[golf]('+S+','+W+','+N+','+E+'););out geom;';
+    const data=await fetch('https://overpass-api.de/api/interpreter?data='+encodeURIComponent(oq)).then(r=>r.json());
+    const parsed=osmParse(data.elements);
+    if(!parsed.holes.length){ set('No mapped holes found for this course in OpenStreetMap.'); return; }
+    const course=osmBuildCourse((geo[0].display_name||q).split(',')[0]||q, parsed);
+    cfCourses().push(course);
+    window.courseEdit.cIdx=cfCourses().length-1; window.courseEdit.hIdx=0;
+    saveState(); buildCourses(); if(typeof buildCourseStrategy==='function') buildCourseStrategy();
+    set('Imported '+course.holes.length+' holes from OpenStreetMap.');
+  }catch(e){ set('Import failed (network or data error). '+(e&&e.message||'')); }
+}
+function cfImportBox(){
+  return `<div class="osm-box">
+    <div class="osm-title">Import from OpenStreetMap <span class="proto-badge">prototype</span></div>
+    <div class="osm-sub">Type a course name (add the town for accuracy). Greens, fairways, bunkers, tees and hole pars are pulled automatically — no tracing.</div>
+    <div class="osm-row">
+      <input id="osm-q" class="cf-name" placeholder="e.g. Pitt Meadows Golf Club" onkeydown="if(event.key==='Enter')cfOsmImport()">
+      <button class="btn btn-primary" onclick="cfOsmImport()">Search &amp; Import</button>
+    </div>
+    <div id="osm-status" class="osm-status"></div>
+    <div class="osm-attr">Map data © OpenStreetMap contributors (ODbL)</div>
+  </div>`;
+}
+
 Object.assign(window, {
   CF_W, CF_H, cfCourses, cfCur, cfHole, cfAddCourse, cfDeleteCourse, cfSelectCourse, cfRenameCourse,
   cfAddHole, cfSelectHole, cfSetHoleField, cfSetMode, cfCanvasClick, cfFinishFeature, cfUndoPoint,
-  cfClearFeature, cfLoadBg, cfClearBg, renderHoleSVG, buildCourses, cfModeHint, cfRefreshCanvas
+  cfClearFeature, cfLoadBg, cfClearBg, renderHoleSVG, buildCourses, cfModeHint, cfRefreshCanvas,
+  osmToMeters, osmCentroid, osmParse, osmNearestHoleIdx, osmBuildHole, osmBuildCourse, cfOsmImport, cfImportBox
 });

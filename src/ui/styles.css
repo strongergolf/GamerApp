@@ -535,6 +535,14 @@ table.chip-matrix tr:hover td{background:var(--surface2)}
 .cf-mode.active{background:var(--gold);color:#fff;border-color:var(--gold)}
 .cf-hint{font-family:Arial,sans-serif;font-size:.74rem;font-style:italic;color:var(--muted);margin:6px 0 8px;min-height:18px}
 .cf-canvas{max-width:420px;margin:0 auto;border:1px solid var(--border2);border-radius:10px;overflow:hidden}
+/* OSM import box */
+.osm-box{background:var(--surface);border:1px solid var(--green2);border-left:3px solid var(--green);border-radius:10px;padding:12px 14px}
+.osm-title{font-family:Arial,sans-serif;font-weight:800;font-size:.92rem;color:var(--ink);margin-bottom:3px}
+.osm-sub{font-family:Arial,sans-serif;font-size:.74rem;line-height:1.45;color:var(--ink2);margin-bottom:8px}
+.osm-row{display:flex;gap:8px;flex-wrap:wrap}
+.osm-row .cf-name{flex:1;min-width:160px}
+.osm-status{font-family:ui-monospace,monospace;font-size:.66rem;color:var(--ink2);margin-top:7px;min-height:16px}
+.osm-attr{font-family:ui-monospace,monospace;font-size:.52rem;color:var(--muted);margin-top:6px}
 
 /* Strategy preferences (Plan) */
 .strat-block{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px}
