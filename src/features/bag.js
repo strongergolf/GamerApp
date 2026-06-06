@@ -106,8 +106,10 @@ function toggleDetail(c,row,group,inner){
         <div class="flight-col-top"><div class="flight-label">Overhead — Dispersion</div><div class="flight-svg-wrap">${buildTopSVG(c,p)}</div></div>
       </div>
     </div>
-    ${c.id==='D'?buildDriverCarryNudge(p):''}`;
+    ${c.id==='D'?buildDriverCarryNudge(p):''}
+    ${c.id==='D'?buildDriverOptimizerHTML():''}`;
   renderExpectedShots(`es-bag-${c.id}`, p.total||p.carry, 'fairway');
+  if(c.id==='D' && typeof updateDriverOpt==='function') updateDriverOpt();
   group.classList.add('open');
   setTimeout(()=>group.scrollIntoView({behavior:'smooth',block:'nearest'}),50);
 }

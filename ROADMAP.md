@@ -30,6 +30,17 @@ backdrop. Render holes as styled vector graphics (no licensed imagery shipped).
   fractional par (Broadie), sweep the aim, pick min expected strokes. "Aim X right — OOB left."
 - Stock-shape-aware: favour the curve that works away from trouble.
 
+## Parked / future (Mark's requests)
+- **Trees on hole maps.** OSM golf import has no trees, which heavily drive routing.
+  Interim: also pull OSM `natural=wood` / `landuse=forest` / `natural=tree` near the hole
+  and render as tree masses. Real fix: **satellite imagery** behind the vector overlay
+  (like other apps) — needs a tile provider (Mapbox satellite, commercial-friendly w/ key)
+  since Google imagery can't be redistributed. Vector-on-satellite is the eventual look.
+- **Gear-effect quantification (interactive).** Click anywhere on the clubface → show the
+  resulting spin-axis / launch / spin shift. Needs a club MOI estimate; approximate with
+  three buckets (wedge / iron / wood-hybrid) → scale `dpGearAxisShift`. Foundation already
+  exists (gear rules + per-type magnitudes); next step is the clickable face + MOI scaling.
+
 ## Independent tracks (slot in anytime)
 - **④ Scoring/benchmarking (Broadie):** consistency metric (awful shots vs `A = 0.24·S − 17.1`),
   skill-group benchmarking, long-game-dominates emphasis in the SG diamond.

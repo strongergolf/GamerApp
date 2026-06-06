@@ -76,7 +76,40 @@ function driverOptimalZones(bspd){
   };
 }
 
+function buildDriverOptimizerHTML(){
+  return `<div class="drv-opt-section">
+    <div class="flight-label">Driver Optimizer — Foresight reference <span style="font-weight:400;text-transform:none;color:var(--muted)">· neutral AoA assumed (hitting up adds carry)</span></div>
+    <div class="drv-opt-wrap">
+      <div class="drv-opt-body">
+        <div class="drv-result-display" id="drv-carry-display">
+          <div class="drv-carry-num" id="drv-carry-num">—</div>
+          <div class="drv-carry-lbl">yards carry</div>
+          <div class="drv-carry-sub" id="drv-carry-sub"></div>
+        </div>
+        <div class="drv-controls">
+          <div class="drv-slider-group">
+            <div class="drv-slider-label"><span>Ball Speed</span><span class="drv-val" id="drv-bspd-val">153 mph</span></div>
+            <input type="range" class="drv-slider" id="drv-bspd" min="100" max="200" step="1" value="153" oninput="updateDriverOpt()">
+            <div class="drv-slider-limits"><span>100</span><span>200 mph</span></div>
+          </div>
+          <div class="drv-slider-group">
+            <div class="drv-slider-label"><span>Launch Angle</span><span class="drv-val" id="drv-launch-val">11°</span></div>
+            <input type="range" class="drv-slider" id="drv-launch" min="6" max="20" step="0.5" value="11" oninput="updateDriverOpt()">
+            <div class="drv-slider-limits"><span>6°</span><span>20°</span></div>
+          </div>
+          <div class="drv-slider-group">
+            <div class="drv-slider-label"><span>Spin Rate</span><span class="drv-val" id="drv-spin-val">2400 rpm</span></div>
+            <input type="range" class="drv-slider" id="drv-spin" min="1500" max="4500" step="50" value="2400" oninput="updateDriverOpt()">
+            <div class="drv-slider-limits"><span>1500</span><span>4500 rpm</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="drv-opt-zones" id="drv-opt-zones"></div>
+      <div class="drv-traj-wrap"><div class="drv-traj-label">Trajectory</div><div id="drv-traj-svg"></div></div>
+    </div></div>`;
+}
 function updateDriverOpt(){
+  if(!document.getElementById('drv-bspd')) return;   // only present in the Driver's Stock Shots dropdown
   const bspd  = parseInt(document.getElementById('drv-bspd').value)  || 153;
   const launch= parseFloat(document.getElementById('drv-launch').value) || 11;
   const spin  = parseInt(document.getElementById('drv-spin').value)   || 2400;
@@ -184,4 +217,4 @@ function buildDriverTrajSVG(bspd, launch, spin, carry, opt){
 }
 
 
-Object.assign(window, { FS_TABLE, buildDriverTrajSVG, driverCarryModel, driverOptimalZones, fsInterp, updateDriverOpt });
+Object.assign(window, { FS_TABLE, buildDriverOptimizerHTML, buildDriverTrajSVG, driverCarryModel, driverOptimalZones, fsInterp, updateDriverOpt });

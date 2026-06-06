@@ -124,43 +124,11 @@ function buildChain(){
        ${buildDplaneGrid()}
 
        <div class="lvl-subhead" style="margin-top:16px">D-Plane Visual <span class="placeholder-flag">prototype</span></div>
-       <div class="chain-caption" style="margin-top:4px">The selected club's stock-shot D-plane, drawn from the numbers above — <span style="color:#c43c9e;font-weight:700">Path</span> &amp; <span style="color:#2a6fc4;font-weight:700">Face</span> vectors, the <span style="color:#c8721e;font-weight:700">D-plane</span> wedge, and the perpendicular <span style="color:#cc2a2a;font-weight:700">spin axis</span>. Styled after the StrongerGolf SketchUp models.</div>
+       <div class="chain-caption" style="margin-top:4px">The selected club's stock-shot D-plane from three angles — <strong>Down the Line</strong>, <strong>Overhead</strong>, <strong>Face-On</strong> (each slightly offset for depth). <span style="color:#c43c9e;font-weight:700">Path</span> &amp; <span style="color:#2a6fc4;font-weight:700">Face</span> vectors, the <span style="color:#c8721e;font-weight:700">D-plane</span> wedge, and the perpendicular <span style="color:#cc2a2a;font-weight:700">spin axis</span>.</div>
        <div id="dplane-visual"></div>
        ${buildGearEffectL2()}
 
-       <div class="lvl-subhead" style="margin-top:18px">Maximize Distance — Driver Optimizer</div>
-       <div class="chain-caption" style="margin-top:4px">Anchored to Foresight Sports driver reference data. Launch window 10–14° across all speeds. Spin window decreases with ball speed. Neutral AoA assumed — positive AoA adds carry beyond model output.</div>
-       <div class="drv-opt-wrap">
-         <div class="drv-opt-body">
-           <div class="drv-result-display" id="drv-carry-display">
-             <div class="drv-carry-num" id="drv-carry-num">—</div>
-             <div class="drv-carry-lbl">yards carry</div>
-             <div class="drv-carry-sub" id="drv-carry-sub"></div>
-           </div>
-           <div class="drv-controls">
-             <div class="drv-slider-group">
-               <div class="drv-slider-label"><span>Ball Speed</span><span class="drv-val" id="drv-bspd-val">153 mph</span></div>
-               <input type="range" class="drv-slider" id="drv-bspd" min="100" max="200" step="1" value="153" oninput="updateDriverOpt()">
-               <div class="drv-slider-limits"><span>100</span><span>200 mph</span></div>
-             </div>
-             <div class="drv-slider-group">
-               <div class="drv-slider-label"><span>Launch Angle</span><span class="drv-val" id="drv-launch-val">11°</span></div>
-               <input type="range" class="drv-slider" id="drv-launch" min="6" max="20" step="0.5" value="11" oninput="updateDriverOpt()">
-               <div class="drv-slider-limits"><span>6°</span><span>20°</span></div>
-             </div>
-             <div class="drv-slider-group">
-               <div class="drv-slider-label"><span>Spin Rate</span><span class="drv-val" id="drv-spin-val">2400 rpm</span></div>
-               <input type="range" class="drv-slider" id="drv-spin" min="1500" max="4500" step="50" value="2400" oninput="updateDriverOpt()">
-               <div class="drv-slider-limits"><span>1500</span><span>4500 rpm</span></div>
-             </div>
-           </div>
-         </div>
-         <div class="drv-opt-zones" id="drv-opt-zones"></div>
-         <div class="drv-traj-wrap">
-           <div class="drv-traj-label">Trajectory</div>
-           <div id="drv-traj-svg"></div>
-         </div>
-       </div>`},
+       <div class="chain-caption" style="margin-top:14px">Driver distance optimization (Foresight launch &amp; spin windows) now lives under the <strong>Driver</strong> in <strong>Stock Shots</strong>.</div>`},
     {n:3,id:'forces',title:'Forces &amp; Torques — Grip &amp; Hands',cause:'Kinematic sequence',status:'live',
      render:()=>`<div class="chain-caption">After Nesbit: the club only "knows" the forces and torques applied to it. Anything you can do to a golf club can be described by combining three actions — Pull, Push, and Twist — each characterised by its type, timing, direction, and magnitude. Each is tracked across three downswing stages.</div>
        <div class="force-legend">Each stage: <b>top field</b> = direction · <b>bottom field</b> = magnitude</div>
@@ -608,44 +576,50 @@ function buildCourseStrategy(){
 }
 
 /* ---- D-Plane visual generator (Practice L2) — styled after the SketchUp models ---- */
-function buildDPlaneVisualSVG(hFace,hPath,vFace,vPath,sh,label){
-  const W=360,H=300,DR=Math.PI/180, O={x:74,y:238}, s=46, L=2.5;
-  const vec=(h,v,len)=>({x:Math.sin(h*DR)*len, y:Math.sin(v*DR)*len, z:Math.cos(v*DR)*Math.cos(h*DR)*len});
-  const prj=p=>({x:O.x+s*(0.92*p.x+0.55*p.z), y:O.y+s*(0.20*p.x-1.0*p.y-0.42*p.z)});
-  const path=vec(hPath,vPath,L), face=vec(hFace,vFace,L), tgt=vec(0,0,L);
-  const launch={x:path.x+0.75*(face.x-path.x), y:path.y+0.75*(face.y-path.y), z:path.z+0.75*(face.z-path.z)};
-  let nx=path.y*face.z-path.z*face.y, ny=path.z*face.x-path.x*face.z, nz=path.x*face.y-path.y*face.x;
-  const nl=Math.hypot(nx,ny,nz)||1; nx/=nl; ny/=nl; nz/=nl;
-  const Op=prj({x:0,y:0,z:0}), pe=prj(path), fe=prj(face), te=prj(tgt), le=prj(launch);
-  const axA=prj({x:launch.x+nx, y:launch.y+ny, z:launch.z+nz}), axB=prj({x:launch.x-nx, y:launch.y-ny, z:launch.z-nz});
-  const line=(a,b,col,w)=>`<line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}" stroke="${col}" stroke-width="${w||2}"/>`;
-  const lbl=(x,y,t,col)=>`<text x="${x}" y="${y}" font-family="Arial,sans-serif" font-size="9.5" font-weight="700" fill="${col}">${t}</text>`;
-  const Lx=W-128, Ly=22, dy=15;
-  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block;border-radius:10px;border:1px solid var(--border2)" xmlns="http://www.w3.org/2000/svg">
-    <defs><linearGradient id="dpsky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#bfe0f5"/><stop offset="100%" stop-color="#e6f3fb"/></linearGradient></defs>
-    <rect width="${W}" height="${H}" fill="url(#dpsky)"/>
-    <rect x="0" y="${(H*0.46).toFixed(0)}" width="${W}" height="${(H*0.54).toFixed(0)}" fill="#86b86a"/>
-    <line x1="0" y1="${(H*0.46).toFixed(0)}" x2="${W}" y2="${(H*0.46).toFixed(0)}" stroke="#7aa860" stroke-width="1"/>
-    <line x1="${Op.x}" y1="${Op.y}" x2="${te.x.toFixed(1)}" y2="${te.y.toFixed(1)}" stroke="#333" stroke-width="1.4" stroke-dasharray="6,5" opacity="0.55"/>
-    <polygon points="${Op.x},${Op.y} ${pe.x.toFixed(1)},${pe.y.toFixed(1)} ${fe.x.toFixed(1)},${fe.y.toFixed(1)}" fill="#e08a2e" fill-opacity="0.5" stroke="#c8721e" stroke-width="1"/>
-    ${line(Op,pe,'#c43c9e',2.6)}${line(Op,fe,'#2a6fc4',2.6)}
-    ${line(le,axA,'#cc2a2a',2)}${line(le,axB,'#cc2a2a',2)}${line(Op,le,'#222',1.4)}
-    <line x1="${te.x.toFixed(1)}" y1="${te.y.toFixed(1)}" x2="${te.x.toFixed(1)}" y2="${(te.y-34).toFixed(1)}" stroke="#bbb" stroke-width="1.5"/>
-    <polygon points="${te.x.toFixed(1)},${(te.y-34).toFixed(1)} ${(te.x+17).toFixed(1)},${(te.y-28).toFixed(1)} ${te.x.toFixed(1)},${(te.y-22).toFixed(1)}" fill="#d33"/>
-    <circle cx="${Op.x}" cy="${Op.y}" r="5" fill="#fff" stroke="#333" stroke-width="1.5"/>
-    <text x="${(pe.x+3).toFixed(1)}" y="${(pe.y+4).toFixed(1)}" font-family="Arial" font-size="9" font-weight="700" fill="#c43c9e">Path</text>
-    <text x="${(fe.x+3).toFixed(1)}" y="${fe.y.toFixed(1)}" font-family="Arial" font-size="9" font-weight="700" fill="#2a6fc4">Face</text>
-    <text x="${(axA.x+3).toFixed(1)}" y="${axA.y.toFixed(1)}" font-family="Arial" font-size="8" fill="#cc2a2a">spin axis</text>
-    ${lbl(Lx,Ly,'D-Plane','#c8721e')}
-    ${lbl(Lx,Ly+dy,`Path ${(+hPath).toFixed(1)}° / ${(+vPath).toFixed(1)}°`,'#c43c9e')}
-    ${lbl(Lx,Ly+dy*2,`Face ${(+hFace).toFixed(1)}° / ${(+vFace).toFixed(1)}°`,'#2a6fc4')}
-    ${lbl(Lx,Ly+dy*3,`Spin Loft ${sh.spinLoft.toFixed(1)}°`,'#c8721e')}
-    ${lbl(Lx,Ly+dy*4,`Spin Axis ${Math.abs(sh.spinAxis).toFixed(1)}° ${sh.spinAxis<0?'L':'R'}`,'#c8721e')}
-    ${lbl(Lx,Ly+dy*5,`${sh.shape}`,'#333')}
-    <text x="8" y="${H-8}" font-family="ui-monospace,monospace" font-size="8" fill="#1d3b1d" opacity="0.85">${label} — D-Plane</text>
-  </svg>`;
-}
 function setDpVisClub(id){ window.dpVisClub=id; renderDPlaneVisual(); }
+/* World-space D-plane vectors (x=lateral right, y=up, z=toward target). */
+function dpWorldVectors(hFace,hPath,vFace,vPath){
+  const DR=Math.PI/180, L=2.5;
+  const vec=(h,v,len)=>({x:Math.sin(h*DR)*len, y:Math.sin(v*DR)*len, z:Math.cos(v*DR)*Math.cos(h*DR)*len});
+  const path=vec(hPath,vPath,L), face=vec(hFace,vFace,L), tgt=vec(0,0,L);
+  const launch={x:path.x+0.75*(face.x-path.x),y:path.y+0.75*(face.y-path.y),z:path.z+0.75*(face.z-path.z)};
+  let nx=path.y*face.z-path.z*face.y, ny=path.z*face.x-path.x*face.z, nz=path.x*face.y-path.y*face.x;
+  const nl=Math.hypot(nx,ny,nz)||1;
+  return {O:{x:0,y:0,z:0}, path, face, tgt, launch, axis:{x:nx/nl,y:ny/nl,z:nz/nl}};
+}
+/* Three camera bases (screen-right R, screen-up U as world weights), each slightly
+   offset from its main axis so the D-plane reads in 3D rather than flat. */
+const DP_VIEWS=[
+  {key:'dtl', name:'Down the Line', R:[1,0,0.34],  U:[0,1,0.20]},
+  {key:'over',name:'Overhead',      R:[1,0.04,0],  U:[0,0.16,1]},
+  {key:'face',name:'Face-On',       R:[0,0.04,1],  U:[0.22,1,0]}
+];
+function dpDot(p,b){ return p.x*b[0]+p.y*b[1]+p.z*b[2]; }
+function buildDPlaneView(v,wv){
+  const VW=210, VH=200, PAD=28;
+  const A={x:wv.launch.x+wv.axis.x,y:wv.launch.y+wv.axis.y,z:wv.launch.z+wv.axis.z};
+  const B={x:wv.launch.x-wv.axis.x,y:wv.launch.y-wv.axis.y,z:wv.launch.z-wv.axis.z};
+  const pts=[wv.O,wv.path,wv.face,wv.tgt,wv.launch,A,B];
+  const xs=pts.map(p=>dpDot(p,v.R)), ys=pts.map(p=>dpDot(p,v.U));
+  const mnx=Math.min(...xs),mxx=Math.max(...xs),mny=Math.min(...ys),mxy=Math.max(...ys);
+  const sc=Math.min((VW-2*PAD)/Math.max(0.5,mxx-mnx),(VH-2*PAD)/Math.max(0.5,mxy-mny));
+  const cX=(mnx+mxx)/2, cY=(mny+mxy)/2;
+  const P=p=>({x:VW/2+(dpDot(p,v.R)-cX)*sc, y:VH/2-(dpDot(p,v.U)-cY)*sc});
+  const O=P(wv.O),pe=P(wv.path),fe=P(wv.face),te=P(wv.tgt),le=P(wv.launch),aA=P(A),aB=P(B);
+  const ln=(a,b,c,w)=>`<line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}" stroke="${c}" stroke-width="${w}"/>`;
+  const hz=VH*0.5;
+  return `<div class="dpv-panel"><div class="dpv-title">${v.name}</div>
+    <svg viewBox="0 0 ${VW} ${VH}" style="width:100%;display:block" xmlns="http://www.w3.org/2000/svg">
+      <defs><linearGradient id="dps-${v.key}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#cfe6f6"/><stop offset="100%" stop-color="#eef6fc"/></linearGradient></defs>
+      <rect width="${VW}" height="${VH}" fill="url(#dps-${v.key})"/>
+      <rect x="0" y="${hz}" width="${VW}" height="${VH-hz}" fill="#8cbb6e"/>
+      <line x1="0" y1="${hz}" x2="${VW}" y2="${hz}" stroke="#7aa860" stroke-width="1"/>
+      <line x1="${O.x.toFixed(1)}" y1="${O.y.toFixed(1)}" x2="${te.x.toFixed(1)}" y2="${te.y.toFixed(1)}" stroke="#555" stroke-width="1.2" stroke-dasharray="5,4" opacity="0.5"/>
+      <polygon points="${O.x.toFixed(1)},${O.y.toFixed(1)} ${pe.x.toFixed(1)},${pe.y.toFixed(1)} ${fe.x.toFixed(1)},${fe.y.toFixed(1)}" fill="#e08a2e" fill-opacity="0.5" stroke="#c8721e" stroke-width="1"/>
+      ${ln(O,pe,'#c43c9e',2.4)}${ln(O,fe,'#2a6fc4',2.4)}${ln(aB,aA,'#cc2a2a',1.8)}${ln(O,le,'#222',1.2)}
+      <circle cx="${O.x.toFixed(1)}" cy="${O.y.toFixed(1)}" r="4" fill="#fff" stroke="#333" stroke-width="1.4"/>
+    </svg></div>`;
+}
 function renderDPlaneVisual(){
   const host=document.getElementById('dplane-visual'); if(!host) return;
   const clubs=STATE.clubs.filter(c=>c.type!=='putter');
@@ -654,11 +628,14 @@ function renderDPlaneVisual(){
   const c=STATE.clubs.find(x=>x.id===id)||{}, d=(STATE.dplane&&STATE.dplane[id])||{};
   const vFace=d.vFace!=null?d.vFace:parseFloat(c.loft)||30, p=perf(id)||{};
   const sh=dplaneShape(d.hFace,d.hPath,vFace,d.aoa,p.carry||150);
+  const wv=dpWorldVectors(+d.hFace||0,+d.hPath||0,+vFace||0,+d.aoa||0);
   const opts=clubs.map(x=>`<option value="${x.id}"${x.id===id?' selected':''}>${x.label} — ${x.loft}</option>`).join('');
-  host.innerHTML=`<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+  host.innerHTML=`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
       <label style="font-family:ui-monospace,monospace;font-size:.56rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)">Club</label>
-      <select class="strat-select" style="max-width:170px" onchange="setDpVisClub(this.value)">${opts}</select></div>
-    ${buildDPlaneVisualSVG(+d.hFace||0,+d.hPath||0,+vFace||0,+d.aoa||0,sh,c.label||id)}`;
+      <select class="strat-select" style="max-width:150px" onchange="setDpVisClub(this.value)">${opts}</select>
+      <span style="font-family:ui-monospace,monospace;font-size:.6rem;color:var(--ink2)">Spin Loft ${sh.spinLoft.toFixed(1)}° · Axis ${Math.abs(sh.spinAxis).toFixed(1)}°${sh.spinAxis<-0.05?'L':sh.spinAxis>0.05?'R':''} · ${sh.shape}</span>
+    </div>
+    <div class="dpv-grid">${DP_VIEWS.map(v=>buildDPlaneView(v,wv)).join('')}</div>`;
 }
 function buildGearEffectL2(){
   const dToe=dpGearAxisShift(3,'wood'), iToe=dpGearAxisShift(3,'iron');
@@ -675,4 +652,4 @@ function buildGearEffectL2(){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { STRAT_OPTS, ballRefHtml, buildChain, buildCourseStrategy, buildDPlaneVisualSVG, buildDplaneGrid, buildForceProfileSVG, buildGearEffectL2, buildStrategyPrefs, dplFmt, dplShapeCell, dplaneShape, escapeHtml, forceRow, getPath, metricBox, renderDPlaneVisual, saveSwing, setDpVisClub, setDplaneCell, setStrategy, setPath, stratLabel, stratSelect, stratSummary, toggleLevel });
+Object.assign(window, { STRAT_OPTS, ballRefHtml, buildChain, buildCourseStrategy, buildDPlaneView, buildDplaneGrid, buildForceProfileSVG, buildGearEffectL2, buildStrategyPrefs, dpWorldVectors, dplFmt, dplShapeCell, dplaneShape, escapeHtml, forceRow, getPath, metricBox, renderDPlaneVisual, saveSwing, setDpVisClub, setDplaneCell, setStrategy, setPath, stratLabel, stratSelect, stratSummary, toggleLevel });

@@ -545,6 +545,12 @@ table.chip-matrix tr:hover td{background:var(--surface2)}
 .osm-attr{font-family:ui-monospace,monospace;font-size:.52rem;color:var(--muted);margin-top:6px}
 .osm-presets{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:9px;padding-top:8px;border-top:1px solid var(--border)}
 .osm-attr-inline{font-family:ui-monospace,monospace;font-size:.56rem;color:var(--muted)}
+/* D-plane 3-view panels */
+.dpv-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+@media(max-width:560px){.dpv-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:380px){.dpv-grid{grid-template-columns:1fr}}
+.dpv-panel{border:1px solid var(--border2);border-radius:8px;overflow:hidden;background:#eef6fc}
+.dpv-title{font-family:ui-monospace,monospace;font-size:.55rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink2);text-align:center;padding:4px 0 2px;background:var(--bg2)}
 
 /* Strategy preferences (Plan) */
 .strat-block{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px}
