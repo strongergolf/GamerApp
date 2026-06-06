@@ -140,6 +140,10 @@ function buildChain(){
        <div class="chain-caption" style="margin-top:4px">Reference Pull / Push / Twist magnitudes about the Point of Influence through the downswing, from the StrongerGolf "3 Phases" study (Strong &amp; Zibrik, 2013). Phases end at hand clock-positions: <b>9:00</b> (end Phase 1) → <b>7:00 / max effort</b> (end Phase 2) → <b>Impact</b>. The signature: <b style="color:var(--c-wood)">Push</b> peaks mid-downswing then releases to zero; <b style="color:var(--c-iron)">Pull</b> climbs to a 100% inward force (~100 lb) at impact; <b style="color:var(--c-wedge)">Twist</b> spikes last to square the face.</div>
        <div style="display:flex;justify-content:center;padding:8px 0 4px">${buildForceProfileSVG()}</div>
 
+       <div class="lvl-subhead" style="margin-top:16px">Elite Kinematic Sequence</div>
+       <div class="chain-caption" style="margin-top:4px">The body's summation of speed that creates those forces — each segment peaks <em>faster and later</em> than the one below (proximal → distal). Measured peaks from the Strong/Zibrik K-Vest study: <b style="color:var(--c-wood)">Pelvis 410</b> → <b style="color:var(--c-iron)">Thorax 552</b> → <b>Club 1,479</b> °/s (Lead Arm ~1,100 typical). Speed-gain ≈ 1.35× then 2.68×; the club peaks at impact.</div>
+       <div style="display:flex;justify-content:center;padding:8px 0 4px">${buildKinematicSequenceSVG()}</div>
+
        <div class="lvl-subhead" style="margin-top:16px">Grip Profile</div>
        <div class="chain-caption" style="margin-top:4px">Grip position directly influences the Twist torque available and its timing. Rated on two independent spectrums — strength position and palm-to-fingers depth.</div>
        <div class="grip-profile-wrap">
@@ -386,7 +390,8 @@ function toggleLevel(id){
 }
 function forceRow(name,desc,key){
   const f=STATE.swing.forces[key];
-  const stages=[['transition','Transition'],['mid','Mid'],['impact','Impact']];
+  const stages=[['transition','Transition'],['mid','Mid (7–8:00)'],['impact','Impact']];
+  const greek={pull:'α',push:'β',twist:'γ'}[key]||'';
   const stageCells=stages.map(([sk,slabel])=>{
     const s=f[sk]||{};
     return `<div class="force-stage">
@@ -408,7 +413,7 @@ function forceRow(name,desc,key){
   return `<div class="force-block">
     <div class="force-block-top">
       <div class="force-name-col">
-        <div class="force-name">${name}</div>
+        <div class="force-name">${name} <span class="force-greek">${greek}</span></div>
         <div class="force-desc">${desc}</div>
       </div>
       ${imgSlot}
@@ -418,6 +423,32 @@ function forceRow(name,desc,key){
 }
 /* Elite Pull/Push/Twist magnitude profile through the downswing —
    StrongerGolf "3 Phases" study (Strong/Zibrik). % of max about the POI. */
+/* Elite kinematic sequence — proximal-to-distal angular-velocity curves.
+   Measured peaks (Strong/Zibrik K-Vest): Pelvis 410, Thorax 552, Club 1479 °/s;
+   Lead Arm ~1100 typical. Each peaks faster & later than the one below. */
+function buildKinematicSequenceSVG(){
+  const W=340,H=168,padL=30,padR=10,padT=12,padB=22, plotW=W-padL-padR, plotH=H-padT-padB, maxV=1600;
+  const segs=[
+    {name:'Pelvis',  color:'var(--c-wood)',  peakT:0.42, peak:410, w:0.30},
+    {name:'Thorax',  color:'var(--c-iron)',  peakT:0.60, peak:552, w:0.26},
+    {name:'Lead Arm',color:'var(--c-wedge)', peakT:0.80, peak:1100,w:0.22},
+    {name:'Club',    color:'var(--grey)',    peakT:0.97, peak:1479,w:0.18}
+  ];
+  const X=t=>padL+Math.min(1.12,t)/1.12*plotW, Y=v=>padT+(1-v/maxV)*plotH;
+  let grid='';
+  [0,400,800,1200,1600].forEach(g=>{const y=Y(g);grid+=`<line x1="${padL}" y1="${y.toFixed(1)}" x2="${(padL+plotW).toFixed(1)}" y2="${y.toFixed(1)}" stroke="var(--border)" stroke-width="0.5"/><text x="${padL-4}" y="${(y+3).toFixed(1)}" text-anchor="end" font-family="ui-monospace,monospace" font-size="6" fill="var(--muted)">${g}</text>`;});
+  const ix=X(0.97);
+  const impact=`<line x1="${ix.toFixed(1)}" y1="${padT}" x2="${ix.toFixed(1)}" y2="${(padT+plotH).toFixed(1)}" stroke="var(--ink2)" stroke-width="1" stroke-dasharray="3,3" opacity="0.6"/><text x="${ix.toFixed(1)}" y="${(padT+plotH+9).toFixed(1)}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="6" fill="var(--ink2)">impact</text>`;
+  let lines='',peaks='';
+  segs.forEach(s=>{
+    const pts=[];
+    for(let t=0;t<=1.12;t+=0.035){ const dt=t-s.peakT; pts.push(X(t).toFixed(1)+','+Y(s.peak*Math.exp(-(dt*dt)/(2*s.w*s.w))).toFixed(1)); }
+    lines+=`<polyline points="${pts.join(' ')}" fill="none" stroke="${s.color}" stroke-width="2.2"/>`;
+    peaks+=`<circle cx="${X(s.peakT).toFixed(1)}" cy="${Y(s.peak).toFixed(1)}" r="2.6" fill="${s.color}"/>`;
+  });
+  const xlab=`<text x="${padL}" y="${H-3}" font-family="ui-monospace,monospace" font-size="6" fill="var(--muted)">transition</text><text x="${(padL+plotW).toFixed(1)}" y="${H-3}" text-anchor="end" font-family="ui-monospace,monospace" font-size="6" fill="var(--muted)">follow-through</text>`;
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:380px;display:block" xmlns="http://www.w3.org/2000/svg">${grid}${impact}${lines}${peaks}${xlab}</svg>`;
+}
 function buildForceProfileSVG(){
   const W=340,H=152,padL=26,padR=66,padT=14,padB=24;
   const plotW=W-padL-padR, plotH=H-padT-padB;
@@ -482,7 +513,7 @@ function dplFmt(v){ v=+v||0; return Math.abs(v)<0.05?'0.0':(v>0?'+':'')+v.toFixe
 function buildDplaneGrid(){
   const clubs=STATE.clubs.filter(c=>c.type!=='putter');
   const th='padding:5px 4px;font-family:ui-monospace,monospace;font-size:.5rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--border);background:var(--bg2);text-align:center';
-  const th2=th+';line-height:1.15';
+  const th2=th+';line-height:1.2;font-size:.62rem;color:var(--ink2)';
   let html=`<div style="overflow-x:auto"><table class="dpl-table"><thead><tr>
     <th style="${th};text-align:left;padding-left:8px">Club</th>
     <th style="${th2}">Horiz.<br>Face°</th><th style="${th2}">Horiz.<br>Path°</th>
@@ -609,17 +640,25 @@ const DP_VIEWS=[
   {key:'face',name:'Face-On',       R:[0,0.04,1],  U:[0.22,1,0]}
 ];
 function dpDot(p,b){ return p.x*b[0]+p.y*b[1]+p.z*b[2]; }
+/* Spin axis (− = left/draw, + = right/fade) → 7-bucket ball-flight category. */
+function dpBallFlight(axis){
+  const a=Math.abs(axis);
+  if(a<1) return 'Straight';
+  if(axis<0) return a<3?'Slight Draw':a<8?'Draw':'Hook';
+  return a<3?'Slight Fade':a<8?'Fade':'Slice';
+}
 function buildDPlaneView(v,wv){
   const VW=210, VH=200, PAD=28;
   const A={x:wv.launch.x+wv.axis.x,y:wv.launch.y+wv.axis.y,z:wv.launch.z+wv.axis.z};
   const B={x:wv.launch.x-wv.axis.x,y:wv.launch.y-wv.axis.y,z:wv.launch.z-wv.axis.z};
-  const pts=[wv.O,wv.path,wv.face,wv.tgt,wv.launch,A,B];
+  const ext={x:wv.launch.x*1.75,y:wv.launch.y*1.75,z:wv.launch.z*1.75};   // extended ball-flight line
+  const pts=[wv.O,wv.path,wv.face,wv.tgt,wv.launch,A,B,ext];
   const xs=pts.map(p=>dpDot(p,v.R)), ys=pts.map(p=>dpDot(p,v.U));
   const mnx=Math.min(...xs),mxx=Math.max(...xs),mny=Math.min(...ys),mxy=Math.max(...ys);
   const sc=Math.min((VW-2*PAD)/Math.max(0.5,mxx-mnx),(VH-2*PAD)/Math.max(0.5,mxy-mny));
   const cX=(mnx+mxx)/2, cY=(mny+mxy)/2;
   const P=p=>({x:VW/2+(dpDot(p,v.R)-cX)*sc, y:VH/2-(dpDot(p,v.U)-cY)*sc});
-  const O=P(wv.O),pe=P(wv.path),fe=P(wv.face),te=P(wv.tgt),le=P(wv.launch),aA=P(A),aB=P(B);
+  const O=P(wv.O),pe=P(wv.path),fe=P(wv.face),te=P(wv.tgt),aA=P(A),aB=P(B),eX=P(ext);
   const ln=(a,b,c,w)=>`<line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}" stroke="${c}" stroke-width="${w}"/>`;
   const hz=VH*0.5;
   /* Overhead = looking straight down, all ground (no horizon); DTL & Face-On get sky+ground. */
@@ -634,7 +673,7 @@ function buildDPlaneView(v,wv){
       ${bg}
       <line x1="${O.x.toFixed(1)}" y1="${O.y.toFixed(1)}" x2="${te.x.toFixed(1)}" y2="${te.y.toFixed(1)}" stroke="#555" stroke-width="1.2" stroke-dasharray="5,4" opacity="0.5"/>
       <polygon points="${O.x.toFixed(1)},${O.y.toFixed(1)} ${pe.x.toFixed(1)},${pe.y.toFixed(1)} ${fe.x.toFixed(1)},${fe.y.toFixed(1)}" fill="#e08a2e" fill-opacity="0.5" stroke="#c8721e" stroke-width="1"/>
-      ${ln(O,pe,'#c43c9e',2.4)}${ln(O,fe,'#2a6fc4',2.4)}${ln(aB,aA,'#cc2a2a',1.8)}${ln(O,le,'#222',1.2)}
+      ${ln(O,pe,'#c43c9e',2.4)}${ln(O,fe,'#2a6fc4',2.4)}${ln(aB,aA,'#cc2a2a',1.9)}${ln(O,eX,'#111',2.8)}
       <circle cx="${O.x.toFixed(1)}" cy="${O.y.toFixed(1)}" r="4" fill="#fff" stroke="#333" stroke-width="1.4"/>
     </svg></div>`;
 }
@@ -648,11 +687,13 @@ function renderDPlaneVisual(){
   const sh=dplaneShape(d.hFace,d.hPath,vFace,d.aoa,p.carry||150);
   const wv=dpWorldVectors(+d.hFace||0,+d.hPath||0,+vFace||0,+d.aoa||0);
   const opts=clubs.map(x=>`<option value="${x.id}"${x.id===id?' selected':''}>${x.label} — ${x.loft}</option>`).join('');
+  const fl=dpBallFlight(sh.spinAxis), flCol = fl==='Straight'?'var(--ink2)' : sh.spinAxis<0?'var(--green)':'var(--c-wood)';
+  const side = sh.spinAxis<-0.05?'L':sh.spinAxis>0.05?'R':'';
   host.innerHTML=`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
       <label style="font-family:ui-monospace,monospace;font-size:.56rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)">Club</label>
       <select class="strat-select" style="max-width:150px" onchange="setDpVisClub(this.value)">${opts}</select>
-      <span style="font-family:ui-monospace,monospace;font-size:.6rem;color:var(--ink2)">Spin Loft ${sh.spinLoft.toFixed(1)}° · Axis ${Math.abs(sh.spinAxis).toFixed(1)}°${sh.spinAxis<-0.05?'L':sh.spinAxis>0.05?'R':''} · ${sh.shape}</span>
     </div>
+    <div class="dpv-readout">3D Spin Loft <b>${sh.spinLoft.toFixed(1)}°</b><span class="dpv-sep">·</span>Spin Axis <b>${Math.abs(sh.spinAxis).toFixed(1)}°${side}</b><span class="dpv-sep">·</span>Ball Flight <b style="color:${flCol}">${fl}</b></div>
     <div class="dpv-grid">${DP_VIEWS.map(v=>buildDPlaneView(v,wv)).join('')}</div>`;
 }
 function buildGearEffectL2(){
@@ -670,4 +711,4 @@ function buildGearEffectL2(){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { STRAT_OPTS, ballRefHtml, buildChain, buildCourseStrategy, buildDPlaneView, buildDplaneGrid, buildForceProfileSVG, buildGearEffectL2, buildStrategyPrefs, dpWorldVectors, dplFmt, dplShapeCell, dplaneShape, escapeHtml, forceRow, getPath, metricBox, renderDPlaneVisual, saveSwing, setDpVisClub, setDplaneCell, setStrategy, setPath, stratLabel, stratSelect, stratSummary, toggleLevel });
+Object.assign(window, { STRAT_OPTS, ballRefHtml, buildChain, buildCourseStrategy, buildDPlaneView, buildDplaneGrid, buildForceProfileSVG, buildGearEffectL2, buildKinematicSequenceSVG, buildStrategyPrefs, dpBallFlight, dpWorldVectors, dplFmt, dplShapeCell, dplaneShape, escapeHtml, forceRow, getPath, metricBox, renderDPlaneVisual, saveSwing, setDpVisClub, setDplaneCell, setStrategy, setPath, stratLabel, stratSelect, stratSummary, toggleLevel });

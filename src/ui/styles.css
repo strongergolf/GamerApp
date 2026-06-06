@@ -280,6 +280,7 @@ input[type=range].yard-slider::-moz-range-thumb{width:20px;height:20px;border-ra
 .force-block-top{display:flex;gap:14px;align-items:flex-start;margin-bottom:10px;flex-wrap:wrap}
 .force-name-col{flex:1;min-width:160px}
 .force-name{font-family:Arial,sans-serif;font-weight:800;font-size:1.1rem;letter-spacing:.06em;text-transform:uppercase;color:var(--gold);margin-bottom:5px}
+.force-greek{font-family:Georgia,serif;font-weight:400;font-size:.9rem;color:var(--muted);text-transform:none;letter-spacing:0}
 .force-desc{font-family:Arial,sans-serif;font-size:.82rem;color:var(--ink2);line-height:1.55;font-style:italic}
 .force-diagram{flex:0 0 140px;border-radius:8px;overflow:hidden;border:1px solid var(--border)}
 .force-diagram img{width:100%;display:block}
@@ -551,6 +552,9 @@ table.chip-matrix tr:hover td{background:var(--surface2)}
 @media(max-width:380px){.dpv-grid{grid-template-columns:1fr}}
 .dpv-panel{border:1px solid var(--border2);border-radius:8px;overflow:hidden;background:#eef6fc}
 .dpv-title{font-family:ui-monospace,monospace;font-size:.55rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink2);text-align:center;padding:4px 0 2px;background:var(--bg2)}
+.dpv-readout{font-family:Arial,sans-serif;font-size:.92rem;font-weight:600;color:var(--ink2);margin-bottom:8px;line-height:1.5}
+.dpv-readout b{font-weight:800;color:var(--ink)}
+.dpv-sep{color:var(--border2);margin:0 7px}
 
 /* Strategy preferences (Plan) */
 .strat-block{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px}
