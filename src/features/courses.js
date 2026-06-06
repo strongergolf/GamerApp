@@ -265,27 +265,46 @@ function osmBuildCourse(name, parsed){
   },ref)).sort((a,b)=>(a.num||99)-(b.num||99));
   return {id:cfUID(), name, source:'osm', attribution:'© OpenStreetMap contributors', holes};
 }
+async function cfFetchJSON(url){ const r=await fetch(url); if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); }
+async function cfOverpass(oq){
+  const mirrors=['https://overpass-api.de/api/interpreter','https://overpass.private.coffee/api/interpreter','https://maps.mail.ru/osm/tools/overpass/api/interpreter'];
+  let err;
+  for(const m of mirrors){ try{ return await cfFetchJSON(m+'?data='+encodeURIComponent(oq)); }catch(e){ err=e; } }
+  throw err||new Error('all mirrors failed');
+}
 async function cfOsmImport(){
   const inp=document.getElementById('osm-q'), status=document.getElementById('osm-status');
   const q=((inp&&inp.value)||'').trim(); if(!q){ if(status)status.textContent='Enter a course name.'; return; }
   const set=t=>{ if(status) status.textContent=t; };
+  let lat,lon,S,N,W,E;
+  /* 1) geocode via Photon (browser/CORS-friendly, OSM-based, no key) */
   try{
     set('Locating course…');
-    const geo=await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q='+encodeURIComponent(q)).then(r=>r.json());
-    if(!geo.length){ set('Course not found — try adding the town/city.'); return; }
-    const bb=geo[0].boundingbox.map(Number);  // [S,N,W,E]
-    const S=bb[0]-0.004,N=bb[1]+0.004,W=bb[2]-0.004,E=bb[3]+0.004;
+    const geo=await cfFetchJSON('https://photon.komoot.io/api/?limit=1&q='+encodeURIComponent(q));
+    const ft=geo.features&&geo.features[0];
+    if(!ft){ set('Course not found — try adding the town/city.'); return; }
+    lon=ft.geometry.coordinates[0]; lat=ft.geometry.coordinates[1];
+    const ex=ft.properties&&ft.properties.extent;          // [W,N,E,S] when present
+    if(ex&&ex.length===4){ W=ex[0];N=ex[1];E=ex[2];S=ex[3]; } else { S=lat-0.006;N=lat+0.006;W=lon-0.006;E=lon+0.006; }
+    S-=0.003;N+=0.003;W-=0.003;E+=0.003;
+  }catch(e){ set('Could not locate the course (geocoder error: '+(e&&e.message||'')+').'); return; }
+  /* 2) fetch golf features via Overpass (with mirror fallback) */
+  let data;
+  try{
     set('Fetching map from OpenStreetMap…');
     const oq='[out:json][timeout:25];(way[golf]('+S+','+W+','+N+','+E+'););out geom;';
-    const data=await fetch('https://overpass-api.de/api/interpreter?data='+encodeURIComponent(oq)).then(r=>r.json());
+    data=await cfOverpass(oq);
+  }catch(e){ set('Map service busy or unreachable — try again in a moment ('+(e&&e.message||'')+').'); return; }
+  /* 3) parse → build → store */
+  try{
     const parsed=osmParse(data.elements);
-    if(!parsed.holes.length){ set('No mapped holes found for this course in OpenStreetMap.'); return; }
-    const course=osmBuildCourse((geo[0].display_name||q).split(',')[0]||q, parsed);
+    if(!parsed.holes.length){ set('Located the course, but no mapped holes were found in OpenStreetMap.'); return; }
+    const course=osmBuildCourse(q, parsed);
     cfCourses().push(course);
     window.courseEdit.cIdx=cfCourses().length-1; window.courseEdit.hIdx=0;
     saveState(); buildCourses(); if(typeof buildCourseStrategy==='function') buildCourseStrategy();
     set('Imported '+course.holes.length+' holes from OpenStreetMap.');
-  }catch(e){ set('Import failed (network or data error). '+(e&&e.message||'')); }
+  }catch(e){ set('Could not build the course from the map data ('+(e&&e.message||'')+').'); }
 }
 function cfImportBox(){
   return `<div class="osm-box">
