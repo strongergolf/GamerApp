@@ -60,6 +60,25 @@ const DEFAULT_DATA = {
     S:   {full:97, tq:74, half:57,  conf:[true,false,true]},
     X:   {full:74, tq:57, half:37,  conf:[true,true,true]}
   },
+  /* per-club stock-shot D-plane tendencies (horizontal face/path + attack angle, degrees).
+     hFace/hPath: left(−)/right(+) of target. Stock shape & curve derived (face vs path,
+     loft-scaled). Seeds a mild draw bias for long clubs → neutral wedges. Edit in the
+     Practice → D-Plane Tendencies grid; consumed by Bag dispersion and Plan overlays. */
+  dplane: {
+    D:   {hFace:0.5, hPath:1.5, aoa:-2.0},
+    Fwy: {hFace:0.4, hPath:1.3, aoa:-1.5},
+    H:   {hFace:0.3, hPath:1.2, aoa:-2.5},
+    U:   {hFace:0.3, hPath:1.1, aoa:-3.0},
+    '5i':{hFace:0.2, hPath:1.0, aoa:-3.5},
+    '6i':{hFace:0.2, hPath:0.9, aoa:-4.0},
+    '7i':{hFace:0.1, hPath:0.8, aoa:-4.5},
+    '8i':{hFace:0.1, hPath:0.7, aoa:-5.0},
+    '9i':{hFace:0.0, hPath:0.6, aoa:-5.5},
+    P:   {hFace:0.0, hPath:0.5, aoa:-6.0},
+    W:   {hFace:-0.1,hPath:0.4, aoa:-6.5},
+    S:   {hFace:-0.2,hPath:0.3, aoa:-7.0},
+    X:   {hFace:-0.3,hPath:0.2, aoa:-7.5}
+  },
   /* swing data — causation chain, placeholder labels pending StrongerGolf terms */
   swing: {
     impact: { faceAngle:'', clubPath:'', faceToPath:'', strikeH:'', strikeV:'', dynamicLoft:'', attackAngle:'' },

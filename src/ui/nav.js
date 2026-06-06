@@ -12,7 +12,8 @@ const GROUPS={
     {id:'putting',  label:'Putting'}
   ],
   diagnose:[{id:'diagnose',label:'Causal Chain'}],
-  setup:[{id:'specs',label:'My Bag'},{id:'courses',label:'My Courses'},{id:'profile',label:'Myself'},{id:'reference',label:'Reference'}]
+  plan:[{id:'courses',label:'Course Strategy'}],
+  setup:[{id:'specs',label:'My Bag'},{id:'profile',label:'Myself'},{id:'reference',label:'Reference'}]
 };
 let currentGroup='play';
 
@@ -51,6 +52,7 @@ function renderAll(){
   renderExpectedShots('es-short', 20, 'atg');
   renderExpectedShots('es-putting', 15, 'green');
   buildChain();
+  buildCourseStrategy();
   buildSpecs();
   buildProfile();
   renderCalc(95);

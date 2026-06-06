@@ -506,3 +506,14 @@ table.chip-matrix tr:hover td{background:var(--surface2)}
 .nudge-cell{flex:1;text-align:center;background:var(--bg2);border:1px solid var(--border);border-radius:7px;padding:8px 4px}
 .nudge-val{font-family:Arial,sans-serif;font-size:1.3rem;font-weight:800;color:var(--ink);line-height:1}
 .nudge-lbl{font-family:ui-monospace,monospace;font-size:.46rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-top:3px;line-height:1.3}
+/* Per-club D-plane tendencies grid */
+.dpl-table{border-collapse:collapse;width:100%;min-width:340px}
+.dpl-table td{border-bottom:1px solid var(--border);border-left:1px solid var(--border)}
+.dpl-table td:first-child{border-left:none}
+.dpl-input{width:100%;min-width:0;font-family:ui-monospace,monospace;font-size:.72rem;font-weight:600;text-align:center;padding:5px 3px;background:var(--bg2);border:1px solid var(--border2);border-radius:5px;color:var(--ink);outline:none}
+.dpl-input:focus{border-color:var(--green)}
+/* Course Strategy (Plan) */
+.cs-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:7px}
+.cs-club{display:flex;justify-content:space-between;align-items:baseline;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:7px 10px}
+.cs-club-lbl{font-family:Arial,sans-serif;font-weight:800;font-size:.95rem;color:var(--ink)}
+.cs-shape{font-family:ui-monospace,monospace;font-size:.6rem;font-weight:700}

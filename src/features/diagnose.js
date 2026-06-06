@@ -119,37 +119,9 @@ function buildChain(){
        <div class="lvl-subhead">Ball Flight — from Bag Data</div>
        ${ballRefHtml()}
 
-       <div class="lvl-subhead" style="margin-top:14px">Club Behaviour at Impact — D-Plane</div>
-       <div class="chain-caption" style="margin-top:4px">3D face &amp; path, strike location, delivered loft and attack angle — the only things the ball responds to.</div>
-       <div class="metric-grid">
-         ${metricBox('3D Face Angle','open(+) / closed(−) deg','impact.faceAngle')}
-         ${metricBox('3D Club Path','in-out(+) / out-in(−) deg','impact.clubPath')}
-         ${metricBox('Face-to-Path','deg','impact.faceToPath')}
-         ${metricBox('Strike — Horizontal','toe(+) / heel(−) mm','impact.strikeH')}
-         ${metricBox('Strike — Vertical','high(+) / low(−) mm','impact.strikeV')}
-         ${metricBox('Dynamic Loft','deg','impact.dynamicLoft')}
-         ${metricBox('Attack Angle','up(+) / down(−) deg','impact.attackAngle')}
-       </div>
-
-       <div class="lvl-subhead" style="margin-top:18px">D-Plane Visualisation</div>
-       <div class="chain-caption" style="margin-top:4px">Three orthogonal 2D views of the D-plane, populated from the fields above. Full 3D visualisation is on the roadmap; this framework establishes the three reference planes used in StrongerGolf diagnosis. <span class="placeholder-flag">Coming — interactive SVG views</span></div>
-       <div class="dplane-views-wrap">
-         <div class="dplane-view-card">
-           <div class="dplane-view-label">↑ Side Profile</div>
-           <div class="dplane-view-sub">Attack angle vs. dynamic loft · vertical D-plane tilt</div>
-           <div class="dplane-view-placeholder">Side Profile View<br><span style="font-size:.52rem">Attack angle / Dynamic loft / Vertical launch</span></div>
-         </div>
-         <div class="dplane-view-card">
-           <div class="dplane-view-label">↑ Down the Line</div>
-           <div class="dplane-view-sub">Club path · face-to-path · spin axis tilt</div>
-           <div class="dplane-view-placeholder">Down the Line View<br><span style="font-size:.52rem">Club path / Face angle / Spin axis</span></div>
-         </div>
-         <div class="dplane-view-card">
-           <div class="dplane-view-label">↑ Overhead</div>
-           <div class="dplane-view-sub">Horizontal path · face angle · dispersion cone</div>
-           <div class="dplane-view-placeholder">Overhead View<br><span style="font-size:.52rem">Horizontal path / Face / Dispersion</span></div>
-         </div>
-       </div>
+       <div class="lvl-subhead" style="margin-top:14px">Club Behaviour at Impact — D-Plane Tendencies</div>
+       <div class="chain-caption" style="margin-top:4px">Each club's <strong>stock-shot</strong> D-plane: horizontal face, horizontal path and attack angle (all in degrees, left −/right +). <strong>Stock shape, curve and start line are computed live</strong> — face vs path, scaled by loft (lower loft curves more). These tendencies feed the Bag dispersion and the <strong>Plan</strong> tab's hole overlays. Edits save automatically. <span class="placeholder-flag">prototype</span></div>
+       ${buildDplaneGrid()}
 
        <div class="lvl-subhead" style="margin-top:18px">Maximize Distance — Driver Optimizer</div>
        <div class="chain-caption" style="margin-top:4px">Anchored to Foresight Sports driver reference data. Launch window 10–14° across all speeds. Spin window decreases with ball speed. Neutral AoA assumed — positive AoA adds carry beyond model output.</div>
@@ -506,6 +478,84 @@ function escapeHtml(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quo
 
 
 
+/* ============================================================
+   PER-CLUB D-PLANE TENDENCIES (Practice L2) + Course Strategy (Plan)
+   Stock shape & curve derived from horizontal face vs path, loft-scaled
+   (lower loft curves more). Feeds Bag dispersion + Plan hole overlays.
+   ============================================================ */
+function dplaneShape(hFace,hPath,loft,carry){
+  hFace=+hFace||0; hPath=+hPath||0; loft=loft||30; carry=carry||150;
+  const hdiff=hFace-hPath;                              // <0 = draw (RH)
+  const shape = hdiff<-0.3?'Draw' : hdiff>0.3?'Fade' : 'Straight';
+  const start = +(hPath+0.8*(hFace-hPath)).toFixed(1);  // HLaunch ≈ toward face
+  const loftFac = Math.sqrt(31/Math.max(8,loft));       // lower loft curves more
+  const curve = Math.round(Math.abs(hdiff)*(carry/160)*loftFac*2.5);
+  return {shape,start,curve,hdiff};
+}
+function dplShapeCell(sh){
+  const col = sh.shape==='Draw'?'var(--green)' : sh.shape==='Fade'?'var(--c-wood)' : 'var(--muted)';
+  const curveTxt = sh.shape==='Straight'?'—' : sh.curve<1?'minimal' : `~${sh.curve} yd`;
+  return `<b style="color:${col}">${sh.shape}</b> <span style="font-family:ui-monospace,monospace;font-size:.54rem;color:var(--muted)">${curveTxt}</span>`;
+}
+function dplFmt(v){ v=+v||0; return Math.abs(v)<0.05?'0.0':(v>0?'+':'')+v.toFixed(1); }
+function buildDplaneGrid(){
+  const clubs=STATE.clubs.filter(c=>c.type!=='putter');
+  const th='padding:5px 4px;font-family:ui-monospace,monospace;font-size:.5rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--border);background:var(--bg2);text-align:center';
+  let html=`<div style="overflow-x:auto"><table class="dpl-table"><thead><tr>
+    <th style="${th};text-align:left;padding-left:8px">Club</th>
+    <th style="${th}">H-Face°</th><th style="${th}">H-Path°</th><th style="${th}">AoA°</th>
+    <th style="${th}">Stock Shape</th><th style="${th}">Start°</th></tr></thead><tbody>`;
+  clubs.forEach(c=>{
+    const d=(STATE.dplane&&STATE.dplane[c.id])||{hFace:0,hPath:0,aoa:0};
+    const p=perf(c.id)||{};
+    const sh=dplaneShape(d.hFace,d.hPath,parseFloat(c.loft)||30,p.carry||150);
+    const inp=(field,val)=>`<input class="dpl-input" value="${escapeHtml(val)}" inputmode="decimal" oninput="setDplaneCell('${c.id}','${field}',this.value)">`;
+    html+=`<tr>
+      <td style="padding:5px 8px;white-space:nowrap"><span style="font-family:Arial,sans-serif;font-weight:800;font-size:.85rem;color:var(--ink)">${c.label}</span> <span style="font-family:ui-monospace,monospace;font-size:.56rem;color:var(--muted)">${c.loft}</span></td>
+      <td>${inp('hFace',d.hFace)}</td>
+      <td>${inp('hPath',d.hPath)}</td>
+      <td>${inp('aoa',d.aoa)}</td>
+      <td id="dpc-shape-${c.id}" style="text-align:center;white-space:nowrap">${dplShapeCell(sh)}</td>
+      <td id="dpc-start-${c.id}" style="text-align:center;font-family:ui-monospace,monospace;font-size:.62rem;color:var(--ink2)">${dplFmt(sh.start)}</td>
+    </tr>`;
+  });
+  return html+'</tbody></table></div>';
+}
+function setDplaneCell(id,field,value){
+  if(!STATE.dplane) STATE.dplane={};
+  if(!STATE.dplane[id]) STATE.dplane[id]={hFace:0,hPath:0,aoa:0};
+  STATE.dplane[id][field]=parseFloat(value)||0;
+  const c=STATE.clubs.find(x=>x.id===id); if(!c) return;
+  const p=perf(id)||{}, d=STATE.dplane[id];
+  const sh=dplaneShape(d.hFace,d.hPath,parseFloat(c.loft)||30,p.carry||150);
+  const shEl=document.getElementById('dpc-shape-'+id); if(shEl) shEl.innerHTML=dplShapeCell(sh);
+  const stEl=document.getElementById('dpc-start-'+id); if(stEl) stEl.textContent=dplFmt(sh.start);
+  if(typeof buildCourseStrategy==='function') buildCourseStrategy();
+  saveState();
+}
+function buildCourseStrategy(){
+  const wrap=document.getElementById('course-strategy-wrap'); if(!wrap) return;
+  const clubs=STATE.clubs.filter(c=>c.type!=='putter');
+  let draws=0,fades=0,straight=0;
+  const rows=clubs.map(c=>{
+    const d=(STATE.dplane&&STATE.dplane[c.id])||{hFace:0,hPath:0,aoa:0};
+    const p=perf(c.id)||{};
+    const sh=dplaneShape(d.hFace,d.hPath,parseFloat(c.loft)||30,p.carry||150);
+    if(sh.shape==='Draw')draws++; else if(sh.shape==='Fade')fades++; else straight++;
+    const col=sh.shape==='Draw'?'var(--green)':sh.shape==='Fade'?'var(--c-wood)':'var(--muted)';
+    const curveTxt=sh.shape==='Straight'?'':sh.curve<1?' min':` ~${sh.curve}y`;
+    return `<div class="cs-club"><span class="cs-club-lbl">${c.label}</span><span class="cs-shape" style="color:${col}">${sh.shape}${curveTxt}</span></div>`;
+  }).join('');
+  const predominant = draws>fades&&draws>=straight?'a predominant draw' : fades>draws&&fades>=straight?'a predominant fade' : 'a mostly straight ball flight';
+  wrap.innerHTML=`
+    <div class="section-label" style="margin-top:0">Course Strategy <span class="proto-badge">prototype</span></div>
+    <p class="intro-note">Your bag plays <strong>${predominant}</strong>. These per-club ball-flight tendencies (set in Practice → D-Plane Tendencies) are the foundation for hole-by-hole aim points — favouring the side your stock shape works <em>away</em> from trouble.</p>
+    <div class="section-label">Predominant Ball Flight by Club</div>
+    <div class="cs-grid">${rows}</div>
+    <div class="section-label">Hole Overlays</div>
+    <div class="lvl-soon-note">Coming: each hole's layout with your dispersion cone and stock shape overlaid, plus the expected-value aim point that keeps your predominant curve working away from hazards. Feeds from the per-club tendencies above and your Stock Shots dispersion data.</div>`;
+}
+
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { ballRefHtml, buildChain, buildForceProfileSVG, escapeHtml, forceRow, getPath, metricBox, saveSwing, setPath, toggleLevel });
+Object.assign(window, { ballRefHtml, buildChain, buildCourseStrategy, buildDplaneGrid, buildForceProfileSVG, dplFmt, dplShapeCell, dplaneShape, escapeHtml, forceRow, getPath, metricBox, saveSwing, setDplaneCell, setPath, toggleLevel });

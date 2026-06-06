@@ -40,9 +40,13 @@ function mergeDefaults(saved){
   const clubs = [...savedClubs, ...base.clubs.filter(c=>!savedIds.has(c.id))];
   /* Saved performance: merge with defaults so new clubs get empty perf entries */
   const performance = Object.assign({}, base.performance, sv.performance||{});
+  /* Per-club D-plane tendencies: merge so new default clubs get seeded entries
+     while preserving the user's edits. */
+  const dplane = Object.assign({}, base.dplane, sv.dplane||{});
   return Object.assign(base, sv, {
     clubs,
     performance,
+    dplane,
     profile:  Object.assign(base.profile,  sv.profile||{}),
     baseline: Object.assign(base.baseline, sv.baseline||{}),
     scoring:  { rounds: (sv.scoring&&sv.scoring.rounds)||[] },
