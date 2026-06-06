@@ -535,3 +535,14 @@ table.chip-matrix tr:hover td{background:var(--surface2)}
 .cf-mode.active{background:var(--gold);color:#fff;border-color:var(--gold)}
 .cf-hint{font-family:Arial,sans-serif;font-size:.74rem;font-style:italic;color:var(--muted);margin:6px 0 8px;min-height:18px}
 .cf-canvas{max-width:420px;margin:0 auto;border:1px solid var(--border2);border-radius:10px;overflow:hidden}
+
+/* Strategy preferences (Plan) */
+.strat-block{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px}
+.strat-block-h{font-family:Arial,sans-serif;font-weight:800;font-size:.78rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px}
+.strat-card{margin-bottom:9px}
+.strat-card:last-child{margin-bottom:0}
+.strat-q{font-family:ui-monospace,monospace;font-size:.58rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:4px}
+.strat-select{width:100%;font-family:Arial,sans-serif;font-size:.88rem;font-weight:600;padding:7px 9px;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;color:var(--ink);outline:none}
+.strat-select:focus{border-color:var(--green)}
+.strat-note{font-family:Arial,sans-serif;font-size:.78rem;line-height:1.5;color:var(--ink2);background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:9px 12px}
+.strat-note b{color:var(--ink)}

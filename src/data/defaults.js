@@ -19,6 +19,13 @@ const DEFAULT_DATA = {
      Geometry stored in normalized field units (0–1000 x, 0–1400 y, portrait).
      scaleYpu = yards per field-unit (from 2-point calibration or hole yardage). */
   courses: [],
+  /* Golfer's default targeting tendencies (Plan → Strategy). Drive the EV aim points later. */
+  strategy: {
+    teeTarget: 'centre',          // left-edge|left-centre|centre|right-centre|right-edge|shortest|widest
+    teeClub: 'optimal',           // driver-often|optimal|conservative
+    approachTarget: 'flag-centre',// left-edge|left-centre|centre|right-centre|right-edge|at-flag|flag-centre
+    approachDistance: 'middle'    // pin-high|middle|fat|pin-seek
+  },
   /* each course: {id, name, holes:[ {num, par, yards, scaleYpu, bg(dataURL|null),
        tee:{x,y}|null, pin:{x,y}|null, green:[{x,y}], fairway:[{x,y}],
        hazards:[{type:'sand|water|oob', pts:[{x,y}]}] } ]} */

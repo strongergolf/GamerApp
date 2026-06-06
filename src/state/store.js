@@ -45,11 +45,14 @@ function mergeDefaults(saved){
   const dplane = Object.assign({}, base.dplane, sv.dplane||{});
   /* Courses: keep saved courses as-is (user-authored); default empty for new users. */
   const courses = Array.isArray(sv.courses) ? sv.courses : base.courses;
+  /* Strategy preferences: merge so new keys get defaults while keeping the user's picks. */
+  const strategy = Object.assign({}, base.strategy, sv.strategy||{});
   return Object.assign(base, sv, {
     clubs,
     performance,
     dplane,
     courses,
+    strategy,
     profile:  Object.assign(base.profile,  sv.profile||{}),
     baseline: Object.assign(base.baseline, sv.baseline||{}),
     scoring:  { rounds: (sv.scoring&&sv.scoring.rounds)||[] },

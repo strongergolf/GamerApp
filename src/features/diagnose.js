@@ -538,6 +538,36 @@ function setDplaneCell(id,field,value){
   if(typeof buildCourseStrategy==='function') buildCourseStrategy();
   saveState();
 }
+/* ---- Strategy preferences (Plan → Strategy) ---- */
+const STRAT_OPTS = {
+  teeTarget:[['left-edge','Left edge of fairway'],['left-centre','Left-centre of fairway'],['centre','Centre of fairway'],['right-centre','Right-centre of fairway'],['right-edge','Right edge of fairway'],['shortest','Favour the shortest / most direct route'],['widest','Favour the widest side']],
+  teeClub:[['driver-often','Driver as often as possible'],['optimal','Whatever the optimal shot is'],['conservative','Conservative — club down when in doubt']],
+  approachTarget:[['left-edge','Left edge of green'],['left-centre','Left-centre of green'],['centre','Centre of green'],['right-centre','Right-centre of green'],['right-edge','Right edge of green'],['at-flag','At the flag'],['flag-centre','Between the flag and the centre']],
+  approachDistance:[['pin-high','Always play pin-high'],['middle','Always play the middle of the green'],['fat','Short of back pins, long of front pins (favour centre depth)'],['pin-seek','Attack the pin when comfortable']]
+};
+function setStrategy(key,val){ STATE.strategy=STATE.strategy||{}; STATE.strategy[key]=val; saveState(); const s=document.getElementById('strat-summary'); if(s) s.innerHTML=stratSummary(); }
+function stratLabel(key){ const cur=(STATE.strategy||{})[key]; const o=(STRAT_OPTS[key]||[]).find(x=>x[0]===cur); return o?o[1]:'—'; }
+function stratSelect(key){
+  const cur=(STATE.strategy||{})[key];
+  return `<select class="strat-select" onchange="setStrategy('${key}',this.value)">`+
+    STRAT_OPTS[key].map(([v,l])=>`<option value="${v}"${v===cur?' selected':''}>${l}</option>`).join('')+`</select>`;
+}
+function stratSummary(){
+  return `Tee: <b>${stratLabel('teeTarget')}</b> · ${stratLabel('teeClub').toLowerCase()}.<br>Approach: <b>${stratLabel('approachTarget')}</b> · ${stratLabel('approachDistance').toLowerCase()}.`;
+}
+function buildStrategyPrefs(){
+  return `<div class="section-label">Strategy Preferences <span class="proto-badge">prototype</span></div>
+    <p class="intro-note">Your default targeting tendencies. These will drive the expected-value aim points once hole maps are traced (short game &amp; putting strategy to follow).</p>
+    <div class="strat-block"><div class="strat-block-h" style="color:var(--sky)">Tee Shots</div>
+      <div class="strat-card"><div class="strat-q">Target preference</div>${stratSelect('teeTarget')}</div>
+      <div class="strat-card"><div class="strat-q">Club preference</div>${stratSelect('teeClub')}</div>
+    </div>
+    <div class="strat-block"><div class="strat-block-h" style="color:var(--green)">Approach Shots</div>
+      <div class="strat-card"><div class="strat-q">Target preference</div>${stratSelect('approachTarget')}</div>
+      <div class="strat-card"><div class="strat-q">Distance strategy</div>${stratSelect('approachDistance')}</div>
+    </div>
+    <div class="strat-note" id="strat-summary">${stratSummary()}</div>`;
+}
 function buildCourseStrategy(){
   const wrap=document.getElementById('course-strategy-wrap'); if(!wrap) return;
   const clubs=STATE.clubs.filter(c=>c.type!=='putter');
@@ -554,7 +584,8 @@ function buildCourseStrategy(){
   const predominant = draws>fades&&draws>=straight?'a predominant draw' : fades>draws&&fades>=straight?'a predominant fade' : 'a mostly straight ball flight';
   wrap.innerHTML=`
     <div class="section-label" style="margin-top:0">Course Strategy <span class="proto-badge">prototype</span></div>
-    <p class="intro-note">Your bag plays <strong>${predominant}</strong>. These per-club ball-flight tendencies (set in Practice → D-Plane Tendencies) are the foundation for hole-by-hole aim points — favouring the side your stock shape works <em>away</em> from trouble.</p>
+    ${buildStrategyPrefs()}
+    <p class="intro-note" style="margin-top:18px">Your bag plays <strong>${predominant}</strong>. These per-club ball-flight tendencies (set in Practice → D-Plane Tendencies) are the foundation for hole-by-hole aim points — favouring the side your stock shape works <em>away</em> from trouble.</p>
     <div class="section-label">Predominant Ball Flight by Club</div>
     <div class="cs-grid">${rows}</div>
     <div class="section-label">Hole Overlays</div>
@@ -563,4 +594,4 @@ function buildCourseStrategy(){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { ballRefHtml, buildChain, buildCourseStrategy, buildDplaneGrid, buildForceProfileSVG, dplFmt, dplShapeCell, dplaneShape, escapeHtml, forceRow, getPath, metricBox, saveSwing, setDplaneCell, setPath, toggleLevel });
+Object.assign(window, { STRAT_OPTS, ballRefHtml, buildChain, buildCourseStrategy, buildDplaneGrid, buildForceProfileSVG, buildStrategyPrefs, dplFmt, dplShapeCell, dplaneShape, escapeHtml, forceRow, getPath, metricBox, saveSwing, setDplaneCell, setStrategy, setPath, stratLabel, stratSelect, stratSummary, toggleLevel });
