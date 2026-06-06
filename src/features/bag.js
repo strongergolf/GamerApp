@@ -106,7 +106,6 @@ function toggleDetail(c,row,group,inner){
         <div class="flight-col-top"><div class="flight-label">Overhead — Dispersion</div><div class="flight-svg-wrap">${buildTopSVG(c,p)}</div></div>
       </div>
     </div>
-    ${c.type!=='putter'?buildGearEffectPanel(c):''}
     ${c.id==='D'?buildDriverCarryNudge(p):''}`;
   renderExpectedShots(`es-bag-${c.id}`, p.total||p.carry, 'fairway');
   group.classList.add('open');

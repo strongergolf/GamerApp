@@ -123,6 +123,11 @@ function buildChain(){
        <div class="chain-caption" style="margin-top:4px">Each club's <strong>stock-shot</strong> D-plane: horizontal face, horizontal path and attack angle (all in degrees, left −/right +). <strong>Stock shape, curve and start line are computed live</strong> — face vs path, scaled by loft (lower loft curves more). These tendencies feed the Bag dispersion and the <strong>Plan</strong> tab's hole overlays. Edits save automatically. <span class="placeholder-flag">prototype</span></div>
        ${buildDplaneGrid()}
 
+       <div class="lvl-subhead" style="margin-top:16px">D-Plane Visual <span class="placeholder-flag">prototype</span></div>
+       <div class="chain-caption" style="margin-top:4px">The selected club's stock-shot D-plane, drawn from the numbers above — <span style="color:#c43c9e;font-weight:700">Path</span> &amp; <span style="color:#2a6fc4;font-weight:700">Face</span> vectors, the <span style="color:#c8721e;font-weight:700">D-plane</span> wedge, and the perpendicular <span style="color:#cc2a2a;font-weight:700">spin axis</span>. Styled after the StrongerGolf SketchUp models.</div>
+       <div id="dplane-visual"></div>
+       ${buildGearEffectL2()}
+
        <div class="lvl-subhead" style="margin-top:18px">Maximize Distance — Driver Optimizer</div>
        <div class="chain-caption" style="margin-top:4px">Anchored to Foresight Sports driver reference data. Launch window 10–14° across all speeds. Spin window decreases with ball speed. Neutral AoA assumed — positive AoA adds carry beyond model output.</div>
        <div class="drv-opt-wrap">
@@ -355,7 +360,10 @@ function buildChain(){
      render:()=>`
        <div class="chain-caption">Where every level above cashes out into a real decision on a real hole. Strategy synthesises ball-flight data (L2), dispersion patterns, and scoring tendencies (L1) into optimal targets, shot shapes, and risk/reward choices. The eventual home for course overlays and hole-by-hole planning.</div>
 
-       <div class="lvl-subhead">Strokes Gained — Decision Quality</div>
+       ${buildStrategyPrefs()}
+       <div class="chain-caption" style="margin-top:6px">These are the same preferences shown in the <strong>Plan → Strategy</strong> tab — editing here updates there.</div>
+
+       <div class="lvl-subhead" style="margin-top:16px">Strokes Gained — Decision Quality</div>
        <div class="lvl-soon-note">Future: flag shots where club or target selection cost strokes vs. the optimal decision, separate from execution error. A bad decision with a good swing still costs shots.</div>
 
        <div class="lvl-subhead" style="margin-top:14px">Dispersion-Based Aim Points</div>
@@ -483,11 +491,11 @@ function escapeHtml(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quo
    Stock shape & curve derived from horizontal face vs path, loft-scaled
    (lower loft curves more). Feeds Bag dispersion + Plan hole overlays.
    ============================================================ */
-function dplaneShape(hFace,hPath,loft,aoa,carry){
-  hFace=+hFace||0; hPath=+hPath||0; loft=loft||30; aoa=+aoa||0; carry=carry||150;
-  /* Exact engine: VFace ≈ dynamic loft (≈ static loft for a stock shot), VPath = AoA.
+function dplaneShape(hFace,hPath,vFace,vPath,carry){
+  hFace=+hFace||0; hPath=+hPath||0; vFace=+vFace||0; vPath=+vPath||0; carry=carry||150;
+  /* Exact engine. VFace = Dynamic Loft, VPath = Angle of Attack.
      SpinAxis = atan(HDiff/VDiff); 3D SpinLoft = √(VDiff²+HDiff²). */
-  const r = dpSolve(hFace, hPath, loft, aoa, carry);
+  const r = dpSolve(hFace, hPath, vFace, vPath, carry);
   return {
     shape: r.shape,
     start: +r.hLaunch.toFixed(1),
@@ -506,19 +514,23 @@ function dplFmt(v){ v=+v||0; return Math.abs(v)<0.05?'0.0':(v>0?'+':'')+v.toFixe
 function buildDplaneGrid(){
   const clubs=STATE.clubs.filter(c=>c.type!=='putter');
   const th='padding:5px 4px;font-family:ui-monospace,monospace;font-size:.5rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--border);background:var(--bg2);text-align:center';
+  const th2=th+';line-height:1.15';
   let html=`<div style="overflow-x:auto"><table class="dpl-table"><thead><tr>
     <th style="${th};text-align:left;padding-left:8px">Club</th>
-    <th style="${th}">H-Face°</th><th style="${th}">H-Path°</th><th style="${th}">AoA°</th>
-    <th style="${th}">Stock Shape</th><th style="${th}">Spin Loft</th></tr></thead><tbody>`;
+    <th style="${th2}">Horiz.<br>Face°</th><th style="${th2}">Horiz.<br>Path°</th>
+    <th style="${th2}">Vert. Face°<br>(Dyn Loft)</th><th style="${th2}">Vert. Path°<br>(AoA)</th>
+    <th style="${th2}">Stock<br>Shape</th><th style="${th2}">3D Spin<br>Loft</th></tr></thead><tbody>`;
   clubs.forEach(c=>{
-    const d=(STATE.dplane&&STATE.dplane[c.id])||{hFace:0,hPath:0,aoa:0};
+    const d=(STATE.dplane&&STATE.dplane[c.id])||{};
+    const vFace=d.vFace!=null?d.vFace:parseFloat(c.loft)||30;   // fallback to static loft
     const p=perf(c.id)||{};
-    const sh=dplaneShape(d.hFace,d.hPath,parseFloat(c.loft)||30,d.aoa,p.carry||150);
-    const inp=(field,val)=>`<input class="dpl-input" value="${escapeHtml(val)}" inputmode="decimal" oninput="setDplaneCell('${c.id}','${field}',this.value)">`;
+    const sh=dplaneShape(d.hFace,d.hPath,vFace,d.aoa,p.carry||150);
+    const inp=(field,val)=>`<input class="dpl-input" value="${escapeHtml(val==null?'':val)}" inputmode="decimal" oninput="setDplaneCell('${c.id}','${field}',this.value)">`;
     html+=`<tr>
       <td style="padding:5px 8px;white-space:nowrap"><span style="font-family:Arial,sans-serif;font-weight:800;font-size:.85rem;color:var(--ink)">${c.label}</span> <span style="font-family:ui-monospace,monospace;font-size:.56rem;color:var(--muted)">${c.loft}</span></td>
       <td>${inp('hFace',d.hFace)}</td>
       <td>${inp('hPath',d.hPath)}</td>
+      <td>${inp('vFace',vFace)}</td>
       <td>${inp('aoa',d.aoa)}</td>
       <td id="dpc-shape-${c.id}" style="text-align:center;white-space:nowrap">${dplShapeCell(sh)}</td>
       <td id="dpc-sl-${c.id}" style="text-align:center;font-family:ui-monospace,monospace;font-size:.62rem;color:var(--ink2)">${sh.spinLoft.toFixed(1)}°</td>
@@ -532,10 +544,12 @@ function setDplaneCell(id,field,value){
   STATE.dplane[id][field]=parseFloat(value)||0;
   const c=STATE.clubs.find(x=>x.id===id); if(!c) return;
   const p=perf(id)||{}, d=STATE.dplane[id];
-  const sh=dplaneShape(d.hFace,d.hPath,parseFloat(c.loft)||30,d.aoa,p.carry||150);
+  const vFace=d.vFace!=null?d.vFace:parseFloat(c.loft)||30;
+  const sh=dplaneShape(d.hFace,d.hPath,vFace,d.aoa,p.carry||150);
   const shEl=document.getElementById('dpc-shape-'+id); if(shEl) shEl.innerHTML=dplShapeCell(sh);
   const slEl=document.getElementById('dpc-sl-'+id); if(slEl) slEl.textContent=sh.spinLoft.toFixed(1)+'°';
   if(typeof buildCourseStrategy==='function') buildCourseStrategy();
+  if(typeof renderDPlaneVisual==='function') renderDPlaneVisual();
   saveState();
 }
 /* ---- Strategy preferences (Plan → Strategy) ---- */
@@ -545,7 +559,7 @@ const STRAT_OPTS = {
   approachTarget:[['left-edge','Left edge of green'],['left-centre','Left-centre of green'],['centre','Centre of green'],['right-centre','Right-centre of green'],['right-edge','Right edge of green'],['at-flag','At the flag'],['flag-centre','Between the flag and the centre']],
   approachDistance:[['pin-high','Always play pin-high'],['middle','Always play the middle of the green'],['fat','Short of back pins, long of front pins (favour centre depth)'],['pin-seek','Attack the pin when comfortable']]
 };
-function setStrategy(key,val){ STATE.strategy=STATE.strategy||{}; STATE.strategy[key]=val; saveState(); const s=document.getElementById('strat-summary'); if(s) s.innerHTML=stratSummary(); }
+function setStrategy(key,val){ STATE.strategy=STATE.strategy||{}; STATE.strategy[key]=val; saveState(); document.querySelectorAll('.strat-summary').forEach(s=>s.innerHTML=stratSummary()); }
 function stratLabel(key){ const cur=(STATE.strategy||{})[key]; const o=(STRAT_OPTS[key]||[]).find(x=>x[0]===cur); return o?o[1]:'—'; }
 function stratSelect(key){
   const cur=(STATE.strategy||{})[key];
@@ -566,16 +580,17 @@ function buildStrategyPrefs(){
       <div class="strat-card"><div class="strat-q">Target preference</div>${stratSelect('approachTarget')}</div>
       <div class="strat-card"><div class="strat-q">Distance strategy</div>${stratSelect('approachDistance')}</div>
     </div>
-    <div class="strat-note" id="strat-summary">${stratSummary()}</div>`;
+    <div class="strat-note strat-summary">${stratSummary()}</div>`;
 }
 function buildCourseStrategy(){
   const wrap=document.getElementById('course-strategy-wrap'); if(!wrap) return;
   const clubs=STATE.clubs.filter(c=>c.type!=='putter');
   let draws=0,fades=0,straight=0;
   const rows=clubs.map(c=>{
-    const d=(STATE.dplane&&STATE.dplane[c.id])||{hFace:0,hPath:0,aoa:0};
+    const d=(STATE.dplane&&STATE.dplane[c.id])||{};
+    const vFace=d.vFace!=null?d.vFace:parseFloat(c.loft)||30;
     const p=perf(c.id)||{};
-    const sh=dplaneShape(d.hFace,d.hPath,parseFloat(c.loft)||30,d.aoa,p.carry||150);
+    const sh=dplaneShape(d.hFace,d.hPath,vFace,d.aoa,p.carry||150);
     if(sh.shape==='Draw')draws++; else if(sh.shape==='Fade')fades++; else straight++;
     const col=sh.shape==='Draw'?'var(--green)':sh.shape==='Fade'?'var(--c-wood)':'var(--muted)';
     const curveTxt=sh.shape==='Straight'?'':sh.curve<1?' min':` ~${sh.curve}y`;
@@ -592,6 +607,72 @@ function buildCourseStrategy(){
     <div class="lvl-soon-note">Coming: each hole's layout with your dispersion cone and stock shape overlaid, plus the expected-value aim point that keeps your predominant curve working away from hazards. Feeds from the per-club tendencies above and your Stock Shots dispersion data.</div>`;
 }
 
+/* ---- D-Plane visual generator (Practice L2) — styled after the SketchUp models ---- */
+function buildDPlaneVisualSVG(hFace,hPath,vFace,vPath,sh,label){
+  const W=360,H=300,DR=Math.PI/180, O={x:74,y:238}, s=46, L=2.5;
+  const vec=(h,v,len)=>({x:Math.sin(h*DR)*len, y:Math.sin(v*DR)*len, z:Math.cos(v*DR)*Math.cos(h*DR)*len});
+  const prj=p=>({x:O.x+s*(0.92*p.x+0.55*p.z), y:O.y+s*(0.20*p.x-1.0*p.y-0.42*p.z)});
+  const path=vec(hPath,vPath,L), face=vec(hFace,vFace,L), tgt=vec(0,0,L);
+  const launch={x:path.x+0.75*(face.x-path.x), y:path.y+0.75*(face.y-path.y), z:path.z+0.75*(face.z-path.z)};
+  let nx=path.y*face.z-path.z*face.y, ny=path.z*face.x-path.x*face.z, nz=path.x*face.y-path.y*face.x;
+  const nl=Math.hypot(nx,ny,nz)||1; nx/=nl; ny/=nl; nz/=nl;
+  const Op=prj({x:0,y:0,z:0}), pe=prj(path), fe=prj(face), te=prj(tgt), le=prj(launch);
+  const axA=prj({x:launch.x+nx, y:launch.y+ny, z:launch.z+nz}), axB=prj({x:launch.x-nx, y:launch.y-ny, z:launch.z-nz});
+  const line=(a,b,col,w)=>`<line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}" stroke="${col}" stroke-width="${w||2}"/>`;
+  const lbl=(x,y,t,col)=>`<text x="${x}" y="${y}" font-family="Arial,sans-serif" font-size="9.5" font-weight="700" fill="${col}">${t}</text>`;
+  const Lx=W-128, Ly=22, dy=15;
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block;border-radius:10px;border:1px solid var(--border2)" xmlns="http://www.w3.org/2000/svg">
+    <defs><linearGradient id="dpsky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#bfe0f5"/><stop offset="100%" stop-color="#e6f3fb"/></linearGradient></defs>
+    <rect width="${W}" height="${H}" fill="url(#dpsky)"/>
+    <rect x="0" y="${(H*0.46).toFixed(0)}" width="${W}" height="${(H*0.54).toFixed(0)}" fill="#86b86a"/>
+    <line x1="0" y1="${(H*0.46).toFixed(0)}" x2="${W}" y2="${(H*0.46).toFixed(0)}" stroke="#7aa860" stroke-width="1"/>
+    <line x1="${Op.x}" y1="${Op.y}" x2="${te.x.toFixed(1)}" y2="${te.y.toFixed(1)}" stroke="#333" stroke-width="1.4" stroke-dasharray="6,5" opacity="0.55"/>
+    <polygon points="${Op.x},${Op.y} ${pe.x.toFixed(1)},${pe.y.toFixed(1)} ${fe.x.toFixed(1)},${fe.y.toFixed(1)}" fill="#e08a2e" fill-opacity="0.5" stroke="#c8721e" stroke-width="1"/>
+    ${line(Op,pe,'#c43c9e',2.6)}${line(Op,fe,'#2a6fc4',2.6)}
+    ${line(le,axA,'#cc2a2a',2)}${line(le,axB,'#cc2a2a',2)}${line(Op,le,'#222',1.4)}
+    <line x1="${te.x.toFixed(1)}" y1="${te.y.toFixed(1)}" x2="${te.x.toFixed(1)}" y2="${(te.y-34).toFixed(1)}" stroke="#bbb" stroke-width="1.5"/>
+    <polygon points="${te.x.toFixed(1)},${(te.y-34).toFixed(1)} ${(te.x+17).toFixed(1)},${(te.y-28).toFixed(1)} ${te.x.toFixed(1)},${(te.y-22).toFixed(1)}" fill="#d33"/>
+    <circle cx="${Op.x}" cy="${Op.y}" r="5" fill="#fff" stroke="#333" stroke-width="1.5"/>
+    <text x="${(pe.x+3).toFixed(1)}" y="${(pe.y+4).toFixed(1)}" font-family="Arial" font-size="9" font-weight="700" fill="#c43c9e">Path</text>
+    <text x="${(fe.x+3).toFixed(1)}" y="${fe.y.toFixed(1)}" font-family="Arial" font-size="9" font-weight="700" fill="#2a6fc4">Face</text>
+    <text x="${(axA.x+3).toFixed(1)}" y="${axA.y.toFixed(1)}" font-family="Arial" font-size="8" fill="#cc2a2a">spin axis</text>
+    ${lbl(Lx,Ly,'D-Plane','#c8721e')}
+    ${lbl(Lx,Ly+dy,`Path ${(+hPath).toFixed(1)}° / ${(+vPath).toFixed(1)}°`,'#c43c9e')}
+    ${lbl(Lx,Ly+dy*2,`Face ${(+hFace).toFixed(1)}° / ${(+vFace).toFixed(1)}°`,'#2a6fc4')}
+    ${lbl(Lx,Ly+dy*3,`Spin Loft ${sh.spinLoft.toFixed(1)}°`,'#c8721e')}
+    ${lbl(Lx,Ly+dy*4,`Spin Axis ${Math.abs(sh.spinAxis).toFixed(1)}° ${sh.spinAxis<0?'L':'R'}`,'#c8721e')}
+    ${lbl(Lx,Ly+dy*5,`${sh.shape}`,'#333')}
+    <text x="8" y="${H-8}" font-family="ui-monospace,monospace" font-size="8" fill="#1d3b1d" opacity="0.85">${label} — D-Plane</text>
+  </svg>`;
+}
+function setDpVisClub(id){ window.dpVisClub=id; renderDPlaneVisual(); }
+function renderDPlaneVisual(){
+  const host=document.getElementById('dplane-visual'); if(!host) return;
+  const clubs=STATE.clubs.filter(c=>c.type!=='putter');
+  let id=window.dpVisClub; if(!clubs.find(c=>c.id===id)) id=(clubs.find(c=>c.id==='7i')||clubs[0]||{}).id;
+  window.dpVisClub=id;
+  const c=STATE.clubs.find(x=>x.id===id)||{}, d=(STATE.dplane&&STATE.dplane[id])||{};
+  const vFace=d.vFace!=null?d.vFace:parseFloat(c.loft)||30, p=perf(id)||{};
+  const sh=dplaneShape(d.hFace,d.hPath,vFace,d.aoa,p.carry||150);
+  const opts=clubs.map(x=>`<option value="${x.id}"${x.id===id?' selected':''}>${x.label} — ${x.loft}</option>`).join('');
+  host.innerHTML=`<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+      <label style="font-family:ui-monospace,monospace;font-size:.56rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)">Club</label>
+      <select class="strat-select" style="max-width:170px" onchange="setDpVisClub(this.value)">${opts}</select></div>
+    ${buildDPlaneVisualSVG(+d.hFace||0,+d.hPath||0,+vFace||0,+d.aoa||0,sh,c.label||id)}`;
+}
+function buildGearEffectL2(){
+  const dToe=dpGearAxisShift(3,'wood'), iToe=dpGearAxisShift(3,'iron');
+  return `<div class="lvl-subhead" style="margin-top:18px">Gear Effect — Off-Centre Contact</div>
+    <div class="chain-caption" style="margin-top:4px">How strike location bends each club's flight (RH). A ~3-dimple miss shifts the spin axis ≈ <b style="color:var(--c-wood)">${Math.abs(dToe).toFixed(0)}° (driver)</b> vs ≈ <b style="color:var(--c-iron)">${Math.abs(iToe).toFixed(0)}° (iron)</b> — woods gear far more. Toe → draw/left, heel → fade/right; high → less spin + higher launch, low → more spin + lower launch. <span class="placeholder-flag">prototype</span></div>
+    <div class="gear-panel">${buildGearFaceSVG()}
+      <div class="nudge-row">
+        <div class="nudge-cell"><div class="nudge-val" style="color:var(--c-iron)">${dToe.toFixed(0)}°</div><div class="nudge-lbl">driver toe → draw</div></div>
+        <div class="nudge-cell"><div class="nudge-val" style="color:var(--c-wood)">+${Math.abs(dToe).toFixed(0)}°</div><div class="nudge-lbl">driver heel → fade</div></div>
+        <div class="nudge-cell"><div class="nudge-val">±${Math.abs(iToe).toFixed(0)}°</div><div class="nudge-lbl">iron toe / heel</div></div>
+      </div>
+    </div>`;
+}
+
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { STRAT_OPTS, ballRefHtml, buildChain, buildCourseStrategy, buildDplaneGrid, buildForceProfileSVG, buildStrategyPrefs, dplFmt, dplShapeCell, dplaneShape, escapeHtml, forceRow, getPath, metricBox, saveSwing, setDplaneCell, setStrategy, setPath, stratLabel, stratSelect, stratSummary, toggleLevel });
+Object.assign(window, { STRAT_OPTS, ballRefHtml, buildChain, buildCourseStrategy, buildDPlaneVisualSVG, buildDplaneGrid, buildForceProfileSVG, buildGearEffectL2, buildStrategyPrefs, dplFmt, dplShapeCell, dplaneShape, escapeHtml, forceRow, getPath, metricBox, renderDPlaneVisual, saveSwing, setDpVisClub, setDplaneCell, setStrategy, setPath, stratLabel, stratSelect, stratSummary, toggleLevel });

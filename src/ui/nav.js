@@ -52,6 +52,7 @@ function renderAll(){
   renderExpectedShots('es-short', 20, 'atg');
   renderExpectedShots('es-putting', 15, 'green');
   buildChain();
+  renderDPlaneVisual();
   buildCourseStrategy();
   buildCourses();
   buildSpecs();
