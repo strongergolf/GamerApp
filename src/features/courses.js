@@ -312,15 +312,28 @@ async function cfOsmImport(){
     set('Imported '+course.holes.length+' holes from OpenStreetMap.');
   }catch(e){ set('Could not build the course from the map data ('+(e&&e.message||'')+').'); }
 }
+async function cfLoadPresets(){
+  const status=document.getElementById('osm-status'), set=t=>{ if(status) status.textContent=t; };
+  try{
+    set('Loading sample courses…');
+    const list=await cfFetchJSON('/preset-courses.json', 15000);   // same-origin — no CORS
+    const cs=cfCourses(), have=new Set(cs.map(c=>c.id)); let added=0;
+    (list||[]).forEach(c=>{ if(!have.has(c.id)){ cs.push(c); added++; } });
+    window.courseEdit.cIdx=cs.length-1; window.courseEdit.hIdx=0;
+    saveState(); buildCourses(); if(typeof buildCourseStrategy==='function') buildCourseStrategy();
+    set(added?('Added '+added+' sample course'+(added>1?'s':'')+'.'):'Sample courses already loaded.');
+  }catch(e){ set('Could not load sample courses ('+(e&&e.message||'')+').'); }
+}
 function cfImportBox(){
   return `<div class="osm-box">
-    <div class="osm-title">Import from OpenStreetMap <span class="proto-badge">prototype</span></div>
-    <div class="osm-sub">Type a course name (add the town for accuracy). Greens, fairways, bunkers, tees and hole pars are pulled automatically — no tracing.</div>
+    <div class="osm-title">Import a Course <span class="proto-badge">prototype</span></div>
+    <div class="osm-sub">Type a course name (add the town for accuracy). Greens, fairways, bunkers, tees and hole pars are pulled from OpenStreetMap — no tracing.</div>
     <div class="osm-row">
       <input id="osm-q" class="cf-name" placeholder="e.g. Pitt Meadows Golf Club" onkeydown="if(event.key==='Enter')cfOsmImport()">
       <button class="btn btn-primary" onclick="cfOsmImport()">Search &amp; Import</button>
     </div>
     <div id="osm-status" class="osm-status"></div>
+    <div class="osm-presets"><button class="btn" onclick="cfLoadPresets()">Load sample BC courses</button><span class="osm-attr-inline">Vancouver GC · Pitt Meadows · The Dunes</span></div>
     <div class="osm-attr">Map data © OpenStreetMap contributors (ODbL)</div>
   </div>`;
 }
@@ -329,5 +342,5 @@ Object.assign(window, {
   CF_W, CF_H, cfCourses, cfCur, cfHole, cfAddCourse, cfDeleteCourse, cfSelectCourse, cfRenameCourse,
   cfAddHole, cfSelectHole, cfSetHoleField, cfSetMode, cfCanvasClick, cfFinishFeature, cfUndoPoint,
   cfClearFeature, cfLoadBg, cfClearBg, renderHoleSVG, buildCourses, cfModeHint, cfRefreshCanvas,
-  osmToMeters, osmCentroid, osmParse, osmNearestHoleIdx, osmBuildHole, osmBuildCourse, cfOsmImport, cfImportBox
+  osmToMeters, osmCentroid, osmParse, osmNearestHoleIdx, osmBuildHole, osmBuildCourse, cfOsmImport, cfImportBox, cfLoadPresets
 });
