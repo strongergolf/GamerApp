@@ -388,7 +388,6 @@ function toggleLevel(id){
 function forceRow(name,desc,key){
   const f=STATE.swing.forces[key];
   const stages=[['transition','Transition'],['mid','Mid (7–8:00)'],['impact','Impact']];
-  const greek={pull:'α',push:'β',twist:'γ'}[key]||'';
   const stageCells=stages.map(([sk,slabel])=>{
     const s=f[sk]||{};
     return `<div class="force-stage">
@@ -410,7 +409,7 @@ function forceRow(name,desc,key){
   return `<div class="force-block">
     <div class="force-block-top">
       <div class="force-name-col">
-        <div class="force-name">${name} <span class="force-greek">${greek}</span></div>
+        <div class="force-name">${name}</div>
         <div class="force-desc">${desc}</div>
       </div>
       ${imgSlot}
@@ -629,6 +628,19 @@ function dpWorldVectors(hFace,hPath,vFace,vPath){
   const nl=Math.hypot(nx,ny,nz)||1;
   return {O:{x:0,y:0,z:0}, path, face, tgt, launch, axis:{x:nx/nl,y:ny/nl,z:nz/nl}};
 }
+/* Approximate curved ball flight: launches along the launch direction, arcs up/down, and
+   curves laterally toward the draw/fade side by an amount scaled to the spin axis. */
+function dpFlightPath(wv, spinAxis){
+  const l=wv.launch, llen=Math.hypot(l.x,l.y,l.z)||1;
+  const lu={x:l.x/llen, y:l.y/llen, z:l.z/llen};
+  const S=4.8, N=22, arc=1.6;
+  const sign = spinAxis<-0.05?-1 : spinAxis>0.05?1 : 0;        // draw → left(−x), fade → right(+x)
+  const latMax = sign*Math.min(2.8, Math.abs(spinAxis)/10*1.9);
+  const pts=[];
+  for(let i=0;i<=N;i++){ const f=i/N, s=f*S;
+    pts.push({ x: lu.x*s + latMax*f*f, y: lu.y*s*(1-f)*arc, z: lu.z*s }); }
+  return pts;
+}
 /* Three camera bases (screen-right R, screen-up U as world weights), each slightly
    offset from its main axis so the D-plane reads in 3D rather than flat. */
 const DP_VIEWS=[
@@ -648,14 +660,16 @@ function buildDPlaneView(v,wv){
   const VW=210, VH=200, PAD=28;
   const A={x:wv.launch.x+wv.axis.x,y:wv.launch.y+wv.axis.y,z:wv.launch.z+wv.axis.z};
   const B={x:wv.launch.x-wv.axis.x,y:wv.launch.y-wv.axis.y,z:wv.launch.z-wv.axis.z};
-  const ext={x:wv.launch.x*1.75,y:wv.launch.y*1.75,z:wv.launch.z*1.75};   // extended ball-flight line
-  const pts=[wv.O,wv.path,wv.face,wv.tgt,wv.launch,A,B,ext];
+  const flight=wv.flight||[];                                            // curved ball-flight (draw/fade)
+  const pts=[wv.O,wv.path,wv.face,wv.tgt,wv.launch,A,B].concat(flight);
   const xs=pts.map(p=>dpDot(p,v.R)), ys=pts.map(p=>dpDot(p,v.U));
   const mnx=Math.min(...xs),mxx=Math.max(...xs),mny=Math.min(...ys),mxy=Math.max(...ys);
   const sc=Math.min((VW-2*PAD)/Math.max(0.5,mxx-mnx),(VH-2*PAD)/Math.max(0.5,mxy-mny));
   const cX=(mnx+mxx)/2, cY=(mny+mxy)/2;
   const P=p=>({x:VW/2+(dpDot(p,v.R)-cX)*sc, y:VH/2-(dpDot(p,v.U)-cY)*sc});
-  const O=P(wv.O),pe=P(wv.path),fe=P(wv.face),te=P(wv.tgt),aA=P(A),aB=P(B),eX=P(ext);
+  const O=P(wv.O),pe=P(wv.path),fe=P(wv.face),te=P(wv.tgt),aA=P(A),aB=P(B);
+  const fpts=flight.map(P);
+  const flightPoly=fpts.length?`<polyline points="${fpts.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ')}" fill="none" stroke="#111" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${fpts[fpts.length-1].x.toFixed(1)}" cy="${fpts[fpts.length-1].y.toFixed(1)}" r="2.6" fill="#111"/>`:'';
   const ln=(a,b,c,w)=>`<line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}" stroke="${c}" stroke-width="${w}"/>`;
   const hz=VH*0.5;
   /* Overhead = looking straight down, all ground (no horizon); DTL & Face-On get sky+ground. */
@@ -670,7 +684,7 @@ function buildDPlaneView(v,wv){
       ${bg}
       <line x1="${O.x.toFixed(1)}" y1="${O.y.toFixed(1)}" x2="${te.x.toFixed(1)}" y2="${te.y.toFixed(1)}" stroke="#555" stroke-width="1.2" stroke-dasharray="5,4" opacity="0.5"/>
       <polygon points="${O.x.toFixed(1)},${O.y.toFixed(1)} ${pe.x.toFixed(1)},${pe.y.toFixed(1)} ${fe.x.toFixed(1)},${fe.y.toFixed(1)}" fill="#efc81e" fill-opacity="0.55" stroke="#b8860b" stroke-width="1"/>
-      ${ln(O,pe,'#c43c9e',2.4)}${ln(O,fe,'#2a6fc4',2.4)}${ln(aB,aA,'#cc2a2a',1.9)}${ln(O,eX,'#111',2.8)}
+      ${ln(O,pe,'#c43c9e',2.4)}${ln(O,fe,'#2a6fc4',2.4)}${ln(aB,aA,'#cc2a2a',1.9)}${flightPoly}
       <circle cx="${O.x.toFixed(1)}" cy="${O.y.toFixed(1)}" r="4" fill="#fff" stroke="#333" stroke-width="1.4"/>
     </svg></div>`;
 }
@@ -683,6 +697,7 @@ function renderDPlaneVisual(){
   const vFace=d.vFace!=null?d.vFace:parseFloat(c.loft)||30, p=perf(id)||{};
   const sh=dplaneShape(d.hFace,d.hPath,vFace,d.aoa,p.carry||150);
   const wv=dpWorldVectors(+d.hFace||0,+d.hPath||0,+vFace||0,+d.aoa||0);
+  wv.flight=dpFlightPath(wv, sh.spinAxis);
   const opts=clubs.map(x=>`<option value="${x.id}"${x.id===id?' selected':''}>${x.label} — ${x.loft}</option>`).join('');
   const fl=dpBallFlight(sh.spinAxis);
   const side = sh.spinAxis<-0.05?'L':sh.spinAxis>0.05?'R':'';
