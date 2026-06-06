@@ -140,10 +140,6 @@ function buildChain(){
        <div class="chain-caption" style="margin-top:4px">Reference Pull / Push / Twist magnitudes about the Point of Influence through the downswing, from the StrongerGolf "3 Phases" study (Strong &amp; Zibrik, 2013). Phases end at hand clock-positions: <b>9:00</b> (end Phase 1) → <b>7:00 / max effort</b> (end Phase 2) → <b>Impact</b>. The signature: <b style="color:var(--c-wood)">Push</b> peaks mid-downswing then releases to zero; <b style="color:var(--c-iron)">Pull</b> climbs to a 100% inward force (~100 lb) at impact; <b style="color:var(--c-wedge)">Twist</b> spikes last to square the face.</div>
        <div style="display:flex;justify-content:center;padding:8px 0 4px">${buildForceProfileSVG()}</div>
 
-       <div class="lvl-subhead" style="margin-top:16px">Elite Kinematic Sequence</div>
-       <div class="chain-caption" style="margin-top:4px">The body's summation of speed that creates those forces — each segment peaks <em>faster and later</em> than the one below (proximal → distal). Measured peaks from the Strong/Zibrik K-Vest study: <b style="color:var(--c-wood)">Pelvis 410</b> → <b style="color:var(--c-iron)">Thorax 552</b> → <b>Club 1,479</b> °/s (Lead Arm ~1,100 typical). Speed-gain ≈ 1.35× then 2.68×; the club peaks at impact.</div>
-       <div style="display:flex;justify-content:center;padding:8px 0 4px">${buildKinematicSequenceSVG()}</div>
-
        <div class="lvl-subhead" style="margin-top:16px">Grip Profile</div>
        <div class="chain-caption" style="margin-top:4px">Grip position directly influences the Twist torque available and its timing. Rated on two independent spectrums — strength position and palm-to-fingers depth.</div>
        <div class="grip-profile-wrap">
@@ -221,8 +217,9 @@ function buildChain(){
        +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:stretch;margin:8px 0 6px">'
        +['Pelvis|410|var(--c-wood)','Upper Body|552|var(--c-iron)','Club (grip)|1479|var(--grey)'].map(c=>{const[lbl,v,col]=c.split('|');return '<div style="flex:1;min-width:84px;text-align:center;background:var(--bg2);border:1px solid var(--border);border-top:3px solid '+col+';border-radius:7px;padding:9px 6px"><div style="font-family:Arial,sans-serif;font-size:1.35rem;font-weight:800;color:'+col+';line-height:1">'+v+'</div><div style="font-family:ui-monospace,monospace;font-size:.46rem;color:var(--muted);letter-spacing:.06em">°/s peak</div><div style="font-family:Arial,sans-serif;font-size:.72rem;font-weight:700;color:var(--ink2);margin-top:3px">'+lbl+'</div></div>';}).join('')
        +'</div>'
+       +'<div style="display:flex;justify-content:center;padding:2px 0 8px">'+buildKinematicSequenceSVG()+'</div>'
        +'<div style="font-family:ui-monospace,monospace;font-size:.5rem;color:var(--muted);line-height:1.6;margin-bottom:12px;padding:7px 10px;background:var(--bg2);border-radius:6px;border:1px solid var(--border)">'
-       +'<strong style="color:var(--ink2)">Speed-gain ratios:</strong> Upper Body / Pelvis = <b>1.35×</b> · Club / Upper Body = <b>2.68×</b> — the summation-of-speed multiplier elite players share.</div>'
+       +'<strong style="color:var(--ink2)">Speed-gain ratios:</strong> Upper Body / Pelvis = <b>1.35×</b> · Club / Upper Body = <b>2.68×</b> — the summation-of-speed multiplier elite players share. Curves above peak proximal→distal (Lead Arm ~1,100°/s typical).</div>'
        +'<div class="edit-field" style="margin-bottom:10px"><label>Sequence Order Observed</label>'
        +'<input class="metric-input" data-swing="kinematics.sequenceOrder" value="'+escapeHtml(getPath(STATE.swing,'kinematics.sequenceOrder'))+'" placeholder="e.g. Pelvis → Thorax → Arm → Club (ideal) or Thorax first (OTT)"></div>'
        +'<div class="edit-field" style="margin-bottom:14px"><label>Transition Trigger</label>'
@@ -672,7 +669,7 @@ function buildDPlaneView(v,wv){
     <svg viewBox="0 0 ${VW} ${VH}" style="width:100%;display:block" xmlns="http://www.w3.org/2000/svg">
       ${bg}
       <line x1="${O.x.toFixed(1)}" y1="${O.y.toFixed(1)}" x2="${te.x.toFixed(1)}" y2="${te.y.toFixed(1)}" stroke="#555" stroke-width="1.2" stroke-dasharray="5,4" opacity="0.5"/>
-      <polygon points="${O.x.toFixed(1)},${O.y.toFixed(1)} ${pe.x.toFixed(1)},${pe.y.toFixed(1)} ${fe.x.toFixed(1)},${fe.y.toFixed(1)}" fill="#e08a2e" fill-opacity="0.5" stroke="#c8721e" stroke-width="1"/>
+      <polygon points="${O.x.toFixed(1)},${O.y.toFixed(1)} ${pe.x.toFixed(1)},${pe.y.toFixed(1)} ${fe.x.toFixed(1)},${fe.y.toFixed(1)}" fill="#efc81e" fill-opacity="0.55" stroke="#b8860b" stroke-width="1"/>
       ${ln(O,pe,'#c43c9e',2.4)}${ln(O,fe,'#2a6fc4',2.4)}${ln(aB,aA,'#cc2a2a',1.9)}${ln(O,eX,'#111',2.8)}
       <circle cx="${O.x.toFixed(1)}" cy="${O.y.toFixed(1)}" r="4" fill="#fff" stroke="#333" stroke-width="1.4"/>
     </svg></div>`;
@@ -687,13 +684,13 @@ function renderDPlaneVisual(){
   const sh=dplaneShape(d.hFace,d.hPath,vFace,d.aoa,p.carry||150);
   const wv=dpWorldVectors(+d.hFace||0,+d.hPath||0,+vFace||0,+d.aoa||0);
   const opts=clubs.map(x=>`<option value="${x.id}"${x.id===id?' selected':''}>${x.label} — ${x.loft}</option>`).join('');
-  const fl=dpBallFlight(sh.spinAxis), flCol = fl==='Straight'?'var(--ink2)' : sh.spinAxis<0?'var(--green)':'var(--c-wood)';
+  const fl=dpBallFlight(sh.spinAxis);
   const side = sh.spinAxis<-0.05?'L':sh.spinAxis>0.05?'R':'';
   host.innerHTML=`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
       <label style="font-family:ui-monospace,monospace;font-size:.56rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)">Club</label>
       <select class="strat-select" style="max-width:150px" onchange="setDpVisClub(this.value)">${opts}</select>
     </div>
-    <div class="dpv-readout">3D Spin Loft <b>${sh.spinLoft.toFixed(1)}°</b><span class="dpv-sep">·</span>Spin Axis <b>${Math.abs(sh.spinAxis).toFixed(1)}°${side}</b><span class="dpv-sep">·</span>Ball Flight <b style="color:${flCol}">${fl}</b></div>
+    <div class="dpv-readout">3D Spin Loft <b style="color:#b8860b">${sh.spinLoft.toFixed(1)}°</b><span class="dpv-sep">·</span>Spin Axis <b style="color:#cc2a2a">${Math.abs(sh.spinAxis).toFixed(1)}°${side}</b><span class="dpv-sep">·</span>Ball Flight <b style="color:#111">${fl}</b></div>
     <div class="dpv-grid">${DP_VIEWS.map(v=>buildDPlaneView(v,wv)).join('')}</div>`;
 }
 function buildGearEffectL2(){
