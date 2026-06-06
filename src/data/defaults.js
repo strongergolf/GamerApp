@@ -15,6 +15,13 @@ const DEFAULT_DATA = {
     rounds: []
     /* each round: {id, date, course, ott, app, atg, putt, gross, notes} */
   },
+  /* Course maps for the Plan tab. Built in the Course Editor (trace-on-image).
+     Geometry stored in normalized field units (0–1000 x, 0–1400 y, portrait).
+     scaleYpu = yards per field-unit (from 2-point calibration or hole yardage). */
+  courses: [],
+  /* each course: {id, name, holes:[ {num, par, yards, scaleYpu, bg(dataURL|null),
+       tee:{x,y}|null, pin:{x,y}|null, green:[{x,y}], fairway:[{x,y}],
+       hazards:[{type:'sand|water|oob', pts:[{x,y}]}] } ]} */
   /* physical club specs */
   clubs: [
     {id:'D',  type:'wood',  label:'D',  make:'Callaway', model:'Rogue ST',       shaft:'HZRDUS 6.0 76g', length:'45"',    loft:'8°',  origLoft:'9°',     lie:'56°',    swt:'—',    year:2021},

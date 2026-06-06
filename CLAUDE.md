@@ -36,6 +36,7 @@ src/
   state/
     store.js            ← load / mergeDefaults / save; STATE lives on window (see below)
   physics/
+    dplane.js           ← exact impact-geometry engine (HPath, SpinAxis, 3D SpinLoft, gear) — single source of truth
     conditions.js       ← air density + carry factor from weather
     dispersion.js       ← lateral dispersion model + club colour/label helpers
     flight.js           ← partial-swing interpolation + Pitch Shot suggestion engine
@@ -49,7 +50,8 @@ src/
     shortgame.js        ← Short Game tab (Chip Shot Options, chip matrix)
     putting.js          ← Putting tab (AimPoint, Expected Putts)
     sg-tracking.js      ← scenario calc, round logging, SG averages/trend/sparkline
-    diagnose.js         ← 7-level causal chain
+    diagnose.js         ← 7-level causal chain + per-club D-plane tendencies grid
+    courses.js          ← Course maps: data model, vector hole renderer (renderHoleSVG), trace-on-image editor (Plan tab)
     bag-specs.js        ← My Bag specs/edit, ball listing, profile (Myself), data import/export
     club-form.js        ← add-a-club form
     charts.js           ← SG diamond chart, setPath, savePhysical
@@ -137,7 +139,7 @@ All full-swing long-club trajectory SVGs use an **asymmetric cubic bezier** refl
 - Wordmark: "Stronger" green + "Golf" pink; trajectory arc above in pink. Tagline "Club, Shot & Swing Data".
 
 ## Naming conventions (preserve exactly)
-Mark uses specific teaching language. Keep these strings verbatim: "Side Slope at Point of Influence", "Chip Shot Options", "Pitch Shot Options", "Expected Putts Calculator". Nav: Play (Stock Shots / Approach / Short Game / Putting), Practice (Causal Chain — internally the `diagnose` group/page id), Plan (Course Strategy — the `courses` page), Locker Room group → My Bag / Myself / Reference.
+Mark uses specific teaching language. Keep these strings verbatim: "Side Slope at Point of Influence", "Chip Shot Options", "Pitch Shot Options", "Expected Putts Calculator". Nav: Play (Stock Shots / Approach / Short Game / Putting), Practice (Causal Chain — internally the `diagnose` group/page id), Plan (Course Strategy — the `courses` page), Plan group → Strategy (`courses` page) / Course Editor (`editor` page). Locker Room group → My Bag / Myself / Reference.
 
 ## Working style
 Mark describes changes in plain golf terms and reviews each revision closely — he catches calibration drift and regressions quickly. Match real-world reference data (Foresight table, measured landing angles, stimp 9.5); approximations get caught. Keep responses precise.

@@ -12,7 +12,7 @@ const GROUPS={
     {id:'putting',  label:'Putting'}
   ],
   diagnose:[{id:'diagnose',label:'Causal Chain'}],
-  plan:[{id:'courses',label:'Course Strategy'}],
+  plan:[{id:'courses',label:'Strategy'},{id:'editor',label:'Course Editor'}],
   setup:[{id:'specs',label:'My Bag'},{id:'profile',label:'Myself'},{id:'reference',label:'Reference'}]
 };
 let currentGroup='play';
@@ -53,6 +53,7 @@ function renderAll(){
   renderExpectedShots('es-putting', 15, 'green');
   buildChain();
   buildCourseStrategy();
+  buildCourses();
   buildSpecs();
   buildProfile();
   renderCalc(95);

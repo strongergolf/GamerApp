@@ -517,3 +517,21 @@ table.chip-matrix tr:hover td{background:var(--surface2)}
 .cs-club{display:flex;justify-content:space-between;align-items:baseline;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:7px 10px}
 .cs-club-lbl{font-family:Arial,sans-serif;font-weight:800;font-size:.95rem;color:var(--ink)}
 .cs-shape{font-family:ui-monospace,monospace;font-size:.6rem;font-weight:700}
+
+/* Course Editor (Plan) */
+.cf-course-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.cf-select,.cf-name{font-family:Arial,sans-serif;font-size:.85rem;font-weight:700;padding:6px 8px;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;color:var(--ink);outline:none}
+.cf-name{flex:1;min-width:120px;font-weight:600}
+.cf-hole-tabs{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px}
+.cf-hole-tab{font-family:Arial,sans-serif;font-weight:800;font-size:.82rem;min-width:30px;padding:5px 8px;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;color:var(--ink2);cursor:pointer}
+.cf-hole-tab.active{background:var(--green);color:#fff;border-color:var(--green)}
+.cf-hole-tab.add{color:var(--green);font-weight:800}
+.cf-hole-meta{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:10px;font-family:ui-monospace,monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.cf-hole-meta input{font-family:Arial,sans-serif;font-size:.85rem;font-weight:700;padding:4px 6px;background:var(--bg2);border:1px solid var(--border2);border-radius:5px;color:var(--ink);outline:none;margin-left:4px}
+.cf-scale{color:var(--ink2)}
+.cf-tools{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+.cf-tools-lbl{font-family:ui-monospace,monospace;font-size:.58rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.cf-mode{font-family:Arial,sans-serif;font-size:.78rem;font-weight:700;padding:5px 9px;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;color:var(--ink2);cursor:pointer}
+.cf-mode.active{background:var(--gold);color:#fff;border-color:var(--gold)}
+.cf-hint{font-family:Arial,sans-serif;font-size:.74rem;font-style:italic;color:var(--muted);margin:6px 0 8px;min-height:18px}
+.cf-canvas{max-width:420px;margin:0 auto;border:1px solid var(--border2);border-radius:10px;overflow:hidden}

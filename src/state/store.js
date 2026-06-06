@@ -43,10 +43,13 @@ function mergeDefaults(saved){
   /* Per-club D-plane tendencies: merge so new default clubs get seeded entries
      while preserving the user's edits. */
   const dplane = Object.assign({}, base.dplane, sv.dplane||{});
+  /* Courses: keep saved courses as-is (user-authored); default empty for new users. */
+  const courses = Array.isArray(sv.courses) ? sv.courses : base.courses;
   return Object.assign(base, sv, {
     clubs,
     performance,
     dplane,
+    courses,
     profile:  Object.assign(base.profile,  sv.profile||{}),
     baseline: Object.assign(base.baseline, sv.baseline||{}),
     scoring:  { rounds: (sv.scoring&&sv.scoring.rounds)||[] },
