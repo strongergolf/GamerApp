@@ -265,12 +265,19 @@ function osmBuildCourse(name, parsed){
   },ref)).sort((a,b)=>(a.num||99)-(b.num||99));
   return {id:cfUID(), name, source:'osm', attribution:'© OpenStreetMap contributors', holes};
 }
-async function cfFetchJSON(url){ const r=await fetch(url); if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); }
-async function cfOverpass(oq){
-  const mirrors=['https://overpass-api.de/api/interpreter','https://overpass.private.coffee/api/interpreter','https://maps.mail.ru/osm/tools/overpass/api/interpreter'];
+async function cfFetchJSON(url, ms){
+  const ctrl=new AbortController(); const t=setTimeout(()=>ctrl.abort(), ms||18000);
+  try{ const r=await fetch(url,{signal:ctrl.signal}); if(!r.ok) throw new Error('HTTP '+r.status); return await r.json(); }
+  finally{ clearTimeout(t); }
+}
+async function cfOverpass(oq, set){
+  const mirrors=['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter','https://overpass.private.coffee/api/interpreter'];
   let err;
-  for(const m of mirrors){ try{ return await cfFetchJSON(m+'?data='+encodeURIComponent(oq)); }catch(e){ err=e; } }
-  throw err||new Error('all mirrors failed');
+  for(let i=0;i<mirrors.length;i++){
+    try{ if(set) set('Fetching map… (server '+(i+1)+'/'+mirrors.length+', up to 20s each)'); return await cfFetchJSON(mirrors[i]+'?data='+encodeURIComponent(oq),20000); }
+    catch(e){ err=e; }
+  }
+  throw err||new Error('all map servers timed out');
 }
 async function cfOsmImport(){
   const inp=document.getElementById('osm-q'), status=document.getElementById('osm-status');
@@ -291,9 +298,8 @@ async function cfOsmImport(){
   /* 2) fetch golf features via Overpass (with mirror fallback) */
   let data;
   try{
-    set('Fetching map from OpenStreetMap…');
     const oq='[out:json][timeout:25];(way[golf]('+S+','+W+','+N+','+E+'););out geom;';
-    data=await cfOverpass(oq);
+    data=await cfOverpass(oq, set);
   }catch(e){ set('Map service busy or unreachable — try again in a moment ('+(e&&e.message||'')+').'); return; }
   /* 3) parse → build → store */
   try{
