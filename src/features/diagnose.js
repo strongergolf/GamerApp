@@ -225,10 +225,15 @@ function buildChain(){
        +'<div class="edit-field" style="margin-bottom:14px"><label>Transition Trigger</label>'
        +'<input class="metric-input" data-swing="kinematics.transitionTrigger" value="'+escapeHtml(getPath(STATE.swing,'kinematics.transitionTrigger'))+'" placeholder="what initiates the downswing — lateral shift, trail foot push-off, etc."></div>'
        +'<div class="lvl-subhead">Ground Reaction Forces — Force Plate / Swing Catalyst</div>'
+       +'<div class="chain-caption" style="margin-top:4px">Ideal vertical-force pattern: weight loads the <b style="color:var(--c-wood)">trail</b> foot in the backswing, crosses to the <b style="color:var(--c-wedge)">lead</b> foot in transition, and total vertical (<b style="color:var(--ink2)">dashed</b>) peaks ~1.5× body weight just before impact. <span class="placeholder-flag">representative</span></div>'
+       +'<div style="display:flex;justify-content:center;padding:2px 0 8px">'+buildGRFTraceSVG()+'</div>'
+       +'<div class="lvl-subhead-sm" style="margin:6px 0 6px">Weight Distribution — Current vs Ideal</div>'
+       +'<div class="mg-grid">'
+       +metricGoal('Weight @ Address','% lead','forcePlate.wtAddress',50)
+       +metricGoal('Weight @ Top','% lead','forcePlate.wtTop',40)
+       +metricGoal('Weight @ Impact','% lead','forcePlate.wtImpact',85)
+       +'</div>'
        +'<div class="metric-grid">'
-       +metricBox('Weight at Address','% on lead foot','forcePlate.wtAddress')
-       +metricBox('Weight at Top','% on lead foot','forcePlate.wtTop')
-       +metricBox('Weight at Impact','% on lead foot','forcePlate.wtImpact')
        +metricBox('Loading Pattern','trail/lead bias','forcePlate.loadingPattern')
        +metricBox('GRF Transition Trigger','GRF initiation','forcePlate.transitionTrigger')
        +metricBox('Peak Lead Force Timing','relative to impact','forcePlate.peakLeadTiming')
@@ -419,6 +424,44 @@ function forceRow(name,desc,key){
 }
 /* Elite Pull/Push/Twist magnitude profile through the downswing —
    StrongerGolf "3 Phases" study (Strong/Zibrik). % of max about the POI. */
+/* Ideal / representative ground-reaction trace (vertical force, % body weight) — the
+   established force-plate pattern: trail-loaded in the backswing, weight crosses to the
+   lead foot, total vertical peaks (~1.5× BW) just before impact (counter-movement dip in
+   transition). Generalised from force-plate research (Swing Catalyst / Lynn), not a single
+   measured swing. */
+function buildGRFTraceSVG(){
+  const W=340,H=170,padL=30,padR=10,padT=12,padB=22, plotW=W-padL-padR, plotH=H-padT-padB, maxV=180;
+  const lead =[[0,50],[0.2,40],[0.35,33],[0.5,42],[0.7,100],[0.8,130],[0.9,108],[1.1,90]];
+  const trail=[[0,50],[0.2,62],[0.35,68],[0.5,55],[0.7,32],[0.8,25],[0.9,24],[1.1,28]];
+  const total=lead.map((p,i)=>[p[0], p[1]+trail[i][1]]);
+  const X=t=>padL+Math.min(1.1,t)/1.1*plotW, Y=v=>padT+(1-v/maxV)*plotH;
+  const poly=(arr,col,w,dash)=>`<polyline points="${arr.map(p=>X(p[0]).toFixed(1)+','+Y(p[1]).toFixed(1)).join(' ')}" fill="none" stroke="${col}" stroke-width="${w}"${dash?' stroke-dasharray="4,3"':''}/>`;
+  let grid='';
+  [0,50,100,150].forEach(g=>{const y=Y(g);grid+=`<line x1="${padL}" y1="${y.toFixed(1)}" x2="${(padL+plotW).toFixed(1)}" y2="${y.toFixed(1)}" stroke="var(--border)" stroke-width="0.5"/><text x="${padL-4}" y="${(y+3).toFixed(1)}" text-anchor="end" font-family="ui-monospace,monospace" font-size="6" fill="var(--muted)">${g}</text>`;});
+  const ix=X(0.8);
+  const impact=`<line x1="${ix.toFixed(1)}" y1="${padT}" x2="${ix.toFixed(1)}" y2="${(padT+plotH).toFixed(1)}" stroke="var(--ink2)" stroke-width="1" stroke-dasharray="3,3" opacity="0.6"/><text x="${ix.toFixed(1)}" y="${(padT+plotH+9).toFixed(1)}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="6" fill="var(--ink2)">impact</text>`;
+  const xlab=`<text x="${padL}" y="${H-3}" font-family="ui-monospace,monospace" font-size="6" fill="var(--muted)">address</text><text x="${(padL+plotW).toFixed(1)}" y="${H-3}" text-anchor="end" font-family="ui-monospace,monospace" font-size="6" fill="var(--muted)">finish</text>`;
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:380px;display:block" xmlns="http://www.w3.org/2000/svg">${grid}${impact}${poly(total,'var(--ink2)',1.6,true)}${poly(trail,'var(--c-wood)',2.2)}${poly(lead,'var(--c-wedge)',2.2)}${xlab}</svg>`;
+}
+/* Reusable "current (measured) vs ideal (goal)" metric — editable current + target + Δ. */
+function metricGoal(label, unit, path, ideal){
+  const raw=getPath(STATE.swing,path);
+  const cur=(raw===''||raw==null)?null:parseFloat(raw);
+  const tol=Math.max(2,Math.abs(ideal)*0.1);
+  const delta=(cur!=null&&!isNaN(cur))?cur-ideal:null;
+  const onT=delta!=null&&Math.abs(delta)<=tol;
+  const dCol=delta==null?'var(--muted)':onT?'var(--green)':'var(--gold)';
+  const dTxt=delta==null?'—':(delta>0?'+':'')+(+delta.toFixed(1))+(unit?' '+unit:'')+(onT?' ✓':'');
+  return `<div class="mg-box">
+    <div class="mg-label">${label}</div>
+    <div class="mg-vals">
+      <div class="mg-cur"><input class="mg-input" value="${escapeHtml(raw)}" data-swing="${path}" inputmode="decimal" placeholder="—"><div class="mg-tag">current</div></div>
+      <div class="mg-arrow">→</div>
+      <div class="mg-ideal"><div class="mg-ideal-val">${ideal}</div><div class="mg-tag">ideal</div></div>
+    </div>
+    <div class="mg-delta" style="color:${dCol}">${dTxt}</div>
+  </div>`;
+}
 /* Elite kinematic sequence — proximal-to-distal angular-velocity curves.
    Measured peaks (Strong/Zibrik K-Vest): Pelvis 410, Thorax 552, Club 1479 °/s;
    Lead Arm ~1100 typical. Each peaks faster & later than the one below. */
@@ -633,9 +676,9 @@ function dpWorldVectors(hFace,hPath,vFace,vPath){
 function dpFlightPath(wv, spinAxis){
   const l=wv.launch, llen=Math.hypot(l.x,l.y,l.z)||1;
   const lu={x:l.x/llen, y:l.y/llen, z:l.z/llen};
-  const S=4.8, N=22, arc=1.6;
+  const S=6.4, N=24, arc=1.25;                                 // longer = zoomed out, gentler curve
   const sign = spinAxis<-0.05?-1 : spinAxis>0.05?1 : 0;        // draw → left(−x), fade → right(+x)
-  const latMax = sign*Math.min(2.8, Math.abs(spinAxis)/10*1.9);
+  const latMax = sign*Math.min(1.5, Math.abs(spinAxis)/12*1.5);
   const pts=[];
   for(let i=0;i<=N;i++){ const f=i/N, s=f*S;
     pts.push({ x: lu.x*s + latMax*f*f, y: lu.y*s*(1-f)*arc, z: lu.z*s }); }
@@ -662,6 +705,7 @@ function buildDPlaneView(v,wv){
   const B={x:wv.launch.x-wv.axis.x,y:wv.launch.y-wv.axis.y,z:wv.launch.z-wv.axis.z};
   const flight=wv.flight||[];                                            // curved ball-flight (draw/fade)
   const pts=[wv.O,wv.path,wv.face,wv.tgt,wv.launch,A,B].concat(flight);
+  if(wv.flag) pts.push(wv.flag);
   const xs=pts.map(p=>dpDot(p,v.R)), ys=pts.map(p=>dpDot(p,v.U));
   const mnx=Math.min(...xs),mxx=Math.max(...xs),mny=Math.min(...ys),mxy=Math.max(...ys);
   const sc=Math.min((VW-2*PAD)/Math.max(0.5,mxx-mnx),(VH-2*PAD)/Math.max(0.5,mxy-mny));
@@ -669,7 +713,9 @@ function buildDPlaneView(v,wv){
   const P=p=>({x:VW/2+(dpDot(p,v.R)-cX)*sc, y:VH/2-(dpDot(p,v.U)-cY)*sc});
   const O=P(wv.O),pe=P(wv.path),fe=P(wv.face),te=P(wv.tgt),aA=P(A),aB=P(B);
   const fpts=flight.map(P);
-  const flightPoly=fpts.length?`<polyline points="${fpts.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ')}" fill="none" stroke="#111" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${fpts[fpts.length-1].x.toFixed(1)}" cy="${fpts[fpts.length-1].y.toFixed(1)}" r="2.6" fill="#111"/>`:'';
+  const flightPoly=fpts.length?`<polyline points="${fpts.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ')}" fill="none" stroke="#111" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${fpts[fpts.length-1].x.toFixed(1)}" cy="${fpts[fpts.length-1].y.toFixed(1)}" r="2.4" fill="#111"/>`:'';
+  const fg=wv.flag?P(wv.flag):null;
+  const flagSVG=fg?`<line x1="${fg.x.toFixed(1)}" y1="${fg.y.toFixed(1)}" x2="${fg.x.toFixed(1)}" y2="${(fg.y-26).toFixed(1)}" stroke="#9a9a9a" stroke-width="1.3"/><polygon points="${fg.x.toFixed(1)},${(fg.y-26).toFixed(1)} ${(fg.x+13).toFixed(1)},${(fg.y-21).toFixed(1)} ${fg.x.toFixed(1)},${(fg.y-16).toFixed(1)}" fill="#d33"/><circle cx="${fg.x.toFixed(1)}" cy="${fg.y.toFixed(1)}" r="2" fill="#333"/>`:'';
   const ln=(a,b,c,w)=>`<line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}" stroke="${c}" stroke-width="${w}"/>`;
   const hz=VH*0.5;
   /* Overhead = looking straight down, all ground (no horizon); DTL & Face-On get sky+ground. */
@@ -684,7 +730,7 @@ function buildDPlaneView(v,wv){
       ${bg}
       <line x1="${O.x.toFixed(1)}" y1="${O.y.toFixed(1)}" x2="${te.x.toFixed(1)}" y2="${te.y.toFixed(1)}" stroke="#555" stroke-width="1.2" stroke-dasharray="5,4" opacity="0.5"/>
       <polygon points="${O.x.toFixed(1)},${O.y.toFixed(1)} ${pe.x.toFixed(1)},${pe.y.toFixed(1)} ${fe.x.toFixed(1)},${fe.y.toFixed(1)}" fill="#efc81e" fill-opacity="0.55" stroke="#b8860b" stroke-width="1"/>
-      ${ln(O,pe,'#c43c9e',2.4)}${ln(O,fe,'#2a6fc4',2.4)}${ln(aB,aA,'#cc2a2a',1.9)}${flightPoly}
+      ${flagSVG}${ln(O,pe,'#c43c9e',2.4)}${ln(O,fe,'#2a6fc4',2.4)}${ln(aB,aA,'#cc2a2a',1.9)}${flightPoly}
       <circle cx="${O.x.toFixed(1)}" cy="${O.y.toFixed(1)}" r="4" fill="#fff" stroke="#333" stroke-width="1.4"/>
     </svg></div>`;
 }
@@ -698,6 +744,7 @@ function renderDPlaneVisual(){
   const sh=dplaneShape(d.hFace,d.hPath,vFace,d.aoa,p.carry||150);
   const wv=dpWorldVectors(+d.hFace||0,+d.hPath||0,+vFace||0,+d.aoa||0);
   wv.flight=dpFlightPath(wv, sh.spinAxis);
+  wv.flag={x:0,y:0,z:6.8};   // target flag down the line (~300 yd, not to scale)
   const opts=clubs.map(x=>`<option value="${x.id}"${x.id===id?' selected':''}>${x.label} — ${x.loft}</option>`).join('');
   const fl=dpBallFlight(sh.spinAxis);
   const side = sh.spinAxis<-0.05?'L':sh.spinAxis>0.05?'R':'';

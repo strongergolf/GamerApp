@@ -555,6 +555,18 @@ table.chip-matrix tr:hover td{background:var(--surface2)}
 .dpv-readout{font-family:Arial,sans-serif;font-size:.92rem;font-weight:600;color:var(--ink2);margin-bottom:8px;line-height:1.5}
 .dpv-readout b{font-weight:800;color:var(--ink)}
 .dpv-sep{color:var(--border2);margin:0 7px}
+/* Measured vs Ideal metric */
+.mg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:12px}
+.mg-box{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:9px 11px}
+.mg-label{font-family:ui-monospace,monospace;font-size:.56rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:6px}
+.mg-vals{display:flex;align-items:center;gap:8px}
+.mg-cur,.mg-ideal{flex:1;text-align:center}
+.mg-input{width:100%;font-family:Arial,sans-serif;font-size:1.05rem;font-weight:800;text-align:center;padding:4px 5px;background:var(--bg2);border:1px solid var(--border2);border-radius:5px;color:var(--ink);outline:none}
+.mg-input:focus{border-color:var(--green)}
+.mg-ideal-val{font-family:Arial,sans-serif;font-size:1.05rem;font-weight:800;color:var(--green);padding:4px 5px;background:var(--green-pale);border:1px solid var(--green2);border-radius:5px}
+.mg-arrow{font-family:Arial,sans-serif;color:var(--muted);font-weight:700}
+.mg-tag{font-family:ui-monospace,monospace;font-size:.46rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-top:3px}
+.mg-delta{font-family:ui-monospace,monospace;font-size:.62rem;font-weight:700;text-align:center;margin-top:6px}
 
 /* Strategy preferences (Plan) */
 .strat-block{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px}
