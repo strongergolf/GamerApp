@@ -16,13 +16,21 @@ function buildPartialsTable(){
       <span style="font-family:Arial,sans-serif;font-weight:800;font-size:1.05rem;letter-spacing:.02em;color:var(--ink);display:block;line-height:1.1">${c.label}</span>
       <span style="font-family:ui-monospace,monospace;font-size:.64rem;font-weight:700;color:var(--ink2);display:block;margin-top:1px">${c.loft}</span>
     </td>`;
+    const pf=STATE.performance[id]||{};
+    const ratio=(pf.carry>0&&pf.total>0)?pf.carry/pf.total:0.97;        // club's carry / total
     rows.forEach(sw=>{
-      let val=pr[sw.key]; const conf=pr.conf[sw.ci];
-      /* Full-swing column reads the club's Stock Shots total directly, so the matrix can
-         never drift from the Bag data (tq/half stay as the player's stored partials). */
-      if(sw.key==='full'){ const pf=STATE.performance[id]; const t=pf?(pf.total!=null?pf.total:pf.carry):null; if(t!=null) val=Math.round(t); }
-      if(val==null){ html+=`<td><div class="carry-cell empty">—</div></td>`; }
-      else{ const dv=val+(window.approachGreenFirmness||0); html+=`<td><div class="carry-cell">${dv}<span style="font-size:.52rem;font-weight:400;color:var(--muted);margin-left:2px">yds</span></div></td>`; }
+      let total=pr[sw.key], carry;
+      if(sw.key==='full'){                                             // full reads Stock Shots total/carry directly
+        total = pf.total!=null?pf.total : (pf.carry!=null?pf.carry:total);
+        carry = pf.carry!=null?pf.carry : (total!=null?Math.round(total*ratio):null);
+      } else {                                                         // ¾/½: total stored, carry derived from the ratio
+        carry = total!=null?Math.round(total*ratio):null;
+      }
+      if(total==null){ html+=`<td><div class="carry-cell empty">—</div></td>`; }
+      else{
+        const t=Math.round(total)+(window.approachGreenFirmness||0);   // firmness adds rollout to total only
+        html+=`<td><div class="carry-cell">${t}<small>${carry!=null?Math.round(carry)+' carry':'—'}</small></div></td>`;
+      }
     });
     html+=`</tr>`;
   });
