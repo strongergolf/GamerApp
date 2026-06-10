@@ -17,7 +17,10 @@ function buildPartialsTable(){
       <span style="font-family:ui-monospace,monospace;font-size:.64rem;font-weight:700;color:var(--ink2);display:block;margin-top:1px">${c.loft}</span>
     </td>`;
     rows.forEach(sw=>{
-      const val=pr[sw.key]; const conf=pr.conf[sw.ci];
+      let val=pr[sw.key]; const conf=pr.conf[sw.ci];
+      /* Full-swing column reads the club's Stock Shots total directly, so the matrix can
+         never drift from the Bag data (tq/half stay as the player's stored partials). */
+      if(sw.key==='full'){ const pf=STATE.performance[id]; const t=pf?(pf.total!=null?pf.total:pf.carry):null; if(t!=null) val=Math.round(t); }
       if(val==null){ html+=`<td><div class="carry-cell empty">—</div></td>`; }
       else{ const dv=val+(window.approachGreenFirmness||0); html+=`<td><div class="carry-cell">${dv}<span style="font-size:.52rem;font-weight:400;color:var(--muted);margin-left:2px">yds</span></div></td>`; }
     });
