@@ -36,8 +36,9 @@ function showPage(id,tab){
 let toastTimer;
 function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),1900); }
 
-function renderAll(){
-  /* header eyebrow removed */
+/* Rebuild every data-dependent surface from current STATE — WITHOUT changing the active
+   tab. Called after Locker Room edits so changes propagate everywhere relevant. */
+function refreshAll(){
   renderConditions();
   buildLadder();
   buildPartialsTable();
@@ -45,7 +46,7 @@ function renderAll(){
   /* Sync approach stimp control from STATE (values are in static HTML so can't use template literals) */
   const _psv=document.getElementById('partials-stimp-val'); if(_psv) _psv.textContent=STATE.stimp.toFixed(1);
   const _psr=document.getElementById('partials-stimp-range'); if(_psr) _psr.value=STATE.stimp;
-    buildShortGame();
+  buildShortGame();
   buildPutting();
   renderPuttSG();
   renderExpectedShots('es-150', 95, 'fairway');
@@ -59,6 +60,9 @@ function renderAll(){
   buildProfile();
   renderCalc(95);
   updateDriverOpt();
+}
+function renderAll(){
+  refreshAll();
   showGroup(currentGroup, document.querySelector('.ngroup.active'));
 }
 function initConditions(){
@@ -74,4 +78,4 @@ initCalc();
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { GROUPS, currentGroup, initConditions, renderAll, showGroup, showPage, toast, toastTimer });
+Object.assign(window, { GROUPS, currentGroup, initConditions, refreshAll, renderAll, showGroup, showPage, toast, toastTimer });

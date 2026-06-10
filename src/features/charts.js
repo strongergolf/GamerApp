@@ -90,7 +90,7 @@ function savePhysical(){
   pf.heightIn=document.getElementById('pf-htin')?.value||pf.heightIn;
   pf.armToFloor=document.getElementById('pf-atf')?.value||pf.armToFloor;
   pf.gloveSize=document.getElementById('pf-glove')?.value||pf.gloveSize;
-  saveState(); toast('Physical profile saved');
+  saveState(); refreshAll(); toast('Physical profile saved');
 }
 
 

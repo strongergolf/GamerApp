@@ -105,6 +105,19 @@ function toggleSpecs(c,row,group){
   group.classList.add('open');
   setTimeout(()=>group.scrollIntoView({behavior:'smooth',block:'nearest'}),50);
 }
+/* Keep the Distance Matrix in sync with a club's edited total: scale the partial swings
+   (full/tq/half) by the change so the matrix tracks the new distance. */
+function syncPartialsForClub(id){
+  const pr=STATE.partials&&STATE.partials[id], perf=STATE.performance&&STATE.performance[id];
+  if(!pr||!perf||!pr.full) return;
+  const tot=perf.total!=null?perf.total:perf.carry;
+  if(tot==null) return;
+  const r=tot/pr.full;
+  if(!isFinite(r)||Math.abs(r-1)<0.005) return;          // unchanged → leave partials as measured
+  pr.full=Math.round(tot);
+  if(pr.tq!=null) pr.tq=Math.round(pr.tq*r);
+  if(pr.half!=null) pr.half=Math.round(pr.half*r);
+}
 function saveClub(id){
   const club=STATE.clubs.find(c=>c.id===id); const p=STATE.performance[id]=STATE.performance[id]||{};
   document.querySelectorAll(`[data-club="${id}"]`).forEach(el=>{
@@ -112,8 +125,8 @@ function saveClub(id){
     if(kind==='spec'){ club[key]= key==='year'?(parseInt(v)||club[key]):v; }
     else{ p[key]= v===''? null : (isNaN(parseFloat(v))?v:parseFloat(v)); }
   });
-  saveState(); buildSpecs(); buildLadder(); buildPartialsTable();
-  renderCalc(parseInt(document.getElementById('yard-input').value)||95);
+  syncPartialsForClub(id);
+  saveState(); refreshAll();                              // propagate everywhere (no tab jump)
   toast(club.label+' updated');
 }
 
@@ -197,7 +210,7 @@ function saveProfile(){
   STATE.baseline.humidity=parseFloat(document.getElementById('bl-hum').value)||STATE.baseline.humidity;
   STATE.baseline.pressureInHg=parseFloat(document.getElementById('bl-pres').value)||STATE.baseline.pressureInHg;
   STATE.densityK=Math.max(0,Math.min(2,parseFloat(document.getElementById('dens-k').value)||0.65));
-  saveState(); buildLadder(); buildSpecs(); updateCondSummary(); toast('Profile saved');
+  saveState(); refreshAll(); toast('Profile saved');
 }
 function saveCalibration(){ STATE.densityK=Math.max(0,Math.min(2,parseFloat(document.getElementById('dens-k').value)||0.65)); saveState(); buildLadder(); updateCondSummary(); toast('Calibration saved'); }
 function generateFromSwingSpeed(){
@@ -213,8 +226,7 @@ function generateFromSwingSpeed(){
   });
   Object.keys(STATE.partials).forEach(id=>{const pr=STATE.partials[id];['full','tq','half'].forEach(k=>{if(pr[k]!=null)pr[k]=Math.round(pr[k]*ratio);});});
   STATE.profile.driverSwingSpeed=target;
-  saveState(); buildLadder(); buildPartialsTable();
-  buildProfile(); renderCalc(95); toast('Ladder generated — refine from real data');
+  saveState(); refreshAll(); toast('Ladder generated — refine from real data');
 }
 function exportData(){
   const blob=new Blob([JSON.stringify(STATE,null,2)],{type:'application/json'});

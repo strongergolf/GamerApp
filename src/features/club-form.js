@@ -37,7 +37,7 @@ function addNewClub(){
     };
   }
   saveState();
-  buildLadder(); buildSpecs(); buildPartialsTable();
+  refreshAll();
   clearNewClubForm();
   toast(label + ' added to bag');
 }
