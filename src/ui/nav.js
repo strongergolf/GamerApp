@@ -11,7 +11,7 @@ const GROUPS={
     {id:'shortgame',label:'Short Game'},
     {id:'putting',  label:'Putting'}
   ],
-  diagnose:[{id:'assess',label:'Assess'},{id:'improve',label:'Improve'},{id:'resources',label:'Resources'}],
+  diagnose:[{id:'assess',label:'Assess'},{id:'improve',label:'Practice'},{id:'resources',label:'Resources'}],
   plan:[{id:'courses',label:'Strategy'},{id:'editor',label:'Course Editor'}],
   setup:[{id:'specs',label:'My Bag'},{id:'profile',label:'Myself'},{id:'reference',label:'Reference'}]
 };
