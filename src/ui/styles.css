@@ -21,7 +21,7 @@ body::after{content:'';position:fixed;inset:0;background-image:url("data:image/s
 .brand-wordmark{font-family:"Arial Narrow",Arial,sans-serif;font-size:1.7rem;font-weight:800;letter-spacing:.04em;line-height:1}
 .brand-stronger{color:#00853F} .brand-golf{color:#F4C2C2}
 .header-app-name{font-family:Arial,sans-serif;font-size:clamp(1.36rem,5.1vw,1.87rem);font-weight:800;letter-spacing:.06em;color:#f4f0e8;text-align:center;text-transform:uppercase;line-height:1.05}
-.header-tagline{font-family:ui-monospace,monospace;font-size:1.23rem;letter-spacing:.18em;text-transform:uppercase;color:#9fd0bd;text-align:center;margin-top:5px}
+.header-tagline{font-family:ui-monospace,monospace;font-size:.9rem;letter-spacing:.1em;text-transform:uppercase;color:#9fd0bd;text-align:center;margin-top:5px}
 .header-eyebrow{font-family:ui-monospace,monospace;font-size:.58rem;letter-spacing:.2em;text-transform:uppercase;color:#F4C2C2;text-align:center;margin-bottom:0}
 .header-eyebrow{font-family:ui-monospace,monospace;font-size:.6rem;letter-spacing:.22em;text-transform:uppercase;color:var(--gold2);text-align:center;margin-bottom:6px}
 .header-title-single{font-family:Arial,sans-serif;font-size:clamp(1.2rem,5vw,1.7rem);font-weight:700;letter-spacing:.06em;color:#eef4f2;text-align:center;text-transform:uppercase}
