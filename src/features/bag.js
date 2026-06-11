@@ -47,9 +47,7 @@ function buildLadder(){
     const sigma1=Math.round(dispBase*0.608*10)/10;          /* 1σ ≈ 68% lateral half-width */
     const sigma2=Math.round(sigma1*2*10)/10;                /* 2σ ≈ 95% */
     const dc=dispColor(dispBase);
-    const totalYd=p.total||stock;
-    const pct1=totalYd>0?Math.round(sigma1/totalYd*1000)/10:0;  /* lateral miss as % of total yardage */
-    const pct2=totalYd>0?Math.round(sigma2/totalYd*1000)/10:0;
+    /* Lateral miss as % of total yardage now lives in Locker Room → My Bag (buildLateralGapping). */
     const adjBit = window.adjustOn && shown!==stock
       ? `<span class="adj">${shown}</span><span class="stock-sm">stock ${stock}</span>`
       : `${stock}`;
@@ -67,11 +65,11 @@ function buildLadder(){
       <div class="disp-badge-wrap">
         <div class="disp-badge-row">
           <span class="disp-ci-label">2σ</span>
-          <span class="disp-badge" style="background:${dc.bg};color:${dc.color};border:1px solid ${dc.border}">${sigma2} L/R <span style="opacity:.6;font-weight:600">${pct2}%</span></span>
+          <span class="disp-badge" style="background:${dc.bg};color:${dc.color};border:1px solid ${dc.border}">${sigma2} L/R</span>
         </div>
         <div class="disp-badge-row">
           <span class="disp-ci-label">1σ</span>
-          <span class="disp-badge disp-badge-sm" style="background:${dc.bg};color:${dc.color};border:1px solid ${dc.border};opacity:0.75">${sigma1} L/R <span style="opacity:.6;font-weight:600">${pct1}%</span></span>
+          <span class="disp-badge disp-badge-sm" style="background:${dc.bg};color:${dc.color};border:1px solid ${dc.border};opacity:0.75">${sigma1} L/R</span>
         </div>
       </div>
       <div class="ladder-chevron">▾</div>`;
@@ -111,28 +109,29 @@ function buildLateralGapping(){
     const p=perf(c.id); const carry=p.carry||0; const total=p.total||carry;
     if(carry<=0||total<=0) return null;
     const sigma2=getDispersion(carry)*0.608*2;        /* 2σ lateral half-width (yd) */
-    return {c, pct: sigma2/total*100};
+    return {c, carry, yd: sigma2, pct: sigma2/total*100};
   }).filter(Boolean);
-  if(list.length<3){ wrap.innerHTML=`<p class="intro-note" style="margin:0">Add carry &amp; total for at least three clubs to compare lateral dispersion across the set.</p>`; return; }
-  let flags='';
+  if(list.length<3){ wrap.innerHTML=`<p class="intro-note" style="margin:0">Add carry &amp; total for at least three clubs to assess lateral dispersion across the set.</p>`; return; }
+  list.sort((a,b)=>b.carry-a.carry); /* longest → shortest, matching the gapping view */
+  const setAvg=list.reduce((s,o)=>s+o.pct,0)/list.length;
+  let flagged=0, rows='';
   list.forEach(x=>{
     const others=list.filter(o=>o!==x);
     const avg=others.reduce((s,o)=>s+o.pct,0)/others.length;
     const dev=x.pct-avg;
-    if(Math.abs(dev)>THRESH){
-      const wide=dev>0;
-      const col=wide?'#d96070':'#1a5aaa';
-      const bg=wide?'rgba(214,96,112,.12)':'rgba(26,90,122,.10)';
-      flags+=`<div style="display:flex;align-items:center;gap:10px;padding:7px 11px;background:${bg};border-radius:9px;margin-bottom:6px">
-        <span style="font-family:Arial,sans-serif;font-weight:800;font-size:.9rem;color:var(--ink);flex:1">${x.c.label}<span style="font-family:ui-monospace,monospace;font-size:.56rem;color:var(--muted);margin-left:6px">${x.c.loft}</span></span>
-        <span style="font-family:ui-monospace,monospace;font-weight:700;font-size:.82rem;color:${col}">${x.pct.toFixed(1)}%<span style="font-weight:400;font-size:.6rem;color:var(--muted)"> 2σ</span></span>
-        <span style="font-family:ui-monospace,monospace;font-weight:700;font-size:.64rem;letter-spacing:.03em;color:${col};background:var(--bg2);border-radius:20px;padding:2px 9px">${wide?'+':''}${dev.toFixed(1)} pp · ${wide?'wider':'tighter'}</span>
-      </div>`;
-    }
+    const out=Math.abs(dev)>THRESH; if(out) flagged++;
+    const wide=dev>0;
+    const col=out?(wide?'#d96070':'#1a5aaa'):'var(--ink)';
+    const flagChip=out?`<span style="font-family:ui-monospace,monospace;font-weight:700;font-size:.6rem;letter-spacing:.03em;color:${wide?'#d96070':'#1a5aaa'};background:${wide?'rgba(214,96,112,.14)':'rgba(26,90,122,.12)'};border-radius:20px;padding:2px 8px">${wide?'+':''}${dev.toFixed(1)} pp ${wide?'wider':'tighter'}</span>`:'';
+    rows+=`<div style="display:flex;align-items:center;gap:10px;padding:7px 11px;border-bottom:1px solid var(--border)">
+      <span style="font-family:Arial,sans-serif;font-weight:800;font-size:.9rem;color:var(--ink);flex:1">${x.c.label}<span style="font-family:ui-monospace,monospace;font-size:.56rem;color:var(--muted);margin-left:6px">${x.c.loft}</span></span>
+      <span style="font-family:ui-monospace,monospace;font-size:.62rem;color:var(--muted)">${Math.round(x.yd*10)/10} L/R</span>
+      <span style="font-family:ui-monospace,monospace;font-weight:800;font-size:.92rem;color:${col};min-width:48px;text-align:right">${x.pct.toFixed(1)}%</span>
+      ${flagChip}
+    </div>`;
   });
-  const setAvg=list.reduce((s,o)=>s+o.pct,0)/list.length;
-  const head=`<div style="font-family:Arial,sans-serif;font-size:.74rem;color:var(--muted);padding:0 0 8px">Lateral miss as % of total yardage (2σ). Set average <b style="color:var(--ink2)">${setAvg.toFixed(1)}%</b>. Flags any club more than ${THRESH} pp from the rest of the set.</div>`;
-  wrap.innerHTML = head + (flags || `<div style="font-family:Arial,sans-serif;font-size:.78rem;color:var(--green);padding:2px 0">✓ Every club is within ${THRESH} pp of the set — no lateral outliers.</div>`);
+  const head=`<div style="font-family:Arial,sans-serif;font-size:.74rem;color:var(--muted);padding:0 0 8px">Lateral miss (2σ) as % of total yardage — your most accurate tools carry the lowest %. Set average <b style="color:var(--ink2)">${setAvg.toFixed(1)}%</b>${flagged?` · <b style="color:#d96070">${flagged}</b> outlier${flagged!==1?'s':''} more than ${THRESH} pp from the set`:` · ✓ no outliers beyond ${THRESH} pp`}.</div>`;
+  wrap.innerHTML=head+`<div style="background:var(--card,var(--bg));border:1px solid var(--border);border-radius:10px;overflow:hidden">${rows}</div>`;
 }
 function toggleDetail(c,row,group,inner){
   const open=group.classList.contains('open');
