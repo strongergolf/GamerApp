@@ -11,7 +11,11 @@ const DEFAULT_DATA = {
     /* typical-round baselines (feed "my actual" + scoring benchmarks) */
     scoringAvg:'', goalHcp:'', firPct:'', girPct:'', puttsRound:'', upDownPct:'',
     /* home setup — seeds Putting stimp + Plan */
-    homeCourse:'', usualTee:'', homeStimp:'', coachMode:false },
+    homeCourse:'', usualTee:'', homeStimp:'', coachMode:false,
+    /* launch monitor profile */
+    lmBrand:'', lmSessionDate:'', lmDriverAoA:'', lmDriverPath:'', lmDriverFace:'', lmSmash:'', lmNotes:'',
+    /* course conditions */
+    roughLength:'', greenGrass:'', fairwayGrass:'', roughGrass:'', bunkerSand:'' },
   baseline: { tempF:75, altitudeFt:0, humidity:50, pressureInHg:29.92 },
   densityK: 0.65,
   stimp: 9.5,

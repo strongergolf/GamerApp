@@ -13,7 +13,7 @@ const GROUPS={
   ],
   diagnose:[{id:'assess',label:'Assess'},{id:'improve',label:'Practice'},{id:'tests',label:'Tests'},{id:'resources',label:'Resources'}],
   plan:[{id:'courses',label:'Strategy'},{id:'editor',label:'Course Editor'}],
-  setup:[{id:'specs',label:'My Bag'},{id:'profile',label:'Myself'},{id:'reference',label:'Reference'}]
+  setup:[{id:'specs',label:'My Bag'},{id:'profile',label:'Myself'},{id:'reference',label:'App References'}]
 };
 let currentGroup='play';
 
@@ -35,6 +35,8 @@ function showPage(id,tab){
 }
 let toastTimer;
 function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),1900); }
+function toggleRefMore(el){ const m=el.querySelector('.ref-more'); if(m) m.style.display=m.style.display==='block'?'none':'block'; }
+function triggerImportFile(){ document.getElementById('import-file').click(); }
 
 /* Rebuild every data-dependent surface from current STATE — WITHOUT changing the active
    tab. Called after Locker Room edits so changes propagate everywhere relevant. */
@@ -82,4 +84,4 @@ initCalc();
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { GROUPS, currentGroup, initConditions, refreshAll, renderAll, showGroup, showPage, toast, toastTimer });
+Object.assign(window, { GROUPS, currentGroup, initConditions, refreshAll, renderAll, showGroup, showPage, toast, toastTimer, toggleRefMore, triggerImportFile });

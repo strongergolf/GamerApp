@@ -140,38 +140,79 @@ const sel=(id,opts,val)=>`<select id="${id}">${opts.map(o=>`<option value="${o}"
 
 function buildProfile(){
   const pf=STATE.profile;
-  // sel is module-scope
-  document.getElementById('profile-grid').innerHTML=`
+  const _pg=document.getElementById('profile-grid');
+  if(_pg) _pg.innerHTML=`
+    <div class="edit-subhead">Player</div>
     <div class="edit-field"><label>Name</label><input id="pf-name" value="${escapeHtml(pf.name||'')}"></div>
-    <div class="edit-field"><label>Handicap</label><input id="pf-hcp" value="${escapeHtml(pf.handicap||'')}"></div>
-    <div class="edit-field"><label>Driver Swing Speed (mph)</label><input id="pf-ss" type="number" value="${pf.driverSwingSpeed||''}"></div>
-    <div class="edit-field"><label>Rounds per Year</label><input id="pf-rounds" type="number" value="${escapeHtml(pf.roundsPerYear||'')}"></div>
-    <div class="edit-field"><label>Practice Shots per Year (est.)</label><input id="pf-practice" type="number" value="${escapeHtml(pf.practicePerYear||'')}"></div>
+    <div class="edit-field"><label>Handicap</label><input id="pf-hcp" value="${escapeHtml(pf.handicap||'')}" placeholder="e.g. 8 or +2"></div>
+    <div class="edit-field"><label>Goal Handicap</label><input id="pf-goalhcp" value="${escapeHtml(pf.goalHcp||'')}" placeholder="e.g. 5"></div>
     <div class="edit-field"><label>Handicap Service</label>${sel('pf-hcpsvc',['','GHIN (USGA)','Golf Canada','Golf Australia','CONGU (GB&I)','Golf NZ','Other'],pf.hcpService||'')}</div>
     <div class="edit-field"><label>Handicap / GHIN ID</label><input id="pf-hcpid" value="${escapeHtml(pf.hcpId||'')}" placeholder="Member number"></div>
+    <div class="edit-field"><label>Rounds per Year</label><input id="pf-rounds" type="number" value="${escapeHtml(pf.roundsPerYear||'')}"></div>
+    <div class="edit-field"><label>Practice Shots per Year (est.)</label><input id="pf-practice" type="number" value="${escapeHtml(pf.practicePerYear||'')}"></div>
     <div class="edit-field"><label>Glove Size</label>${sel('pf-glove',[
       '','Men\'s S','Men\'s M','Men\'s M/L','Men\'s L','Men\'s XL','Men\'s XXL',
       'Men\'s Cadet S','Men\'s Cadet M','Men\'s Cadet M/L','Men\'s Cadet L','Men\'s Cadet XL',
       'Women\'s S','Women\'s M','Women\'s M/L','Women\'s L','Women\'s XL',
       'Women\'s Cadet S','Women\'s Cadet M','Women\'s Cadet M/L','Women\'s Cadet L'
-    ],pf.gloveSize||'')}</div>`;
-  /* Typical round baselines — feed the "my actual" expected-shots column + scoring benchmarks */
-  const bg=document.getElementById('baselines-grid');
-  if(bg) bg.innerHTML=`
+    ],pf.gloveSize||'')}</div>
+    <div class="edit-subhead">Swing Speed</div>
+    <div class="edit-field" style="grid-column:1/-1"><label>Driver Swing Speed (mph)</label>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <input id="pf-ss" type="number" style="width:90px" value="${pf.driverSwingSpeed||''}">
+        <button class="btn btn-accent" onclick="generateFromSwingSpeed()" style="white-space:nowrap;padding:5px 10px;font-size:.74rem">Re-generate Ladder</button>
+        <span style="font-family:ui-monospace,monospace;font-size:.52rem;color:var(--muted)">scales all carries proportionally — refine from real data after</span>
+      </div>
+    </div>
+    <div class="edit-subhead">Typical Round Stats <span style="font-weight:400;font-size:.6rem;color:var(--muted)">powers "my actual" on Approach, Short Game &amp; Putting and the scoring benchmarks</span></div>
     <div class="edit-field"><label>Scoring Average</label><input id="pf-scoreavg" type="number" step="0.1" value="${escapeHtml(pf.scoringAvg||'')}" placeholder="e.g. 84"></div>
-    <div class="edit-field"><label>Goal Handicap</label><input id="pf-goalhcp" value="${escapeHtml(pf.goalHcp||'')}" placeholder="e.g. 8"></div>
     <div class="edit-field"><label>Fairways Hit %</label><input id="pf-fir" type="number" step="1" min="0" max="100" value="${escapeHtml(pf.firPct||'')}" placeholder="e.g. 45"></div>
     <div class="edit-field"><label>Greens in Reg %</label><input id="pf-gir" type="number" step="1" min="0" max="100" value="${escapeHtml(pf.girPct||'')}" placeholder="e.g. 40"></div>
     <div class="edit-field"><label>Putts per Round</label><input id="pf-putts" type="number" step="0.1" value="${escapeHtml(pf.puttsRound||'')}" placeholder="e.g. 32"></div>
-    <div class="edit-field"><label>Up &amp; Down %</label><input id="pf-updown" type="number" step="1" min="0" max="100" value="${escapeHtml(pf.upDownPct||'')}" placeholder="scrambling, e.g. 40"></div>
-    <div class="edit-field"><label>Home Course</label><input id="pf-homecourse" value="${escapeHtml(pf.homeCourse||'')}" placeholder="seeds Plan"></div>
-    <div class="edit-field"><label>Usual Tee</label>${sel('pf-usualtee',['','Black','Blue','White','Gold','Red'],pf.usualTee||'')}</div>
-    <div class="edit-field"><label>Home Green Stimp</label><input id="pf-homestimp" type="number" step="0.5" min="6" max="15" value="${escapeHtml(pf.homeStimp||'')}" placeholder="seeds Putting"></div>`;
-  /* Handicap trend */
+    <div class="edit-field"><label>Up &amp; Down %</label><input id="pf-updown" type="number" step="1" min="0" max="100" value="${escapeHtml(pf.upDownPct||'')}" placeholder="scrambling, e.g. 40"></div>`;
+  /* Handicap trend — inside same card (null-checked like lm-grid) */
   const ht=document.getElementById('hcp-trend-wrap');
   if(ht) ht.innerHTML=hcpTrendHtml();
+  /* Launch Monitor Profile */
+  const lg=document.getElementById('lm-grid');
+  if(lg) lg.innerHTML=`
+    <div class="edit-field"><label>Launch Monitor</label>${sel('pf-lmbrand',[
+      '','Trackman 4','Trackman iO','Foresight GCQuad','Foresight GC3','Foresight GCHawk',
+      'FlightScope Mevo+','FlightScope X3','Full Swing Kit','SkyTrak+','Bushnell Launch Pro',
+      'Garmin Approach R10','Ernest Sports ES Tour','Other'
+    ],pf.lmBrand||'')}</div>
+    <div class="edit-field"><label>Last Session Date</label><input id="pf-lmdate" type="date" value="${escapeHtml(pf.lmSessionDate||'')}"></div>
+    <div class="edit-subhead">Typical Driver Numbers</div>
+    <div class="edit-field"><label>Attack Angle (°)</label><input id="pf-lmaoa" type="number" step="0.1" value="${escapeHtml(pf.lmDriverAoA||'')}" placeholder="+ = up, − = down"></div>
+    <div class="edit-field"><label>Club Path (°)</label><input id="pf-lmpath" type="number" step="0.1" value="${escapeHtml(pf.lmDriverPath||'')}" placeholder="+ = in-to-out, − = out-to-in"></div>
+    <div class="edit-field"><label>Face Angle (°)</label><input id="pf-lmface" type="number" step="0.1" value="${escapeHtml(pf.lmDriverFace||'')}" placeholder="+ = open, − = closed"></div>
+    <div class="edit-field"><label>Smash Factor</label><input id="pf-lmsmash" type="number" step="0.01" value="${escapeHtml(pf.lmSmash||'')}" placeholder="e.g. 1.48"></div>
+    <div class="edit-field" style="grid-column:1/-1"><label>Notes</label><input id="pf-lmnotes" value="${escapeHtml(pf.lmNotes||'')}" placeholder="fitter, date, key observations, session goals…"></div>`;
+  /* Typical Baseline Conditions — measuring conditions + home setup + course surfaces */
+  const b=STATE.baseline;
+  const _bg=document.getElementById('baseline-grid');
+  if(_bg) _bg.innerHTML=`
+    <div class="edit-subhead">Measuring Conditions</div>
+    <div class="edit-field"><label>Temp °F</label><input id="bl-temp" type="number" value="${b.tempF}"></div>
+    <div class="edit-field"><label>Altitude ft</label><input id="bl-alt" type="number" value="${b.altitudeFt}"></div>
+    <div class="edit-field"><label>Humidity %</label><input id="bl-hum" type="number" value="${b.humidity}"></div>
+    <div class="edit-field"><label>Pressure inHg</label><input id="bl-pres" type="number" step="0.01" value="${b.pressureInHg}"></div>
+    <div class="edit-field"><label>Air Density Sensitivity (k)</label><input id="dens-k" type="number" step="0.05" min="0" max="2" value="${STATE.densityK}">
+      <div style="font-family:ui-monospace,monospace;font-size:.48rem;color:var(--muted);margin-top:3px;line-height:1.4">Default 0.65 ≈ 2 yd/10°F, 2%/1000 ft. Raise if your LM data shows bigger swings.</div>
+    </div>
+    <div class="edit-subhead">Home Course Setup</div>
+    <div class="edit-field"><label>Home Course</label><input id="pf-homecourse" value="${escapeHtml(pf.homeCourse||'')}" placeholder="seeds Game Plan"></div>
+    <div class="edit-field"><label>Usual Tee</label>${sel('pf-usualtee',['','Black','Blue','White','Gold','Red'],pf.usualTee||'')}</div>
+    <div class="edit-field"><label>Home Green Stimp</label><input id="pf-homestimp" type="number" step="0.5" min="6" max="15" value="${escapeHtml(pf.homeStimp||'')}" placeholder="seeds Putting"></div>
+    <div class="edit-subhead">Course Conditions</div>
+    <div class="edit-field"><label>Typical Rough Length</label>${sel('pf-roughlength',['','Short (½″)','Medium (1″)','Long (2″)','Very Long (3″+)'],pf.roughLength||'')}</div>
+    <div class="edit-field"><label>Green Grass Type</label>${sel('pf-greengrass',['','Bentgrass','Bermudagrass','Poa Annua','Fescue','Hybrid Bermuda','Paspalum'],pf.greenGrass||'')}</div>
+    <div class="edit-field"><label>Fairway Grass Type</label>${sel('pf-fairwaygrass',['','Kentucky Bluegrass','Bentgrass','Bermudagrass','Ryegrass','Fescue','Zoysia'],pf.fairwayGrass||'')}</div>
+    <div class="edit-field"><label>Rough Grass Type</label>${sel('pf-roughgrass',['','Fescue','Ryegrass','Bermudagrass','Kentucky Bluegrass','Mixed'],pf.roughGrass||'')}</div>
+    <div class="edit-field"><label>Bunker Sand Type</label>${sel('pf-bunkersand',['','Fine White (soft)','Coarse (firm)','Hard Packed','Limestone','Silica','Crushed Shell'],pf.bunkerSand||'')}</div>`;
   /* Ball */
-  document.getElementById('ball-grid').innerHTML=`
+  const _bgg=document.getElementById('ball-grid');
+  if(_bgg) _bgg.innerHTML=`
     <div class="edit-field"><label>Make</label><input id="ball-make" value="${escapeHtml(pf.ballMake||'')}" placeholder="e.g. Titleist"></div>
     <div class="edit-field"><label>Model</label><input id="ball-model" value="${escapeHtml(pf.ballModel||'')}" placeholder="e.g. Pro V1x"></div>
     <div class="edit-field"><label>Alignment Marking</label><input id="ball-align" value="${escapeHtml(pf.ballAlignment||'')}" placeholder="e.g. line, dot, none"></div>
@@ -182,17 +223,6 @@ function buildProfile(){
     <div class="edit-field"><label>Spin Characteristics</label>${sel('ball-spin',['','Low','Medium','High'],pf.ballSpin||'')}</div>
     <div class="edit-field"><label>Trajectory Tendency</label>${sel('ball-trajectory',['','Low','Mid','High'],pf.ballTrajectory||'')}</div>
     <div class="edit-field" style="grid-column:1/-1"><label>Notes</label><input id="ball-notes" value="${escapeHtml(pf.ballNotes||'')}" placeholder="feel preference, conditions, wind performance, short game control…"></div>`;
-  const b=STATE.baseline;
-  document.getElementById('baseline-grid').innerHTML=`
-    <div class="edit-field"><label>Temp °F</label><input id="bl-temp" type="number" value="${b.tempF}"></div>
-    <div class="edit-field"><label>Altitude ft</label><input id="bl-alt" type="number" value="${b.altitudeFt}"></div>
-    <div class="edit-field"><label>Humidity %</label><input id="bl-hum" type="number" value="${b.humidity}"></div>
-    <div class="edit-field"><label>Pressure inHg</label><input id="bl-pres" type="number" step="0.01" value="${b.pressureInHg}"></div>
-    <div class="edit-field"><label>Air Density Sensitivity (k)</label><input id="dens-k" type="number" step="0.05" min="0" max="2" value="${STATE.densityK}">
-      <div style="font-family:ui-monospace,monospace;font-size:.48rem;color:var(--muted);margin-top:3px;line-height:1.4">Default 0.65 ≈ 2 yd/10°F, 2%/1000 ft. Raise if your LM data shows bigger swings.</div>
-    </div>`;
-  document.getElementById('gen-ss').value=pf.driverSwingSpeed||'';
-  document.getElementById('dens-k').value=STATE.densityK;
 }
 function saveProfile(){
   const pf=STATE.profile;
@@ -237,11 +267,25 @@ function saveProfile(){
   STATE.baseline.humidity=parseFloat(document.getElementById('bl-hum').value)||STATE.baseline.humidity;
   STATE.baseline.pressureInHg=parseFloat(document.getElementById('bl-pres').value)||STATE.baseline.pressureInHg;
   STATE.densityK=Math.max(0,Math.min(2,parseFloat(document.getElementById('dens-k').value)||0.65));
+  /* launch monitor profile */
+  pf.lmBrand=document.getElementById('pf-lmbrand')?.value??pf.lmBrand;
+  pf.lmSessionDate=document.getElementById('pf-lmdate')?.value||pf.lmSessionDate;
+  pf.lmDriverAoA=document.getElementById('pf-lmaoa')?.value||pf.lmDriverAoA;
+  pf.lmDriverPath=document.getElementById('pf-lmpath')?.value||pf.lmDriverPath;
+  pf.lmDriverFace=document.getElementById('pf-lmface')?.value||pf.lmDriverFace;
+  pf.lmSmash=document.getElementById('pf-lmsmash')?.value||pf.lmSmash;
+  pf.lmNotes=document.getElementById('pf-lmnotes')?.value||pf.lmNotes;
+  /* course conditions */
+  pf.roughLength=document.getElementById('pf-roughlength')?.value??pf.roughLength;
+  pf.greenGrass=document.getElementById('pf-greengrass')?.value??pf.greenGrass;
+  pf.fairwayGrass=document.getElementById('pf-fairwaygrass')?.value??pf.fairwayGrass;
+  pf.roughGrass=document.getElementById('pf-roughgrass')?.value??pf.roughGrass;
+  pf.bunkerSand=document.getElementById('pf-bunkersand')?.value??pf.bunkerSand;
   saveState(); refreshAll(); toast('Profile saved');
 }
 function saveCalibration(){ STATE.densityK=Math.max(0,Math.min(2,parseFloat(document.getElementById('dens-k').value)||0.65)); saveState(); buildLadder(); updateCondSummary(); toast('Calibration saved'); }
 function generateFromSwingSpeed(){
-  const target=parseFloat(document.getElementById('gen-ss').value);
+  const target=parseFloat(document.getElementById('pf-ss')?.value);
   const base=STATE.profile.driverSwingSpeed;
   if(!target||!base){ toast('Enter a driver swing speed'); return; }
   const ratio=target/base;

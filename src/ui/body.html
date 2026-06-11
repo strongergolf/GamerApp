@@ -9,7 +9,7 @@
     <div class="brand-wordmark"><span class="brand-stronger">Stronger</span><span class="brand-golf">Golf</span></div>
   </div>
   <div class="header-app-name">Gamer's App</div>
-  <div class="header-tagline">Club, Shot &amp; Swing Data</div>
+  <div class="header-tagline">A Complete Golf Club, Shot, Swing, &amp; Scoring Resource</div>
 </div>
 
 <nav class="nav-groups">
@@ -137,12 +137,9 @@
 <div id="page-specs" class="page">
   <div class="section-label" style="margin-top:0">Ball</div>
   <div class="specs-wrap" id="ball-specs-wrap"></div>
-  <div class="section-label" style="margin-top:18px">Gapping Analysis</div>
-  <p class="intro-note">Consecutive carry gaps across your bag. Flags gaps over 15 yds and overlaps under 8 yds.</p>
-  <div id="gapping-wrap"></div>
-
   <div class="section-label" style="margin-top:18px">Club Specifications</div>
   <p class="intro-note">Tap any club to edit its specs and performance, and to see replacement options within ±2° effective loft.</p>
+  <div id="gapping-wrap"></div>
   <div class="specs-wrap" id="specs-wrap"></div>
 
   <div class="section-label" style="margin-top:22px">Ball</div>
@@ -194,47 +191,36 @@
 </div>
 
 <!-- PROFILE -->
-<div id="page-profile" class="page">
-  <div class="section-label" style="margin-top:0">Golfer Profile</div>
-  <div class="profile-card">
-    <h3>Golfer Profile</h3>
-    <div class="edit-grid" id="profile-grid"></div>
+<div id=”page-profile” class=”page”>
+  <div class=”profile-card”>
+    <h3>Golfer Profile <span style=”font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;letter-spacing:.05em;color:var(--muted);text-transform:none”>handicap, scoring stats &amp; goals · goal handicap drives the SG diamond goal ring</span></h3>
+    <div class=”edit-grid” id=”profile-grid”></div>
+    <div id=”hcp-trend-wrap” style=”margin-top:12px”></div>
+    <div class=”btn-row”><button class=”btn btn-primary” onclick=”saveProfile()”>Save Profile</button></div>
   </div>
-  <div class="profile-card">
-    <h3>Typical Round Baselines <span style="font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;letter-spacing:.05em;color:var(--muted);text-transform:none">your standard stats · powers the “my actual” column and scoring benchmarks</span></h3>
-    <div class="edit-grid" id="baselines-grid"></div>
-    <div class="btn-row"><button class="btn btn-primary" onclick="saveProfile()">Save Profile</button></div>
+  <div class=”profile-card”>
+    <h3>Launch Monitor Profile <span style=”font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;letter-spacing:.05em;color:var(--muted);text-transform:none”>stored session data from your fitting or lesson · enriches shot modelling</span></h3>
+    <div class=”edit-grid” id=”lm-grid”></div>
+    <div class=”btn-row”><button class=”btn btn-primary” onclick=”saveProfile()”>Save Profile</button></div>
   </div>
-  <div class="profile-card">
-    <h3>Handicap Trend</h3>
-    <div id="hcp-trend-wrap"></div>
+  <div class=”profile-card”>
+    <h3>Coach Mode <span style=”font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;letter-spacing:.05em;color:var(--muted);text-transform:none”>preview</span></h3>
+    <p class=”gen-note”>A locker room with a locker per student: switch between players, each with their own bag, baselines, swing data and skills-test history. Build lesson notes against any link in the causal chain and track every student's trend in one place.</p>
+    <div class=”btn-row”><button class=”btn” disabled style=”opacity:.55;cursor:not-allowed”>Add a student locker — coming soon</button></div>
   </div>
-  <div class="profile-card">
-    <h3>Coach Mode <span style="font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;letter-spacing:.05em;color:var(--muted);text-transform:none">preview</span></h3>
-    <p class="gen-note">A locker per student: switch between players, each with their own bag, baselines and history. Coming soon.</p>
-    <div class="btn-row"><button class="btn" disabled style="opacity:.55;cursor:not-allowed">Add a student locker — coming soon</button></div>
+  <div class=”profile-card”>
+    <h3>Typical Baseline Conditions <span style=”font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;letter-spacing:.05em;color:var(--muted);text-transform:none”>measuring conditions, home course setup &amp; surface types your stock numbers were captured in</span></h3>
+    <div class=”edit-grid” id=”baseline-grid”></div>
+    <div class=”btn-row”><button class=”btn btn-primary” onclick=”saveProfile()”>Save Profile</button></div>
   </div>
-  <div class="profile-card">
-    <h3>Baseline Weather <span style="font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;letter-spacing:.05em;color:var(--muted);text-transform:none">conditions your stock numbers were measured in · used for air density adjustments</span></h3>
-    <div class="edit-grid" id="baseline-grid"></div>
-    <div class="btn-row"><button class="btn btn-primary" onclick="saveProfile()">Save Profile</button></div>
-  </div>
-  <div class="profile-card">
-    <h3>Swing-Speed Ladder Generator</h3>
-    <p class="gen-note">Cold-start tool: enter a driver clubhead speed and the full ladder is scaled proportionally from your current numbers. A starting estimate — refine each club from real data afterward.</p>
-    <div class="edit-grid" style="margin-top:10px">
-      <div class="edit-field"><label>Target driver speed (mph)</label><input type="number" id="gen-ss" step="1"></div>
-    </div>
-    <div class="btn-row"><button class="btn btn-accent" onclick="generateFromSwingSpeed()">Generate Ladder</button></div>
-  </div>
-  <div class="profile-card">
+  <div class=”profile-card”>
     <h3>Data</h3>
-    <p class="gen-note">Your bag, performance numbers, swing data and profile are saved in this browser. Export a backup, import it on another device, or reset to the original demo bag.</p>
-    <div class="btn-row">
-      <button class="btn" onclick="exportData()">Export JSON</button>
-      <button class="btn" onclick="document.getElementById('import-file').click()">Import JSON</button>
-      <button class="btn" onclick="resetData()">Reset to Demo</button>
-      <input type="file" id="import-file" accept="application/json" style="display:none" onchange="importData(event)">
+    <p class=”gen-note”>Your bag, performance numbers, swing data and profile are saved in this browser. Export a backup, import it on another device, or reset to the original demo bag.</p>
+    <div class=”btn-row”>
+      <button class=”btn” onclick=”exportData()”>Export JSON</button>
+      <button class=”btn” onclick=”document.getElementById('import-file').click()”>Import JSON</button>
+      <button class=”btn” onclick=”resetData()”>Reset to Demo</button>
+      <input type=”file” id=”import-file” accept=”application/json” style=”display:none” onchange=”importData(event)”>
     </div>
   </div>
 </div>

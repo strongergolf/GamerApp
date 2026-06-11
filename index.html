@@ -19,7 +19,7 @@
     <div class="brand-wordmark"><span class="brand-stronger">Stronger</span><span class="brand-golf">Golf</span></div>
   </div>
   <div class="header-app-name">Gamer's App</div>
-  <div class="header-tagline">Club, Shot &amp; Swing Data</div>
+  <div class="header-tagline">A Complete Golf Club, Shot, Swing, &amp; Scoring Resource</div>
 </div>
 
 <nav class="nav-groups">
@@ -154,12 +154,9 @@
 <div id="page-specs" class="page">
   <div class="section-label" style="margin-top:0">Ball</div>
   <div class="specs-wrap" id="ball-specs-wrap"></div>
-  <div class="section-label" style="margin-top:18px">Gapping Analysis</div>
-  <p class="intro-note">Consecutive carry gaps across your bag. Flags <strong>gaps over 15 yds</strong> (a club may be missing) and <strong>overlaps under 8 yds</strong> (two clubs doing the same job).</p>
-  <div id="gapping-wrap"></div>
-
   <div class="section-label" style="margin-top:18px">Club Specifications</div>
   <p class="intro-note">Tap any club to edit its specs and performance, and to see replacement options within ±2° effective loft.</p>
+  <div id="gapping-wrap"></div>
   <div class="specs-wrap" id="specs-wrap"></div>
 
   <div class="section-label" style="margin-top:22px">Ball</div>
@@ -215,96 +212,151 @@
 </div>
 
 <!-- PROFILE -->
-<div id="page-profile" class="page">
-  <div class="section-label" style="margin-top:0">Golfer Profile</div>
-  <div class="profile-card">
-    <h3>Golfer Profile</h3>
-    <div class="edit-grid" id="profile-grid"></div>
+<div id=”page-profile” class=”page”>
+  <div class=”profile-card”>
+    <h3>Golfer Profile <span style=”font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;letter-spacing:.05em;color:var(--muted);text-transform:none”>handicap, scoring stats &amp; goals · goal handicap drives the SG diamond goal ring</span></h3>
+    <div class=”edit-grid” id=”profile-grid”></div>
+    <div id=”hcp-trend-wrap” style=”margin-top:12px”></div>
+    <div class=”btn-row”><button class=”btn btn-primary” onclick=”saveProfile()”>Save Profile</button></div>
   </div>
-  <div class="profile-card">
-    <h3>Typical Round Baselines <span style="font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;letter-spacing:.05em;color:var(--muted);text-transform:none">your standard stats · powers the “my actual” column on Approach, Short Game &amp; Putting and the scoring benchmarks</span></h3>
-    <div class="edit-grid" id="baselines-grid"></div>
-    <div class="btn-row"><button class="btn btn-primary" onclick="saveProfile()">Save Profile</button></div>
+  <div class=”profile-card”>
+    <h3>Launch Monitor Profile <span style=”font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;letter-spacing:.05em;color:var(--muted);text-transform:none”>stored session data from your fitting or lesson · enriches shot modelling</span></h3>
+    <div class=”edit-grid” id=”lm-grid”></div>
+    <div class=”btn-row”><button class=”btn btn-primary” onclick=”saveProfile()”>Save Profile</button></div>
   </div>
-  <div class="profile-card">
-    <h3>Handicap Trend <span style="font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;letter-spacing:.05em;color:var(--muted);text-transform:none">log snapshots over time · the goal ring on the SG diamond follows your goal handicap</span></h3>
-    <div id="hcp-trend-wrap"></div>
+  <div class=”profile-card”>
+    <h3>Coach Mode <span style=”font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;letter-spacing:.05em;color:var(--muted);text-transform:none”>preview</span></h3>
+    <p class=”gen-note”>A locker room with a locker per student: switch between players, each with their own bag, baselines, swing data and skills-test history. Build lesson notes against any link in the causal chain and track every student's trend in one place.</p>
+    <div class=”btn-row”><button class=”btn” disabled style=”opacity:.55;cursor:not-allowed”>Add a student locker — coming soon</button></div>
   </div>
-  <div class="profile-card">
-    <h3>Coach Mode <span style="font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;letter-spacing:.05em;color:var(--muted);text-transform:none">preview</span></h3>
-    <p class="gen-note">A locker room with a locker per student: switch between players, each with their own bag, baselines, swing data and skills-test history. Build lesson notes against any link in the causal chain and track every student's trend in one place.</p>
-    <div class="btn-row"><button class="btn" disabled style="opacity:.55;cursor:not-allowed">Add a student locker — coming soon</button></div>
+  <div class=”profile-card”>
+    <h3>Typical Baseline Conditions <span style=”font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;letter-spacing:.05em;color:var(--muted);text-transform:none”>measuring conditions, home course setup &amp; surface types your stock numbers were captured in</span></h3>
+    <div class=”edit-grid” id=”baseline-grid”></div>
+    <div class=”btn-row”><button class=”btn btn-primary” onclick=”saveProfile()”>Save Profile</button></div>
   </div>
-  <div class="profile-card">
-    <h3>Baseline Weather <span style="font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;letter-spacing:.05em;color:var(--muted);text-transform:none">conditions your stock numbers were measured in · used for air density adjustments</span></h3>
-    <div class="edit-grid" id="baseline-grid"></div>
-    <div class="btn-row"><button class="btn btn-primary" onclick="saveProfile()">Save Profile</button></div>
-  </div>
-  <div class="profile-card">
-    <h3>Swing-Speed Ladder Generator</h3>
-    <p class="gen-note">Cold-start tool: enter a driver clubhead speed and the full ladder is scaled proportionally from your current numbers. A starting estimate — refine each club from real data afterward.</p>
-    <div class="edit-grid" style="margin-top:10px">
-      <div class="edit-field"><label>Target driver speed (mph)</label><input type="number" id="gen-ss" step="1"></div>
-    </div>
-    <div class="btn-row"><button class="btn btn-accent" onclick="generateFromSwingSpeed()">Generate Ladder</button></div>
-  </div>
-  <div class="profile-card">
+  <div class=”profile-card”>
     <h3>Data</h3>
-    <p class="gen-note">Your bag, performance numbers, swing data and profile are saved in this browser. Export a backup, import it on another device, or reset to the original demo bag.</p>
-    <div class="btn-row">
-      <button class="btn" onclick="exportData()">Export JSON</button>
-      <button class="btn" onclick="document.getElementById('import-file').click()">Import JSON</button>
-      <button class="btn" onclick="resetData()">Reset to Demo</button>
-      <input type="file" id="import-file" accept="application/json" style="display:none" onchange="importData(event)">
+    <p class=”gen-note”>Your bag, performance numbers, swing data and profile are saved in this browser. Export a backup, import it on another device, or reset to the original demo bag.</p>
+    <div class=”btn-row”>
+      <button class=”btn” onclick=”exportData()”>Export JSON</button>
+      <button class=”btn” onclick=”triggerImportFile()”>Import JSON</button>
+      <button class=”btn” onclick=”resetData()”>Reset to Demo</button>
+      <input type=”file” id=”import-file” accept=”application/json” style=”display:none” onchange=”importData(event)”>
     </div>
   </div>
 </div>
 
-<!-- REFERENCE -->
+<!-- APP REFERENCES -->
 <div id="page-reference" class="page">
-  <div class="section-label" style="margin-top:0">Impact Geometry &amp; Ball Flight — Reference</div>
-  <p class="intro-note">The StrongerGolf vocabulary, worded to keep front-of-mind that <strong>impact is a 3D event</strong>: every variable has a Vertical and a Horizontal component of one 3D vector. This grounds every model and tool in the app.</p>
+  <div class="section-label" style="margin-top:0">App References</div>
+  <p class="intro-note">The StrongerGolf vocabulary, worded to keep front-of-mind that <strong>impact is a 3D event</strong>: every variable has a Vertical and a Horizontal component of one 3D vector. <strong>Tap any card</strong> to expand deeper context and alternate launch-monitor names.</p>
 
   <div class="section-label">Definitions</div>
   <div class="ref-grid">
-    <div class="ref-card"><div class="ref-term">Impact Plane <span class="ref-sub">VPlane · HPlane</span></div><div class="ref-def">The shape of the clubhead's <em>motion</em> through the bottom of the swing. <b>VPlane</b> = the "lie angle" of that motion (upright/flat, DTL). <b>HPlane</b> = its horizontal aim (overhead). Not to be confused with Path.</div></div>
-    <div class="ref-card"><div class="ref-term">3D Path <span class="ref-sub">VPath · HPath</span></div><div class="ref-def">Direction the clubhead is <em>moving</em> at impact. <b>VPath</b> = Angle of Attack (up+/down−). <b>HPath</b> = left/right of target line.</div></div>
-    <div class="ref-card"><div class="ref-term">3D Face <span class="ref-sub">VFace · HFace</span></div><div class="ref-def">Direction the face <em>points</em> at impact. <b>VFace</b> = Dynamic Loft (incl. shaft lean). <b>HFace</b> = open/closed vs target.</div></div>
-    <div class="ref-card"><div class="ref-term">Spin Loft <span class="ref-sub">VDiff · HDiff</span></div><div class="ref-def">3D angle between Face and Path, along the D-plane. <b>VDiff</b> = VFace − VPath (drives launch &amp; spin). <b>HDiff</b> = HFace − HPath (tilts the spin axis = curve).</div></div>
-    <div class="ref-card"><div class="ref-term">Spin Axis</div><div class="ref-def">Tilt of the ball's spin axis vs the horizon — the curve. Left(−) / Right(+).</div></div>
-    <div class="ref-card"><div class="ref-term">3D Launch <span class="ref-sub">VLaunch · HLaunch</span></div><div class="ref-def">Initial ball direction. Ball starts on the D-plane, <b>75–85% toward the Face</b> (≈75% wedges, 85% driver), then curves off the path.</div></div>
+    <div class="ref-card" style="cursor:pointer" onclick="toggleRefMore(this)">
+      <div class="ref-term">Impact Plane <span class="ref-sub">VPlane · HPlane</span> <span style="float:right;font-size:.5rem;color:var(--muted);font-family:ui-monospace,monospace;font-weight:400">↕ tap</span></div>
+      <div class="ref-def">The shape of the clubhead's <em>motion</em> through the bottom of the swing. <b>VPlane</b> = the "lie angle" of that motion (upright/flat, DTL). <b>HPlane</b> = its horizontal aim (overhead). Not to be confused with Path.</div>
+      <div class="ref-more" style="display:none;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:.72rem">
+        <p style="margin:0 0 6px;line-height:1.5">VPlane is the vertical tilt of the swing arc. A driver address produces a lower VPlane; a 9-iron a higher one. HPlane is the horizontal aim of that arc from overhead — distinct from HPath (the instantaneous travel direction at the ball). A "5SK" swing-plane matching drill targets HPlane specifically.</p>
+        <div style="font-family:ui-monospace,monospace;font-size:.56rem;color:var(--muted);line-height:1.9"><b style="color:var(--ink2)">Trackman</b> Swing Plane / Swing Direction &nbsp;·&nbsp; <b style="color:var(--ink2)">FlightScope</b> Swing Plane (V) / Swing Plane (H) &nbsp;·&nbsp; <b style="color:var(--ink2)">Foresight GCQuad</b> not reported (camera measures impact, not swing arc) &nbsp;·&nbsp; <b style="color:var(--ink2)">Full Swing Kit</b> Swing Plane / Swing Direction</div>
+      </div>
+    </div>
+    <div class="ref-card" style="cursor:pointer" onclick="toggleRefMore(this)">
+      <div class="ref-term">3D Path <span class="ref-sub">VPath · HPath</span> <span style="float:right;font-size:.5rem;color:var(--muted);font-family:ui-monospace,monospace;font-weight:400">↕ tap</span></div>
+      <div class="ref-def">Direction the clubhead is <em>moving</em> at impact. <b>VPath</b> = Angle of Attack (up+/down−). <b>HPath</b> = left/right of target line.</div>
+      <div class="ref-more" style="display:none;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:.72rem">
+        <p style="margin:0 0 6px;line-height:1.5">Ideal VPath: driver +2–5°, fairway woods ~0°, irons −2–5° (steeper for shorter clubs). HPath + HFace together set start direction: ball starts ≈ 75–85% toward HFace, then curves via HDiff. Out-to-in + open face = fade; in-to-out + closed face = draw. HPath alone does not determine curve — only HDiff does.</p>
+        <div style="font-family:ui-monospace,monospace;font-size:.56rem;color:var(--muted);line-height:1.9"><b style="color:var(--ink2)">Trackman</b> Attack Angle / Club Path &nbsp;·&nbsp; <b style="color:var(--ink2)">FlightScope</b> Club Attack / Club Strike &nbsp;·&nbsp; <b style="color:var(--ink2)">Foresight GCQuad</b> Attack Angle / Club Path &nbsp;·&nbsp; <b style="color:var(--ink2)">Full Swing Kit</b> Attack Angle / Club Path</div>
+      </div>
+    </div>
+    <div class="ref-card" style="cursor:pointer" onclick="toggleRefMore(this)">
+      <div class="ref-term">3D Face <span class="ref-sub">VFace · HFace</span> <span style="float:right;font-size:.5rem;color:var(--muted);font-family:ui-monospace,monospace;font-weight:400">↕ tap</span></div>
+      <div class="ref-def">Direction the face <em>points</em> at impact. <b>VFace</b> = Dynamic Loft (incl. shaft lean). <b>HFace</b> = open/closed vs target.</div>
+      <div class="ref-more" style="display:none;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:.72rem">
+        <p style="margin:0 0 6px;line-height:1.5">VFace drives launch height and spin. Forward shaft lean reduces VFace (deloft). HFace is the dominant ball-start influence — the ball starts ≈ 75–85% toward HFace at impact, not purely along HPath. A square face with an out-to-in path still starts the ball right-of-path. Closing the face causes a left start regardless of path.</p>
+        <div style="font-family:ui-monospace,monospace;font-size:.56rem;color:var(--muted);line-height:1.9"><b style="color:var(--ink2)">Trackman</b> Dynamic Loft / Face Angle &nbsp;·&nbsp; <b style="color:var(--ink2)">FlightScope</b> Dynamic Loft / Face Angle &nbsp;·&nbsp; <b style="color:var(--ink2)">Foresight GCQuad</b> Dynamic Loft / Face Angle &nbsp;·&nbsp; <b style="color:var(--ink2)">Full Swing Kit</b> Dynamic Loft / Face Angle</div>
+      </div>
+    </div>
+    <div class="ref-card" style="cursor:pointer" onclick="toggleRefMore(this)">
+      <div class="ref-term">Spin Loft <span class="ref-sub">VDiff · HDiff</span> <span style="float:right;font-size:.5rem;color:var(--muted);font-family:ui-monospace,monospace;font-weight:400">↕ tap</span></div>
+      <div class="ref-def">3D angle between Face and Path, along the D-plane. <b>VDiff</b> = VFace − VPath (drives launch &amp; spin). <b>HDiff</b> = HFace − HPath (tilts the spin axis = curve).</div>
+      <div class="ref-more" style="display:none;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:.72rem">
+        <p style="margin:0 0 6px;line-height:1.5">Target VDiff by club: driver 10–14°, fairway woods 12–16°, irons 20–25°, wedges 20–35°. Higher VDiff = more spin + higher launch. HDiff tilts the spin axis — larger HDiff relative to VDiff = stronger side-curve. <strong>Watch-out:</strong> most monitors report only VDiff as "Spin Loft." True 3D Spin Loft = √(VDiff² + HDiff²).</p>
+        <div style="font-family:ui-monospace,monospace;font-size:.56rem;color:var(--muted);line-height:1.9"><b style="color:var(--ink2)">Trackman</b> "Spin Loft" <span style="color:var(--gold)">⚠ VDiff only</span> / Cut·Curve Angle &nbsp;·&nbsp; <b style="color:var(--ink2)">FlightScope</b> — &nbsp;·&nbsp; <b style="color:var(--ink2)">Foresight GCQuad</b> Spin Loft / — &nbsp;·&nbsp; <b style="color:var(--ink2)">Full Swing Kit</b> Spin Loft / —</div>
+      </div>
+    </div>
+    <div class="ref-card" style="cursor:pointer" onclick="toggleRefMore(this)">
+      <div class="ref-term">Spin Axis <span style="float:right;font-size:.5rem;color:var(--muted);font-family:ui-monospace,monospace;font-weight:400">↕ tap</span></div>
+      <div class="ref-def">Tilt of the ball's spin axis vs the horizon — the curve. Left(−) / Right(+).</div>
+      <div class="ref-more" style="display:none;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:.72rem">
+        <p style="margin:0 0 6px;line-height:1.5">Left axis (−) = draw or hook. Right axis (+) = fade or slice. Rule of thumb: 5° at 2500 rpm = mild curve, 10° = moderate, 15°+ = significant. The D-plane model gives an <em>estimated</em> spin axis; contact location (gear effect) shifts the actual value away from the estimate — that gap is why dispersion ellipses widen at the edges of the face.</p>
+        <div style="font-family:ui-monospace,monospace;font-size:.56rem;color:var(--muted);line-height:1.9"><b style="color:var(--ink2)">Trackman</b> Spin Axis &nbsp;·&nbsp; <b style="color:var(--ink2)">FlightScope</b> Ball Spin Axis &nbsp;·&nbsp; <b style="color:var(--ink2)">Foresight GCQuad</b> Spin Axis &nbsp;·&nbsp; <b style="color:var(--ink2)">Full Swing Kit</b> Spin Axis</div>
+      </div>
+    </div>
+    <div class="ref-card" style="cursor:pointer" onclick="toggleRefMore(this)">
+      <div class="ref-term">3D Launch <span class="ref-sub">VLaunch · HLaunch</span> <span style="float:right;font-size:.5rem;color:var(--muted);font-family:ui-monospace,monospace;font-weight:400">↕ tap</span></div>
+      <div class="ref-def">Initial ball direction. Ball starts on the D-plane, <b>75–85% toward the Face</b> (≈75% wedges, 85% driver), then curves off the path.</div>
+      <div class="ref-more" style="display:none;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:.72rem">
+        <p style="margin:0 0 6px;line-height:1.5">The 75–85% face-influence rule varies with loft: higher loft (more spin) means the ball starts closer to face direction. VLaunch is mainly VFace-determined; HLaunch is mainly HFace-determined. Launch direction ≠ target — account for expected curve when planning a shot start line. The D-plane geometry ensures the ball always starts <em>on</em> the D-plane.</p>
+        <div style="font-family:ui-monospace,monospace;font-size:.56rem;color:var(--muted);line-height:1.9"><b style="color:var(--ink2)">Trackman</b> Launch Angle / Launch Direction &nbsp;·&nbsp; <b style="color:var(--ink2)">FlightScope</b> Ball Angle (V) / Ball Angle (H) &nbsp;·&nbsp; <b style="color:var(--ink2)">Foresight GCQuad</b> Launch Angle / Azimuth &nbsp;·&nbsp; <b style="color:var(--ink2)">Full Swing Kit</b> Launch Angle / Launch Direction</div>
+      </div>
+    </div>
   </div>
 
   <div class="section-label" style="margin-top:20px">Gear Effect — off-centre strike (RH; mirror for LH)</div>
-  <p class="intro-note" style="margin-bottom:8px">Why predicted ("estimated") spin axis diverges from actual: contact location bends the result.</p>
+  <p class="intro-note" style="margin-bottom:8px">Why predicted ("estimated") spin axis diverges from actual: contact location bends the result. Tap any card for more.</p>
   <div class="ref-grid">
-    <div class="ref-card"><div class="ref-term">Toe contact</div><div class="ref-def">Spin axis tilts <b>left</b> → more hook/draw spin.</div></div>
-    <div class="ref-card"><div class="ref-term">Heel contact</div><div class="ref-def">Spin axis tilts <b>right</b> → more fade/slice spin.</div></div>
-    <div class="ref-card"><div class="ref-term">High on face</div><div class="ref-def"><b>Decreases</b> spin rate and <b>increases</b> vertical launch.</div></div>
-    <div class="ref-card"><div class="ref-term">Low on face</div><div class="ref-def"><b>Increases</b> spin rate and <b>decreases</b> vertical launch.</div></div>
+    <div class="ref-card" style="cursor:pointer" onclick="toggleRefMore(this)">
+      <div class="ref-term">Toe contact <span style="float:right;font-size:.5rem;color:var(--muted);font-family:ui-monospace,monospace;font-weight:400">↕ tap</span></div>
+      <div class="ref-def">Spin axis tilts <b>left</b> → more hook/draw spin.</div>
+      <div class="ref-more" style="display:none;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:.72rem">
+        <p style="margin:0;line-height:1.5">The face CG is inward of the toe. A toe strike rotates the face closed around the CG, imparting draw/hook spin via friction. Most pronounced on driver (large face relative to shaft). On short irons the gear effect is smaller. If your actual trajectory draws more than the D-plane model predicts, check for toe contact in your miss tendency data.</p>
+      </div>
+    </div>
+    <div class="ref-card" style="cursor:pointer" onclick="toggleRefMore(this)">
+      <div class="ref-term">Heel contact <span style="float:right;font-size:.5rem;color:var(--muted);font-family:ui-monospace,monospace;font-weight:400">↕ tap</span></div>
+      <div class="ref-def">Spin axis tilts <b>right</b> → more fade/slice spin.</div>
+      <div class="ref-more" style="display:none;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:.72rem">
+        <p style="margin:0;line-height:1.5">Opposite of toe contact: the face rotates open around the CG, adding fade/slice spin. If actual trajectory fades more than the D-plane predicts — and face angle looks square — suspect a heel strike. Common cause: over-the-top move that shifts the contact heel-ward through impact.</p>
+      </div>
+    </div>
+    <div class="ref-card" style="cursor:pointer" onclick="toggleRefMore(this)">
+      <div class="ref-term">High on face <span style="float:right;font-size:.5rem;color:var(--muted);font-family:ui-monospace,monospace;font-weight:400">↕ tap</span></div>
+      <div class="ref-def"><b>Decreases</b> spin rate and <b>increases</b> vertical launch.</div>
+      <div class="ref-more" style="display:none;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:.72rem">
+        <p style="margin:0;line-height:1.5">High contact is above the face CG. The gear effect tilts the face upward, launching the ball higher with less spin — a "hot" launch. On driver, a slightly high strike is desirable: it often yields a positive smash-factor bonus and lower spin that gains carry distance. The Driver Optimizer in this app targets the upper-middle of the face.</p>
+      </div>
+    </div>
+    <div class="ref-card" style="cursor:pointer" onclick="toggleRefMore(this)">
+      <div class="ref-term">Low on face <span style="float:right;font-size:.5rem;color:var(--muted);font-family:ui-monospace,monospace;font-weight:400">↕ tap</span></div>
+      <div class="ref-def"><b>Increases</b> spin rate and <b>decreases</b> vertical launch.</div>
+      <div class="ref-more" style="display:none;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:.72rem">
+        <p style="margin:0;line-height:1.5">Low contact is below the face CG. The gear effect tilts the face downward, producing a lower, spinnier ball flight. With driver, low strikes are costly: high spin eats carry and exposes the shot to crosswind. On irons, low contact deepens the divot and exaggerates compression — which can be intentional for trajectory control in wind.</p>
+      </div>
+    </div>
   </div>
 
   <div class="section-label" style="margin-top:20px">Launch-Monitor Terminology Cross-Map</div>
-  <p class="intro-note" style="margin-bottom:8px">StrongerGolf vs Trackman vs FlightScope. <strong>Watch-out:</strong> Trackman "Spin Loft" is only the <em>Vertical</em> Differential (VDiff), not the full 3D Spin Loft.</p>
+  <p class="intro-note" style="margin-bottom:8px">StrongerGolf vs four major launch monitors. <strong>Watch-out:</strong> Trackman "Spin Loft" = VDiff only, not full 3D Spin Loft. Foresight uses cameras (not radar) so swing-arc plane metrics are not reported.</p>
   <div class="ref-table-wrap">
     <table class="ref-table">
-      <thead><tr><th>StrongerGolf</th><th>Trackman</th><th>FlightScope</th></tr></thead>
+      <thead><tr><th>StrongerGolf</th><th>Trackman</th><th>FlightScope</th><th>Foresight (GCQuad)</th><th>Full Swing Kit</th></tr></thead>
       <tbody>
-        <tr><td>Vertical Plane (VPlane)</td><td>Swing Plane</td><td>Swing Plane (V)</td></tr>
-        <tr><td>Horizontal Plane (HPlane)</td><td>Swing Direction</td><td>Swing Plane (H)</td></tr>
-        <tr><td>Vertical Path (VPath)</td><td>Attack Angle</td><td>Club Attack</td></tr>
-        <tr><td>Horizontal Path (HPath)</td><td>Club Path</td><td>Club Strike</td></tr>
-        <tr><td>Vertical Face (VFace)</td><td>Dynamic Loft</td><td>Dynamic Loft</td></tr>
-        <tr><td>Horizontal Face (HFace)</td><td>Face Angle</td><td>Face Angle</td></tr>
-        <tr><td>Vertical Differential (VDiff)</td><td>Spin Loft <span style="color:var(--gold)">⚠</span></td><td>—</td></tr>
-        <tr><td>Horizontal Differential (HDiff)</td><td>Cut/Curve Angle</td><td>—</td></tr>
-        <tr><td>Spin Axis</td><td>Spin Axis</td><td>Ball Spin Axis</td></tr>
-        <tr><td>Vertical Launch (VLaunch)</td><td>Launch Angle</td><td>Ball Angle (V)</td></tr>
-        <tr><td>Horizontal Launch (HLaunch)</td><td>Launch Direction</td><td>Ball Angle (H)</td></tr>
+        <tr><td>Vertical Plane (VPlane)</td><td>Swing Plane</td><td>Swing Plane (V)</td><td>—</td><td>Swing Plane</td></tr>
+        <tr><td>Horizontal Plane (HPlane)</td><td>Swing Direction</td><td>Swing Plane (H)</td><td>—</td><td>Swing Direction</td></tr>
+        <tr><td>Vertical Path (VPath)</td><td>Attack Angle</td><td>Club Attack</td><td>Attack Angle</td><td>Attack Angle</td></tr>
+        <tr><td>Horizontal Path (HPath)</td><td>Club Path</td><td>Club Strike</td><td>Club Path</td><td>Club Path</td></tr>
+        <tr><td>Vertical Face (VFace)</td><td>Dynamic Loft</td><td>Dynamic Loft</td><td>Dynamic Loft</td><td>Dynamic Loft</td></tr>
+        <tr><td>Horizontal Face (HFace)</td><td>Face Angle</td><td>Face Angle</td><td>Face Angle</td><td>Face Angle</td></tr>
+        <tr><td>Vertical Differential (VDiff)</td><td>Spin Loft <span style="color:var(--gold)">⚠</span></td><td>—</td><td>Spin Loft</td><td>Spin Loft</td></tr>
+        <tr><td>Horizontal Differential (HDiff)</td><td>Cut/Curve Angle</td><td>—</td><td>—</td><td>—</td></tr>
+        <tr><td>Spin Axis</td><td>Spin Axis</td><td>Ball Spin Axis</td><td>Spin Axis</td><td>Spin Axis</td></tr>
+        <tr><td>Vertical Launch (VLaunch)</td><td>Launch Angle</td><td>Ball Angle (V)</td><td>Launch Angle</td><td>Launch Angle</td></tr>
+        <tr><td>Horizontal Launch (HLaunch)</td><td>Launch Direction</td><td>Ball Angle (H)</td><td>Azimuth</td><td>Launch Direction</td></tr>
       </tbody>
     </table>
   </div>
-  <p class="intro-note" style="margin-top:10px;font-size:.62rem">Source: StrongerGolf research corpus — D-Plane (Jorgensen, <em>Physics of Golf</em>), 3 Phases of the Downswing (Strong &amp; Zibrik), and impact-geometry glossary.</p>
+  <p class="intro-note" style="margin-top:10px;font-size:.62rem">Sources: StrongerGolf research corpus — D-Plane (Jorgensen, <em>Physics of Golf</em>), 3 Phases of the Downswing (Strong &amp; Zibrik), impact-geometry glossary; Trackman University; Foresight Sports GCQuad documentation; Full Swing Golf technology references.</p>
 </div>
 
 <div class="toast" id="toast"></div>
