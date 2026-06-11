@@ -201,14 +201,42 @@
   </div>
 </div>
 
-<!-- MY COURSES -->
-<div id="page-courses" class="page">
-  <div id="course-strategy-wrap"></div>
+<!-- PLAN A SHOT -->
+<div id="page-planshot" class="page">
+  <div class="section-label" style="margin-top:0">Plan a Shot</div>
+  <p class="intro-note">Work from your target to the true number to play — layering elevation, wind, and rollout on top of the day's air conditions.</p>
+  <div class="profile-card">
+    <h3>1 · Target <span style="font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;color:var(--muted);text-transform:none">aim point — more selection tools coming</span></h3>
+    <div class="edit-field" style="grid-column:1/-1"><label>Target / aim point</label><input id="ps-target" placeholder="e.g. back-right pin, front edge, layup spot"></div>
+  </div>
+  <div class="profile-card">
+    <h3>2 · Static Yardage</h3>
+    <div class="edit-field" style="grid-column:1/-1"><label>Measured yardage to target (yd)</label><input id="ps-static" type="number" oninput="computePlanShot()" placeholder="e.g. 155"></div>
+  </div>
+  <div class="profile-card">
+    <h3>3 · Effective Yardage <span style="font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;color:var(--muted);text-transform:none">over and above the day's air conditions</span></h3>
+    <div class="edit-grid">
+      <div class="edit-field"><label>Elevation (yd, + up / − down)</label><input id="ps-elev" type="number" step="1" value="0" oninput="computePlanShot()"></div>
+      <div class="edit-field"><label>Wind speed (mph)</label><input id="ps-windspd" type="number" step="1" value="0" oninput="computePlanShot()"></div>
+      <div class="edit-field"><label>Wind direction</label><select id="ps-winddir" onchange="computePlanShot()"><option value="calm">Calm</option><option value="head">Into (headwind)</option><option value="tail">Down (tailwind)</option><option value="crossL">Cross — L-to-R</option><option value="crossR">Cross — R-to-L</option></select></div>
+      <div class="edit-field"><label>Expected rollout (yd)</label><input id="ps-rollout" type="number" step="1" value="0" oninput="computePlanShot()"></div>
+    </div>
+  </div>
+  <div id="planshot-result"></div>
 </div>
 
-<!-- COURSE EDITOR -->
-<div id="page-editor" class="page">
+<!-- PLAN A ROUND (course strategy + editor folded in) -->
+<div id="page-courses" class="page">
+  <div id="course-strategy-wrap"></div>
+  <div class="section-label" style="margin-top:22px">Course Editor</div>
   <div id="course-editor-wrap"></div>
+</div>
+
+<!-- LONG TERM PLANS -->
+<div id="page-longterm" class="page">
+  <div class="section-label" style="margin-top:0">Long Term Plans</div>
+  <p class="intro-note">Your season arc — handicap goal, volume, and milestones.</p>
+  <div id="longterm-wrap"></div>
 </div>
 
 <!-- PROFILE -->

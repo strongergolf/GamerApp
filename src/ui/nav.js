@@ -12,7 +12,7 @@ const GROUPS={
     {id:'putting',  label:'Putting'}
   ],
   diagnose:[{id:'assess',label:'Assess'},{id:'improve',label:'Practice'},{id:'tests',label:'Tests'},{id:'resources',label:'Resources'}],
-  plan:[{id:'courses',label:'Strategy'},{id:'editor',label:'Course Editor'}],
+  plan:[{id:'planshot',label:'Plan a Shot'},{id:'courses',label:'Plan a Round'},{id:'longterm',label:'Long Term Plans'}],
   setup:[{id:'specs',label:'My Bag'},{id:'profile',label:'Myself'},{id:'reference',label:'App References'}]
 };
 let currentGroup='play';
@@ -61,6 +61,8 @@ function refreshAll(){
   renderDPlaneVisual();
   buildCourseStrategy();
   buildCourses();
+  buildLongTerm();
+  computePlanShot();
   buildSpecs();
   buildGapping();
   buildProfile();

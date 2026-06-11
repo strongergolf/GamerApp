@@ -33,6 +33,7 @@ import './features/approach.js';
 import './features/sg-tracking.js';
 import './features/diagnose.js';
 import './features/courses.js';
+import './features/planshot.js';
 import './features/bag-specs.js';
 import './features/shortgame.js';
 import './features/putting.js';
