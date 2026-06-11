@@ -11,20 +11,21 @@ function buildSpecs(){
     const pf=STATE.profile;
     const ballLabel=pf.ballMake&&pf.ballModel?`${pf.ballMake} ${pf.ballModel}`:'No ball on file';
     const ballSub=[ pf.ballLayers, pf.ballCover, pf.ballCompression?`comp ${pf.ballCompression}`:'', pf.ballFirmness, pf.ballSpin?pf.ballSpin+' spin':'' ].filter(Boolean).join(' · ');
-    bw.innerHTML=`<div class="specs-col-head"><span></span><span>Model</span><span>Cover</span><span>Comp</span><span>Spin</span><span></span></div>
+    bw.innerHTML=`<div class="specs-col-head"><span></span><span>Model</span><span>Cover</span><span>Comp</span><span>Spin</span><span></span><span></span></div>
       <div class="specs-club-row" onclick="showGroup('setup',document.querySelector('.ngroup:last-child'));setTimeout(()=>document.getElementById('ball-grid')?.scrollIntoView({behavior:'smooth'}),200)">
         <span class="spec-club" style="font-family:Arial,sans-serif;font-weight:800;font-size:1.1rem;color:var(--grey)">B</span>
         <div class="spec-model">${ballLabel}<small>${ballSub||'tap to edit in Profile'}</small></div>
         <div class="spec-val">${pf.ballCover||'—'}</div>
         <div class="spec-val">${pf.ballCompression||'—'}</div>
         <div class="spec-val">${pf.ballSpin||'—'}</div>
+        <div class="spec-val"></div>
         <div class="specs-chevron">▸</div>
       </div>`;
   }
   /* Clubs */
   const wrap=document.getElementById('specs-wrap'); wrap.innerHTML='';
   const head=document.createElement('div'); head.className='specs-col-head';
-  head.innerHTML=`<span></span><span>Model</span><span>Length</span><span>Loft</span><span>Lie</span><span></span>`;
+  head.innerHTML=`<span></span><span>Model</span><span>Length</span><span>Loft</span><span>Lie</span><span>2σ&nbsp;%</span><span></span>`;
   wrap.appendChild(head);
   const typeOrder={putter:0,wood:1,iron:2,wedge:3};
   const loftNum=c=>parseFloat((c.loft||'0').replace(/[^\d.]/g,''))||0;
@@ -40,6 +41,10 @@ function buildSpecs(){
       const div=document.createElement('div'); div.className='ladder-divider';
       div.textContent=typeLabel(c.type); wrap.appendChild(div); lastType=c.type;
     }
+    /* lateral miss (2σ) as % of total yardage — at-a-glance club effectiveness */
+    const _pr=perf(c.id), _carry=_pr.carry||0, _total=_pr.total||_carry;
+    const _latPct=(c.type!=='putter'&&_carry>0&&_total>0) ? (getDispersion(_carry)*0.608*2/_total*100) : null;
+    const _latStr=_latPct!=null ? _latPct.toFixed(1)+'%' : '—';
     const row=document.createElement('div'); row.className='specs-club-row';
     row.innerHTML=`
       <span class="spec-club ${c.type}">${c.label}</span>
@@ -47,6 +52,7 @@ function buildSpecs(){
       <div class="spec-val">${c.length}</div>
       <div class="spec-val">${c.loft}</div>
       <div class="spec-val">${c.lie}</div>
+      <div class="spec-val" style="font-family:ui-monospace,monospace;font-weight:700">${_latStr}</div>
       <div class="specs-chevron">▾</div>`;
     const group=document.createElement('div'); group.className='specs-rep-group';
     row.addEventListener('click',()=>toggleSpecs(c,row,group));
@@ -62,7 +68,7 @@ function buildSpecs(){
         else if(gap<8){ bg='rgba(214,96,112,.14)'; col='#d96070'; flag=' overlap'; }
         const chip=document.createElement('div');
         chip.style.cssText='display:flex;justify-content:center;padding:1px 0';
-        chip.innerHTML=`<span style="font-family:ui-monospace,monospace;font-size:.58rem;font-weight:700;letter-spacing:.04em;color:${col};background:${bg};border-radius:20px;padding:2px 9px">↕ ${gap} yd${flag}</span>`;
+        chip.innerHTML=`<span style="font-family:ui-monospace,monospace;font-size:.68rem;font-weight:700;letter-spacing:.04em;color:${col};background:${bg};border-radius:20px;padding:3px 11px">↕ ${gap} yd${flag}</span>`;
         wrap.appendChild(chip);
       }
     }
