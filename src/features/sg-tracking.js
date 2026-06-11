@@ -122,6 +122,46 @@ function sgRefreshRounds(){
   const smry=document.getElementById('sg-summary'); if(smry) smry.innerHTML=sgSummaryHtml();
   const tbl=document.getElementById('sg-rounds');   if(tbl)  tbl.innerHTML=sgRoundsHtml();
 }
+/* Scoring benchmarks — where you sit vs scratch and vs your goal handicap.
+   Uses Broadie's relationship that average score ≈ par + handicap + ~2.5. */
+function scoringBenchmarkHtml(){
+  const pf=STATE.profile||{};
+  const par=72;
+  const num=v=>{ if(v===''||v==null) return null; const n=parseFloat(v); return isNaN(n)?null:n; };
+  const expAvg=h=>par+h+2.5;                 // a handicap-h player's typical score
+  const hcpRaw=pf.handicap; const hcp=parseHcp(hcpRaw);
+  const goal=num(pf.goalHcp);
+  const yourAvg = num(pf.scoringAvg)!=null ? num(pf.scoringAvg)
+                : (hcpRaw!=null&&String(hcpRaw).trim()!=='' ? expAvg(hcp) : null);
+  if(yourAvg==null) return `<div class="lvl-soon-note" style="margin:0">Add a scoring average or handicap, and a goal handicap, in <strong>Locker Room → Myself → Typical Round Baselines</strong> to see your scoring benchmarks.</div>`;
+  const scratchAvg=expAvg(0);
+  const goalAvg=goal!=null?expAvg(goal):null;
+  const toGoal = goalAvg!=null ? +(yourAvg-goalAvg).toFixed(1) : null;
+  /* scale spans scratch → you (+headroom) */
+  const lo=Math.min(scratchAvg,goalAvg??scratchAvg)-1;
+  const hi=Math.max(yourAvg,scratchAvg)+1.5;
+  const pct=v=>Math.max(0,Math.min(100,((v-lo)/(hi-lo))*100));
+  const mark=(v,label,col,below)=>`<div style="position:absolute;left:${pct(v).toFixed(1)}%;top:0;transform:translateX(-50%);text-align:center">
+      <div style="font-family:ui-monospace,monospace;font-size:.58rem;font-weight:700;color:${col};white-space:nowrap;${below?'order:2;margin-top:2px':'margin-bottom:2px'}">${label}</div>
+      <div style="width:2px;height:34px;background:${col};margin:0 auto"></div>
+    </div>`;
+  const card=(big,small,col)=>`<div style="flex:1;min-width:74px;text-align:center;background:var(--bg2);border:1px solid var(--border);border-top:3px solid ${col};border-radius:7px;padding:8px 6px">
+      <div style="font-family:Arial,sans-serif;font-size:1.3rem;font-weight:800;color:${col};line-height:1">${big}</div>
+      <div style="font-family:ui-monospace,monospace;font-size:.5rem;color:var(--muted);letter-spacing:.04em;margin-top:3px">${small}</div></div>`;
+  const goalCard=goalAvg!=null?card(goalAvg.toFixed(1),'goal avg ('+(goal>=0?goal:'+'+Math.abs(goal))+' hcp)','var(--green)'):card('—','set a goal hcp','var(--muted)');
+  return `<div style="display:flex;gap:8px;margin-bottom:12px">
+      ${card(scratchAvg.toFixed(1),'scratch avg','var(--sky,#1a5aaa)')}
+      ${card(yourAvg.toFixed(1),num(pf.scoringAvg)!=null?'your avg':'your avg (est)','var(--ink2)')}
+      ${goalCard}
+    </div>
+    <div style="position:relative;height:52px;margin:2px 4px 8px">
+      <div style="position:absolute;left:0;right:0;top:24px;height:3px;background:var(--border);border-radius:3px"></div>
+      ${mark(scratchAvg,'scratch','var(--sky,#1a5aaa)',false)}
+      ${goalAvg!=null?mark(goalAvg,'goal','var(--green)',true):''}
+      ${mark(yourAvg,'you','var(--ink2)',false)}
+    </div>
+    ${toGoal!=null?`<div style="font-family:Arial,sans-serif;font-size:.84rem;color:var(--muted);text-align:center">${toGoal>0?`<b style="color:var(--ink2)">${toGoal}</b> strokes between you and your goal — the SG categories above show where they hide.`:`<b style="color:var(--green)">At or past your goal</b> — set a tougher target.`}</div>`:''}`;
+}
 function sgSummaryHtml(){
   const rs=STATE.scoring.rounds.filter(r=>r.ott!=null||r.app!=null||r.atg!=null||r.putt!=null);
   if(!rs.length) return `<p class="lvl-soon-note" style="margin:0">No rounds logged yet. Add one below.</p>`;
@@ -196,4 +236,4 @@ function sgRoundsHtml(){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { sgAddRound, sgDeleteRound, sgRefreshRounds, sgRoundsHtml, sgScenario, sgSummaryHtml, sgUpdateTotals });
+Object.assign(window, { sgAddRound, sgDeleteRound, sgRefreshRounds, sgRoundsHtml, sgScenario, sgSummaryHtml, sgUpdateTotals, scoringBenchmarkHtml });

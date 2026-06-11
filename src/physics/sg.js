@@ -38,9 +38,36 @@ function srForPlayer(lie,dist,hcp){
   return scratch + (hcp*0.012)*(scratch-1);
 }
 
+/* Effective handicap implied by a single round-baseline stat, anchored to
+   reference values (scratch / mid / high) and clamped. Used to compute the
+   "my actual" expected-strokes column from the player's typical-round numbers,
+   reusing the same srForPlayer adjustment as the scratch/hcp columns.
+   Anchors (scratch → ~bogey): GIR 66%→25%, putts/rd 29.5→34, U&D 60%→25%,
+   scoring avg ≈ par + handicap. */
+function effHcpForLie(lie){
+  const pf=STATE.profile||{};
+  const num=v=>{ if(v===''||v==null) return null; const n=parseFloat(v); return isNaN(n)?null:n; };
+  const clamp=h=>Math.max(-6,Math.min(40,h));
+  if(lie==='green'){
+    const putts=num(pf.puttsRound); if(putts==null) return null;
+    return clamp((putts-29.5)*4.44);                 // 29.5→0, 34→~20
+  }
+  if(lie==='fairway'){                                // approach skill ← GIR
+    const gir=num(pf.girPct); if(gir==null) return null;
+    return clamp((0.66-gir/100)*43.5);               // 66%→0, 25%→~18
+  }
+  if(lie==='atg'){                                    // short game ← up&down, else scoring avg
+    const ud=num(pf.upDownPct);
+    if(ud!=null) return clamp((0.60-ud/100)*51.4);   // 60%→0, 25%→~18
+    const sa=num(pf.scoringAvg); if(sa!=null) return clamp((sa-72)*0.93);
+    return null;
+  }
+  return null;
+}
+
 /* Re-render the scenario output inside the open L1 card */
 
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { SR, parseHcp, srForPlayer, srInterp });
+Object.assign(window, { SR, parseHcp, srForPlayer, srInterp, effHcpForLie });

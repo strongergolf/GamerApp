@@ -14,7 +14,15 @@ function renderExpectedShots(id, dist, lie){
   const srScratch=srInterp(lie,dist);
   const hcpLabel=hcp>=0?String(hcp):'+'+Math.abs(hcp);
   const lieLabel=lie==='green'?`${dist}ft from cup`:lie==='atg'?`${dist}yd (around green)`:`${dist}yd from fairway`;
-  const sg=srScratch!=null?srScratch-sr:null;
+  /* "my actual" — expected strokes from this spot using the per-category
+     effective handicap implied by the player's typical-round baselines */
+  const myEff=typeof effHcpForLie==='function'?effHcpForLie(lie):null;
+  const myActual=myEff!=null?srForPlayer(lie,dist,myEff):null;
+  const myStr=myActual!=null?myActual.toFixed(2):'—';
+  const myColor=myActual==null?'var(--muted)':myActual<=sr?'var(--green)':'var(--ink)';
+  /* SG is measured against scratch; prefer the player's real number when present */
+  const sgRef=myActual!=null?myActual:sr;
+  const sg=srScratch!=null?srScratch-sgRef:null;
   const sgStr=sg==null?'—':(sg>=0?'+':'')+sg.toFixed(2);
   const sgColor=sg==null?'var(--muted)':sg>=0?'var(--green)':'var(--gold)';
   el.innerHTML=`<div class="es-strip">
@@ -29,7 +37,7 @@ function renderExpectedShots(id, dist, lie){
         <div class="es-lbl">hcp ${hcpLabel} avg</div>
       </div>
       <div class="es-stat">
-        <div class="es-val" style="color:var(--muted)">—</div>
+        <div class="es-val" style="color:${myColor}">${myStr}</div>
         <div class="es-lbl">my actual</div>
       </div>
       <div class="es-stat">

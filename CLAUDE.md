@@ -126,6 +126,10 @@ All full-swing long-club trajectory SVGs use an **asymmetric cubic bezier** refl
 ### Strokes Gained (sg.js, sg-tracking.js)
 - Broadie strokes-remaining baselines per lie (fairway/rough/sand/green), handicap-adjusted via `srForPlayer(lie, dist, hcp)`.
 - SG diamond: 4 axes (OTT / APP / ATG / PUTT). Round log uses a vertical scorecard (holes as rows). Summary shows trend arrows vs 5-round average + gross sparkline.
+- **Round baselines → "my actual"**: `effHcpForLie(lie)` (sg.js) maps a typical-round stat to a per-category effective handicap (green←putts/round, fairway←GIR%, atg←up&down% then scoring avg), reusing `srForPlayer`. Fills the previously-empty "my actual" column in the expected-shots strip (expected-shots.js). Baselines live in `STATE.profile` (scoringAvg, goalHcp, firPct, girPct, puttsRound, upDownPct), entered in Locker Room → Myself → Typical Round Baselines.
+- **Scoring benchmarks** (`scoringBenchmarkHtml`, in L1 Assess): avg score ≈ par(72) + hcp + 2.5; shows scratch / you / goal-hcp on a track + strokes-to-goal.
+- **Measured-vs-ideal** uses `metricGoal(label,unit,path,ideal)` (diagnose.js). Live in: L4 force-plate weights, L4 kinematic peaks (410/552/1100/1479 °/s), and the D-plane grid's Ideal-AoA column (`idealAoA(club)`: driver +4, wood −1, hybrid −2, irons −3→−4.5 by loft, wedge −5).
+- **Gapping** (`buildGapping`, bag.js → My Bag): consecutive carry gaps; flags >15 yd (gap) / <8 yd (overlap).
 
 ### Distance Dialler / Pitch Shot Options (flight.js)
 - 3-tier sort: closest anchor → fuller swing → effort nearest 87%.

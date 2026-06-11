@@ -148,6 +148,10 @@
 <div id="page-specs" class="page">
   <div class="section-label" style="margin-top:0">Ball</div>
   <div class="specs-wrap" id="ball-specs-wrap"></div>
+  <div class="section-label" style="margin-top:18px">Gapping Analysis</div>
+  <p class="intro-note">Consecutive carry gaps across your bag. Flags <strong>gaps over 15 yds</strong> (a club may be missing) and <strong>overlaps under 8 yds</strong> (two clubs doing the same job).</p>
+  <div id="gapping-wrap"></div>
+
   <div class="section-label" style="margin-top:18px">Club Specifications</div>
   <p class="intro-note">Tap any club to edit its specs and performance, and to see replacement options within ±2° effective loft.</p>
   <div class="specs-wrap" id="specs-wrap"></div>
@@ -210,6 +214,11 @@
   <div class="profile-card">
     <h3>Golfer Profile</h3>
     <div class="edit-grid" id="profile-grid"></div>
+  </div>
+  <div class="profile-card">
+    <h3>Typical Round Baselines <span style="font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;letter-spacing:.05em;color:var(--muted);text-transform:none">your standard stats · powers the “my actual” column on Approach, Short Game &amp; Putting and the scoring benchmarks</span></h3>
+    <div class="edit-grid" id="baselines-grid"></div>
+    <div class="btn-row"><button class="btn btn-primary" onclick="saveProfile()">Save Profile</button></div>
   </div>
   <div class="profile-card">
     <h3>Baseline Weather <span style="font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;letter-spacing:.05em;color:var(--muted);text-transform:none">conditions your stock numbers were measured in · used for air density adjustments</span></h3>

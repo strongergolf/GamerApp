@@ -33,6 +33,10 @@ const PRACTICE_AREAS=[
        <div class="chain-caption" style="margin-top:4px">Visual snapshot of relative performance across the four SG categories. Outer ring = scratch benchmark; your shape shows strengths and gaps. Updates automatically as rounds are logged.</div>
        <div id="sg-diamond-wrap" style="display:flex;justify-content:center;padding:10px 0 4px">${buildSGDiamond()}</div>
 
+       <div class="lvl-subhead" style="margin-top:18px">Scoring Benchmarks <span class="placeholder-flag">Broadie</span></div>
+       <div class="chain-caption" style="margin-top:4px">Where your scoring sits relative to scratch and to your goal handicap. Average score ≈ par + handicap + ~2.5 (Broadie). Set your numbers in <strong>Locker Room → Myself</strong>.</div>
+       <div id="sg-benchmark">${scoringBenchmarkHtml()}</div>
+
        <div class="lvl-subhead" style="margin-top:14px">Log a Round</div>
        <div class="sg-add-form">
          <div class="sg-tournament-row">
@@ -215,7 +219,15 @@ const PRACTICE_AREAS=[
        +'<div style="overflow-x:auto;margin-bottom:12px"><table style="border-collapse:collapse;width:100%;font-size:.78rem"><thead><tr>'
        +'<th style="padding:6px 8px;font-family:Arial,sans-serif;font-size:.58rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--border);background:var(--bg2);text-align:left;min-width:80px">Segment</th>'
        +phHdrs+'</tr></thead><tbody>'+rows+'</tbody></table></div>'
-       +'<div class="edit-field" style="margin-bottom:10px"><label>Sequence Order Observed</label>'
+       +'<div class="lvl-subhead-sm" style="margin:6px 0 6px">Peak Velocity — Measured vs Ideal (°/s)</div>'
+       +'<div class="chain-caption" style="margin-top:0;margin-bottom:6px">Each segment\'s peak angular velocity against the Strong &amp; Zibrik tour-level reference. The order matters as much as the magnitudes — see <strong>Resources</strong> for the full sequence.</div>'
+       +'<div class="mg-grid">'
+       +metricGoal('Pelvis Peak','°/s','kinematics.peak.pelvis',410)
+       +metricGoal('Thorax / Upper Body Peak','°/s','kinematics.peak.thorax',552)
+       +metricGoal('Lead Arm Peak','°/s','kinematics.peak.arm',1100)
+       +metricGoal('Club Peak','°/s','kinematics.peak.club',1479)
+       +'</div>'
+       +'<div class="edit-field" style="margin-bottom:10px;margin-top:10px"><label>Sequence Order Observed</label>'
        +'<input class="metric-input" data-swing="kinematics.sequenceOrder" value="'+escapeHtml(getPath(STATE.swing,'kinematics.sequenceOrder'))+'" placeholder="e.g. Pelvis → Thorax → Arm → Club (ideal) or Thorax first (OTT)"></div>'
        +'<div class="edit-field" style="margin-bottom:14px"><label>Transition Trigger</label>'
        +'<input class="metric-input" data-swing="kinematics.transitionTrigger" value="'+escapeHtml(getPath(STATE.swing,'kinematics.transitionTrigger'))+'" placeholder="what initiates the downswing — lateral shift, trail foot push-off, etc."></div>'
@@ -724,6 +736,26 @@ function dplShapeCell(sh){
   return `<b style="color:${col}">${sh.shape}</b> <span style="font-family:ui-monospace,monospace;font-size:.54rem;color:var(--muted)">${curveTxt}</span>`;
 }
 function dplFmt(v){ v=+v||0; return Math.abs(v)<0.05?'0.0':(v>0?'+':'')+v.toFixed(1); }
+/* Ideal angle of attack (vertical path) per club, the coaching target.
+   Driver hits up; everything else descends, steeper with loft. */
+function idealAoA(c){
+  const t=c.type, loft=parseFloat(c.loft)||30;
+  if(t==='driver') return 4;
+  if(t==='wood') return -1;
+  if(t==='hybrid') return -2;
+  if(t==='wedge') return -5;
+  /* irons: long −3 → short −4.5 by loft band */
+  if(loft<28) return -3; if(loft<=37) return -4; return -4.5;
+}
+function dplAoaCell(c,aoa){
+  const ideal=idealAoA(c);
+  const cur=(aoa===''||aoa==null)?null:parseFloat(aoa);
+  const delta=(cur!=null&&!isNaN(cur))?cur-ideal:null;
+  const on=delta!=null&&Math.abs(delta)<=1.5;
+  const col=delta==null?'var(--muted)':on?'var(--green)':'var(--gold)';
+  const dtxt=delta==null?'target':(delta>0?'+':'')+(+delta.toFixed(1))+(on?' ✓':'');
+  return `<span style="font-family:ui-monospace,monospace;font-size:.62rem;color:var(--ink2)">${ideal>0?'+':''}${ideal}°</span><div style="font-family:ui-monospace,monospace;font-size:.5rem;color:${col};margin-top:1px">${dtxt}</div>`;
+}
 function buildDplaneGrid(){
   const clubs=STATE.clubs.filter(c=>c.type!=='putter');
   const th='padding:5px 4px;font-family:ui-monospace,monospace;font-size:.5rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--border);background:var(--bg2);text-align:center';
@@ -732,6 +764,7 @@ function buildDplaneGrid(){
     <th style="${th};text-align:left;padding-left:8px">Club</th>
     <th style="${th2}">Horiz.<br>Face°</th><th style="${th2}">Horiz.<br>Path°</th>
     <th style="${th2}">Vert. Face°<br>(Dyn Loft)</th><th style="${th2}">Vert. Path°<br>(AoA)</th>
+    <th style="${th2}">Ideal<br>AoA</th>
     <th style="${th2}">Stock<br>Shape</th><th style="${th2}">3D Spin<br>Loft</th></tr></thead><tbody>`;
   clubs.forEach(c=>{
     const d=(STATE.dplane&&STATE.dplane[c.id])||{};
@@ -745,6 +778,7 @@ function buildDplaneGrid(){
       <td>${inp('hPath',d.hPath)}</td>
       <td>${inp('vFace',vFace)}</td>
       <td>${inp('aoa',d.aoa)}</td>
+      <td id="dpc-aoa-${c.id}" style="text-align:center;white-space:nowrap">${dplAoaCell(c,d.aoa)}</td>
       <td id="dpc-shape-${c.id}" style="text-align:center;white-space:nowrap">${dplShapeCell(sh)}</td>
       <td id="dpc-sl-${c.id}" style="text-align:center;font-family:ui-monospace,monospace;font-size:.62rem;color:var(--ink2)">${sh.spinLoft.toFixed(1)}°</td>
     </tr>`;
@@ -761,6 +795,7 @@ function setDplaneCell(id,field,value){
   const sh=dplaneShape(d.hFace,d.hPath,vFace,d.aoa,p.carry||150);
   const shEl=document.getElementById('dpc-shape-'+id); if(shEl) shEl.innerHTML=dplShapeCell(sh);
   const slEl=document.getElementById('dpc-sl-'+id); if(slEl) slEl.textContent=sh.spinLoft.toFixed(1)+'°';
+  const aoaEl=document.getElementById('dpc-aoa-'+id); if(aoaEl) aoaEl.innerHTML=dplAoaCell(c,d.aoa);
   if(typeof buildCourseStrategy==='function') buildCourseStrategy();
   if(typeof renderDPlaneVisual==='function') renderDPlaneVisual();
   saveState();
@@ -945,4 +980,4 @@ function buildGearEffectL2(){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { STRAT_OPTS, ballRefHtml, buildAssess, buildImprove, buildResources, buildCourseStrategy, buildDPlaneView, buildDplaneGrid, buildForceProfileSVG, buildGearEffectL2, buildKinematicSequenceSVG, buildStrategyPrefs, dpBallFlight, dpWorldVectors, dplFmt, dplShapeCell, dplaneShape, escapeHtml, forceRow, getPath, metricBox, renderDPlaneVisual, saveSwing, setDpVisClub, setDplaneCell, setStrategy, setPath, stratLabel, stratSelect, stratSummary, toggleLevel });
+Object.assign(window, { STRAT_OPTS, ballRefHtml, buildAssess, buildImprove, buildResources, buildCourseStrategy, buildDPlaneView, buildDplaneGrid, buildForceProfileSVG, buildGearEffectL2, buildKinematicSequenceSVG, buildStrategyPrefs, dpBallFlight, dpWorldVectors, dplFmt, dplShapeCell, dplAoaCell, dplaneShape, idealAoA, escapeHtml, forceRow, getPath, metricBox, renderDPlaneVisual, saveSwing, setDpVisClub, setDplaneCell, setStrategy, setPath, stratLabel, stratSelect, stratSummary, toggleLevel });

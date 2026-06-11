@@ -155,6 +155,15 @@ function buildProfile(){
       'Women\'s S','Women\'s M','Women\'s M/L','Women\'s L','Women\'s XL',
       'Women\'s Cadet S','Women\'s Cadet M','Women\'s Cadet M/L','Women\'s Cadet L'
     ],pf.gloveSize||'')}</div>`;
+  /* Typical round baselines — feed the "my actual" expected-shots column + scoring benchmarks */
+  const bg=document.getElementById('baselines-grid');
+  if(bg) bg.innerHTML=`
+    <div class="edit-field"><label>Scoring Average</label><input id="pf-scoreavg" type="number" step="0.1" value="${escapeHtml(pf.scoringAvg||'')}" placeholder="e.g. 84"></div>
+    <div class="edit-field"><label>Goal Handicap</label><input id="pf-goalhcp" value="${escapeHtml(pf.goalHcp||'')}" placeholder="e.g. 8"></div>
+    <div class="edit-field"><label>Fairways Hit %</label><input id="pf-fir" type="number" step="1" min="0" max="100" value="${escapeHtml(pf.firPct||'')}" placeholder="e.g. 45"></div>
+    <div class="edit-field"><label>Greens in Reg %</label><input id="pf-gir" type="number" step="1" min="0" max="100" value="${escapeHtml(pf.girPct||'')}" placeholder="e.g. 40"></div>
+    <div class="edit-field"><label>Putts per Round</label><input id="pf-putts" type="number" step="0.1" value="${escapeHtml(pf.puttsRound||'')}" placeholder="e.g. 32"></div>
+    <div class="edit-field"><label>Up &amp; Down %</label><input id="pf-updown" type="number" step="1" min="0" max="100" value="${escapeHtml(pf.upDownPct||'')}" placeholder="scrambling, e.g. 40"></div>`;
   /* Ball */
   document.getElementById('ball-grid').innerHTML=`
     <div class="edit-field"><label>Make</label><input id="ball-make" value="${escapeHtml(pf.ballMake||'')}" placeholder="e.g. Titleist"></div>
@@ -192,6 +201,13 @@ function saveProfile(){
   pf.gloveSize=document.getElementById('pf-glove')?.value??pf.gloveSize;
   pf.roundsPerYear=document.getElementById('pf-rounds')?.value??pf.roundsPerYear;
   pf.practicePerYear=document.getElementById('pf-practice').value;
+  /* round baselines */
+  pf.scoringAvg=document.getElementById('pf-scoreavg')?.value??pf.scoringAvg;
+  pf.goalHcp=document.getElementById('pf-goalhcp')?.value??pf.goalHcp;
+  pf.firPct=document.getElementById('pf-fir')?.value??pf.firPct;
+  pf.girPct=document.getElementById('pf-gir')?.value??pf.girPct;
+  pf.puttsRound=document.getElementById('pf-putts')?.value??pf.puttsRound;
+  pf.upDownPct=document.getElementById('pf-updown')?.value??pf.upDownPct;
   pf.hcpService=document.getElementById('pf-hcpsvc').value;
   pf.hcpId=document.getElementById('pf-hcpid').value;
   pf.gloveSize=document.getElementById('pf-glove').value;

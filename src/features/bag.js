@@ -77,6 +77,37 @@ function buildLadder(){
     wrap.appendChild(row); wrap.appendChild(group);
   });
 }
+function buildGapping(){
+  const wrap=document.getElementById('gapping-wrap');
+  if(!wrap) return;
+  /* every club with a carry, longest → shortest */
+  const list=STATE.clubs.filter(c=>c.type!=='putter')
+    .map(c=>({c,carry:perf(c.id)?.carry||0}))
+    .filter(x=>x.carry>0)
+    .sort((a,b)=>b.carry-a.carry);
+  if(list.length<2){ wrap.innerHTML=`<p class="lvl-soon-note" style="margin:0">Add carry numbers to at least two clubs to see gapping.</p>`; return; }
+  let gapFlags=0, overlapFlags=0;
+  let rows='';
+  list.forEach((x,i)=>{
+    rows+=`<div style="display:flex;align-items:center;gap:10px;padding:7px 10px">
+      <span style="font-family:Arial,sans-serif;font-weight:800;font-size:.9rem;color:var(--ink);flex:1">${x.c.label}<span style="font-family:ui-monospace,monospace;font-size:.56rem;color:var(--muted);margin-left:6px">${x.c.loft}</span></span>
+      <span style="font-family:ui-monospace,monospace;font-weight:700;font-size:.92rem;color:var(--ink2)">${x.carry}<span style="font-size:.6rem;color:var(--muted)"> yd</span></span>
+    </div>`;
+    if(i<list.length-1){
+      const gap=x.carry-list[i+1].carry;
+      let bg='var(--bg2)', col='var(--muted)', flag='';
+      if(gap>15){ bg='rgba(196,66,122,.12)'; col='var(--gold2,#c4427a)'; flag=' — gap'; gapFlags++; }
+      else if(gap<8){ bg='rgba(214,96,112,.14)'; col='#d96070'; flag=' — overlap'; overlapFlags++; }
+      rows+=`<div style="display:flex;justify-content:center;padding:1px 0">
+        <span style="font-family:ui-monospace,monospace;font-size:.6rem;font-weight:700;letter-spacing:.04em;color:${col};background:${bg};border-radius:20px;padding:2px 10px">${gap} yd${flag}</span>
+      </div>`;
+    }
+  });
+  const summary=gapFlags||overlapFlags
+    ? `<div style="font-family:Arial,sans-serif;font-size:.78rem;color:var(--muted);padding:0 0 8px">${gapFlags?`<b style="color:var(--gold2,#c4427a)">${gapFlags}</b> gap${gapFlags!==1?'s':''} &gt;15 yd`:''}${gapFlags&&overlapFlags?' · ':''}${overlapFlags?`<b style="color:#d96070">${overlapFlags}</b> overlap${overlapFlags!==1?'s':''} &lt;8 yd`:''} — review the flagged pairs.</div>`
+    : `<div style="font-family:Arial,sans-serif;font-size:.78rem;color:var(--green);padding:0 0 8px">✓ Even gapping — no gaps over 15 yd or overlaps under 8 yd.</div>`;
+  wrap.innerHTML=summary+`<div style="background:var(--card,var(--bg));border:1px solid var(--border);border-radius:10px;overflow:hidden">${rows}</div>`;
+}
 function toggleDetail(c,row,group,inner){
   const open=group.classList.contains('open');
   document.querySelectorAll('.ladder-row').forEach(r=>r.classList.remove('selected'));
@@ -309,4 +340,4 @@ function buildDriverCarryNudge(p){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { buildDriverCarryNudge, buildGearEffectPanel, buildGearFaceSVG, buildLadder, buildSideSVG, buildTopSVG, renderConditions, statCell, toggleDetail, updateCondSummary });
+Object.assign(window, { buildDriverCarryNudge, buildGapping, buildGearEffectPanel, buildGearFaceSVG, buildLadder, buildSideSVG, buildTopSVG, renderConditions, statCell, toggleDetail, updateCondSummary });

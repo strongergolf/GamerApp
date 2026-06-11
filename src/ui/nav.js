@@ -59,6 +59,7 @@ function refreshAll(){
   buildCourseStrategy();
   buildCourses();
   buildSpecs();
+  buildGapping();
   buildProfile();
   renderCalc(95);
   updateDriverOpt();
