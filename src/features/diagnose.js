@@ -182,7 +182,8 @@ const PRACTICE_AREAS=[
      resources:()=>`
        <div class="lvl-subhead" style="margin-top:0">Elite Force Profile — 3 Phases of the Downswing</div>
        <div class="chain-caption" style="margin-top:4px">Reference Pull / Push / Twist magnitudes about the Point of Influence through the downswing, from the StrongerGolf "3 Phases" study (Strong &amp; Zibrik, 2013). Phases end at hand clock-positions: <b>9:00</b> (end Phase 1) → <b>7:00 / max effort</b> (end Phase 2) → <b>Impact</b>. The signature: <b style="color:var(--c-wood)">Push</b> peaks mid-downswing then releases to zero; <b style="color:var(--c-iron)">Pull</b> climbs to a 100% inward force (~100 lb) at impact; <b style="color:var(--c-wedge)">Twist</b> spikes last to square the face.</div>
-       <div style="display:flex;justify-content:center;padding:8px 0 4px">${buildForceProfileSVG()}</div>`},
+       <div style="display:flex;justify-content:center;padding:8px 0 4px">${buildForceProfileSVG()}</div>
+       ${forcesExperts()}`},
     {n:4,id:'kinematics',title:'Kinematic Sequence &amp; Ground Forces',cause:'Body movement',status:'live',
      assess:()=>{
       const segments=[
@@ -344,7 +345,8 @@ const PRACTICE_AREAS=[
        <div class="lvl-soon-note">Your overhead dispersion cone (computed on the Stock Shots tab) overlaid on hole layouts. Given your L/R spread for each club, the system will compute the expected-value aim point that minimises expected strokes — accounting for hazard locations, miss penalties, and green shape.</div>
 
        <div class="lvl-subhead" style="margin-top:14px">Risk / Reward Profiles</div>
-       <div class="lvl-soon-note">Per-hole: lay-up vs. go yardage thresholds, preferred miss sides, and safe-zone targets. Feeds directly from your carry and dispersion data. Will eventually allow scenario input ("230 carry over water or lay up to 80") and output an expected-score comparison.</div>`}
+       <div class="lvl-soon-note">Per-hole: lay-up vs. go yardage thresholds, preferred miss sides, and safe-zone targets. Feeds directly from your carry and dispersion data. Will eventually allow scenario input ("230 carry over water or lay up to 80") and output an expected-score comparison.</div>
+       ${strategyExperts()}`}
   ];
 
 /* ---- Practice page builders: render one slot across all areas ---- */
@@ -387,6 +389,34 @@ function drillBlock(title,intro,items){
     +'</div>';
 }
 function refNote(html){ return `<div class="chain-caption" style="margin-top:8px;line-height:1.55">${html}</div>`; }
+/* expert/resource card — name, tag, work (book/system), contribution */
+function expertCard(name,tag,work,contribution){
+  return `<div style="background:var(--bg2);border:1px solid var(--border);border-left:3px solid var(--c-wedge);border-radius:7px;padding:10px 12px">`
+    +`<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap"><div style="font-family:Arial,sans-serif;font-weight:800;font-size:.9rem;color:var(--ink2)">${name}</div><div style="font-family:ui-monospace,monospace;font-size:.5rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);white-space:nowrap">${tag}</div></div>`
+    +(work?`<div style="font-family:Arial,sans-serif;font-style:italic;font-size:.78rem;color:var(--c-wedge);margin-top:2px">${work}</div>`:'')
+    +`<div style="font-family:Arial,sans-serif;font-size:.8rem;line-height:1.45;color:var(--muted);margin-top:4px">${contribution}</div></div>`;
+}
+function expertList(title,intro,experts){
+  return `<div class="lvl-subhead" style="margin-top:16px">${title}</div>`
+    +(intro?`<div class="chain-caption" style="margin-top:4px">${intro}</div>`:'')
+    +'<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">'
+    +experts.map(e=>expertCard(e[0],e[1],e[2],e[3])).join('')
+    +'</div>';
+}
+function forcesExperts(){
+  return expertList('Top Voices — Forces & Torques','How force reaches the club, and what it does there.',[
+    ['Dr. Steven M. Nesbit','Biomechanist','“A 3-D Kinematic & Kinetic Study of the Golf Swing” (2005)','The definitive measurement of the forces and torques a golfer applies to the club. The reference StrongerGolf defers to for force/torque naming and magnitudes.'],
+    ['Dr. Sasho MacKenzie','Biomechanist','Golf-swing modeling & 3-D simulation','Modern authority on how force is applied to the club over time — the work and torque that actually create speed, and why <em>when</em> you apply force matters as much as how much.'],
+    ['Homer Kelley','Theorist','“The Golfing Machine” (1969)','Catalogued how the hands deliver force — drag vs. drive loading, lever systems, and pressure points. The conceptual taxonomy behind Pull / Push / Twist.']
+  ]);
+}
+function strategyExperts(){
+  return expertList('Top Voices — Course Management & Strategy','Turning dispersion and expected value into targets.',[
+    ['Scott Fawcett','Strategist','DECADE Golf','Dispersion-based strategy: pick targets from your shot pattern, not your best shot, and let expected value choose aggressive vs. conservative. The system behind the aim-point work to come.'],
+    ['Mark Broadie','Researcher','“Every Shot Counts”','The strategy half of strokes gained — when to go for it, why “aim at the middle” usually wins, and how distance and dispersion set the optimal target.'],
+    ['Mark Sweeney','Green-reading','AimPoint','Physics-based green reading: predict break from slope and speed rather than guessing. The reference for the putting-strategy side of course management.']
+  ]);
+}
 
 /* ---- Score (L1) ---- */
 function scoreImprove(){
@@ -398,9 +428,14 @@ function scoreImprove(){
     ]);
 }
 function scoreResources(){
-  return refNote(`<strong>Strokes Gained, in one line:</strong> every shot is worth the expected strokes from where it started minus the expected strokes from where it finished, minus one for the stroke itself. Positive = you gained ground on the baseline; negative = you lost it.`)
+  return `<div class="lvl-subhead" style="margin-top:0">Strokes Gained — the idea</div>`
+    +refNote(`Every shot is worth the expected strokes from where it started minus the expected strokes from where it finished, minus one for the stroke itself. Positive = you gained ground on the baseline; negative = you lost it.`)
     +refNote(`The four categories — <b style="color:#1a5aaa">Off the Tee</b>, <b style="color:#00853F">Approach</b>, <b style="color:#d96070">Around the Green</b>, <b style="color:#6b7280">Putting</b> — each map straight down this chain. A negative Approach number is usually a Ball-Flight (L2) or Forces (L3) problem; negative Putting points at green-reading and speed control.`)
-    +refNote(`Baselines scale with handicap: a scratch player's "expected strokes from 150 in the fairway" differs from a 15-handicap's. The Scenario Calculator in Assess uses your handicap so the numbers reflect <em>your</em> standard, not tour's.`);
+    +expertList('Top Voices — Scoring & Strokes Gained','The data scientists behind every number in Assess.',[
+      ['Mark Broadie','Researcher','“Every Shot Counts” (2014)','Columbia professor who invented Strokes Gained from PGA Tour ShotLink data — and proved approach play, not putting, separates skill levels most. The framework behind every category average here.'],
+      ['Peter Sanders','Game analyst','ShotByShot.com','Pioneered strokes-gained-style amateur analysis years before it went mainstream — scoring each part of your game relative to your own handicap target, exactly how the Scenario Calculator is calibrated.'],
+      ['Lou Stagner','Data analyst','Arccos / public golf data','Publishes the hard amateur numbers — real dispersion, expected strokes by distance, and how often good players actually hit greens. A reality check on what “good” really looks like.']
+    ]);
 }
 
 /* ---- Ball Flight (L2) ---- */
@@ -420,7 +455,12 @@ function ballLawsRef(){
     +refNote(`<strong>Start line ≈ face.</strong> The clubface direction at impact controls roughly <b>80–85%</b> of the ball's initial direction (more for irons, slightly less for the driver). Path contributes the small remainder.`)
     +refNote(`<strong>Curve = face relative to path.</strong> The ball curves <em>away</em> from the face-to-path difference. Face right of path → ball curves left (draw/hook); face left of path → curves right (fade/slice). Square them and it flies straight.`)
     +refNote(`<strong>Loft scales the curve.</strong> The same face-to-path gap curves a low-lofted club far more than a wedge — lower loft puts more of the spin on the tilted axis. That's why drivers slice and wedges don't.`)
-    +refNote(`<strong>Gear effect.</strong> Off-centre strikes on a curved (wood) face add draw/fade spin: toe strikes draw, heel strikes fade. The deep face and high MOI of a driver make this dramatic; thin irons barely show it.`);
+    +refNote(`<strong>Gear effect.</strong> Off-centre strikes on a curved (wood) face add draw/fade spin: toe strikes draw, heel strikes fade. The deep face and high MOI of a driver make this dramatic; thin irons barely show it.`)
+    +expertList('Top Voices — Ball Flight & Club Behaviour','From the physics to the radar that proved it.',[
+      ['Theodore P. Jorgensen','Physicist','“The Physics of Golf” (1994)','Nebraska physicist who modeled the swing and the impact geometry underlying the D-plane — the rigorous starting point for everything on this page.'],
+      ['Dr. David Tutelman','Engineer','tutelman.com — “Inside the D-Plane”','The clearest public derivation of the D-plane: how face and path combine in 3-D to set start line and curve. Translates the physics into plain geometry.'],
+      ['Fredrik Tuxen','Engineer','TrackMan radar','Doppler-radar founder whose measurements validated the “new” ball-flight laws in the real world — confirming the face, not the path, owns ~80–85% of start direction.']
+    ]);
 }
 
 /* ---- Forces & Torques (L3) ---- */
@@ -460,7 +500,12 @@ function kinematicsResources(){
     +'<strong style="color:var(--ink2)">Speed-gain ratios:</strong> Upper Body / Pelvis = <b>1.35×</b> · Club / Upper Body = <b>2.68×</b> — the summation-of-speed multiplier elite players share. Curves above peak proximal→distal (Lead Arm ~1,100°/s typical).</div>'
     +'<div class="lvl-subhead">Ground Reaction Forces — Ideal Vertical Trace</div>'
     +'<div class="chain-caption" style="margin-top:4px">Ideal vertical-force pattern: weight loads the <b style="color:var(--c-wood)">trail</b> foot in the backswing, crosses to the <b style="color:var(--c-wedge)">lead</b> foot in transition, and total vertical (<b style="color:var(--ink2)">dashed</b>) peaks ~1.5× body weight just before impact. <span class="placeholder-flag">representative</span></div>'
-    +'<div style="display:flex;justify-content:center;padding:2px 0 8px">'+buildGRFTraceSVG()+'</div>';
+    +'<div style="display:flex;justify-content:center;padding:2px 0 8px">'+buildGRFTraceSVG()+'</div>'
+    +expertList('Top Voices — Sequence & Ground Forces','The researchers behind the benchmarks above.',[
+      ['Dr. Phil Cheetham','Biomechanist','AMM / K-Vest — the “signature” sequence','Pioneered the kinematic-sequence graph: the proximal-to-distal peak ordering every benchmark here is built on. The Strong & Zibrik study uses his methodology.'],
+      ['Dr. Young-Hoo Kwon','Biomechanist','Kwon3D — golf biomechanics','Authority on 3-D kinematics and ground kinetics; his motion-analysis methods underpin how segment speeds and ground forces are measured and interpreted.'],
+      ['Dr. Scott Lynn','Researcher','Swing Catalyst — force plates','Ground-reaction-force research separating vertical, horizontal and torque forces — the science behind the ideal vertical trace above and the push-off that peaks near impact.']
+    ]);
 }
 
 /* ---- Body & Movement (L5) ---- */
@@ -477,9 +522,14 @@ function bodyImprove(){
     ]);
 }
 function bodyResources(){
-  return refNote(`<strong>The TPI screen, in brief:</strong> a movement-quality filter, not a swing critique. Each test isolates whether a joint or pattern can do what an efficient swing asks of it. A "fail" means the body will <em>compensate</em> somewhere — and the compensation is usually the swing fault you see.`)
-    +refNote(`<b>Mobility tests</b> (squat, pelvic/thoracic rotation, hip rotation, hamstring, wrist hinge) ask <em>"is the range available?"</em> <b>Stability tests</b> (single-leg balance, seated trunk rotation, lower-quarter rotation) ask <em>"can you control it?"</em>`)
-    +refNote(`Classic links: limited hip internal rotation → early extension; limited thoracic rotation → over-the-top or short backswing; failed pelvic disassociation → loss of posture. Fix the screen, and the swing fault often has nowhere left to come from.`);
+  return `<div class="lvl-subhead" style="margin-top:0">Reading the TPI Screen</div>`
+    +refNote(`<strong>A movement-quality filter, not a swing critique.</strong> Each test isolates whether a joint or pattern can do what an efficient swing asks of it. A "fail" means the body will <em>compensate</em> somewhere — and the compensation is usually the swing fault you see.`)
+    +refNote(`<b>Mobility tests</b> (squat, pelvic/thoracic rotation, hip rotation, hamstring, wrist hinge) ask <em>"is the range available?"</em> <b>Stability tests</b> (single-leg balance, seated trunk rotation, lower-quarter rotation) ask <em>"can you control it?"</em> Classic links: limited hip internal rotation → early extension; limited thoracic rotation → over-the-top.`)
+    +expertList('Top Voices — Body & Movement','Score how you move before how you swing.',[
+      ['Dr. Greg Rose & Dave Phillips','TPI co-founders','Titleist Performance Institute','Built the body-swing connection model and the screen in Assess: physical limitations <em>cause</em> swing characteristics — train the body to unlock the movement, don\'t just drill the position.'],
+      ['Gray Cook','Physical therapist','Functional Movement Screen (FMS)','Created the movement-quality screening philosophy TPI builds on — grade how you move first, and clear the limitation before training the skill on top of it.'],
+      ['Dr. Stuart McGill','Spine biomechanist','“Back Mechanic” / spine research','The authority on spine mechanics and back health — essential context for the rotational loads golf places on the body and how to build resilient, powerful movement.']
+    ]);
 }
 
 /* ---- Psychology & Philosophy (L6) ---- */
@@ -492,9 +542,11 @@ function psychImprove(){
   ]);
 }
 function psychResources(){
-  return refNote(`<strong>MindTrak</strong> — treats the mental game as data: focus, commitment, emotional control and routine consistency get rated per round so trends, not feelings, drive the work.`)
-    +refNote(`<strong>Vision54</strong> (Pia Nilsson & Lynn Marriott) — the think-box/play-box separation, "human skills" (attitude, focus, emotion, body language), and the belief that 18 birdies — a 54 — is theoretically possible, one shot at a time.`)
-    +refNote(`<strong>Fearless Golf</strong> (Gio Valiante) — <em>mastery</em> orientation (process, improvement, curiosity) produces courage; <em>ego</em> orientation (outcome, comparison, fear of failure) produces tension. The goal is to stay mastery-oriented under pressure.`);
+  return expertList('Top Voices — Psychology & Philosophy','The frameworks behind the routines in Improve.',[
+    ['Dr. Bob Rotella','Sport psychologist','“Golf is Not a Game of Perfect”','The foundational voice in golf psychology — play to a small target, accept the outcome, and protect a confident, present mindset. The basis of the pre-shot routine work in Improve.'],
+    ['Pia Nilsson & Lynn Marriott','Coaches','VISION54','The think-box / play-box separation, "human skills" (attitude, focus, emotion, body language), and the belief that 18 birdies — a 54 — is reachable one shot at a time.'],
+    ['Dr. Gio Valiante','Sport psychologist','“Fearless Golf”','<em>Mastery</em> orientation (process, curiosity) produces courage; <em>ego</em> orientation (outcome, comparison, fear of failure) produces tension. The goal: stay mastery-oriented under pressure.']
+  ]);
 }
 
 function ballRefHtml(){
