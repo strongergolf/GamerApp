@@ -100,6 +100,40 @@ function buildGapping(){
     ? `<div style="font-family:Arial,sans-serif;font-size:.74rem;color:var(--muted);padding:0 0 8px">Gapping: ${gapFlags?`<b style="color:var(--gold2,#c4427a)">${gapFlags}</b> gap${gapFlags!==1?'s':''} &gt;15 yd`:''}${gapFlags&&overlapFlags?' · ':''}${overlapFlags?`<b style="color:#d96070">${overlapFlags}</b> overlap${overlapFlags!==1?'s':''} &lt;8 yd`:''} — flagged inline below.</div>`
     : `<div style="font-family:Arial,sans-serif;font-size:.74rem;color:var(--green);padding:0 0 8px">✓ Even gapping — no gaps over 15 yd or overlaps under 8 yd.</div>`;
 }
+/* Lateral Dispersion Check — flag clubs whose lateral miss (% of total yardage)
+   runs more than THRESH percentage points off the rest of the set. Starting
+   heuristic; becomes meaningful once per-club measured lateral data is entered. */
+function buildLateralGapping(){
+  const wrap=document.getElementById('lateral-analysis-wrap');
+  if(!wrap) return;
+  const THRESH=3; /* percentage points vs the rest of the set */
+  const list=STATE.clubs.filter(c=>c.type!=='putter').map(c=>{
+    const p=perf(c.id); const carry=p.carry||0; const total=p.total||carry;
+    if(carry<=0||total<=0) return null;
+    const sigma2=getDispersion(carry)*0.608*2;        /* 2σ lateral half-width (yd) */
+    return {c, pct: sigma2/total*100};
+  }).filter(Boolean);
+  if(list.length<3){ wrap.innerHTML=`<p class="intro-note" style="margin:0">Add carry &amp; total for at least three clubs to compare lateral dispersion across the set.</p>`; return; }
+  let flags='';
+  list.forEach(x=>{
+    const others=list.filter(o=>o!==x);
+    const avg=others.reduce((s,o)=>s+o.pct,0)/others.length;
+    const dev=x.pct-avg;
+    if(Math.abs(dev)>THRESH){
+      const wide=dev>0;
+      const col=wide?'#d96070':'#1a5aaa';
+      const bg=wide?'rgba(214,96,112,.12)':'rgba(26,90,122,.10)';
+      flags+=`<div style="display:flex;align-items:center;gap:10px;padding:7px 11px;background:${bg};border-radius:9px;margin-bottom:6px">
+        <span style="font-family:Arial,sans-serif;font-weight:800;font-size:.9rem;color:var(--ink);flex:1">${x.c.label}<span style="font-family:ui-monospace,monospace;font-size:.56rem;color:var(--muted);margin-left:6px">${x.c.loft}</span></span>
+        <span style="font-family:ui-monospace,monospace;font-weight:700;font-size:.82rem;color:${col}">${x.pct.toFixed(1)}%<span style="font-weight:400;font-size:.6rem;color:var(--muted)"> 2σ</span></span>
+        <span style="font-family:ui-monospace,monospace;font-weight:700;font-size:.64rem;letter-spacing:.03em;color:${col};background:var(--bg2);border-radius:20px;padding:2px 9px">${wide?'+':''}${dev.toFixed(1)} pp · ${wide?'wider':'tighter'}</span>
+      </div>`;
+    }
+  });
+  const setAvg=list.reduce((s,o)=>s+o.pct,0)/list.length;
+  const head=`<div style="font-family:Arial,sans-serif;font-size:.74rem;color:var(--muted);padding:0 0 8px">Lateral miss as % of total yardage (2σ). Set average <b style="color:var(--ink2)">${setAvg.toFixed(1)}%</b>. Flags any club more than ${THRESH} pp from the rest of the set.</div>`;
+  wrap.innerHTML = head + (flags || `<div style="font-family:Arial,sans-serif;font-size:.78rem;color:var(--green);padding:2px 0">✓ Every club is within ${THRESH} pp of the set — no lateral outliers.</div>`);
+}
 function toggleDetail(c,row,group,inner){
   const open=group.classList.contains('open');
   document.querySelectorAll('.ladder-row').forEach(r=>r.classList.remove('selected'));
@@ -373,4 +407,4 @@ function buildDriverCarryNudge(p){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { buildDriverCarryNudge, buildGapping, buildGearEffectPanel, buildGearFaceSVG, buildLadder, buildMissBlock, buildSideSVG, buildTopSVG, missNote, missSelect, renderConditions, setMiss, statCell, toggleDetail, updateCondSummary });
+Object.assign(window, { buildDriverCarryNudge, buildGapping, buildLateralGapping, buildGearEffectPanel, buildGearFaceSVG, buildLadder, buildMissBlock, buildSideSVG, buildTopSVG, missNote, missSelect, renderConditions, setMiss, statCell, toggleDetail, updateCondSummary });

@@ -65,6 +65,7 @@ function refreshAll(){
   computePlanShot();
   buildSpecs();
   buildGapping();
+  buildLateralGapping();
   buildProfile();
   renderCalc(95);
   updateDriverOpt();
