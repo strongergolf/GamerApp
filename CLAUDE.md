@@ -50,7 +50,7 @@ src/
     shortgame.js        ← Short Game tab (Chip Shot Options, chip matrix)
     putting.js          ← Putting tab (AimPoint, Expected Putts)
     sg-tracking.js      ← scenario calc, round logging, SG averages/trend/sparkline
-    diagnose.js         ← 7-level causal chain + per-club D-plane tendencies grid
+    diagnose.js         ← PRACTICE_AREAS (7 causal-chain links × assess/improve/resources slots) + per-club D-plane tendencies grid
     courses.js          ← Course maps: data model, vector hole renderer (renderHoleSVG), trace-on-image editor (Plan tab)
     bag-specs.js        ← My Bag specs/edit, ball listing, profile (Myself), data import/export
     club-form.js        ← add-a-club form
@@ -139,7 +139,7 @@ All full-swing long-club trajectory SVGs use an **asymmetric cubic bezier** refl
 - Wordmark: "Stronger" green + "Golf" pink; trajectory arc above in pink. Tagline "Club, Shot & Swing Data".
 
 ## Naming conventions (preserve exactly)
-Mark uses specific teaching language. Keep these strings verbatim: "Side Slope at Point of Influence", "Chip Shot Options", "Pitch Shot Options", "Expected Putts Calculator". Nav: Play (Stock Shots / Approach / Short Game / Putting), Practice (Causal Chain — internally the `diagnose` group/page id), Plan (Course Strategy — the `courses` page), Plan group → Strategy (`courses` page) / Course Editor (`editor` page). Locker Room group → My Bag / Myself / Reference.
+Mark uses specific teaching language. Keep these strings verbatim: "Side Slope at Point of Influence", "Chip Shot Options", "Pitch Shot Options", "Expected Putts Calculator". Nav: Play (Stock Shots / Approach / Short Game / Putting), Practice (three sub-tabs — Assess / Improve / Resources — internally the `diagnose` nav group; pages `page-assess`/`page-improve`/`page-resources`, wraps `assess-wrap`/`improve-wrap`/`resources-wrap`. The 7 causal-chain links live in `PRACTICE_AREAS` in diagnose.js, each exposing `assess`/`improve`/`resources` render slots; `buildAssess`/`buildImprove`/`buildResources` render one slot across all areas. Assess = data entry, Resources = reference charts / D-plane visual / force & kinematic profiles, Improve = drills), Plan (Course Strategy — the `courses` page), Plan group → Strategy (`courses` page) / Course Editor (`editor` page). Locker Room group → My Bag / Myself / Reference.
 
 ## Working style
 Mark describes changes in plain golf terms and reviews each revision closely — he catches calibration drift and regressions quickly. Match real-world reference data (Foresight table, measured landing angles, stimp 9.5); approximations get caught. Keep responses precise.

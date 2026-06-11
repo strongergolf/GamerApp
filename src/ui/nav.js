@@ -11,7 +11,7 @@ const GROUPS={
     {id:'shortgame',label:'Short Game'},
     {id:'putting',  label:'Putting'}
   ],
-  diagnose:[{id:'diagnose',label:'Causal Chain'}],
+  diagnose:[{id:'assess',label:'Assess'},{id:'improve',label:'Improve'},{id:'resources',label:'Resources'}],
   plan:[{id:'courses',label:'Strategy'},{id:'editor',label:'Course Editor'}],
   setup:[{id:'specs',label:'My Bag'},{id:'profile',label:'Myself'},{id:'reference',label:'Reference'}]
 };
@@ -52,7 +52,9 @@ function refreshAll(){
   renderExpectedShots('es-150', 95, 'fairway');
   renderExpectedShots('es-short', 20, 'atg');
   renderExpectedShots('es-putting', 15, 'green');
-  buildChain();
+  buildAssess();
+  buildImprove();
+  buildResources();
   renderDPlaneVisual();
   buildCourseStrategy();
   buildCourses();

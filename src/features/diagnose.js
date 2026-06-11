@@ -8,13 +8,13 @@ function metricBox(label,unit,path){
   const val=getPath(STATE.swing,path)||'';
   return `<div class="metric-box"><div class="metric-label">${label}</div><input class="metric-input" value="${escapeHtml(val)}" data-swing="${path}" placeholder="—"><div class="metric-unit">${unit}</div></div>`;
 }
-function buildChain(){
-  const wrap=document.getElementById('chain-wrap');
-  const s=STATE.swing;
-  /* Level definitions, Score=1 counting down toward the body */
-  const levels=[
+/* The seven links in the chain of causation. Each area exposes up to three
+   render slots — assess (measure/enter data), improve (drills & prescriptions),
+   resources (reference charts & the "ideal" to compare against). buildAssess /
+   buildImprove / buildResources render one slot across all areas into a page. */
+const PRACTICE_AREAS=[
     {n:1,id:'score',title:'Score',cause:'Ball behaviour',status:'live',
-     render:()=>`
+     assess:()=>`
        <div class="chain-caption">The end result of every level below. Two tools here: a <strong>Scenario Calculator</strong> that outputs expected strokes from any position, and a <strong>Strokes Gained tracker</strong> to log rounds and average your SG by category — each category pointing down the chain to its cause.</div>
 
        <div class="lvl-subhead">Scenario Calculator</div>
@@ -111,9 +111,11 @@ function buildChain(){
        </div>
 
        <div class="lvl-subhead">Round History</div>
-       <div id="sg-rounds">${sgRoundsHtml()}</div>`},
+       <div id="sg-rounds">${sgRoundsHtml()}</div>`,
+     improve:()=>scoreImprove(),
+     resources:()=>scoreResources()},
     {n:2,id:'ball',title:'Ball Flight &amp; Club Behaviour',cause:'Forces &amp; torques',status:'live',
-     render:()=>`
+     assess:()=>`
        <div class="chain-caption">The D-plane covers both layers: ball flight is the <em>outcome</em> of club behaviour at impact, and the same impact variables explain both simultaneously. Ball data is captured on the Bag tab; D-plane inputs are editable here. <span class="placeholder-flag">Labels pending StrongerGolf terms</span></div>
 
        <div class="lvl-subhead">Ball Flight — from Bag Data</div>
@@ -121,8 +123,10 @@ function buildChain(){
 
        <div class="lvl-subhead" style="margin-top:14px">Club Behaviour at Impact — D-Plane Tendencies</div>
        <div class="chain-caption" style="margin-top:4px">Each club's <strong>stock-shot</strong> D-plane: horizontal face, horizontal path and attack angle (all in degrees, left −/right +). <strong>Stock shape, curve and start line are computed live</strong> — face vs path, scaled by loft (lower loft curves more). These tendencies feed the Bag dispersion and the <strong>Plan</strong> tab's hole overlays. Edits save automatically. <span class="placeholder-flag">prototype</span></div>
-       ${buildDplaneGrid()}
-
+       ${buildDplaneGrid()}`,
+     improve:()=>ballImprove(),
+     resources:()=>`
+       ${ballLawsRef()}
        <div class="lvl-subhead" style="margin-top:16px">D-Plane Visual <span class="placeholder-flag">prototype</span></div>
        <div class="chain-caption" style="margin-top:4px">The selected club's stock-shot D-plane from three angles — <strong>Down the Line</strong>, <strong>Overhead</strong>, <strong>Face-On</strong> (each slightly offset for depth). <span style="color:#c43c9e;font-weight:700">Path</span> &amp; <span style="color:#2a6fc4;font-weight:700">Face</span> vectors, the <span style="color:#c8721e;font-weight:700">D-plane</span> wedge, and the perpendicular <span style="color:#cc2a2a;font-weight:700">spin axis</span>.</div>
        <div id="dplane-visual"></div>
@@ -130,15 +134,11 @@ function buildChain(){
 
        <div class="chain-caption" style="margin-top:14px">Driver distance optimization (Foresight launch &amp; spin windows) now lives under the <strong>Driver</strong> in <strong>Stock Shots</strong>.</div>`},
     {n:3,id:'forces',title:'Forces &amp; Torques — Grip &amp; Hands',cause:'Kinematic sequence',status:'live',
-     render:()=>`<div class="chain-caption">After Nesbit: the club only "knows" the forces and torques applied to it. Anything you can do to a golf club can be described by combining three actions — Pull, Push, and Twist — each characterised by its type, timing, direction, and magnitude. Each is tracked across three downswing stages.</div>
+     assess:()=>`<div class="chain-caption">After Nesbit: the club only "knows" the forces and torques applied to it. Anything you can do to a golf club can be described by combining three actions — Pull, Push, and Twist — each characterised by its type, timing, direction, and magnitude. Each is tracked across three downswing stages.</div>
        <div class="force-legend">Each stage: <b>top field</b> = direction · <b>bottom field</b> = magnitude</div>
        ${forceRow('Pull','Moving the grip of the club in the direction that the grip\'s butt is pointed — a linear force along the shaft\'s long axis.','pull')}
        ${forceRow('Push','The releasing of the clubhead in relation to the grip — the grip stays in the same spot, but the clubhead is orbiting around it. A rotational torque around the grip.','push')}
        ${forceRow('Twist','A screwdriver-like motion with the hands and forearms, causing the clubhead\'s sweetspot to rotate around the club shaft\'s longitudinal axis.','twist')}
-
-       <div class="lvl-subhead" style="margin-top:16px">Elite Force Profile — 3 Phases of the Downswing</div>
-       <div class="chain-caption" style="margin-top:4px">Reference Pull / Push / Twist magnitudes about the Point of Influence through the downswing, from the StrongerGolf "3 Phases" study (Strong &amp; Zibrik, 2013). Phases end at hand clock-positions: <b>9:00</b> (end Phase 1) → <b>7:00 / max effort</b> (end Phase 2) → <b>Impact</b>. The signature: <b style="color:var(--c-wood)">Push</b> peaks mid-downswing then releases to zero; <b style="color:var(--c-iron)">Pull</b> climbs to a 100% inward force (~100 lb) at impact; <b style="color:var(--c-wedge)">Twist</b> spikes last to square the face.</div>
-       <div style="display:flex;justify-content:center;padding:8px 0 4px">${buildForceProfileSVG()}</div>
 
        <div class="lvl-subhead" style="margin-top:16px">Grip Profile</div>
        <div class="chain-caption" style="margin-top:4px">Grip position directly influences the Twist torque available and its timing. Rated on two independent spectrums — strength position and palm-to-fingers depth.</div>
@@ -177,9 +177,14 @@ function buildChain(){
            <label>Grip Notes</label>
            <textarea class="metric-input" data-swing="grip.notes" style="width:100%;min-height:52px;font-family:Arial,sans-serif;font-size:.82rem;line-height:1.4" placeholder="pressure points, interlocking/overlap/baseball, glove hand observations…">${escapeHtml(getPath(STATE.swing,'grip.notes'))}</textarea>
          </div>
-       </div>`},
+       </div>`,
+     improve:()=>forcesImprove(),
+     resources:()=>`
+       <div class="lvl-subhead" style="margin-top:0">Elite Force Profile — 3 Phases of the Downswing</div>
+       <div class="chain-caption" style="margin-top:4px">Reference Pull / Push / Twist magnitudes about the Point of Influence through the downswing, from the StrongerGolf "3 Phases" study (Strong &amp; Zibrik, 2013). Phases end at hand clock-positions: <b>9:00</b> (end Phase 1) → <b>7:00 / max effort</b> (end Phase 2) → <b>Impact</b>. The signature: <b style="color:var(--c-wood)">Push</b> peaks mid-downswing then releases to zero; <b style="color:var(--c-iron)">Pull</b> climbs to a 100% inward force (~100 lb) at impact; <b style="color:var(--c-wedge)">Twist</b> spikes last to square the face.</div>
+       <div style="display:flex;justify-content:center;padding:8px 0 4px">${buildForceProfileSVG()}</div>`},
     {n:4,id:'kinematics',title:'Kinematic Sequence &amp; Ground Forces',cause:'Body movement',status:'live',
-     render:()=>{
+     assess:()=>{
       const segments=[
         {id:'pelvis',label:'Pelvis',     color:'var(--c-wood)',  bench:'~480°/s'},
         {id:'thorax',label:'Thorax',     color:'var(--c-iron)',  bench:'~605°/s'},
@@ -209,25 +214,11 @@ function buildChain(){
        +'<div style="overflow-x:auto;margin-bottom:12px"><table style="border-collapse:collapse;width:100%;font-size:.78rem"><thead><tr>'
        +'<th style="padding:6px 8px;font-family:Arial,sans-serif;font-size:.58rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--border);background:var(--bg2);text-align:left;min-width:80px">Segment</th>'
        +phHdrs+'</tr></thead><tbody>'+rows+'</tbody></table></div>'
-       +'<div style="font-family:ui-monospace,monospace;font-size:.5rem;color:var(--muted);line-height:1.6;margin-bottom:12px;padding:8px 10px;background:var(--bg2);border-radius:6px;border:1px solid var(--border)">'
-       +'<strong style="color:var(--ink2)">K-Vest / Cheetham benchmarks (skilled golfers):</strong> '
-       +'Pelvis peaks &amp; decelerates before thorax peaks · each segment peaks later &amp; faster · arm→club ratio ~1.26× · club should reach peak at or just after impact</div>'
-       +'<div class="lvl-subhead">StrongerGolf Measured — Kinematic Sequence</div>'
-       +'<div class="chain-caption" style="margin-top:4px">Peak angular velocities from the Strong &amp; Zibrik K-Vest study (tour-level player, full driver). Proximal-to-distal order confirmed — each segment peaks faster than the one below it.</div>'
-       +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:stretch;margin:8px 0 6px">'
-       +['Pelvis|410|var(--c-wood)','Upper Body|552|var(--c-iron)','Club (grip)|1479|var(--grey)'].map(c=>{const[lbl,v,col]=c.split('|');return '<div style="flex:1;min-width:84px;text-align:center;background:var(--bg2);border:1px solid var(--border);border-top:3px solid '+col+';border-radius:7px;padding:9px 6px"><div style="font-family:Arial,sans-serif;font-size:1.35rem;font-weight:800;color:'+col+';line-height:1">'+v+'</div><div style="font-family:ui-monospace,monospace;font-size:.46rem;color:var(--muted);letter-spacing:.06em">°/s peak</div><div style="font-family:Arial,sans-serif;font-size:.72rem;font-weight:700;color:var(--ink2);margin-top:3px">'+lbl+'</div></div>';}).join('')
-       +'</div>'
-       +'<div style="display:flex;justify-content:center;padding:2px 0 8px">'+buildKinematicSequenceSVG()+'</div>'
-       +'<div style="font-family:ui-monospace,monospace;font-size:.5rem;color:var(--muted);line-height:1.6;margin-bottom:12px;padding:7px 10px;background:var(--bg2);border-radius:6px;border:1px solid var(--border)">'
-       +'<strong style="color:var(--ink2)">Speed-gain ratios:</strong> Upper Body / Pelvis = <b>1.35×</b> · Club / Upper Body = <b>2.68×</b> — the summation-of-speed multiplier elite players share. Curves above peak proximal→distal (Lead Arm ~1,100°/s typical).</div>'
        +'<div class="edit-field" style="margin-bottom:10px"><label>Sequence Order Observed</label>'
        +'<input class="metric-input" data-swing="kinematics.sequenceOrder" value="'+escapeHtml(getPath(STATE.swing,'kinematics.sequenceOrder'))+'" placeholder="e.g. Pelvis → Thorax → Arm → Club (ideal) or Thorax first (OTT)"></div>'
        +'<div class="edit-field" style="margin-bottom:14px"><label>Transition Trigger</label>'
        +'<input class="metric-input" data-swing="kinematics.transitionTrigger" value="'+escapeHtml(getPath(STATE.swing,'kinematics.transitionTrigger'))+'" placeholder="what initiates the downswing — lateral shift, trail foot push-off, etc."></div>'
-       +'<div class="lvl-subhead">Ground Reaction Forces — Force Plate / Swing Catalyst</div>'
-       +'<div class="chain-caption" style="margin-top:4px">Ideal vertical-force pattern: weight loads the <b style="color:var(--c-wood)">trail</b> foot in the backswing, crosses to the <b style="color:var(--c-wedge)">lead</b> foot in transition, and total vertical (<b style="color:var(--ink2)">dashed</b>) peaks ~1.5× body weight just before impact. <span class="placeholder-flag">representative</span></div>'
-       +'<div style="display:flex;justify-content:center;padding:2px 0 8px">'+buildGRFTraceSVG()+'</div>'
-       +'<div class="lvl-subhead-sm" style="margin:6px 0 6px">Weight Distribution — Current vs Ideal</div>'
+       +'<div class="lvl-subhead">Ground Forces — Weight Distribution (Current vs Ideal)</div>'
        +'<div class="mg-grid">'
        +metricGoal('Weight @ Address','% lead','forcePlate.wtAddress',50)
        +metricGoal('Weight @ Top','% lead','forcePlate.wtTop',40)
@@ -244,9 +235,11 @@ function buildChain(){
        +'<div class="edit-field" style="margin-top:10px"><label style="font-family:ui-monospace,monospace;font-size:.5rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">Force Plate Notes</label>'
        +'<textarea class="metric-input" data-swing="forcePlate.notes" style="width:100%;min-height:60px;font-family:Arial,sans-serif;font-size:.82rem;line-height:1.4" placeholder="Trace patterns, anomalies, observations…">'+escapeHtml(getPath(STATE.swing,'forcePlate.notes'))+'</textarea></div>'
        +'<div class="btn-row" style="margin-top:12px"><button class="btn btn-primary" onclick="saveSwing()">Save</button></div>';
-     }},
+     },
+     improve:()=>kinematicsImprove(),
+     resources:()=>kinematicsResources()},
     {n:5,id:'body',title:'Body &amp; Movement',cause:null,status:'live',
-     render:()=>`
+     assess:()=>`
        <div class="chain-caption">The most variable, most individual link. Framed not as "correct positions" but as <em>the movements that, for this golfer, produce the needed forces above</em>. Physical characteristics determine what movement patterns are even available; TPI screens identify the limiting factors.</div>
 
        <div class="lvl-subhead">Physical Profile</div>
@@ -284,9 +277,11 @@ function buildChain(){
          ${metricBox('Seated Trunk Rotation','P/F/note','tpi.seatedTrunkRot')}
          ${metricBox('Lower Quarter Rotation','P/F/note','tpi.lowerQuarterRot')}
        </div>
-       <div class="edit-field" style="margin-top:10px"><label style="font-family:ui-monospace,monospace;font-size:.5rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">Screen Notes</label><textarea class="metric-input" data-swing="tpi.notes" style="width:100%;min-height:60px;font-family:Arial,sans-serif;font-size:.82rem;line-height:1.4" placeholder="Limitations, compensations, priorities…">${escapeHtml(getPath(STATE.swing,'tpi.notes'))}</textarea></div>`},
+       <div class="edit-field" style="margin-top:10px"><label style="font-family:ui-monospace,monospace;font-size:.5rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">Screen Notes</label><textarea class="metric-input" data-swing="tpi.notes" style="width:100%;min-height:60px;font-family:Arial,sans-serif;font-size:.82rem;line-height:1.4" placeholder="Limitations, compensations, priorities…">${escapeHtml(getPath(STATE.swing,'tpi.notes'))}</textarea></div>`,
+     improve:()=>bodyImprove(),
+     resources:()=>bodyResources()},
     {n:6,id:'psych',title:'Psychology &amp; Philosophy',cause:null,status:'live',
-     render:()=>`
+     assess:()=>`
        <div class="chain-caption">The mental and philosophical layer — how a player thinks, believes, and approaches the game. Pre-shot routine, pressure management, competitive mindset, and the deeper relationship a golfer has with the game. Aim ability, eye dominance, and attentional style also attach here as perceptual inputs that precede every shot.</div>
 
        <div class="lvl-subhead">MindTrak</div>
@@ -329,49 +324,177 @@ function buildChain(){
          ${metricBox('This Season','season target / theme','psych.goals.season')}
          ${metricBox('Career','long-term aspiration','psych.goals.career')}
        </div>
-       <div class="btn-row" style="margin-top:12px"><button class="btn btn-primary" onclick="saveSwing()">Save</button></div>`},
+       <div class="btn-row" style="margin-top:12px"><button class="btn btn-primary" onclick="saveSwing()">Save</button></div>`,
+     improve:()=>psychImprove(),
+     resources:()=>psychResources()},
     {n:7,id:'strategy',title:'Course Management &amp; Strategy',cause:null,status:'soon',
-     render:()=>`
+     assess:()=>`
        <div class="chain-caption">Where every level above cashes out into a real decision on a real hole. Strategy synthesises ball-flight data (L2), dispersion patterns, and scoring tendencies (L1) into optimal targets, shot shapes, and risk/reward choices. The eventual home for course overlays and hole-by-hole planning.</div>
 
        ${buildStrategyPrefs()}
-       <div class="chain-caption" style="margin-top:6px">These are the same preferences shown in the <strong>Plan → Strategy</strong> tab — editing here updates there.</div>
-
-       <div class="lvl-subhead" style="margin-top:16px">Strokes Gained — Decision Quality</div>
+       <div class="chain-caption" style="margin-top:6px">These are the same preferences shown in the <strong>Plan → Strategy</strong> tab — editing here updates there.</div>`,
+     improve:()=>`
+       <div class="lvl-subhead" style="margin-top:0">Strokes Gained — Decision Quality</div>
        <div class="lvl-soon-note">Future: flag shots where club or target selection cost strokes vs. the optimal decision, separate from execution error. A bad decision with a good swing still costs shots.</div>
 
-       <div class="lvl-subhead" style="margin-top:14px">Dispersion-Based Aim Points</div>
+       <div class="lvl-subhead" style="margin-top:14px">Course Notes</div>
+       <div class="lvl-soon-note">Hole-by-hole strategy log: playing notes, wind tendencies, pin position adjustments, and lessons learned. Will link to the round log in the Score tab so notes are attached to specific rounds.</div>`,
+     resources:()=>`
+       <div class="lvl-subhead" style="margin-top:0">Dispersion-Based Aim Points</div>
        <div class="lvl-soon-note">Your overhead dispersion cone (computed on the Stock Shots tab) overlaid on hole layouts. Given your L/R spread for each club, the system will compute the expected-value aim point that minimises expected strokes — accounting for hazard locations, miss penalties, and green shape.</div>
 
        <div class="lvl-subhead" style="margin-top:14px">Risk / Reward Profiles</div>
-       <div class="lvl-soon-note">Per-hole: lay-up vs. go yardage thresholds, preferred miss sides, and safe-zone targets. Feeds directly from your carry and dispersion data. Will eventually allow scenario input ("230 carry over water or lay up to 80") and output an expected-score comparison.</div>
-
-       <div class="lvl-subhead" style="margin-top:14px">Course Notes</div>
-       <div class="lvl-soon-note">Hole-by-hole strategy log: playing notes, wind tendencies, pin position adjustments, and lessons learned. Will link to the round log in the Score tab so notes are attached to specific rounds.</div>`}
+       <div class="lvl-soon-note">Per-hole: lay-up vs. go yardage thresholds, preferred miss sides, and safe-zone targets. Feeds directly from your carry and dispersion data. Will eventually allow scenario input ("230 carry over water or lay up to 80") and output an expected-score comparison.</div>`}
   ];
 
-  wrap.innerHTML=levels.map((lv,i)=>{
-    const hasData=lv.status==='live'||lv.status==='ref';
-    const statusLabel=lv.status==='live'?'editable':lv.status==='ref'?'from Bag data':'coming';
-    const causeLine=lv.cause?`caused by → <b>${lv.cause}</b>`:'the end result';
-    return `${i>0?'<div class="lvl-connector"></div>':''}
-    <div class="lvl-card ${hasData?'has-data':''}" data-lvl="${lv.id}">
-      <div class="lvl-head" onclick="toggleLevel('${lv.id}')">
-        <div class="lvl-num">${lv.n}</div>
-        <div class="lvl-titles">
-          <div class="lvl-title">${lv.title}</div>
-        </div>
-        <div class="lvl-right">
-          <div class="lvl-status ${lv.status}">${statusLabel}</div>
-          <div class="lvl-chev">▾</div>
-        </div>
+/* ---- Practice page builders: render one slot across all areas ---- */
+function practiceCard(area,slot,idx){
+  const html=area[slot]?area[slot]():'';
+  const cid=slot+'-'+area.id;
+  const body=html||`<div class="lvl-soon-note">Nothing allocated to this link yet — check the other Practice sub-tabs.</div>`;
+  return `${idx>0?'<div class="lvl-connector"></div>':''}
+    <div class="lvl-card has-data" data-lvl="${cid}">
+      <div class="lvl-head" onclick="toggleLevel('${cid}')">
+        <div class="lvl-num">${area.n}</div>
+        <div class="lvl-titles"><div class="lvl-title">${area.title}</div></div>
+        <div class="lvl-right"><div class="lvl-chev">▾</div></div>
       </div>
-      <div class="lvl-body"><div class="lvl-inner">${lv.render()}</div></div>
+      <div class="lvl-body"><div class="lvl-inner">${body}</div></div>
     </div>`;
-  }).join('') + `
+}
+function buildPracticeSlot(slot,wrapId){
+  const wrap=document.getElementById(wrapId);
+  if(!wrap) return;
+  wrap.innerHTML=PRACTICE_AREAS.map((a,i)=>practiceCard(a,slot,i)).join('');
+}
+function buildAssess(){
+  buildPracticeSlot('assess','assess-wrap');
+  const wrap=document.getElementById('assess-wrap');
+  if(wrap) wrap.insertAdjacentHTML('beforeend',`
     <div class="section-label">Diagnostic Notes</div>
     <textarea data-swing="notes" class="metric-input" style="width:100%;min-height:90px;font-family:Arial,sans-serif;font-size:.85rem;font-weight:400;line-height:1.5" placeholder="Working diagnosis, feels and cues…">${escapeHtml(STATE.swing.notes||'')}</textarea>
-    <div class="btn-row" style="margin-top:14px"><button class="btn btn-primary" onclick="saveSwing()">Save Diagnostic Data</button></div>`;
+    <div class="btn-row" style="margin-top:14px"><button class="btn btn-primary" onclick="saveSwing()">Save Diagnostic Data</button></div>`);
+}
+function buildImprove(){ buildPracticeSlot('improve','improve-wrap'); }
+function buildResources(){ buildPracticeSlot('resources','resources-wrap'); }
+
+/* ---- reusable presentation helpers for Improve / Resources slots ---- */
+function drillBlock(title,intro,items){
+  return `<div class="lvl-subhead" style="margin-top:16px">${title}</div>`
+    +(intro?`<div class="chain-caption" style="margin-top:4px">${intro}</div>`:'')
+    +'<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">'
+    +items.map(it=>`<div style="background:var(--bg2);border:1px solid var(--border);border-left:3px solid var(--c-iron);border-radius:7px;padding:9px 11px"><div style="font-family:Arial,sans-serif;font-weight:800;font-size:.86rem;color:var(--ink2)">${it[0]}</div><div style="font-family:Arial,sans-serif;font-size:.8rem;line-height:1.45;color:var(--muted);margin-top:2px">${it[1]}</div></div>`).join('')
+    +'</div>';
+}
+function refNote(html){ return `<div class="chain-caption" style="margin-top:8px;line-height:1.55">${html}</div>`; }
+
+/* ---- Score (L1) ---- */
+function scoreImprove(){
+  return `<div class="chain-caption" style="margin-top:0">Your Strokes Gained category averages (in <strong>Assess</strong>) point to the cheapest strokes to recover. Attack the most negative category first — that's where a fixed gap returns the most shots per round.</div>`
+    +drillBlock('Scoring Priorities','Translate the SG diamond into a practice plan.',[
+      ['Worst-category focus','Identify your most negative SG category and spend the next two weeks weighting practice toward it. Re-log rounds and watch the diamond change.'],
+      ['Par-by-par audit','After each round, tag every bogey-or-worse with the link that caused it (decision, strike, or putt). Patterns surface fast.'],
+      ['Bogey-avoidance game','On the course, play a round scored only on doubles+ avoided. Trains conservative targets where the SG math favours them.']
+    ]);
+}
+function scoreResources(){
+  return refNote(`<strong>Strokes Gained, in one line:</strong> every shot is worth the expected strokes from where it started minus the expected strokes from where it finished, minus one for the stroke itself. Positive = you gained ground on the baseline; negative = you lost it.`)
+    +refNote(`The four categories — <b style="color:#1a5aaa">Off the Tee</b>, <b style="color:#00853F">Approach</b>, <b style="color:#d96070">Around the Green</b>, <b style="color:#6b7280">Putting</b> — each map straight down this chain. A negative Approach number is usually a Ball-Flight (L2) or Forces (L3) problem; negative Putting points at green-reading and speed control.`)
+    +refNote(`Baselines scale with handicap: a scratch player's "expected strokes from 150 in the fairway" differs from a 15-handicap's. The Scenario Calculator in Assess uses your handicap so the numbers reflect <em>your</em> standard, not tour's.`);
+}
+
+/* ---- Ball Flight (L2) ---- */
+function ballImprove(){
+  return drillBlock('Face & Path Control','The D-plane says start line is mostly face, curve is face-relative-to-path. Train the two independently.',[
+    ['Gate drill','Two tees a club-head-plus-a-few-mm apart just ahead of the ball. Clean strikes train a square, centred face — the start-line anchor.'],
+    ['9-window flighting','Hit the same club to all nine start-line/curve combinations. Builds an internal feel for how face and path combine.'],
+    ['Two-ball curve game','Alternate a deliberate draw then fade on every rep. Shaping on demand proves you own the path-to-face relationship, not just one stock shot.']
+  ])
+    +drillBlock('Strike Quality','Centeredness of strike drives spin, gear effect and dispersion (see Resources).',[
+      ['Face spray / foot-powder','Mark the face. Tighten the heel-toe scatter before chasing speed — off-centre strike is the hidden cause of curve via gear effect.'],
+      ['Tee-height ladder (driver)','Map how launch and spin change with tee height to find your low-spin window.']
+    ]);
+}
+function ballLawsRef(){
+  return `<div class="lvl-subhead" style="margin-top:0">Ball-Flight Laws (D-Plane)</div>`
+    +refNote(`<strong>Start line ≈ face.</strong> The clubface direction at impact controls roughly <b>80–85%</b> of the ball's initial direction (more for irons, slightly less for the driver). Path contributes the small remainder.`)
+    +refNote(`<strong>Curve = face relative to path.</strong> The ball curves <em>away</em> from the face-to-path difference. Face right of path → ball curves left (draw/hook); face left of path → curves right (fade/slice). Square them and it flies straight.`)
+    +refNote(`<strong>Loft scales the curve.</strong> The same face-to-path gap curves a low-lofted club far more than a wedge — lower loft puts more of the spin on the tilted axis. That's why drivers slice and wedges don't.`)
+    +refNote(`<strong>Gear effect.</strong> Off-centre strikes on a curved (wood) face add draw/fade spin: toe strikes draw, heel strikes fade. The deep face and high MOI of a driver make this dramatic; thin irons barely show it.`);
+}
+
+/* ---- Forces & Torques (L3) ---- */
+function forcesImprove(){
+  return drillBlock('Release & Grip Pressure','Pull, Push and Twist are trained more by feel and pressure than by position.',[
+    ['Pump drill','Rehearse the transition Pull (grip moving down the shaft line) two pumps, then fire. Grooves the early linear force without casting.'],
+    ['Pressure-7 to 3','Rate grip pressure 1–10; rehearse starting soft (~3) and arriving firm only through impact. Late firmness times the Twist that squares the face.'],
+    ['Split-grip swings','Hands apart on the shaft exaggerates the Push (clubhead orbiting the grip) so you feel release timing, then re-join.'],
+    ['Towel-under-arms','Keeps the structure connected so the Pull transmits to the clubhead rather than leaking into arm lift.']
+  ]);
+}
+
+/* ---- Kinematics & Ground Forces (L4) ---- */
+function kinematicsImprove(){
+  return drillBlock('Sequencing','Goal: pelvis → thorax → lead arm → club, each peaking later and faster than the link below it.',[
+    ['Step-change drill','Start the downswing by replanting the lead foot. Forces a ground-up, proximal-to-distal order and kills the over-the-top thorax-first move.'],
+    ['Pump-and-hold','Pump to halfway-down and freeze, checking the pelvis has already begun rotating open while the club still trails. Trains the lag in the sequence.'],
+    ['Swoosh drill (shaft flip)','Hold the club at the head and swing; the loudest swoosh should be out front, past impact. Late swoosh = late peak = good sequence.']
+  ])
+    +drillBlock('Ground Forces','Weight should load trail-side, cross to lead-side in transition, with a vertical push just before impact (see Resources for the ideal trace).',[
+      ['Trail-to-lead step','Slow-motion swings stepping onto the lead foot in transition to feel the pressure shift precede the arms.'],
+      ['Vertical jump-and-turn','Small countermovement jumps while rotating to feel the vertical push-off that peaks ~1.5× body weight near impact.']
+    ]);
+}
+function kinematicsResources(){
+  return '<div class="lvl-subhead" style="margin-top:0">K-Vest / Cheetham Benchmarks</div>'
+    +'<div style="font-family:ui-monospace,monospace;font-size:.5rem;color:var(--muted);line-height:1.6;margin:8px 0 12px;padding:8px 10px;background:var(--bg2);border-radius:6px;border:1px solid var(--border)">'
+    +'<strong style="color:var(--ink2)">Skilled golfers:</strong> '
+    +'Pelvis peaks &amp; decelerates before thorax peaks · each segment peaks later &amp; faster · arm→club ratio ~1.26× · club should reach peak at or just after impact</div>'
+    +'<div class="lvl-subhead">StrongerGolf Measured — Kinematic Sequence</div>'
+    +'<div class="chain-caption" style="margin-top:4px">Peak angular velocities from the Strong &amp; Zibrik K-Vest study (tour-level player, full driver). Proximal-to-distal order confirmed — each segment peaks faster than the one below it.</div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:stretch;margin:8px 0 6px">'
+    +['Pelvis|410|var(--c-wood)','Upper Body|552|var(--c-iron)','Club (grip)|1479|var(--grey)'].map(c=>{const[lbl,v,col]=c.split('|');return '<div style="flex:1;min-width:84px;text-align:center;background:var(--bg2);border:1px solid var(--border);border-top:3px solid '+col+';border-radius:7px;padding:9px 6px"><div style="font-family:Arial,sans-serif;font-size:1.35rem;font-weight:800;color:'+col+';line-height:1">'+v+'</div><div style="font-family:ui-monospace,monospace;font-size:.46rem;color:var(--muted);letter-spacing:.06em">°/s peak</div><div style="font-family:Arial,sans-serif;font-size:.72rem;font-weight:700;color:var(--ink2);margin-top:3px">'+lbl+'</div></div>';}).join('')
+    +'</div>'
+    +'<div style="display:flex;justify-content:center;padding:2px 0 8px">'+buildKinematicSequenceSVG()+'</div>'
+    +'<div style="font-family:ui-monospace,monospace;font-size:.5rem;color:var(--muted);line-height:1.6;margin-bottom:12px;padding:7px 10px;background:var(--bg2);border-radius:6px;border:1px solid var(--border)">'
+    +'<strong style="color:var(--ink2)">Speed-gain ratios:</strong> Upper Body / Pelvis = <b>1.35×</b> · Club / Upper Body = <b>2.68×</b> — the summation-of-speed multiplier elite players share. Curves above peak proximal→distal (Lead Arm ~1,100°/s typical).</div>'
+    +'<div class="lvl-subhead">Ground Reaction Forces — Ideal Vertical Trace</div>'
+    +'<div class="chain-caption" style="margin-top:4px">Ideal vertical-force pattern: weight loads the <b style="color:var(--c-wood)">trail</b> foot in the backswing, crosses to the <b style="color:var(--c-wedge)">lead</b> foot in transition, and total vertical (<b style="color:var(--ink2)">dashed</b>) peaks ~1.5× body weight just before impact. <span class="placeholder-flag">representative</span></div>'
+    +'<div style="display:flex;justify-content:center;padding:2px 0 8px">'+buildGRFTraceSVG()+'</div>';
+}
+
+/* ---- Body & Movement (L5) ---- */
+function bodyImprove(){
+  return `<div class="chain-caption" style="margin-top:0">Prescribe to the <em>failed</em> TPI screens in Assess — the limitation determines which swing faults are even avoidable. Clear the physical restriction first, then the movement.</div>`
+    +drillBlock('Mobility',null,[
+      ['Open-book (thoracic)','For limited thoracic rotation. Side-lying, rotate top arm open following the hand with the eyes; restores the turn that protects the lower back.'],
+      ['90/90 hip switches','For limited hip internal/external rotation — the most common power-leak and a frequent early-extension cause.'],
+      ['Standing wrist hinge','For wrist-hinge restriction; supports the lever and the Twist (L3) that squares the face.']
+    ])
+    +drillBlock('Stability',null,[
+      ['Single-leg balance + reach','For failed single-leg balance — underpins the ground-force shift in L4.'],
+      ['Pelvic-tilt control','Cat-camel and standing tilts to own the pelvis position that the squat/tilt screens test.']
+    ]);
+}
+function bodyResources(){
+  return refNote(`<strong>The TPI screen, in brief:</strong> a movement-quality filter, not a swing critique. Each test isolates whether a joint or pattern can do what an efficient swing asks of it. A "fail" means the body will <em>compensate</em> somewhere — and the compensation is usually the swing fault you see.`)
+    +refNote(`<b>Mobility tests</b> (squat, pelvic/thoracic rotation, hip rotation, hamstring, wrist hinge) ask <em>"is the range available?"</em> <b>Stability tests</b> (single-leg balance, seated trunk rotation, lower-quarter rotation) ask <em>"can you control it?"</em>`)
+    +refNote(`Classic links: limited hip internal rotation → early extension; limited thoracic rotation → over-the-top or short backswing; failed pelvic disassociation → loss of posture. Fix the screen, and the swing fault often has nowhere left to come from.`);
+}
+
+/* ---- Psychology & Philosophy (L6) ---- */
+function psychImprove(){
+  return drillBlock('Process & Routine','Make the mental game a repeatable procedure, not a mood.',[
+    ['Think-box / play-box line','Do all thinking behind the ball (think-box); step over a commitment line into the play-box with one target and zero mechanics.'],
+    ['Breath-reset trigger','One slow exhale as the trigger to start the routine — anchors arousal before every shot, especially under pressure.'],
+    ['Bounce-back rule','Pre-decide your response to a bad shot (one acknowledgement, then re-focus on the next target). Trains the recovery-rate metric in Assess.'],
+    ['Post-round 3-up','Log three process wins per round regardless of score. Builds the mastery orientation Fearless Golf is after.']
+  ]);
+}
+function psychResources(){
+  return refNote(`<strong>MindTrak</strong> — treats the mental game as data: focus, commitment, emotional control and routine consistency get rated per round so trends, not feelings, drive the work.`)
+    +refNote(`<strong>Vision54</strong> (Pia Nilsson & Lynn Marriott) — the think-box/play-box separation, "human skills" (attitude, focus, emotion, body language), and the belief that 18 birdies — a 54 — is theoretically possible, one shot at a time.`)
+    +refNote(`<strong>Fearless Golf</strong> (Gio Valiante) — <em>mastery</em> orientation (process, improvement, curiosity) produces courage; <em>ego</em> orientation (outcome, comparison, fear of failure) produces tension. The goal is to stay mastery-oriented under pressure.`);
 }
 
 function ballRefHtml(){
@@ -770,4 +893,4 @@ function buildGearEffectL2(){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { STRAT_OPTS, ballRefHtml, buildChain, buildCourseStrategy, buildDPlaneView, buildDplaneGrid, buildForceProfileSVG, buildGearEffectL2, buildKinematicSequenceSVG, buildStrategyPrefs, dpBallFlight, dpWorldVectors, dplFmt, dplShapeCell, dplaneShape, escapeHtml, forceRow, getPath, metricBox, renderDPlaneVisual, saveSwing, setDpVisClub, setDplaneCell, setStrategy, setPath, stratLabel, stratSelect, stratSummary, toggleLevel });
+Object.assign(window, { STRAT_OPTS, ballRefHtml, buildAssess, buildImprove, buildResources, buildCourseStrategy, buildDPlaneView, buildDplaneGrid, buildForceProfileSVG, buildGearEffectL2, buildKinematicSequenceSVG, buildStrategyPrefs, dpBallFlight, dpWorldVectors, dplFmt, dplShapeCell, dplaneShape, escapeHtml, forceRow, getPath, metricBox, renderDPlaneVisual, saveSwing, setDpVisClub, setDplaneCell, setStrategy, setPath, stratLabel, stratSelect, stratSummary, toggleLevel });
