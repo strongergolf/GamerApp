@@ -7,7 +7,11 @@ const DEFAULT_DATA = {
     roundsPerYear:'', practicePerYear:'', hcpService:'', hcpId:'',
     ballMake:'', ballModel:'', ballAlignment:'', ballNotes:'',
     ballCompression:'', ballCover:'', ballLayers:'', ballFirmness:'', ballSpin:'', ballTrajectory:'',
-    gloveSize:'' },
+    gloveSize:'',
+    /* typical-round baselines (feed "my actual" + scoring benchmarks) */
+    scoringAvg:'', goalHcp:'', firPct:'', girPct:'', puttsRound:'', upDownPct:'',
+    /* home setup — seeds Putting stimp + Plan */
+    homeCourse:'', usualTee:'', homeStimp:'', coachMode:false },
   baseline: { tempF:75, altitudeFt:0, humidity:50, pressureInHg:29.92 },
   densityK: 0.65,
   stimp: 9.5,
@@ -19,6 +23,13 @@ const DEFAULT_DATA = {
      Geometry stored in normalized field units (0–1000 x, 0–1400 y, portrait).
      scaleYpu = yards per field-unit (from 2-point calibration or hole yardage). */
   courses: [],
+  /* Per-club observed miss tendencies (My Bag → club detail). Keyed by club id.
+     {dir, curve, heelToe, lowHigh}. Will feed gear-effect + dispersion skew + D-plane. */
+  missTendency: {},
+  /* Skills-test history (Improve → Tests). Each: {id, date, type, score, detail{}}. */
+  skillsTests: [],
+  /* Handicap snapshots over time (Locker Room → Myself). Each: {date, hcp}. */
+  hcpHistory: [],
   /* Golfer's default targeting tendencies (Plan → Strategy). Drive the EV aim points later. */
   strategy: {
     teeTarget: 'centre',          // left-edge|left-centre|centre|right-centre|right-edge|shortest|widest

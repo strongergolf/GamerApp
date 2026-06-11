@@ -130,6 +130,16 @@ All full-swing long-club trajectory SVGs use an **asymmetric cubic bezier** refl
 - **Scoring benchmarks** (`scoringBenchmarkHtml`, in L1 Assess): avg score ≈ par(72) + hcp + 2.5; shows scratch / you / goal-hcp on a track + strokes-to-goal.
 - **Measured-vs-ideal** uses `metricGoal(label,unit,path,ideal)` (diagnose.js). Live in: L4 force-plate weights, L4 kinematic peaks (410/552/1100/1479 °/s), and the D-plane grid's Ideal-AoA column (`idealAoA(club)`: driver +4, wood −1, hybrid −2, irons −3→−4.5 by loft, wedge −5).
 - **Gapping** (`buildGapping`, bag.js → My Bag): consecutive carry gaps; flags >15 yd (gap) / <8 yd (overlap).
+- **SG diamond goal ring** (`buildSGDiamond`, charts.js): dashed green polygon at target SG ≈ −goalHcp/4 per category.
+
+### Later-batch features (rough; connectivity to be refined)
+- **Per-club miss tendency** (`buildMissBlock`/`setMiss`, bag.js → club detail): dir / curve / heel-toe / low-high selects → `STATE.missTendency[clubId]`. `missNote()` gives a live gear-effect read. NOT yet wired into dispersion/gear-effect/D-plane (intended next).
+- **Skills Tests** (`skills.js` → Improve → **Tests** sub-tab, page `page-tests`/`tests-wrap`): wedge-ladder (proximity→0–100) + driver (carry+offline→0–100) tests, scored & stored in `STATE.skillsTests`, per-type trend sparkline. `buildTests()` in refreshAll.
+- **Handicap trend** (`hcpTrendHtml`/`logHcpSnapshot`, bag-specs.js → Myself): manual snapshots → `STATE.hcpHistory` + sparkline; latest snapshot updates `profile.handicap`.
+- **Home setup** (profile fields homeCourse/usualTee/homeStimp): saving homeStimp seeds `STATE.stimp` (Putting/Approach).
+- **Coach Mode**: static placeholder card in Myself (multi-locker future; `profile.coachMode` reserved).
+- New STATE slices in defaults.js + merged in store.js mergeDefaults: `missTendency {}`, `skillsTests []`, `hcpHistory []`.
+- Practice/Improve group now has FOUR sub-tabs: Assess / Practice / **Tests** / Resources.
 
 ### Distance Dialler / Pitch Shot Options (flight.js)
 - 3-tier sort: closest anchor → fuller swing → effort nearest 87%.

@@ -33,6 +33,19 @@ function buildSGDiamond(){
     const [x,y]=toXY(a.angle,R+16);
     return `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="var(--border)" stroke-width="0.7" opacity="0.5"/>`;
   }).join('');
+  /* Goal ring — target SG vs scratch implied by the goal handicap
+     (≈ −goalHcp/4 per category, clamped to the chart range) */
+  let goalPolygon='', goalLabel='';
+  const goalRaw=STATE.profile&&STATE.profile.goalHcp;
+  if(goalRaw!=null&&String(goalRaw).trim()!==''&&typeof parseHcp==='function'){
+    const g=parseHcp(goalRaw);
+    const gt=Math.max(-3,Math.min(2,-g/4));
+    const gr=sgToR(gt);
+    const gpts=axes.map(a=>{const [x,y]=toXY(a.angle,gr);return `${x.toFixed(1)},${y.toFixed(1)}`;}).join(' ');
+    goalPolygon=`<polygon points="${gpts}" fill="none" stroke="var(--green)" stroke-width="1.4" stroke-dasharray="4 3" opacity="0.9"/>`;
+    const [glx,gly]=toXY(135,gr);
+    goalLabel=`<text x="${glx.toFixed(1)}" y="${(gly+10).toFixed(1)}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="6.5" fill="var(--green)" opacity="0.9" font-weight="700">goal</text>`;
+  }
   /* Data polygon */
   const hasData=axes.some(a=>avg(a.cat)!=null);
   let dataPolygon='', dots='';
@@ -67,7 +80,7 @@ function buildSGDiamond(){
   }).join('');
   const placeholder=!hasData?`<text x="${cx}" y="${cy+4}" text-anchor="middle" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="9" fill="var(--muted)" opacity="0.6">Log rounds with SG data to populate</text>`:'';
   return `<svg viewBox="0 0 ${W} ${W}" width="${W}" height="${W}" class="sg-diamond-svg" xmlns="http://www.w3.org/2000/svg">
-    ${gridRings}${axisLines}${gridLabels}${dataPolygon}${dots}${labels}${placeholder}
+    ${gridRings}${axisLines}${gridLabels}${goalPolygon}${goalLabel}${dataPolygon}${dots}${labels}${placeholder}
   </svg>`;
 }
 

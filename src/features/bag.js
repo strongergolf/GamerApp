@@ -137,6 +137,7 @@ function toggleDetail(c,row,group,inner){
         <div class="flight-col-top"><div class="flight-label">Overhead — Dispersion</div><div class="flight-svg-wrap">${buildTopSVG(c,p)}</div></div>
       </div>
     </div>
+    ${buildMissBlock(c)}
     ${c.id==='D'?buildDriverCarryNudge(p):''}
     ${c.id==='D'?buildDriverOptimizerHTML():''}`;
   renderExpectedShots(`es-bag-${c.id}`, p.total||p.carry, 'fairway');
@@ -146,6 +147,46 @@ function toggleDetail(c,row,group,inner){
 }
 function statCell(label,val,unit,cls){
   return `<div class="stat-cell ${cls}"><div class="stat-label">${label}</div><div class="stat-value">${val==null?'—':val}</div><div class="stat-unit">${unit}</div></div>`;
+}
+
+/* ---- Per-club observed miss tendency ---- */
+function missSelect(id,field,opts,cur){
+  const ss='font-family:Arial,sans-serif;font-size:.82rem;font-weight:600;padding:5px 6px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--ink);outline:none;width:100%';
+  return `<select onchange="setMiss('${id}','${field}',this.value)" style="${ss}">`
+    +opts.map(o=>`<option value="${o}"${o===cur?' selected':''}>${o||'—'}</option>`).join('')+`</select>`;
+}
+function missNote(m){
+  if(!m||(!m.dir&&!m.curve&&!m.heelToe&&!m.lowHigh)) return 'Log your typical miss — it will feed the gear-effect model, skew the dispersion ellipse, and pre-fill the D-plane grid (connections coming).';
+  const bits=[];
+  if(m.heelToe==='Toe'||m.heelToe==='Slight Toe'){ bits.push('toe contact adds <b>draw</b> spin via gear effect'); }
+  if(m.heelToe==='Heel'||m.heelToe==='Slight Heel'){ bits.push('heel contact adds <b>fade</b> spin via gear effect'); }
+  if(m.curve==='Slice'||m.curve==='Fade'){ bits.push('face open to path'); }
+  if(m.curve==='Hook'||m.curve==='Draw'){ bits.push('face closed to path'); }
+  if(m.dir==='Pull'||m.dir==='Slight Pull'){ bits.push('face left of target at impact'); }
+  if(m.dir==='Push'||m.dir==='Slight Push'){ bits.push('face right of target at impact'); }
+  return bits.length?('Reads as: '+bits.join(' · ')+'.'):'Logged.';
+}
+function buildMissBlock(c){
+  const m=(STATE.missTendency&&STATE.missTendency[c.id])||{};
+  const fld='font-family:ui-monospace,monospace;font-size:.55rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:3px';
+  return `<div style="margin-top:14px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px">
+    <div style="font-family:'Arial Narrow',Arial,sans-serif;font-weight:800;font-size:.92rem;color:var(--ink);margin-bottom:8px">Miss Tendency</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 10px">
+      <div><label style="${fld}">Start Direction</label>${missSelect(c.id,'dir',['','Pull','Slight Pull','Straight','Slight Push','Push'],m.dir||'')}</div>
+      <div><label style="${fld}">Shot Shape</label>${missSelect(c.id,'curve',['','Hook','Draw','Straight','Fade','Slice'],m.curve||'')}</div>
+      <div><label style="${fld}">Strike — Heel / Toe</label>${missSelect(c.id,'heelToe',['','Heel','Slight Heel','Centre','Slight Toe','Toe'],m.heelToe||'')}</div>
+      <div><label style="${fld}">Strike — Low / High</label>${missSelect(c.id,'lowHigh',['','Fat / Heavy','Low','Centre','High','Thin'],m.lowHigh||'')}</div>
+    </div>
+    <div id="miss-note-${c.id}" style="font-family:Arial,sans-serif;font-size:.76rem;line-height:1.4;color:var(--muted);margin-top:8px">${missNote(m)}</div>
+  </div>`;
+}
+function setMiss(id,field,value){
+  if(!STATE.missTendency) STATE.missTendency={};
+  if(!STATE.missTendency[id]) STATE.missTendency[id]={};
+  STATE.missTendency[id][field]=value;
+  saveState();
+  const note=document.getElementById('miss-note-'+id);
+  if(note) note.innerHTML=missNote(STATE.missTendency[id]);
 }
 
 /* SIDE-VIEW BALL FLIGHT (trajectory + rollout) */
@@ -340,4 +381,4 @@ function buildDriverCarryNudge(p){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { buildDriverCarryNudge, buildGapping, buildGearEffectPanel, buildGearFaceSVG, buildLadder, buildSideSVG, buildTopSVG, renderConditions, statCell, toggleDetail, updateCondSummary });
+Object.assign(window, { buildDriverCarryNudge, buildGapping, buildGearEffectPanel, buildGearFaceSVG, buildLadder, buildMissBlock, buildSideSVG, buildTopSVG, missNote, missSelect, renderConditions, setMiss, statCell, toggleDetail, updateCondSummary });

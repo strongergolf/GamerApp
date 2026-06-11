@@ -163,7 +163,13 @@ function buildProfile(){
     <div class="edit-field"><label>Fairways Hit %</label><input id="pf-fir" type="number" step="1" min="0" max="100" value="${escapeHtml(pf.firPct||'')}" placeholder="e.g. 45"></div>
     <div class="edit-field"><label>Greens in Reg %</label><input id="pf-gir" type="number" step="1" min="0" max="100" value="${escapeHtml(pf.girPct||'')}" placeholder="e.g. 40"></div>
     <div class="edit-field"><label>Putts per Round</label><input id="pf-putts" type="number" step="0.1" value="${escapeHtml(pf.puttsRound||'')}" placeholder="e.g. 32"></div>
-    <div class="edit-field"><label>Up &amp; Down %</label><input id="pf-updown" type="number" step="1" min="0" max="100" value="${escapeHtml(pf.upDownPct||'')}" placeholder="scrambling, e.g. 40"></div>`;
+    <div class="edit-field"><label>Up &amp; Down %</label><input id="pf-updown" type="number" step="1" min="0" max="100" value="${escapeHtml(pf.upDownPct||'')}" placeholder="scrambling, e.g. 40"></div>
+    <div class="edit-field"><label>Home Course</label><input id="pf-homecourse" value="${escapeHtml(pf.homeCourse||'')}" placeholder="seeds Plan"></div>
+    <div class="edit-field"><label>Usual Tee</label>${sel('pf-usualtee',['','Black','Blue','White','Gold','Red'],pf.usualTee||'')}</div>
+    <div class="edit-field"><label>Home Green Stimp</label><input id="pf-homestimp" type="number" step="0.5" min="6" max="15" value="${escapeHtml(pf.homeStimp||'')}" placeholder="seeds Putting"></div>`;
+  /* Handicap trend */
+  const ht=document.getElementById('hcp-trend-wrap');
+  if(ht) ht.innerHTML=hcpTrendHtml();
   /* Ball */
   document.getElementById('ball-grid').innerHTML=`
     <div class="edit-field"><label>Make</label><input id="ball-make" value="${escapeHtml(pf.ballMake||'')}" placeholder="e.g. Titleist"></div>
@@ -208,6 +214,11 @@ function saveProfile(){
   pf.girPct=document.getElementById('pf-gir')?.value??pf.girPct;
   pf.puttsRound=document.getElementById('pf-putts')?.value??pf.puttsRound;
   pf.upDownPct=document.getElementById('pf-updown')?.value??pf.upDownPct;
+  /* home setup */
+  pf.homeCourse=document.getElementById('pf-homecourse')?.value??pf.homeCourse;
+  pf.usualTee=document.getElementById('pf-usualtee')?.value??pf.usualTee;
+  pf.homeStimp=document.getElementById('pf-homestimp')?.value??pf.homeStimp;
+  if(pf.homeStimp!==''&&pf.homeStimp!=null){ const hs=parseFloat(pf.homeStimp); if(!isNaN(hs)) STATE.stimp=hs; }
   pf.hcpService=document.getElementById('pf-hcpsvc').value;
   pf.hcpId=document.getElementById('pf-hcpid').value;
   pf.gloveSize=document.getElementById('pf-glove').value;
@@ -258,9 +269,48 @@ function importData(e){
 }
 function resetData(){ window.STATE=deepClone(DEFAULT_DATA); saveState(); renderAll(); toast('Reset to demo bag'); }
 
+/* ---- Handicap trend: manual snapshots over time + sparkline ---- */
+function hcpTrendHtml(){
+  const pf=STATE.profile||{};
+  const hist=(STATE.hcpHistory||[]).slice().sort((a,b)=>a.date<b.date?-1:1);
+  const cur=pf.handicap!=null&&String(pf.handicap).trim()!==''?pf.handicap:'—';
+  const goal=pf.goalHcp!=null&&String(pf.goalHcp).trim()!==''?pf.goalHcp:'—';
+  let spark='';
+  if(hist.length>1){
+    const vals=hist.map(h=>parseHcp(h.hcp));
+    const mn=Math.min(...vals),mx=Math.max(...vals),rng=(mx-mn)||1;
+    const W=170,H=34;
+    /* lower handicap = better = higher on chart */
+    const pts=vals.map((v,i)=>`${((i/(vals.length-1))*W).toFixed(1)},${(((v-mn)/rng)*(H-6)+3).toFixed(1)}`).join(' ');
+    spark=`<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="display:block;overflow:visible;margin:6px 0">
+      <polyline points="${pts}" fill="none" stroke="var(--green)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`;
+  }
+  const rows=hist.slice().reverse().slice(0,8).map(h=>`<span style="font-family:ui-monospace,monospace;font-size:.6rem;color:var(--muted);margin-right:10px">${h.date}: <b style="color:var(--ink2)">${h.hcp}</b></span>`).join('');
+  const inp='font-family:Arial,sans-serif;font-size:.82rem;font-weight:600;padding:5px 7px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--ink);outline:none;width:90px';
+  return `<div style="display:flex;gap:14px;align-items:baseline;flex-wrap:wrap;margin-bottom:6px">
+      <div><span style="font-family:ui-monospace,monospace;font-size:.55rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)">current</span> <b style="font-size:1.05rem;color:var(--ink)">${cur}</b></div>
+      <div><span style="font-family:ui-monospace,monospace;font-size:.55rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)">goal</span> <b style="font-size:1.05rem;color:var(--green)">${goal}</b></div>
+    </div>
+    ${spark}
+    <div style="display:flex;gap:8px;align-items:center;margin-top:4px">
+      <input id="hcp-snap" placeholder="e.g. 8 or +1" style="${inp}">
+      <button class="btn btn-accent" onclick="logHcpSnapshot()">Log snapshot</button>
+    </div>
+    ${rows?`<div style="margin-top:8px;line-height:1.8">${rows}</div>`:'<div style="font-family:Arial,sans-serif;font-size:.74rem;color:var(--muted);margin-top:6px">Log your handicap periodically to chart the trend toward your goal.</div>'}`;
+}
+function logHcpSnapshot(){
+  const el=document.getElementById('hcp-snap'); const v=el?.value?.trim();
+  if(!v){ toast('Enter a handicap'); return; }
+  STATE.hcpHistory=STATE.hcpHistory||[];
+  STATE.hcpHistory.push({date:new Date().toISOString().slice(0,10),hcp:v});
+  STATE.profile.handicap=v;          // current handicap follows the latest snapshot
+  saveState(); refreshAll(); toast('Handicap snapshot logged');
+}
+
 
 
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { buildProfile, buildSpecs, exportData, generateFromSwingSpeed, importData, resetData, saveCalibration, saveClub, saveProfile, sel, toggleSpecs });
+Object.assign(window, { buildProfile, buildSpecs, exportData, generateFromSwingSpeed, hcpTrendHtml, importData, logHcpSnapshot, resetData, saveCalibration, saveClub, saveProfile, sel, toggleSpecs });
