@@ -62,7 +62,7 @@ function refreshAll(){
   buildCourseStrategy();
   buildCourses();
   buildLongTerm();
-  computePlanShot();
+  buildPlanShot();
   buildSpecs();
   buildGapping();
   buildLateralGapping();
