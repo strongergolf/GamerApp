@@ -33,8 +33,9 @@ function buildSpecs(){
     if(b.type==='putter') return 1;
     return loftNum(b)-loftNum(a); /* descending loft: X wedge first, driver last */
   });
+  const carryOf=c=> c.type==='putter'?0:(perf(c.id).carry||0);
   let lastType=null;
-  sorted.forEach(c=>{
+  sorted.forEach((c,i)=>{
     if(c.type!==lastType){
       const div=document.createElement('div'); div.className='ladder-divider';
       div.textContent=typeLabel(c.type); wrap.appendChild(div); lastType=c.type;
@@ -50,6 +51,21 @@ function buildSpecs(){
     const group=document.createElement('div'); group.className='specs-rep-group';
     row.addEventListener('click',()=>toggleSpecs(c,row,group));
     wrap.appendChild(row); wrap.appendChild(group);
+    /* Inline gapping chip: carry gap from this club to the next carry-bearing club. */
+    const thisCarry=carryOf(c);
+    if(thisCarry>0){
+      let j=i+1; while(j<sorted.length && carryOf(sorted[j])<=0) j++;
+      if(j<sorted.length){
+        const gap=Math.abs(thisCarry-carryOf(sorted[j]));
+        let bg='var(--bg2)', col='var(--muted)', flag='';
+        if(gap>15){ bg='rgba(196,66,122,.12)'; col='var(--gold2,#c4427a)'; flag=' gap'; }
+        else if(gap<8){ bg='rgba(214,96,112,.14)'; col='#d96070'; flag=' overlap'; }
+        const chip=document.createElement('div');
+        chip.style.cssText='display:flex;justify-content:center;padding:1px 0';
+        chip.innerHTML=`<span style="font-family:ui-monospace,monospace;font-size:.58rem;font-weight:700;letter-spacing:.04em;color:${col};background:${bg};border-radius:20px;padding:2px 9px">↕ ${gap} yd${flag}</span>`;
+        wrap.appendChild(chip);
+      }
+    }
   });
 }
 function toggleSpecs(c,row,group){

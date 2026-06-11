@@ -43,9 +43,13 @@ function buildLadder(){
     const stock=p.carry||0;
     const shown=window.adjustOn?adjCarry(stock):stock;
     const pct=Math.round((shown/MAX_CARRY)*100);
-    const disp90=Math.round(getDispersion(stock)*10)/10;   /* 90% CI — current model */
-    const disp68=Math.round(disp90*0.608*10)/10;            /* 68% CI (~1 SD) */
-    const dc=dispColor(disp90);
+    const dispBase=getDispersion(stock);                    /* model half-width (90% CI ≈ 1.645σ) */
+    const sigma1=Math.round(dispBase*0.608*10)/10;          /* 1σ ≈ 68% lateral half-width */
+    const sigma2=Math.round(sigma1*2*10)/10;                /* 2σ ≈ 95% */
+    const dc=dispColor(dispBase);
+    const totalYd=p.total||stock;
+    const pct1=totalYd>0?Math.round(sigma1/totalYd*1000)/10:0;  /* lateral miss as % of total yardage */
+    const pct2=totalYd>0?Math.round(sigma2/totalYd*1000)/10:0;
     const adjBit = window.adjustOn && shown!==stock
       ? `<span class="adj">${shown}</span><span class="stock-sm">stock ${stock}</span>`
       : `${stock}`;
@@ -62,12 +66,12 @@ function buildLadder(){
       </div>
       <div class="disp-badge-wrap">
         <div class="disp-badge-row">
-          <span class="disp-ci-label">90%</span>
-          <span class="disp-badge" style="background:${dc.bg};color:${dc.color};border:1px solid ${dc.border}">${disp90} L/R</span>
+          <span class="disp-ci-label">2σ</span>
+          <span class="disp-badge" style="background:${dc.bg};color:${dc.color};border:1px solid ${dc.border}">${sigma2} L/R <span style="opacity:.6;font-weight:600">${pct2}%</span></span>
         </div>
         <div class="disp-badge-row">
-          <span class="disp-ci-label">68%</span>
-          <span class="disp-badge disp-badge-sm" style="background:${dc.bg};color:${dc.color};border:1px solid ${dc.border};opacity:0.75">${disp68} L/R</span>
+          <span class="disp-ci-label">1σ</span>
+          <span class="disp-badge disp-badge-sm" style="background:${dc.bg};color:${dc.color};border:1px solid ${dc.border};opacity:0.75">${sigma1} L/R <span style="opacity:.6;font-weight:600">${pct1}%</span></span>
         </div>
       </div>
       <div class="ladder-chevron">▾</div>`;
@@ -80,33 +84,21 @@ function buildLadder(){
 function buildGapping(){
   const wrap=document.getElementById('gapping-wrap');
   if(!wrap) return;
-  /* every club with a carry, longest → shortest */
+  /* Concise summary only — the per-club gap distances now render inline in the
+     Club Specifications list (see buildSpecs). */
   const list=STATE.clubs.filter(c=>c.type!=='putter')
     .map(c=>({c,carry:perf(c.id)?.carry||0}))
     .filter(x=>x.carry>0)
     .sort((a,b)=>b.carry-a.carry);
-  if(list.length<2){ wrap.innerHTML=`<p class="lvl-soon-note" style="margin:0">Add carry numbers to at least two clubs to see gapping.</p>`; return; }
+  if(list.length<2){ wrap.innerHTML=''; return; }
   let gapFlags=0, overlapFlags=0;
-  let rows='';
-  list.forEach((x,i)=>{
-    rows+=`<div style="display:flex;align-items:center;gap:10px;padding:7px 10px">
-      <span style="font-family:Arial,sans-serif;font-weight:800;font-size:.9rem;color:var(--ink);flex:1">${x.c.label}<span style="font-family:ui-monospace,monospace;font-size:.56rem;color:var(--muted);margin-left:6px">${x.c.loft}</span></span>
-      <span style="font-family:ui-monospace,monospace;font-weight:700;font-size:.92rem;color:var(--ink2)">${x.carry}<span style="font-size:.6rem;color:var(--muted)"> yd</span></span>
-    </div>`;
-    if(i<list.length-1){
-      const gap=x.carry-list[i+1].carry;
-      let bg='var(--bg2)', col='var(--muted)', flag='';
-      if(gap>15){ bg='rgba(196,66,122,.12)'; col='var(--gold2,#c4427a)'; flag=' — gap'; gapFlags++; }
-      else if(gap<8){ bg='rgba(214,96,112,.14)'; col='#d96070'; flag=' — overlap'; overlapFlags++; }
-      rows+=`<div style="display:flex;justify-content:center;padding:1px 0">
-        <span style="font-family:ui-monospace,monospace;font-size:.6rem;font-weight:700;letter-spacing:.04em;color:${col};background:${bg};border-radius:20px;padding:2px 10px">${gap} yd${flag}</span>
-      </div>`;
-    }
-  });
-  const summary=gapFlags||overlapFlags
-    ? `<div style="font-family:Arial,sans-serif;font-size:.78rem;color:var(--muted);padding:0 0 8px">${gapFlags?`<b style="color:var(--gold2,#c4427a)">${gapFlags}</b> gap${gapFlags!==1?'s':''} &gt;15 yd`:''}${gapFlags&&overlapFlags?' · ':''}${overlapFlags?`<b style="color:#d96070">${overlapFlags}</b> overlap${overlapFlags!==1?'s':''} &lt;8 yd`:''} — review the flagged pairs.</div>`
-    : `<div style="font-family:Arial,sans-serif;font-size:.78rem;color:var(--green);padding:0 0 8px">✓ Even gapping — no gaps over 15 yd or overlaps under 8 yd.</div>`;
-  wrap.innerHTML=summary+`<div style="background:var(--card,var(--bg));border:1px solid var(--border);border-radius:10px;overflow:hidden">${rows}</div>`;
+  for(let i=0;i<list.length-1;i++){
+    const gap=list[i].carry-list[i+1].carry;
+    if(gap>15) gapFlags++; else if(gap<8) overlapFlags++;
+  }
+  wrap.innerHTML = (gapFlags||overlapFlags)
+    ? `<div style="font-family:Arial,sans-serif;font-size:.74rem;color:var(--muted);padding:0 0 8px">Gapping: ${gapFlags?`<b style="color:var(--gold2,#c4427a)">${gapFlags}</b> gap${gapFlags!==1?'s':''} &gt;15 yd`:''}${gapFlags&&overlapFlags?' · ':''}${overlapFlags?`<b style="color:#d96070">${overlapFlags}</b> overlap${overlapFlags!==1?'s':''} &lt;8 yd`:''} — flagged inline below.</div>`
+    : `<div style="font-family:Arial,sans-serif;font-size:.74rem;color:var(--green);padding:0 0 8px">✓ Even gapping — no gaps over 15 yd or overlaps under 8 yd.</div>`;
 }
 function toggleDetail(c,row,group,inner){
   const open=group.classList.contains('open');
