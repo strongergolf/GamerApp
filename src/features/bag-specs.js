@@ -11,23 +11,18 @@ function buildSpecs(){
     const pf=STATE.profile;
     const ballLabel=pf.ballMake&&pf.ballModel?`${pf.ballMake} ${pf.ballModel}`:'No ball on file';
     const ballSub=[ pf.ballLayers, pf.ballCover, pf.ballCompression?`comp ${pf.ballCompression}`:'', pf.ballFirmness, pf.ballSpin?pf.ballSpin+' spin':'' ].filter(Boolean).join(' · ');
-    bw.innerHTML=`<div class="specs-col-head"><span></span><span>Model</span><span>Cover</span><span>Comp</span><span>Spin</span><span></span><span></span></div>
+    bw.innerHTML=`<div class="specs-col-head"><span></span><span>Model</span><span>Cover</span><span>Comp</span><span>Spin</span><span></span></div>
       <div class="specs-club-row" onclick="showGroup('setup',document.querySelector('.ngroup:last-child'));setTimeout(()=>document.getElementById('ball-grid')?.scrollIntoView({behavior:'smooth'}),200)">
         <span class="spec-club" style="font-family:Arial,sans-serif;font-weight:800;font-size:1.1rem;color:var(--grey)">B</span>
         <div class="spec-model">${ballLabel}<small>${ballSub||'tap to edit in Profile'}</small></div>
         <div class="spec-val">${pf.ballCover||'—'}</div>
         <div class="spec-val">${pf.ballCompression||'—'}</div>
         <div class="spec-val">${pf.ballSpin||'—'}</div>
-        <div class="spec-val"></div>
         <div class="specs-chevron">▸</div>
       </div>`;
   }
-  /* Clubs */
+  /* Clubs — a card per club: physical dimensions (left) + performance (right) */
   const wrap=document.getElementById('specs-wrap'); wrap.innerHTML='';
-  const head=document.createElement('div'); head.className='specs-col-head';
-  head.innerHTML=`<span></span><span>Model</span><span>Length</span><span>Loft</span><span>Lie</span><span>2σ&nbsp;%</span><span></span>`;
-  wrap.appendChild(head);
-  const typeOrder={putter:0,wood:1,iron:2,wedge:3};
   const loftNum=c=>parseFloat((c.loft||'0').replace(/[^\d.]/g,''))||0;
   const sorted=[...STATE.clubs].sort((a,b)=>{
     if(a.type==='putter') return -1;
@@ -35,25 +30,32 @@ function buildSpecs(){
     return loftNum(b)-loftNum(a); /* descending loft: X wedge first, driver last */
   });
   const carryOf=c=> c.type==='putter'?0:(perf(c.id).carry||0);
+  const mini=(label,val)=>`<div class="spec-mini"><span class="sm-l">${label}</span><span class="sm-v">${val==null||val===''?'—':val}</span></div>`;
   let lastType=null;
   sorted.forEach((c,i)=>{
     if(c.type!==lastType){
       const div=document.createElement('div'); div.className='ladder-divider';
       div.textContent=typeLabel(c.type); wrap.appendChild(div); lastType=c.type;
     }
-    /* lateral miss (2σ) as % of total yardage — at-a-glance club effectiveness */
-    const _pr=perf(c.id), _carry=_pr.carry||0, _total=_pr.total||_carry;
-    const _latPct=(c.type!=='putter'&&_carry>0&&_total>0) ? (getDispersion(_carry)*0.608*2/_total*100) : null;
-    const _latStr=_latPct!=null ? _latPct.toFixed(1)+'%' : '—';
-    const row=document.createElement('div'); row.className='specs-club-row';
+    const p=perf(c.id), carry=p.carry||0, total=p.total||0;
+    const hasC=c.type!=='putter'&&carry>0;
+    const sigma1=hasC?Math.round(getDispersion(carry)*0.608*10)/10:null;   /* 1σ lateral (yd) */
+    const sigma2=sigma1!=null?Math.round(sigma1*2*10)/10:null;             /* 2σ lateral (yd) */
+    const row=document.createElement('div'); row.className='specs-club-row spec-card';
     row.innerHTML=`
-      <span class="spec-club ${c.type}">${c.label}</span>
-      <div class="spec-model">${c.make} ${c.model}<small>${c.year} · ${c.shaft}</small></div>
-      <div class="spec-val">${c.length}</div>
-      <div class="spec-val">${c.loft}</div>
-      <div class="spec-val">${c.lie}</div>
-      <div class="spec-val" style="font-family:ui-monospace,monospace;font-weight:700">${_latStr}</div>
-      <div class="specs-chevron">▾</div>`;
+      <div class="spec-card-head">
+        <span class="spec-club ${c.type}">${c.label}</span>
+        <div class="spec-model">${c.make} ${c.model}<small>${c.year} · ${c.shaft}</small></div>
+        <div class="specs-chevron">▾</div>
+      </div>
+      <div class="spec-card-body">
+        <div class="spec-group spec-dims">
+          ${mini('Length',c.length)}${mini('Loft',c.loft)}${mini('Lie',c.lie)}
+        </div>
+        <div class="spec-group spec-perf">
+          ${mini('Carry',hasC?carry:'—')}${mini('Total',total||'—')}${mini('1σ L/R',sigma1!=null?sigma1:'—')}${mini('2σ L/R',sigma2!=null?sigma2:'—')}
+        </div>
+      </div>`;
     const group=document.createElement('div'); group.className='specs-rep-group';
     row.addEventListener('click',()=>toggleSpecs(c,row,group));
     wrap.appendChild(row); wrap.appendChild(group);

@@ -98,41 +98,6 @@ function buildGapping(){
     ? `<div style="font-family:Arial,sans-serif;font-size:.74rem;color:var(--muted);padding:0 0 8px">Gapping: ${gapFlags?`<b style="color:var(--gold2,#c4427a)">${gapFlags}</b> gap${gapFlags!==1?'s':''} &gt;15 yd`:''}${gapFlags&&overlapFlags?' · ':''}${overlapFlags?`<b style="color:#d96070">${overlapFlags}</b> overlap${overlapFlags!==1?'s':''} &lt;8 yd`:''} — flagged inline below.</div>`
     : `<div style="font-family:Arial,sans-serif;font-size:.74rem;color:var(--green);padding:0 0 8px">✓ Even gapping — no gaps over 15 yd or overlaps under 8 yd.</div>`;
 }
-/* Lateral Dispersion Check — flag clubs whose lateral miss (% of total yardage)
-   runs more than THRESH percentage points off the rest of the set. Starting
-   heuristic; becomes meaningful once per-club measured lateral data is entered. */
-function buildLateralGapping(){
-  const wrap=document.getElementById('lateral-analysis-wrap');
-  if(!wrap) return;
-  const THRESH=3; /* percentage points vs the rest of the set */
-  const list=STATE.clubs.filter(c=>c.type!=='putter').map(c=>{
-    const p=perf(c.id); const carry=p.carry||0; const total=p.total||carry;
-    if(carry<=0||total<=0) return null;
-    const sigma2=getDispersion(carry)*0.608*2;        /* 2σ lateral half-width (yd) */
-    return {c, carry, yd: sigma2, pct: sigma2/total*100};
-  }).filter(Boolean);
-  if(list.length<3){ wrap.innerHTML=`<p class="intro-note" style="margin:0">Add carry &amp; total for at least three clubs to assess lateral dispersion across the set.</p>`; return; }
-  list.sort((a,b)=>b.carry-a.carry); /* longest → shortest, matching the gapping view */
-  const setAvg=list.reduce((s,o)=>s+o.pct,0)/list.length;
-  let flagged=0, rows='';
-  list.forEach(x=>{
-    const others=list.filter(o=>o!==x);
-    const avg=others.reduce((s,o)=>s+o.pct,0)/others.length;
-    const dev=x.pct-avg;
-    const out=Math.abs(dev)>THRESH; if(out) flagged++;
-    const wide=dev>0;
-    const col=out?(wide?'#d96070':'#1a5aaa'):'var(--ink)';
-    const flagChip=out?`<span style="font-family:ui-monospace,monospace;font-weight:700;font-size:.6rem;letter-spacing:.03em;color:${wide?'#d96070':'#1a5aaa'};background:${wide?'rgba(214,96,112,.14)':'rgba(26,90,122,.12)'};border-radius:20px;padding:2px 8px">${wide?'+':''}${dev.toFixed(1)} pp ${wide?'wider':'tighter'}</span>`:'';
-    rows+=`<div style="display:flex;align-items:center;gap:10px;padding:7px 11px;border-bottom:1px solid var(--border)">
-      <span style="font-family:Arial,sans-serif;font-weight:800;font-size:.9rem;color:var(--ink);flex:1">${x.c.label}<span style="font-family:ui-monospace,monospace;font-size:.56rem;color:var(--muted);margin-left:6px">${x.c.loft}</span></span>
-      <span style="font-family:ui-monospace,monospace;font-size:.62rem;color:var(--muted)">${Math.round(x.yd*10)/10} L/R</span>
-      <span style="font-family:ui-monospace,monospace;font-weight:800;font-size:.92rem;color:${col};min-width:48px;text-align:right">${x.pct.toFixed(1)}%</span>
-      ${flagChip}
-    </div>`;
-  });
-  const head=`<div style="font-family:Arial,sans-serif;font-size:.74rem;color:var(--muted);padding:0 0 8px">Lateral miss (2σ) as % of total yardage — your most accurate tools carry the lowest %. Set average <b style="color:var(--ink2)">${setAvg.toFixed(1)}%</b>${flagged?` · <b style="color:#d96070">${flagged}</b> outlier${flagged!==1?'s':''} more than ${THRESH} pp from the set`:` · ✓ no outliers beyond ${THRESH} pp`}.</div>`;
-  wrap.innerHTML=head+`<div style="background:var(--card,var(--bg));border:1px solid var(--border);border-radius:10px;overflow:hidden">${rows}</div>`;
-}
 function toggleDetail(c,row,group,inner){
   const open=group.classList.contains('open');
   document.querySelectorAll('.ladder-row').forEach(r=>r.classList.remove('selected'));
@@ -406,4 +371,4 @@ function buildDriverCarryNudge(p){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { buildDriverCarryNudge, buildGapping, buildLateralGapping, buildGearEffectPanel, buildGearFaceSVG, buildLadder, buildMissBlock, buildSideSVG, buildTopSVG, missNote, missSelect, renderConditions, setMiss, statCell, toggleDetail, updateCondSummary });
+Object.assign(window, { buildDriverCarryNudge, buildGapping, buildGearEffectPanel, buildGearFaceSVG, buildLadder, buildMissBlock, buildSideSVG, buildTopSVG, missNote, missSelect, renderConditions, setMiss, statCell, toggleDetail, updateCondSummary });
