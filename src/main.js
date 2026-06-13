@@ -19,6 +19,8 @@
 import './data/defaults.js';
 import './state/store.js';
 
+import './ui/brand.js';
+
 import './physics/conditions.js';
 import './physics/dplane.js';
 import './physics/dispersion.js';

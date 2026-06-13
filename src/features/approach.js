@@ -52,21 +52,37 @@ function buildLookupTable(){
 /* calculator model derived from single source */
 const SWINGS=[{key:'half',short:'9:00 ½',effort:75},{key:'tq',short:'10:00 ¾',effort:87},{key:'full',short:'11:00 Full',effort:100}];
 function wedgeModel(){
-  return PARTIAL_CLUBS.map(id=>{
-    const c=STATE.clubs.find(x=>x.id===id); const p=perf(id); const pr=STATE.partials[id];
+  const partial=PARTIAL_CLUBS.map(id=>{
+    const c=STATE.clubs.find(x=>x.id===id); if(!c) return null;
+    const p=perf(id); const pr=STATE.partials[id]||{};
     const fl=p.launch||25, fs=p.spin||8000, fh=p.ht||75;
     return {id,label:c.label,loft:c.loft,
       carries:{full:pr.full,tq:pr.tq,half:pr.half},
       launch:{full:fl,tq:Math.max(8,fl-2),half:Math.max(6,fl-4)},
       spin:{full:fs,tq:Math.round(fs*0.88),half:Math.round(fs*0.76)},
       height:{full:fh,tq:Math.round(fh*0.85),half:Math.round(fh*0.70)}};
-  });
+  }).filter(Boolean);
+  /* Extend through fairway wood: every non-putter, non-driver club not already a partial
+     club is added as a FULL-swing option, so a big plays-like number still maps to a club.
+     (Driver is excluded — "through fairway wood".) */
+  const partialIds=new Set(PARTIAL_CLUBS);
+  const longer=STATE.clubs
+    .filter(c=>c.type!=='putter'&&c.id!=='D'&&!partialIds.has(c.id))
+    .map(c=>{
+      const p=perf(c.id); const full=p.total||p.carry||null;
+      const fl=p.launch||18, fs=p.spin||5500, fh=p.ht||90;
+      return {id:c.id,label:c.label,loft:c.loft,
+        carries:{full, tq:null, half:null},
+        launch:{full:fl,tq:fl,half:fl}, spin:{full:fs,tq:fs,half:fs}, height:{full:fh,tq:fh,half:fh}};
+    })
+    .filter(x=>x.carries.full!=null);
+  return partial.concat(longer);
 }
 function effortColor(p){ return p<=80?'#00853F':p<=90?'#1a5aaa':'#d96070'; }
 function interpFlight(club,key,target){
   const i=SWINGS.findIndex(s=>s.key===key), lo=SWINGS[i-1], hi=SWINGS[i+1], a=club.carries[key];
-  if(target>a&&hi){const u=club.carries[hi.key],t=Math.min(1,(target-a)/(u-a));return{launch:Math.round(club.launch[key]+t*(club.launch[hi.key]-club.launch[key])),spin:Math.round(club.spin[key]+t*(club.spin[hi.key]-club.spin[key])),height:Math.round(club.height[key]+t*(club.height[hi.key]-club.height[key]))};}
-  if(target<a&&lo){const l=club.carries[lo.key],t=Math.min(1,(a-target)/(a-l));return{launch:Math.round(club.launch[key]-t*(club.launch[key]-club.launch[lo.key])),spin:Math.round(club.spin[key]-t*(club.spin[key]-club.spin[lo.key])),height:Math.round(club.height[key]-t*(club.height[key]-club.height[lo.key]))};}
+  if(target>a&&hi&&club.carries[hi.key]!=null){const u=club.carries[hi.key],t=Math.min(1,(target-a)/(u-a));return{launch:Math.round(club.launch[key]+t*(club.launch[hi.key]-club.launch[key])),spin:Math.round(club.spin[key]+t*(club.spin[hi.key]-club.spin[key])),height:Math.round(club.height[key]+t*(club.height[hi.key]-club.height[key]))};}
+  if(target<a&&lo&&club.carries[lo.key]!=null){const l=club.carries[lo.key],t=Math.min(1,(a-target)/(a-l));return{launch:Math.round(club.launch[key]-t*(club.launch[key]-club.launch[lo.key])),spin:Math.round(club.spin[key]-t*(club.spin[key]-club.spin[lo.key])),height:Math.round(club.height[key]-t*(club.height[key]-club.height[lo.key]))};}
   return{launch:club.launch[key],spin:club.spin[key],height:club.height[key]};
 }
 function calcSuggestions(target){
@@ -74,12 +90,14 @@ function calcSuggestions(target){
   clubs.forEach(club=>SWINGS.forEach(sw=>{
     const a=club.carries[sw.key]; if(a==null)return;
     const i=SWINGS.indexOf(sw),lo=SWINGS[i-1],hi=SWINGS[i+1];
-    const loC=lo?club.carries[lo.key]:a*0.85, hiC=hi?club.carries[hi.key]:a;
-    const wLow=lo?(a+loC)/2:a-10, wHigh=hi?(a+hiC)/2:a*1.04;
+    /* a full-only (longer) club has null tq/half neighbours — fall back to a self-window */
+    const loHas=lo&&club.carries[lo.key]!=null, hiHas=hi&&club.carries[hi.key]!=null;
+    const loC=loHas?club.carries[lo.key]:a*0.85, hiC=hiHas?club.carries[hi.key]:a;
+    const wLow=loHas?(a+loC)/2:a-10, wHigh=hiHas?(a+hiC)/2:a*1.04;
     if(target<wLow-2||target>wHigh)return;
     let eff;
-    if(target<=a){const r=a-(lo?club.carries[lo.key]:a-15),pos=target-(lo?club.carries[lo.key]:a-15),le=lo?lo.effort:sw.effort-12;eff=le+(sw.effort-le)*(pos/r);}
-    else{const r=(hi?club.carries[hi.key]:a+5)-a,pos=target-a,ue=hi?hi.effort:sw.effort+5;eff=sw.effort+(ue-sw.effort)*(pos/r);}
+    if(target<=a){const lc=loHas?club.carries[lo.key]:a-15;const r=a-lc,pos=target-lc,le=loHas?lo.effort:sw.effort-12;eff=le+(sw.effort-le)*(pos/r);}
+    else{const hc=hiHas?club.carries[hi.key]:a+5;const r=hc-a,pos=target-a,ue=hiHas?hi.effort:sw.effort+5;eff=sw.effort+(ue-sw.effort)*(pos/r);}
     eff=Math.min(102,Math.max(70,Math.round(eff)));
     out.push({club,sw,anchor:a,effort:eff,delta:target-a,dist:Math.abs(target-a)});
   }));
@@ -106,7 +124,7 @@ function calcSuggestions(target){
     if(clubSeen.has(o.club.id)) return false;
     clubSeen.add(o.club.id); return true;
   });
-  return final.slice(0,4);
+  return final.slice(0,3);   /* at most the three closest options */
 }
 /* Rollout in yards derived from ball-flight characteristics — makes each shot's carry/roll split
    match its actual behaviour (Stops quickly vs Moderate release vs Runs out). */
@@ -132,7 +150,9 @@ function renderCalc(target){
   /* Plays-like adjusters shift the distance the suggestions solve for; the big number
      stays the measured yardage, the adjuster panel shows the plays-like result. */
   const eyAdj = typeof eyTotal==='function' ? Math.round(eyTotal('approach',target)) : 0;
-  const playTarget = Math.max(37, Math.min(170, target+eyAdj));
+  /* plays-like can now extend well beyond the measured-input ceiling (up to fairway-wood
+     range), so the suggestion target is clamped to the bag, not the 170-yd input cap */
+  const playTarget = Math.max(20, Math.min(300, target+eyAdj));
   if(typeof eyRefreshSummary==='function') eyRefreshSummary('approach');
   const box=document.getElementById('calc-results');
   if(target<37||target>170){box.innerHTML=`<div class="calc-no-result">Outside partial-swing range (37–170 yd). Use the Bag ladder for longer distances.</div>`;return;}
@@ -283,14 +303,17 @@ function buildDPlane3DSVG(m,az,el){
   const loft=m.loft||31, face=m.face||0, hpath=(m.path||0)*1.5, spinAxis=m.spinAxis||0;
   const rx=(p,a)=>{a*=Math.PI/180;return {x:p.x,y:p.y*Math.cos(a)-p.z*Math.sin(a),z:p.y*Math.sin(a)+p.z*Math.cos(a)};};
   const ry=(p,a)=>{a*=Math.PI/180;return {x:p.x*Math.cos(a)+p.z*Math.sin(a),y:p.y,z:-p.x*Math.sin(a)+p.z*Math.cos(a)};};
-  const w=15,h=19;
-  const facePts=[[-w,-h],[w,-h],[w,h],[-w,h]].map(([x,y])=>ry(rx({x,y,z:0},-loft),face));
+  /* face represented as a CIRCULAR plane (disc) — distinct from the Horizontal Swing
+     Plane rectangle in Mark's other materials. Sample a circle in the face's local
+     plane, then loft- and face-rotate it. */
+  const fr=17, facePts=[];
+  for(let i=0;i<32;i++){ const th=i/32*2*Math.PI; facePts.push(ry(rx({x:fr*Math.cos(th),y:fr*Math.sin(th),z:0},-loft),face)); }
   let nrm={x:0,y:0,z:1}; nrm=ry(rx(nrm,-loft),face);
   const pr=hpath*Math.PI/180, pathEnd={x:Math.sin(pr)*FL,y:0,z:Math.cos(pr)*FL};
   const sa=-spinAxis*Math.PI/180, axL=26;
   const axA={x:-axL*Math.cos(sa),y:-axL*Math.sin(sa),z:FL*0.62}, axB={x:axL*Math.cos(sa),y:axL*Math.sin(sa),z:FL*0.62};
   const G=34;
-  const bounds=[{x:-G,y:0,z:0},{x:G,y:0,z:0},{x:-G,y:0,z:FL},{x:G,y:0,z:FL},{x:0,y:h+6,z:0},{x:0,y:-axL-6,z:FL*0.62},{x:0,y:axL+6,z:FL*0.62}];
+  const bounds=[{x:-G,y:0,z:0},{x:G,y:0,z:0},{x:-G,y:0,z:FL},{x:G,y:0,z:FL},{x:0,y:fr+6,z:0},{x:0,y:-axL-6,z:FL*0.62},{x:0,y:axL+6,z:FL*0.62}];
   const T=shaper3DFitter(bounds,az,el,W,H,pad);
   const P=(p)=>T(p.x,p.y,p.z);
   /* ground grid */
@@ -302,20 +325,21 @@ function buildDPlane3DSVG(m,az,el){
   const tline=`<line x1="${t0.x.toFixed(1)}" y1="${t0.y.toFixed(1)}" x2="${t1.x.toFixed(1)}" y2="${t1.y.toFixed(1)}" stroke="var(--gold2)" stroke-width="1.2" stroke-dasharray="5,4" opacity="0.7"/>`;
   /* club path */
   const pathArrow=shaper3DArrow(T(0,0,0),P(pathEnd),'var(--sky)',1.8);
-  /* face quad + normal */
+  /* face disc + normal */
   const fp=facePts.map(P);
-  const faceQuad=`<polygon points="${fp.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ')}" fill="rgba(26,90,170,0.22)" stroke="var(--c-iron)" stroke-width="1.4"/>`;
+  const faceDisc=`<polygon points="${fp.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ')}" fill="rgba(26,90,170,0.20)" stroke="var(--c-iron)" stroke-width="1.5"/>`;
   const nrmArrow=shaper3DArrow(T(0,0,0),T(nrm.x*22,nrm.y*22,nrm.z*22),'var(--c-iron)',1.5);
   /* spin axis (double-headed) */
   const sA=P(axA),sB=P(axB);
   const axis=`<line x1="${sA.x.toFixed(1)}" y1="${sA.y.toFixed(1)}" x2="${sB.x.toFixed(1)}" y2="${sB.y.toFixed(1)}" stroke="${shaperShapeColor(m)}" stroke-width="2.2" stroke-linecap="round"/>`
     +`<circle cx="${sA.x.toFixed(1)}" cy="${sA.y.toFixed(1)}" r="2.6" fill="${shaperShapeColor(m)}"/><circle cx="${sB.x.toFixed(1)}" cy="${sB.y.toFixed(1)}" r="2.6" fill="${shaperShapeColor(m)}"/>`;
   const ball=T(0,0,0);
+  const flagTop=T(0,20,FL);
   return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block" xmlns="http://www.w3.org/2000/svg">
-    ${grid}${tline}${pathArrow}${faceQuad}${nrmArrow}${axis}
-    <circle cx="${ball.x.toFixed(1)}" cy="${ball.y.toFixed(1)}" r="3" fill="var(--ink)"/>
-    <text x="${t1.x.toFixed(1)}" y="${(t1.y-5).toFixed(1)}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="6.5" fill="var(--gold2)">target</text>
-    <text x="6" y="13" font-family="ui-monospace,monospace" font-size="6.5" fill="var(--c-iron)">■ face / normal</text>
+    ${grid}${tline}${pathArrow}${faceDisc}${nrmArrow}${axis}
+    ${sgFlagstick(t1.x,t1.y,flagTop.x,flagTop.y,1)}
+    ${sgBall(ball.x,ball.y,4)}
+    <text x="6" y="13" font-family="ui-monospace,monospace" font-size="6.5" fill="var(--c-iron)">● face / normal</text>
     <text x="6" y="22" font-family="ui-monospace,monospace" font-size="6.5" fill="var(--sky)">▸ club path</text>
     <text x="6" y="31" font-family="ui-monospace,monospace" font-size="6.5" fill="${shaperShapeColor(m)}">— spin axis ${Math.abs(spinAxis).toFixed(1)}°</text>
   </svg>`;
@@ -345,15 +369,15 @@ function buildShotFlight3DSVG(m,az,el){
   const slGround=ctrlX!==0?`<line x1="${t0.x.toFixed(1)}" y1="${t0.y.toFixed(1)}" x2="${slPt.x.toFixed(1)}" y2="${slPt.y.toFixed(1)}" stroke="var(--sky)" stroke-width="1" stroke-dasharray="3,3" opacity="0.55"/>`:'';
   const col=shaperShapeColor(m);
   const pts=path.map(p=>{const s=T(p.x,p.y,p.z);return `${s.x.toFixed(1)},${s.y.toFixed(1)}`;}).join(' ');
-  const ball=T(0,0,0),land=T(path[N].x,0,Zmax),apexS=T(apex.x,apex.y,apex.z),apexG=T(apex.x,0,apex.z);
+  const ball=T(0,0,0),apexS=T(apex.x,apex.y,apex.z),apexG=T(apex.x,0,apex.z);
   const apexDrop=`<line x1="${apexS.x.toFixed(1)}" y1="${apexS.y.toFixed(1)}" x2="${apexG.x.toFixed(1)}" y2="${apexG.y.toFixed(1)}" stroke="${col}" stroke-width="0.8" stroke-dasharray="2,2" opacity="0.6"/>`;
+  const flagTop=T(0,Math.min(30,peak*0.6),Zmax);  /* flagstick at the target */
   return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block" xmlns="http://www.w3.org/2000/svg">
     ${grid}${tline}${slGround}${apexDrop}
     <polyline points="${pts}" fill="none" stroke="${col}" stroke-width="2.6" stroke-linecap="round"/>
-    <circle cx="${ball.x.toFixed(1)}" cy="${ball.y.toFixed(1)}" r="4" fill="var(--ink)"/>
     <circle cx="${apexS.x.toFixed(1)}" cy="${apexS.y.toFixed(1)}" r="2.6" fill="${col}"/>
-    <circle cx="${land.x.toFixed(1)}" cy="${land.y.toFixed(1)}" r="3.2" fill="var(--gold2)"/>
-    <text x="${t1.x.toFixed(1)}" y="${(t1.y-5).toFixed(1)}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="6.5" fill="var(--gold2)">target</text>
+    ${sgFlagstick(t1.x,t1.y,flagTop.x,flagTop.y,1)}
+    ${sgBall(ball.x,ball.y,5)}
     <text x="${apexS.x.toFixed(1)}" y="${(apexS.y-5).toFixed(1)}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="6.5" fill="${col}">apex</text>
   </svg>`;
 }
