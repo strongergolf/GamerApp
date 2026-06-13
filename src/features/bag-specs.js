@@ -44,16 +44,13 @@ function buildSpecs(){
     const row=document.createElement('div'); row.className='specs-club-row spec-card';
     row.innerHTML=`
       <span class="spec-club ${c.type}">${c.label}</span>
-      <div class="spec-card-info">
-        <div class="spec-card-r1">
-          <span class="sc-name">${c.make} ${c.model}</span>
-          <div class="spec-group spec-dims">${mini('Length',c.length)}${mini('Loft',c.loft)}${mini('Lie',c.lie)}</div>
-        </div>
-        <div class="spec-card-r2">
-          <span class="sc-sub">${c.year} · ${c.shaft}</span>
-          <div class="spec-group spec-perf">${mini('Carry',hasC?carry:'—')}${mini('Total',total||'—')}${mini('1σ L/R',sigma1!=null?sigma1:'—')}${mini('2σ L/R',sigma2!=null?sigma2:'—')}</div>
-        </div>
+      <div class="sc-id">
+        <span class="sc-name">${c.make} ${c.model}</span>
+        <span class="sc-sub">${c.year} · ${c.shaft}</span>
       </div>
+      ${mini('Length',c.length)}${mini('Loft',c.loft)}${mini('Lie',c.lie)}
+      <div class="sc-sep"></div>
+      ${mini('Carry',hasC?carry:'—')}${mini('Total',total||'—')}${mini('1σ L/R',sigma1!=null?sigma1:'—')}${mini('2σ L/R',sigma2!=null?sigma2:'—')}
       <div class="specs-chevron">▾</div>`;
     const group=document.createElement('div'); group.className='specs-rep-group';
     row.addEventListener('click',()=>toggleSpecs(c,row,group));
