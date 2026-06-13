@@ -49,6 +49,8 @@ function refreshAll(){
   const _psv=document.getElementById('partials-stimp-val'); if(_psv) _psv.textContent=STATE.stimp.toFixed(1);
   const _psr=document.getElementById('partials-stimp-range'); if(_psr) _psr.value=STATE.stimp;
   buildShortGame();
+  buildEyPanel('approach');
+  buildEyPanel('shortgame');
   buildPutting();
   renderPuttSG();
   renderExpectedShots('es-150', 95, 'fairway');

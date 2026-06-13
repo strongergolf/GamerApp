@@ -365,6 +365,27 @@ input[type=range].yard-slider::-moz-range-thumb{width:20px;height:20px;border-ra
 .es-sg-stat{text-align:center;min-width:62px}
 .es-sg-eq{font-family:ui-monospace,monospace;font-size:.46rem;letter-spacing:.04em;color:#6a8aaa;margin-top:3px;white-space:nowrap}
 @media (max-width:600px){.es-sg{margin-left:0;padding-left:0;border-left:none;border-top:1px solid rgba(255,255,255,0.14);padding-top:10px;margin-top:6px;width:100%;justify-content:space-between}}
+/* Plays-like adjusters (Approach / Short Game) */
+.ey-host{margin-top:8px}
+.ey-panel{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 14px}
+.ey-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.ey-title{font-family:Arial,sans-serif;font-size:.6rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.ey-reset{font-family:Arial,sans-serif;font-size:.62rem;font-weight:600;padding:2px 9px;background:transparent;border:1px solid var(--border2);border-radius:12px;color:var(--ink2);cursor:pointer}
+.ey-reset:hover{border-color:var(--accent,var(--ink2));color:var(--ink)}
+.ey-summary{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px;padding:6px 0 10px;border-bottom:1px solid var(--border);margin-bottom:8px}
+.ey-meas{font-family:ui-monospace,monospace;font-size:.8rem;font-weight:700;color:var(--muted)}
+.ey-arrow{font-family:ui-monospace,monospace;font-size:.6rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.ey-eff{font-family:Arial,sans-serif;font-size:1.25rem;font-weight:800;color:var(--accent,#c4427a);line-height:1}
+.ey-adj{font-family:ui-monospace,monospace;font-size:.78rem;font-weight:700}
+.ey-air{font-family:ui-monospace,monospace;font-size:.56rem;color:var(--muted);margin-left:auto}
+.ey-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px 16px}
+@media (max-width:720px){.ey-grid{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:420px){.ey-grid{grid-template-columns:1fr}}
+.ey-term-head{display:flex;justify-content:space-between;align-items:baseline;gap:6px;margin-bottom:2px}
+.ey-term-label{font-family:Arial,sans-serif;font-size:.7rem;font-weight:700;color:var(--ink)}
+.ey-term-val{font-family:ui-monospace,monospace;font-size:.56rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ey-term-val b{font-weight:800}
+.ey-term input[type=range]{width:100%;accent-color:#c4427a}
 
 /* DRIVER OPTIMIZER */
 .drv-opt-wrap{background:var(--surface);border:1px solid var(--border2);border-radius:10px;overflow:hidden;margin-bottom:18px}

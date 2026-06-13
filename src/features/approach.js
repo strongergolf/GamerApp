@@ -129,20 +129,25 @@ function selectApproachResult(i){
 
 function renderCalc(target){
   document.getElementById('calc-display').textContent=target;
+  /* Plays-like adjusters shift the distance the suggestions solve for; the big number
+     stays the measured yardage, the adjuster panel shows the plays-like result. */
+  const eyAdj = typeof eyTotal==='function' ? Math.round(eyTotal('approach',target)) : 0;
+  const playTarget = Math.max(37, Math.min(170, target+eyAdj));
+  if(typeof eyRefreshSummary==='function') eyRefreshSummary('approach');
   const box=document.getElementById('calc-results');
   if(target<37||target>170){box.innerHTML=`<div class="calc-no-result">Outside partial-swing range (37–170 yd). Use the Bag ladder for longer distances.</div>`;return;}
-  const sug=calcSuggestions(target);
+  const sug=calcSuggestions(playTarget);
   if(!sug.length){box.innerHTML=`<div class="calc-no-result">No clean match for ${target} yd.</div>`;return;}
   const selIdx=window.approachSelectedIdx>=0&&window.approachSelectedIdx<sug.length?window.approachSelectedIdx:0;
   box.innerHTML=sug.map((o,i)=>{
     const selected=i===selIdx, color=effortColor(o.effort);
     const swingDesc=o.sw.key==='full'?'Full swing':o.sw.key==='tq'?'¾ swing':'½ swing';
     const effDesc=o.effort>=98?'Full effort — no margin':o.effort>=90?'Near-full — controlled finish':o.effort>=82?'Measured swing — good option':'Easy swing — high control';
-    const fl=interpFlight(o.club,o.sw.key,target);
+    const fl=interpFlight(o.club,o.sw.key,playTarget);
     const checkDesc=(()=>{const hs=fl.spin>=8500,ms=fl.spin>=6500,hh=fl.height>=70,mh=fl.height>=50;if(hs&&hh)return'Stops quickly';if(hs&&mh)return'Checks up';if(hs)return'Bites on landing';if(ms&&hh)return'Some check';if(ms&&mh)return'Moderate release';if(ms)return'Low release';if(hh)return'Soft landing';return'Runs out';})();
     /* Carry/rollout: spin/height check behaviour + green firmness condition */
     const estRoll=Math.max(0,approachRolloutYds(fl.spin,fl.height)+(window.approachGreenFirmness||0));
-    const estCarry=target-estRoll;
+    const estCarry=playTarget-estRoll;
     /* Anchor mini-stat */
     const clockPos=o.sw.key==='full'?'11:00':o.sw.key==='tq'?'10:00':'9:00';
     const diffStr=o.delta===0?'on anchor':`${o.delta>0?'+':''}${o.delta}yds`;
@@ -150,7 +155,7 @@ function renderCalc(target){
       <div class="calc-card-header">
         <div class="calc-club-badge">${o.club.label}<small>${o.club.loft}</small></div>
         <div style="flex:1;min-width:0">
-          <div class="calc-swing-label">${swingDesc}<span style="font-family:ui-monospace,monospace;font-size:.75rem;font-weight:600;color:var(--ink);letter-spacing:.01em"> — Carry ${estCarry} · Roll ${estRoll} · Total ${target} yds</span></div>
+          <div class="calc-swing-label">${swingDesc}<span style="font-family:ui-monospace,monospace;font-size:.75rem;font-weight:600;color:var(--ink);letter-spacing:.01em"> — Carry ${estCarry} · Roll ${estRoll} · Total ${playTarget} yds</span></div>
         </div>
         ${selected?'<div class="calc-best-tag">Best Match</div>':''}
       </div>
@@ -171,13 +176,13 @@ function renderCalc(target){
   if(trajWrap && sug.length){
     const pick=sug[selIdx]||sug[0];
     const p=STATE.performance[pick.club.id]||{};
-    const fl=interpFlight(pick.club,pick.sw.key,target);
+    const fl=interpFlight(pick.club,pick.sw.key,playTarget);
     const swingLabel=pick.sw.key==='full'?'Full':pick.sw.key==='tq'?'¾':'½';
     const tRoll=Math.max(0,approachRolloutYds(fl.spin,fl.height)+(window.approachGreenFirmness||0));
-    const tCarry=target-tRoll;
-    const svgHtml=buildSideSVG(pick.club,{carry:tCarry,total:target,launch:fl.launch,spin:fl.spin,land:p.land||45,ht:fl.height,bspd:p.bspd||0});
+    const tCarry=playTarget-tRoll;
+    const svgHtml=buildSideSVG(pick.club,{carry:tCarry,total:playTarget,launch:fl.launch,spin:fl.spin,land:p.land||45,ht:fl.height,bspd:p.bspd||0});
     trajWrap.innerHTML=`<div class="approach-traj-wrap">
-      <div class="chip-svg-label" style="font-size:.8rem;font-weight:700;color:var(--ink);letter-spacing:.01em">${pick.club.label} ${swingLabel} — carry ${tCarry} · roll ${tRoll} · total ${target} yds · ${fl.launch}° · ${(fl.spin/1000).toFixed(1)}k</div>
+      <div class="chip-svg-label" style="font-size:.8rem;font-weight:700;color:var(--ink);letter-spacing:.01em">${pick.club.label} ${swingLabel} — carry ${tCarry} · roll ${tRoll} · total ${playTarget} yds · ${fl.launch}° · ${(fl.spin/1000).toFixed(1)}k</div>
       ${svgHtml}
     </div>`;
   } else if(trajWrap){ trajWrap.innerHTML=''; }

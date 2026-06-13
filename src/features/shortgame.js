@@ -37,6 +37,9 @@ function buildShortGame(){
       </div>
     </div>
 
+    <!-- 1b. Plays-like adjusters -->
+    <div id="ey-shortgame" class="ey-host"></div>
+
     <!-- 2. Expected shots -->
     <div id="es-short" class="expected-shots-strip"></div>
 
@@ -120,7 +123,12 @@ function renderSgVars(){
 }
 
 function renderChipDial(){
-  const totalYd=parseInt(document.getElementById('chip-slider')?.value||20);
+  const measuredYd=parseInt(document.getElementById('chip-slider')?.value||20);
+  /* Plays-like adjusters shift the effective total the dial solves for; expected-shots
+     stays on the measured distance (strokes-remaining is positional). */
+  const eyAdj = typeof eyTotal==='function' ? eyTotal('shortgame',measuredYd) : 0;
+  const totalYd=Math.max(3, Math.round(measuredYd+eyAdj));
+  if(typeof eyRefreshSummary==='function') eyRefreshSummary('shortgame');
   const stimp=STATE.stimp, slope=chipSlopeVal();
   const clubs=chipClubs();
   const results=document.getElementById('chip-results'); if(!results) return;
@@ -177,7 +185,7 @@ function renderChipDial(){
     } else { trajWrap.innerHTML=''; }
   }
   results.innerHTML=cards;
-  renderExpectedShots('es-short', totalYd, 'atg');
+  renderExpectedShots('es-short', measuredYd, 'atg');
 }
 
 function buildChipSVG(carryYd, rollYd, loftDeg){
