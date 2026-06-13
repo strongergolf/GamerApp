@@ -32,32 +32,32 @@ function buildPutting(){
     <!-- 2. Expected shots strip -->
     <div id="es-putting" class="expected-shots-strip"></div>
 
-    <!-- 3. 4-control box: break · slope · grade · pace -->
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin:12px 0 14px;display:grid;grid-template-columns:1fr 1fr;gap:10px 18px">
+    <!-- 3. 4-control box: break · green slope · side slope · pace -->
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin:12px 0 14px;display:grid;grid-template-columns:1fr 1fr;gap:14px 18px">
       <div>
         <label style="${lbl}">Break</label>
-        <select id="putt-dir" onchange="renderPutt()" style="${sel}">
+        <select id="putt-dir" onchange="onPuttBreakChange(this.value)" style="${sel}">
           <option value="lr">↩ L → R</option>
           <option value="rl">↪ R → L</option>
-        </select>
-      </div>
-      <div>
-        <label style="${lbl}">Green Slope</label>
-        <select id="putt-slope" onchange="renderPutt()" style="${sel}">
-          <option value="very-uphill">⬆⬆ Very Uphill</option>
-          <option value="uphill">⬆ Uphill</option>
-          <option value="level" selected>→ Level</option>
-          <option value="downhill">⬇ Downhill</option>
-          <option value="very-downhill">⬇⬇ Very Downhill</option>
+          <option value="straight">↑ Straight</option>
         </select>
       </div>
       <div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-          <label style="${lbl};margin-bottom:0">Side Slope at P.O.I.</label>
+          <label style="${lbl};margin-bottom:0">Green Slope</label>
+          <span class="stimp-val" id="putt-slope-display">Level</span>
+        </div>
+        <input type="range" id="putt-slope" min="-60" max="60" step="1" value="0" style="width:100%"
+          oninput="document.getElementById('putt-slope-display').textContent=fmtSlopeElev(this.value);renderPutt()">
+        <div style="display:flex;justify-content:space-between;font-family:ui-monospace,monospace;font-size:.5rem;color:var(--muted);margin-top:2px"><span>5 ft down</span><span>level</span><span>5 ft up</span></div>
+      </div>
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <label style="${lbl};margin-bottom:0">Side Slope at Point of Influence</label>
           <span class="stimp-val" id="putt-grade-display">2</span>
         </div>
         <input type="range" id="putt-grade" min="0" max="5" step="0.5" value="2" style="width:100%"
-          oninput="document.getElementById('putt-grade-display').textContent=this.value;renderPutt()">
+          oninput="onPuttGradeInput(this.value)">
       </div>
       <div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
@@ -69,11 +69,10 @@ function buildPutting(){
       </div>
     </div>
 
-    <!-- 4. Required Break card + caption (left) · Putt SVG (right) -->
+    <!-- 4. Required Break card (left) · Putt SVG (right) -->
     <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:start">
       <div style="flex:1;min-width:220px">
         <div id="putt-result-wrap"></div>
-        <div class="putt-svg-caption" id="putt-caption" style="margin-top:8px;font-family:ui-monospace,monospace;font-size:.58rem;color:var(--muted);text-align:center;line-height:1.5"></div>
       </div>
       <div style="flex:0 0 260px">
         <div id="putt-svg-wrap" style="width:100%"></div>
@@ -83,47 +82,83 @@ function buildPutting(){
   renderExpectedShots('es-putting', 15, 'green');
 }
 
+/* Green-slope slider helpers (continuous elevation, inches; + = uphill, − = downhill) */
+function fmtSlopeElev(inches){
+  const n=Math.round(parseFloat(inches)||0);
+  if(n===0) return 'Level';
+  const dir=n>0?'up':'down', a=Math.abs(n);
+  const ft=Math.floor(a/12), inch=a%12;
+  const mag = ft>0 ? (inch>0?`${ft}'${inch}"`:`${ft} ft`) : `${a}"`;
+  return `${mag} ${dir}`;
+}
+function slopeCategoryFromElev(e){
+  e=parseFloat(e)||0;
+  if(e>=45) return 'very-uphill';
+  if(e>=15) return 'uphill';
+  if(e<=-45) return 'very-downhill';
+  if(e<=-15) return 'downhill';
+  return 'level';
+}
+/* Break ⇄ Side Slope interlock: Straight zeroes the grade, and grade 0 ⇒ Straight. */
+function onPuttBreakChange(v){
+  if(v==='straight'){
+    const g=document.getElementById('putt-grade'); if(g){ g.value=0; const d=document.getElementById('putt-grade-display'); if(d) d.textContent='0'; }
+  } else {
+    const g=document.getElementById('putt-grade');
+    if(g && parseFloat(g.value)===0){ g.value=2; const d=document.getElementById('putt-grade-display'); if(d) d.textContent='2'; }
+  }
+  renderPutt();
+}
+function onPuttGradeInput(v){
+  const g=parseFloat(v)||0;
+  const d=document.getElementById('putt-grade-display'); if(d) d.textContent=v;
+  const dir=document.getElementById('putt-dir');
+  if(dir){
+    if(g===0 && dir.value!=='straight'){ dir.value='straight'; }
+    else if(g>0 && dir.value==='straight'){ dir.value='lr'; }
+  }
+  renderPutt();
+}
+
 function renderPutt(){
   const dist=parseInt(document.getElementById('putt-dist')?.value||15);
   const grade=parseFloat(document.getElementById('putt-grade')?.value||2);
   const dir=document.getElementById('putt-dir')?.value||'lr';
-  const slope=document.getElementById('putt-slope')?.value||'level';
+  const elevIn=parseFloat(document.getElementById('putt-slope')?.value||0);
   const pace=parseInt(document.getElementById('putt-pace')?.value||12);
   const stimp=STATE.stimp;
-  const breakIn=aimBreakIn(dist,grade,stimp,slope,pace);
-  const cupW=breakIn/4.25;
-  const res=document.getElementById('putt-result-wrap'); if(!res) return;
-  const edgeLabel=dir==='lr'?'left':'right';
-  const dirWord=dir==='lr'?'Left-to-Right':'Right-to-Left';
-  /* Hole radius = 2.125" (4.25" diameter). When breakIn ≤ radius the aim point is
-     inside the cup — use descriptive language instead of "X" outside the edge". */
+  const breakIn=aimBreakIn(dist,grade,stimp,elevIn,pace);
+  /* Break is measured to the hole CENTRE. The actionable aim is outside the EDGE, so
+     deduct the hole radius (2.125" = 4.25" dia ÷ 2). Cup Widths counts cups outside the
+     real cup's edge → (breakIn − radius) / 4.25, not breakIn / 4.25. */
   const HOLE_R=2.125;
+  const edgeOffsetIn=Math.max(0,breakIn-HOLE_R);
+  const cupW=edgeOffsetIn/4.25;
+  const res=document.getElementById('putt-result-wrap'); if(!res) return;
+  const edgeLabel=dir==='rl'?'right':'left';
+  const dirWord=dir==='straight'?'Straight':dir==='lr'?'Left-to-Right':'Right-to-Left';
   let aimNote;
-  if(breakIn<0.1){
-    aimNote='Dead straight';
-  } else if(breakIn<0.5){
-    aimNote=`${dirWord} — just ${edgeLabel} of centre`;
-  } else if(breakIn<HOLE_R*0.85){
-    aimNote=`${dirWord} — inside the ${edgeLabel} edge · ${breakIn.toFixed(1)}" from centre`;
-  } else if(breakIn<=HOLE_R+0.4){
-    aimNote=`${dirWord} — on the ${edgeLabel} edge`;
+  if(dir==='straight'||grade<=0||breakIn<0.1){
+    aimNote='Dead straight — aim at centre';
+  } else if(breakIn<=HOLE_R){
+    aimNote=`${dirWord} — aim inside the ${edgeLabel} edge · ${breakIn.toFixed(1)}" from centre`;
   } else {
-    aimNote=`${dirWord} · aim <strong>${breakIn.toFixed(1)}"</strong> outside the <strong>${edgeLabel}</strong> edge`;
+    aimNote=`${dirWord} · aim <strong>${edgeOffsetIn.toFixed(1)}"</strong> outside the <strong>${edgeLabel}</strong> edge`;
   }
+  const slopeWord=fmtSlopeElev(elevIn).toLowerCase();
   res.innerHTML=`
     <div class="putt-result-card">
       <h4>Required Break</h4>
-      <div class="putt-stat-grid">
-        <div class="putt-stat"><div class="putt-stat-val">${breakIn.toFixed(1)}"</div><div class="putt-stat-lbl">Break (inches)</div></div>
-        <div class="putt-stat"><div class="putt-stat-val">${cupW.toFixed(2)}×</div><div class="putt-stat-lbl">Cup widths</div></div>
-        <div class="putt-stat"><div class="putt-stat-val">${grade}</div><div class="putt-stat-lbl">Slope grade</div></div>
-        <div class="putt-stat"><div class="putt-stat-val">${dist} ft</div><div class="putt-stat-lbl">Distance</div></div>
-      </div>
       <div class="putt-aim-note">${aimNote}</div>
+      <div class="putt-stat-grid">
+        <div class="putt-stat"><div class="putt-stat-val">${edgeOffsetIn.toFixed(1)}"</div><div class="putt-stat-lbl">Outside edge</div></div>
+        <div class="putt-stat"><div class="putt-stat-val">${cupW.toFixed(2)}×</div><div class="putt-stat-lbl">Cup widths</div></div>
+        <div class="putt-stat"><div class="putt-stat-val">${breakIn.toFixed(1)}"</div><div class="putt-stat-lbl">Break to centre</div></div>
+      </div>
+      <div class="putt-conditions">${dist} ft · grade ${grade} · stimp ${stimp.toFixed(1)} · ${slopeWord} · pace ${pace}"</div>
     </div>`;
   const svgWrap=document.getElementById('putt-svg-wrap'); if(!svgWrap) return;
-  svgWrap.innerHTML=buildPuttSVG(dist,breakIn,dir,slope,pace);
-  const cap=document.getElementById('putt-caption'); if(cap) cap.textContent=`${dist}ft · grade ${grade} · stimp ${stimp.toFixed(1)} · ${slope} · pace ${pace}"`;
+  svgWrap.innerHTML=buildPuttSVG(dist,breakIn,dir==='straight'?'lr':dir,slopeCategoryFromElev(elevIn),pace);
 }
 
 function renderPuttSG(){
@@ -260,4 +295,4 @@ function buildPuttSVG(distFt,breakIn,dir,slope,pace){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { buildPuttSVG, buildPutting, renderPutt, renderPuttSG });
+Object.assign(window, { buildPuttSVG, buildPutting, renderPutt, renderPuttSG, fmtSlopeElev, slopeCategoryFromElev, onPuttBreakChange, onPuttGradeInput });

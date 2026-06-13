@@ -239,44 +239,183 @@ function buildShaperSVG(start,shape){
     <text x="${cx}" y="${H-5}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="6" fill="var(--muted)">overhead · L ◀ ▶ R</text>
   </svg>`;
 }
-function renderShotShaper(){
-  const out=document.getElementById('shaper-out'); if(!out) return;
+/* ============================================================
+   3D SHOT SHAPER — orthographic projection + two rotatable panels
+   (D-plane impact geometry + 3D ball flight). World axes:
+   x = lateral (+right), y = up, z = downrange toward target.
+   az = yaw°, el = pitch° (look-down). Built for a later drag-to-rotate upgrade.
+   ============================================================ */
+function shaper3DProject(x,y,z,az,el){
+  const ar=az*Math.PI/180, er=el*Math.PI/180;
+  const X = x*Math.cos(ar) + z*Math.sin(ar);
+  const Z = -x*Math.sin(ar) + z*Math.cos(ar);
+  const Y2 = y*Math.cos(er) - Z*Math.sin(er);
+  return { x:X, y:-Y2 };
+}
+/* Fit a scene's bounding points into the viewBox; returns a world→screen mapper. */
+function shaper3DFitter(bounds,az,el,W,H,pad){
+  const pr=bounds.map(p=>shaper3DProject(p.x,p.y,p.z,az,el));
+  const xs=pr.map(p=>p.x), ys=pr.map(p=>p.y);
+  const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
+  const spanX=(maxX-minX)||1, spanY=(maxY-minY)||1;
+  const s=Math.min((W-2*pad)/spanX,(H-2*pad)/spanY);
+  const ox=pad+((W-2*pad)-s*spanX)/2, oy=pad+((H-2*pad)-s*spanY)/2;
+  return (x,y,z)=>{ const q=shaper3DProject(x,y,z,az,el); return {x:ox+(q.x-minX)*s, y:oy+(q.y-minY)*s}; };
+}
+function shaper3DArrow(s,e,col,w){
+  const dx=e.x-s.x,dy=e.y-s.y,L=Math.hypot(dx,dy)||1,ux=dx/L,uy=dy/L,a=7;
+  const hp=th=>({x:e.x-a*(ux*Math.cos(th)-uy*Math.sin(th)), y:e.y-a*(ux*Math.sin(th)+uy*Math.cos(th))});
+  const p1=hp(0.42),p2=hp(-0.42);
+  return `<line x1="${s.x.toFixed(1)}" y1="${s.y.toFixed(1)}" x2="${e.x.toFixed(1)}" y2="${e.y.toFixed(1)}" stroke="${col}" stroke-width="${w}" stroke-linecap="round"/><polygon points="${e.x.toFixed(1)},${e.y.toFixed(1)} ${p1.x.toFixed(1)},${p1.y.toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)}" fill="${col}"/>`;
+}
+const shaperShapeColor=m=>m.spinAxis<-0.4?'var(--green)':m.spinAxis>0.4?'var(--c-wood)':'var(--ink2)';
+
+/* Panel 1 — D-plane at impact: ground + target line + club path + lofted/angled face
+   + face normal + the resulting tilted spin axis. Shows the vertical (loft) AND
+   horizontal (face/path) picture that together set the spin-axis tilt. */
+function buildDPlane3DSVG(m,az,el){
+  const W=252,H=212,pad=24,FL=60;
+  const loft=m.loft||31, face=m.face||0, hpath=(m.path||0)*1.5, spinAxis=m.spinAxis||0;
+  const rx=(p,a)=>{a*=Math.PI/180;return {x:p.x,y:p.y*Math.cos(a)-p.z*Math.sin(a),z:p.y*Math.sin(a)+p.z*Math.cos(a)};};
+  const ry=(p,a)=>{a*=Math.PI/180;return {x:p.x*Math.cos(a)+p.z*Math.sin(a),y:p.y,z:-p.x*Math.sin(a)+p.z*Math.cos(a)};};
+  const w=15,h=19;
+  const facePts=[[-w,-h],[w,-h],[w,h],[-w,h]].map(([x,y])=>ry(rx({x,y,z:0},-loft),face));
+  let nrm={x:0,y:0,z:1}; nrm=ry(rx(nrm,-loft),face);
+  const pr=hpath*Math.PI/180, pathEnd={x:Math.sin(pr)*FL,y:0,z:Math.cos(pr)*FL};
+  const sa=-spinAxis*Math.PI/180, axL=26;
+  const axA={x:-axL*Math.cos(sa),y:-axL*Math.sin(sa),z:FL*0.62}, axB={x:axL*Math.cos(sa),y:axL*Math.sin(sa),z:FL*0.62};
+  const G=34;
+  const bounds=[{x:-G,y:0,z:0},{x:G,y:0,z:0},{x:-G,y:0,z:FL},{x:G,y:0,z:FL},{x:0,y:h+6,z:0},{x:0,y:-axL-6,z:FL*0.62},{x:0,y:axL+6,z:FL*0.62}];
+  const T=shaper3DFitter(bounds,az,el,W,H,pad);
+  const P=(p)=>T(p.x,p.y,p.z);
+  /* ground grid */
+  let grid='';
+  for(let gz=0;gz<=FL;gz+=FL/3){const a=T(-G,0,gz),b=T(G,0,gz);grid+=`<line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}" stroke="var(--border2)" stroke-width="0.6" opacity="0.45"/>`;}
+  [-G,0,G].forEach(gx=>{const a=T(gx,0,0),b=T(gx,0,FL);grid+=`<line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}" stroke="var(--border2)" stroke-width="0.6" opacity="0.45"/>`;});
+  /* target line */
+  const t0=T(0,0,0),t1=T(0,0,FL);
+  const tline=`<line x1="${t0.x.toFixed(1)}" y1="${t0.y.toFixed(1)}" x2="${t1.x.toFixed(1)}" y2="${t1.y.toFixed(1)}" stroke="var(--gold2)" stroke-width="1.2" stroke-dasharray="5,4" opacity="0.7"/>`;
+  /* club path */
+  const pathArrow=shaper3DArrow(T(0,0,0),P(pathEnd),'var(--sky)',1.8);
+  /* face quad + normal */
+  const fp=facePts.map(P);
+  const faceQuad=`<polygon points="${fp.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ')}" fill="rgba(26,90,170,0.22)" stroke="var(--c-iron)" stroke-width="1.4"/>`;
+  const nrmArrow=shaper3DArrow(T(0,0,0),T(nrm.x*22,nrm.y*22,nrm.z*22),'var(--c-iron)',1.5);
+  /* spin axis (double-headed) */
+  const sA=P(axA),sB=P(axB);
+  const axis=`<line x1="${sA.x.toFixed(1)}" y1="${sA.y.toFixed(1)}" x2="${sB.x.toFixed(1)}" y2="${sB.y.toFixed(1)}" stroke="${shaperShapeColor(m)}" stroke-width="2.2" stroke-linecap="round"/>`
+    +`<circle cx="${sA.x.toFixed(1)}" cy="${sA.y.toFixed(1)}" r="2.6" fill="${shaperShapeColor(m)}"/><circle cx="${sB.x.toFixed(1)}" cy="${sB.y.toFixed(1)}" r="2.6" fill="${shaperShapeColor(m)}"/>`;
+  const ball=T(0,0,0);
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block" xmlns="http://www.w3.org/2000/svg">
+    ${grid}${tline}${pathArrow}${faceQuad}${nrmArrow}${axis}
+    <circle cx="${ball.x.toFixed(1)}" cy="${ball.y.toFixed(1)}" r="3" fill="var(--ink)"/>
+    <text x="${t1.x.toFixed(1)}" y="${(t1.y-5).toFixed(1)}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="6.5" fill="var(--gold2)">target</text>
+    <text x="6" y="13" font-family="ui-monospace,monospace" font-size="6.5" fill="var(--c-iron)">■ face / normal</text>
+    <text x="6" y="22" font-family="ui-monospace,monospace" font-size="6.5" fill="var(--sky)">▸ club path</text>
+    <text x="6" y="31" font-family="ui-monospace,monospace" font-size="6.5" fill="${shaperShapeColor(m)}">— spin axis ${Math.abs(spinAxis).toFixed(1)}°</text>
+  </svg>`;
+}
+
+/* Panel 2 — 3D ball flight: curving arc with both the lateral shape (draw/fade) and the
+   vertical trajectory (launch, apex, descent) visible in perspective. */
+function buildShotFlight3DSVG(m,az,el){
+  const W=252,H=212,pad=22,Zmax=120,LE=2.6;
+  const startSlope=Math.tan((m.start||0)*Math.PI/180);
+  const ctrlX=startSlope*Zmax*0.5*LE;
+  const loft=m.loft||31;
+  const peak=Zmax*(0.18+Math.min(0.34,(loft/60)*0.34));
+  const N=28, path=[];
+  for(let i=0;i<=N;i++){const u=i/N; path.push({x:2*(1-u)*u*ctrlX, y:peak*Math.sin(Math.PI*Math.pow(u,0.92)), z:u*Zmax});}
+  const apex={x:2*0.25*ctrlX,y:peak,z:Zmax*0.5};
+  const G=Math.max(20,Math.abs(ctrlX)*1.25);
+  const bounds=[{x:-G,y:0,z:0},{x:G,y:0,z:0},{x:-G,y:0,z:Zmax},{x:G,y:0,z:Zmax},{x:0,y:peak,z:Zmax*0.5}];
+  const T=shaper3DFitter(bounds,az,el,W,H,pad);
+  let grid='';
+  for(let gz=0;gz<=Zmax;gz+=Zmax/4){const a=T(-G,0,gz),b=T(G,0,gz);grid+=`<line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}" stroke="var(--border2)" stroke-width="0.6" opacity="0.45"/>`;}
+  [-G,0,G].forEach(gx=>{const a=T(gx,0,0),b=T(gx,0,Zmax);grid+=`<line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}" stroke="var(--border2)" stroke-width="0.6" opacity="0.45"/>`;});
+  const t0=T(0,0,0),t1=T(0,0,Zmax);
+  const tline=`<line x1="${t0.x.toFixed(1)}" y1="${t0.y.toFixed(1)}" x2="${t1.x.toFixed(1)}" y2="${t1.y.toFixed(1)}" stroke="var(--gold2)" stroke-width="1.2" stroke-dasharray="5,4" opacity="0.7"/>`;
+  /* start-line reference on the ground (direction the ball sets off) */
+  const slPt=T(startSlope*Zmax*LE,0,Zmax);
+  const slGround=ctrlX!==0?`<line x1="${t0.x.toFixed(1)}" y1="${t0.y.toFixed(1)}" x2="${slPt.x.toFixed(1)}" y2="${slPt.y.toFixed(1)}" stroke="var(--sky)" stroke-width="1" stroke-dasharray="3,3" opacity="0.55"/>`:'';
+  const col=shaperShapeColor(m);
+  const pts=path.map(p=>{const s=T(p.x,p.y,p.z);return `${s.x.toFixed(1)},${s.y.toFixed(1)}`;}).join(' ');
+  const ball=T(0,0,0),land=T(path[N].x,0,Zmax),apexS=T(apex.x,apex.y,apex.z),apexG=T(apex.x,0,apex.z);
+  const apexDrop=`<line x1="${apexS.x.toFixed(1)}" y1="${apexS.y.toFixed(1)}" x2="${apexG.x.toFixed(1)}" y2="${apexG.y.toFixed(1)}" stroke="${col}" stroke-width="0.8" stroke-dasharray="2,2" opacity="0.6"/>`;
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block" xmlns="http://www.w3.org/2000/svg">
+    ${grid}${tline}${slGround}${apexDrop}
+    <polyline points="${pts}" fill="none" stroke="${col}" stroke-width="2.6" stroke-linecap="round"/>
+    <circle cx="${ball.x.toFixed(1)}" cy="${ball.y.toFixed(1)}" r="4" fill="var(--ink)"/>
+    <circle cx="${apexS.x.toFixed(1)}" cy="${apexS.y.toFixed(1)}" r="2.6" fill="${col}"/>
+    <circle cx="${land.x.toFixed(1)}" cy="${land.y.toFixed(1)}" r="3.2" fill="var(--gold2)"/>
+    <text x="${t1.x.toFixed(1)}" y="${(t1.y-5).toFixed(1)}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="6.5" fill="var(--gold2)">target</text>
+    <text x="${apexS.x.toFixed(1)}" y="${(apexS.y-5).toFixed(1)}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="6.5" fill="${col}">apex</text>
+  </svg>`;
+}
+
+/* Read the current control values into a shaper model. */
+function currentShaperModel(){
   const clubId=document.getElementById('shaper-club')?.value||'7i';
   const shape=document.getElementById('shaper-shape')?.value||'draw';
   const amount=document.getElementById('shaper-amount')?.value||'standard';
-  const m=shaperModel(clubId,shape,amount);
+  return shaperModel(clubId,shape,amount);
+}
+/* Re-render only the two 3D panels (used by the rotate/tilt sliders so they keep focus). */
+function renderShaper3D(){
+  const row=document.getElementById('shaper-3d-row'); if(!row) return;
+  const m=currentShaperModel();
+  const az=parseFloat(document.getElementById('shaper-az')?.value);
+  const el=parseFloat(document.getElementById('shaper-el')?.value);
+  const A=isNaN(az)?-28:az, E=isNaN(el)?20:el;
+  window.shaper3DAz=A; window.shaper3DEl=E;
+  row.innerHTML=`
+    <div class="shaper-3d-panel"><div class="shaper-3d-title">D-Plane at impact</div>${buildDPlane3DSVG(m,A,E)}</div>
+    <div class="shaper-3d-panel"><div class="shaper-3d-title">Shot shape — 3D ball flight</div>${buildShotFlight3DSVG(m,A,E)}</div>`;
+}
+function renderShotShaper(){
+  const out=document.getElementById('shaper-out'); if(!out) return;
+  const shape=document.getElementById('shaper-shape')?.value||'draw';
+  const m=currentShaperModel();
   const fmt=v=>Math.abs(v)<0.05?'0.0° square':`${Math.abs(v).toFixed(1)}° ${v>0?'R':'L'}`;
+  const az=window.shaper3DAz!=null?window.shaper3DAz:-28, el=window.shaper3DEl!=null?window.shaper3DEl:20;
+  let readout;
   if(shape==='straight'){
-    out.innerHTML=`<div class="shaper-grid"><div class="shaper-readout">
+    readout=`<div class="shaper-readout">
       <div class="shaper-line"><span>3D Face</span><b>0.0° square</b></div>
       <div class="shaper-line"><span>3D Path</span><b>0.0° square</b></div>
       <div class="shaper-line"><span>Start line</span><b>On target</b></div>
-      <div class="shaper-note">Square face, square path — the D-plane is vertical and the ball flies straight.</div>
-    </div><div>${buildShaperSVG(0,'straight')}</div></div>`;
-    return;
-  }
-  const side=shape==='draw'?'left':'right';
-  const launchNote=m.type==='wood'
-    ? 'With the driver, draws launch a touch <b>higher</b> than fades.'
-    : 'With irons, draws launch a touch <b>lower</b> than fades.';
-  out.innerHTML=`<div class="shaper-grid">
-    <div class="shaper-readout">
+      <div class="shaper-line"><span>3D spin loft</span><b>${m.spinLoft.toFixed(0)}°</b></div>
+      <div class="shaper-note">Square face, square path — the D-plane is vertical and the ball flies straight. Drag the sliders to rotate; the vertical climb &amp; descent are now part of the picture.</div>
+    </div>`;
+  } else {
+    const side=shape==='draw'?'left':'right';
+    const launchNote=m.type==='wood'
+      ? 'With the driver, draws launch a touch <b>higher</b> than fades.'
+      : 'With irons, draws launch a touch <b>lower</b> than fades.';
+    readout=`<div class="shaper-readout">
       <div class="shaper-line"><span>3D Face (HFace)</span><b>${fmt(m.face)}</b></div>
       <div class="shaper-line"><span>3D Path (HPath)</span><b>${fmt(m.path)}</b></div>
       <div class="shaper-line"><span>Start line</span><b>${fmt(m.start)} of target</b></div>
       <div class="shaper-line"><span>Spin axis / 3D loft</span><b>${Math.abs(m.spinAxis).toFixed(1)}° ${m.spinAxis<0?'L':'R'} · ${m.spinLoft.toFixed(0)}°</b></div>
       <div class="shaper-line"><span>Curve</span><b>~${Math.abs(m.curve)} yds ${side}</b></div>
       <div class="shaper-note">Ball starts ${fmt(m.start)} (≈80% toward the face), then curves ${side} back to target via a ${Math.abs(m.spinAxis).toFixed(1)}° spin-axis tilt. Spin axis = atan(HDiff/VDiff) — lower spin loft curves more. ${launchNote}</div>
+    </div>`;
+  }
+  out.innerHTML=`
+    ${readout}
+    <div class="shaper-rot">
+      <label>Rotate<input type="range" id="shaper-az" min="-90" max="90" step="2" value="${az}" oninput="renderShaper3D()"></label>
+      <label>Tilt<input type="range" id="shaper-el" min="4" max="62" step="2" value="${el}" oninput="renderShaper3D()"></label>
     </div>
-    <div>${buildShaperSVG(m.start,shape)}</div>
-  </div>`;
+    <div class="shaper-3d-row" id="shaper-3d-row"></div>`;
+  renderShaper3D();
 }
 function buildShotShaper(){
   const wrap=document.getElementById('shot-shaper-wrap'); if(!wrap) return;
   const opts=STATE.clubs.filter(c=>c.type!=='putter').map(c=>`<option value="${c.id}"${c.id==='7i'?' selected':''}>${c.label} — ${c.loft}</option>`).join('');
   wrap.innerHTML=`
     <div class="section-label">Shot Shaper <span class="proto-badge">prototype</span></div>
-    <p class="intro-note" style="margin-bottom:10px">D-plane shot-shaping, calibrated to the StrongerGolf draw/fade study. Pick a club and a shape to see the face, path and start line that bend the ball back to target. Reference defaults — refine with your own launch-monitor data.</p>
+    <p class="intro-note" style="margin-bottom:10px">D-plane shot-shaping, calibrated to the StrongerGolf draw/fade study. Pick a club and a shape to see the face, path and start line that bend the ball back to target — now in 3D, so the vertical climb &amp; descent read alongside the lateral curve. Rotate and tilt the view with the sliders. Reference defaults — refine with your own launch-monitor data.</p>
     <div class="shaper-controls">
       <div class="shaper-ctrl"><label>Club</label><select id="shaper-club" onchange="renderShotShaper()">${opts}</select></div>
       <div class="shaper-ctrl"><label>Shape</label><select id="shaper-shape" onchange="renderShotShaper()"><option value="draw">Draw</option><option value="fade">Fade</option><option value="straight">Straight</option></select></div>
@@ -290,4 +429,4 @@ function buildShotShaper(){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { PARTIAL_CLUBS, SWINGS, buildLookupTable, buildPartialsTable, buildShaperSVG, buildShotShaper, calcSuggestions, effortColor, initCalc, interpFlight, renderCalc, renderShotShaper, selectApproachResult, shaperModel, shaperStockAoA, wedgeModel });
+Object.assign(window, { PARTIAL_CLUBS, SWINGS, buildLookupTable, buildPartialsTable, buildShaperSVG, buildShotShaper, buildDPlane3DSVG, buildShotFlight3DSVG, calcSuggestions, currentShaperModel, effortColor, initCalc, interpFlight, renderCalc, renderShaper3D, renderShotShaper, selectApproachResult, shaper3DProject, shaper3DFitter, shaper3DArrow, shaperModel, shaperStockAoA, wedgeModel });

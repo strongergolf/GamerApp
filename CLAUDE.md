@@ -4,6 +4,9 @@ Golf performance application for serious amateurs. Built by Mark Strong (PGA of 
 
 This file orients any future Claude (or human) working on the codebase. **Read it before making changes.**
 
+## Guiding principle — exact quantification & cause-and-effect
+Pursue **exact quantification and explicit cause-and-effect** as far as possible. Prefer continuous, measurable inputs (sliders in real units — inches, degrees, feet) and physically-derived outputs over coarse qualitative buckets. Every control should connect to its result through a transparent equation, and the UI should surface the causal chain (input → impact condition → outcome). This is the app's core differentiator: a launch-monitor-grounded, physics-honest tool, not a vibes-based aid. Approximations and discrete buckets get caught.
+
 ---
 
 ## What this app is
@@ -113,10 +116,12 @@ All full-swing long-club trajectory SVGs use an **asymmetric cubic bezier** refl
 - Neutral attack angle assumed. Mark hits up on driver — a positive-AoA input is a known future enhancement that would add carry beyond model output.
 
 ### AimPoint putting (putting.js)
-- `aimBreakIn(distFt, grade, stimp, slope, paceIn)`
+- `aimBreakIn(distFt, grade, stimp, slope, paceIn)` returns break relative to the **hole centre** (start line finishes in the cup centre).
 - Pace factor: 12" past the hole = standard; faster pace narrows break, slower reads more.
-- Slope multipliers: very-uphill 0.45, uphill 0.68, level 1.0, downhill 1.42, very-downhill 1.85.
-- The SVG shows a **cone of valid speed/line combinations** (flanking paths), not a single line. UI term: "Side Slope at Point of Influence".
+- **Green Slope** (uphill/downhill) is a continuous slider in inches of elevation over the putt, range −60" (5 ft downhill) to +60" (5 ft uphill). `slopeFactorFromElev(elevIn)` maps it to the break multiplier via piecewise-linear anchors that preserve the old categorical values: +60→0.45, +30→0.68, 0→1.0, −30→1.42, −60→1.85 (uphill less break, downhill more).
+- **Hole radius (2.125") must be deducted** for the actionable aim. Aim-outside-edge = `breakIn − 2.125` (floored at 0). **Cup Widths** = cups outside the *real* cup's edge = `(breakIn − 2.125) / 4.25`, NOT `breakIn / 4.25`.
+- **Break direction** has a Straight option that zeroes the Side Slope (grade) slider, and vice versa (grade 0 ⇒ Straight).
+- The SVG shows a **cone of valid speed/line combinations** (flanking paths), not a single line. UI term: "Side Slope at Point of Influence" (spell out — no "P.O.I." abbreviation).
 
 ### Dispersion (bag.js)
 - Geometric: `halfAngle = atan(dispersion / carry)`.
