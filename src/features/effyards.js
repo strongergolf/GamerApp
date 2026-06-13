@@ -105,8 +105,7 @@ function buildEyPanel(ctx){
     </div>`;
   }).join('');
   host.innerHTML=`<div class="ey-panel">
-    <div class="ey-head"><span class="ey-title">Plays-Like Adjustments</span><button type="button" class="ey-reset" onclick="eyReset('${ctx}')">reset</button></div>
-    <div class="ey-summary" id="ey-${ctx}-summary">${eySummaryHTML(ctx,S)}</div>
+    <div class="ey-head"><span class="ey-title">Situational Info</span><div class="ey-summary" id="ey-${ctx}-summary">${eySummaryHTML(ctx,S)}</div><button type="button" class="ey-reset" onclick="eyReset('${ctx}')">reset</button></div>
     <div class="ey-grid">${rows}</div>
   </div>`;
 }

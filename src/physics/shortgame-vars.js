@@ -112,6 +112,12 @@ function setSgVar(key,id){
   if(typeof renderChipDial==='function') renderChipDial();
   if(typeof renderSgVars==='function') renderSgVars();
 }
+/* slider helper: set a variable from a step-slider index */
+function setSgVarIdx(key,idx){
+  const v=sgVarList().find(x=>x.key===key); if(!v) return;
+  const i=Math.max(0,Math.min(v.opts.length-1,Math.round(parseFloat(idx))));
+  setSgVar(key, v.opts[i].id);
+}
 function resetSgVars(){
   STATE.sgVars={}; sgSel(); saveState();
   if(typeof renderChipDial==='function') renderChipDial();
@@ -119,4 +125,4 @@ function resetSgVars(){
 }
 
 // Expose for inline handlers + cross-module use during the staged migration.
-Object.assign(window, { SG_VARS, SG_K, sgVarList, sgSel, sgRawNet, sgNet, sgEffLoftDelta, setSgVar, resetSgVars });
+Object.assign(window, { SG_VARS, SG_K, sgVarList, sgSel, sgRawNet, sgNet, sgEffLoftDelta, setSgVar, setSgVarIdx, resetSgVars });

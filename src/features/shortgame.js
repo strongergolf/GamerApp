@@ -79,11 +79,6 @@ function buildShortGame(){
 function renderSgVars(){
   const wrap=document.getElementById('sg-vars-wrap'); if(!wrap) return;
   const sel=sgSel();
-  const opt=(v,o)=>{
-    const on=sel[v.key]===o.id;
-    const provMark=o.prov?'<span class="sgv-prov" title="Provisional — magnitude pending calibration">·prov</span>':'';
-    return `<button type="button" class="sgv-opt${on?' on':''}" onclick="setSgVar('${v.key}','${o.id}')">${o.label}${provMark}</button>`;
-  };
   const effSummary=v=>{
     const o=v.opts.find(x=>x.id===sel[v.key])||v.opts.find(x=>x.id===v.def);
     if(!o||!o.eff) return '';
@@ -95,12 +90,19 @@ function renderSgVars(){
     if(o.eff.bounce)    parts.push(`${o.eff.bounce>0?'+':''}${o.eff.bounce}° bounce`);
     return parts.length?`<div class="sgv-eff">${parts.join(' · ')}</div>`:(v.tbd?'<div class="sgv-eff sgv-tbd">effect to be defined</div>':'');
   };
-  const varRow=v=>`
-    <div class="sgv-row">
+  const varRow=v=>{
+    const idx=Math.max(0,v.opts.findIndex(o=>o.id===sel[v.key]));
+    const cur=v.opts[idx]||v.opts[0];
+    const provMark=cur.prov?'<span class="sgv-prov" title="Provisional — magnitude pending calibration">·prov</span>':'';
+    return `<div class="sgv-row">
       <div class="sgv-meta"><span class="sgv-label">${v.label}</span><span class="sgv-sub">${v.sub}</span></div>
-      <div class="sgv-opts">${v.opts.map(o=>opt(v,o)).join('')}</div>
+      <div class="sgv-slider-row">
+        <input type="range" class="sgv-range" min="0" max="${v.opts.length-1}" step="1" value="${idx}" oninput="setSgVarIdx('${v.key}',this.value)">
+        <span class="sgv-cur">${cur.label}${provMark}</span>
+      </div>
       ${effSummary(v)}
     </div>`;
+  };
   const net=sgNet(), a=net.abs;
   const arrow=x=>x>0.05?'▲':x<-0.05?'▼':'·';
   const fmt=(x,u,d=1)=>`${x>0?'+':''}${x.toFixed(d)}${u}`;
