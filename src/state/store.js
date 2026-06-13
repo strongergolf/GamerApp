@@ -47,6 +47,8 @@ function mergeDefaults(saved){
   const courses = Array.isArray(sv.courses) ? sv.courses : base.courses;
   /* Strategy preferences: merge so new keys get defaults while keeping the user's picks. */
   const strategy = Object.assign({}, base.strategy, sv.strategy||{});
+  /* Short Game Variables: merge so new variables get defaults while keeping the user's picks. */
+  const sgVars = Object.assign({}, base.sgVars, sv.sgVars||{});
   /* New STATE slices — keep saved if present, else default. */
   const missTendency = Object.assign({}, base.missTendency, sv.missTendency||{});
   const skillsTests = Array.isArray(sv.skillsTests) ? sv.skillsTests : base.skillsTests;
@@ -57,6 +59,7 @@ function mergeDefaults(saved){
     dplane,
     courses,
     strategy,
+    sgVars,
     missTendency,
     skillsTests,
     hcpHistory,

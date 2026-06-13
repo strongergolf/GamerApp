@@ -50,14 +50,73 @@ function buildShortGame(){
     <!-- 6. Chip Matrix -->
     <div class="section-label">Chip Reference Matrix — Total Distance by Club &amp; Carry</div>
     <p class="intro-note" style="margin-bottom:10px">Launch = 75% of loft. Roll ratio: Low Runner 1:5 (7i) → Standard 1:2 (P) → Toss 1:1 (G) → Flop 5:1 (X). Cells show carry + rollout at current stimp and slope.</p>
-    <div class="chip-matrix-wrap"><table class="chip-matrix" id="chip-matrix-table"></table></div>`;
+    <div class="chip-matrix-wrap"><table class="chip-matrix" id="chip-matrix-table"></table></div>
+
+    <!-- 7. Short Game Variables -->
+    <div class="section-label" style="margin-top:22px">Short Game Variables</div>
+    <p class="intro-note" style="margin-bottom:10px">Setup and motion choices reshape the shot's impact conditions — shaft lean, vertical path, effective loft and bounce — which flow into the launch &amp; spin of the Chip Shot Options above. Defaults match the standard chip; changes shift every club in the dial.</p>
+    <div id="sg-vars-wrap"></div>`;
 
   buildChipMatrix();
+  renderSgVars();
   /* Default selection: P wedge */
   const _clubs=chipClubs();
   const _pIdx=_clubs.findIndex(c=>c.id==='P');
   window.chipSelectedIdx=_pIdx>=0?_pIdx:-1;
   renderChipDial();
+}
+
+/* ---- Short Game Variables panel: grouped selectable options + net shot-effect readout ---- */
+function renderSgVars(){
+  const wrap=document.getElementById('sg-vars-wrap'); if(!wrap) return;
+  const sel=sgSel();
+  const opt=(v,o)=>{
+    const on=sel[v.key]===o.id;
+    const provMark=o.prov?'<span class="sgv-prov" title="Provisional — magnitude pending calibration">·prov</span>':'';
+    return `<button type="button" class="sgv-opt${on?' on':''}" onclick="setSgVar('${v.key}','${o.id}')">${o.label}${provMark}</button>`;
+  };
+  const effSummary=v=>{
+    const o=v.opts.find(x=>x.id===sel[v.key])||v.opts.find(x=>x.id===v.def);
+    if(!o||!o.eff) return '';
+    const parts=[];
+    if(o.eff.horizLean) parts.push(`${o.eff.horizLean>0?'+':''}${o.eff.horizLean}° lean`);
+    if(o.eff.vertPath)  parts.push(`${o.eff.vertPath<0?o.eff.vertPath+'° down path':'+'+o.eff.vertPath+'° up path'}`);
+    if(o.eff.vertLean)  parts.push(`${o.eff.vertLean>0?'+':''}${o.eff.vertLean}° vert lean`);
+    if(o.eff.loft)      parts.push(`${o.eff.loft>0?'+':''}${o.eff.loft}° loft`);
+    if(o.eff.bounce)    parts.push(`${o.eff.bounce>0?'+':''}${o.eff.bounce}° bounce`);
+    return parts.length?`<div class="sgv-eff">${parts.join(' · ')}</div>`:(v.tbd?'<div class="sgv-eff sgv-tbd">effect to be defined</div>':'');
+  };
+  const varRow=v=>`
+    <div class="sgv-row">
+      <div class="sgv-meta"><span class="sgv-label">${v.label}</span><span class="sgv-sub">${v.sub}</span></div>
+      <div class="sgv-opts">${v.opts.map(o=>opt(v,o)).join('')}</div>
+      ${effSummary(v)}
+    </div>`;
+  const net=sgNet(), a=net.abs;
+  const arrow=x=>x>0.05?'▲':x<-0.05?'▼':'·';
+  const fmt=(x,u,d=1)=>`${x>0?'+':''}${x.toFixed(d)}${u}`;
+  const provNote=net.prov?'<span class="sgv-prov" style="margin-left:6px">includes provisional values</span>':'';
+  const readout=`
+    <div class="sgv-readout">
+      <div class="sgv-readout-head">Net Shot Effect ${provNote}</div>
+      <div class="sgv-impact">
+        <span>Shaft lean <b>${a.horizLean.toFixed(0)}°</b></span>
+        <span>Vert path <b>${a.vertPath>0?'+':''}${a.vertPath.toFixed(0)}°</b></span>
+        <span>Eff. loft <b>${a.effLoft>0?'+':''}${a.effLoft.toFixed(1)}°</b></span>
+        <span>Bounce <b>${a.bounce>0?'+':''}${a.bounce.toFixed(0)}°</b></span>
+      </div>
+      <div class="sgv-shot">
+        <div class="sgv-shot-cell"><span class="sgv-k">Effective Loft</span><span class="sgv-v">${arrow(net.dEffLoft)} ${fmt(net.dEffLoft,'°')}</span></div>
+        <div class="sgv-shot-cell"><span class="sgv-k">Launch</span><span class="sgv-v">${arrow(net.dLaunch)} ${fmt(net.dLaunch,'°')}</span></div>
+        <div class="sgv-shot-cell"><span class="sgv-k">Spin</span><span class="sgv-v">${arrow(net.dSpin)} ${fmt(net.dSpin,' rpm',0)}</span></div>
+        <div class="sgv-shot-cell"><span class="sgv-k">Bounce</span><span class="sgv-v">${arrow(net.dBounce)} ${fmt(net.dBounce,'°')}</span></div>
+      </div>
+      <div class="sgv-readout-foot">vs. the standard chip (Middle · Neutral · Square · Level · Blend). <button type="button" class="sgv-reset" onclick="resetSgVars()">Reset to standard</button></div>
+    </div>`;
+  wrap.innerHTML=`
+    <div class="sgv-cat"><div class="sgv-cat-head">Setup</div>${SG_VARS.setup.map(varRow).join('')}</div>
+    <div class="sgv-cat"><div class="sgv-cat-head">Pivot &amp; Release</div>${SG_VARS.pivot.map(varRow).join('')}</div>
+    ${readout}`;
 }
 
 function renderChipDial(){
@@ -67,10 +126,14 @@ function renderChipDial(){
   const results=document.getElementById('chip-results'); if(!results) return;
   if(!clubs.length){ results.innerHTML='<div class="calc-no-result">No clubs in range.</div>'; return; }
 
+  /* Short Game Variables shift effective loft (setup + pivot choices). Applied to every
+     club so the whole shot menu responds. Relative to the neutral baseline → 0 when default. */
+  const sgDelta = typeof sgEffLoftDelta==='function' ? sgEffLoftDelta() : 0;
+
   /* compute rows for all clubs */
   let bestIdx=-1, bestDiff=999;
   const rows=clubs.map((c,i)=>{
-    const loft=parseFloat(c.loft);
+    const loft=Math.max(10, parseFloat(c.loft)+sgDelta);
     const carry=chipCarryForTotal(totalYd,loft,stimp,slope);
     const roll=chipRollout(carry,loft,stimp,slope);
     const total=carry+roll;
@@ -106,8 +169,9 @@ function renderChipDial(){
   if(trajWrap){
     if(displayIdx>=0){
       const {c,carry,roll,loft}=rows[displayIdx];
+      const effNote = Math.abs(sgDelta)>=0.5 ? ` <span style="color:var(--gold);font-weight:700">plays ${loft.toFixed(0)}° eff</span>` : '';
       trajWrap.innerHTML=`<div class="chip-svg-wrap">
-        <div class="chip-svg-label" style="font-size:.8rem;font-weight:700;color:var(--ink);letter-spacing:.01em">${c.label} (${c.loft}) — carry ${carry.toFixed(1)} yd → roll ${roll.toFixed(1)} yd · launch ${(loft*0.75).toFixed(0)}° · ${chipArchetype(loft)}</div>
+        <div class="chip-svg-label" style="font-size:.8rem;font-weight:700;color:var(--ink);letter-spacing:.01em">${c.label} (${c.loft})${effNote} — carry ${carry.toFixed(1)} yd → roll ${roll.toFixed(1)} yd · launch ${(loft*0.75).toFixed(0)}° · ${chipArchetype(loft)}</div>
         ${buildChipSVG(carry,roll,loft)}
       </div>`;
     } else { trajWrap.innerHTML=''; }
@@ -218,4 +282,4 @@ function buildChipMatrix(){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { buildChipMatrix, buildChipSVG, buildShortGame, renderChipDial });
+Object.assign(window, { buildChipMatrix, buildChipSVG, buildShortGame, renderChipDial, renderSgVars });

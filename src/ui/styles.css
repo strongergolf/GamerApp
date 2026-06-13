@@ -432,6 +432,33 @@ table.chip-matrix tr:hover td{background:var(--surface2)}
 .chip-cell{font-family:Arial,sans-serif;font-weight:700;font-size:1.1rem;letter-spacing:.02em;color:var(--ink);line-height:1;text-align:center}
 .chip-cell small{display:block;font-family:ui-monospace,monospace;font-size:.58rem;color:var(--muted);margin-top:1px;font-weight:400}
 
+/* SHORT GAME VARIABLES */
+.sgv-cat{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:12px}
+.sgv-cat-head{font-family:Arial,sans-serif;font-size:.62rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent,var(--ink2));margin-bottom:10px}
+.sgv-row{padding:9px 0;border-top:1px solid var(--border)}
+.sgv-row:first-of-type{border-top:none;padding-top:2px}
+.sgv-meta{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.sgv-label{font-family:Arial,sans-serif;font-size:.84rem;font-weight:700;color:var(--ink)}
+.sgv-sub{font-family:ui-monospace,monospace;font-size:.58rem;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.sgv-opts{display:flex;gap:6px;flex-wrap:wrap}
+.sgv-opt{font-family:Arial,sans-serif;font-size:.74rem;font-weight:600;padding:5px 11px;background:var(--bg2);border:1px solid var(--border2);border-radius:20px;color:var(--ink2);cursor:pointer;transition:all .12s;white-space:nowrap}
+.sgv-opt:hover{border-color:var(--accent,var(--ink2));color:var(--ink)}
+.sgv-opt.on{background:var(--accent,#3a7d5c);border-color:var(--accent,#3a7d5c);color:#fff}
+.sgv-prov{font-family:ui-monospace,monospace;font-size:.52rem;font-weight:600;color:var(--gold);margin-left:4px;letter-spacing:.02em}
+.sgv-eff{font-family:ui-monospace,monospace;font-size:.62rem;color:var(--muted);margin-top:5px;letter-spacing:.02em}
+.sgv-tbd{color:var(--gold);opacity:.85;font-style:italic}
+.sgv-readout{background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:12px 14px;margin-bottom:18px}
+.sgv-readout-head{font-family:Arial,sans-serif;font-size:.62rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.sgv-impact{display:flex;flex-wrap:wrap;gap:6px 16px;font-family:ui-monospace,monospace;font-size:.66rem;color:var(--muted);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.sgv-impact b{color:var(--ink);font-weight:700}
+.sgv-shot{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.sgv-shot-cell{display:flex;flex-direction:column;gap:2px;align-items:flex-start}
+.sgv-k{font-family:Arial,sans-serif;font-size:.5rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.sgv-v{font-family:ui-monospace,monospace;font-size:.86rem;font-weight:700;color:var(--ink)}
+.sgv-readout-foot{font-family:ui-monospace,monospace;font-size:.58rem;color:var(--muted);margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.sgv-reset{font-family:Arial,sans-serif;font-size:.66rem;font-weight:600;padding:3px 10px;background:transparent;border:1px solid var(--border2);border-radius:14px;color:var(--ink2);cursor:pointer}
+.sgv-reset:hover{border-color:var(--accent,var(--ink2));color:var(--ink)}
+
 /* CHIP CALCULATOR */
 .chip-calc-wrap{background:var(--surface);border:1px solid var(--border2);border-radius:10px;overflow:hidden;margin-bottom:18px}
 .chip-calc-body{padding:14px 16px}

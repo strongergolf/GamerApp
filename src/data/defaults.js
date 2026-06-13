@@ -19,6 +19,9 @@ const DEFAULT_DATA = {
   baseline: { tempF:75, altitudeFt:0, humidity:50, pressureInHg:29.92 },
   densityK: 0.65,
   stimp: 9.5,
+  /* Short Game Variables (Short Game tab) — selected option id per variable.
+     Keys/options defined in physics/shortgame-vars.js; defaults net to zero change. */
+  sgVars: {},
   scoring: {
     rounds: []
     /* each round: {id, date, course, ott, app, atg, putt, gross, notes} */
