@@ -36,7 +36,7 @@ const EY_TERMS = [
       ['heavyrough','Heavy rough'],['bunker','Bunker'],['hardpan','Hardpan'],['divot','Divot'],
       ['fairway','Fairway'],['tee','Tee'],['lightrough','Light rough · flyer']] },
   { key:'stance', label:'Stance', type:'step', opts:[
-      ['uphill','Uphill lie'],['below','Ball below feet'],['flat','Flat'],['above','Ball above feet'],['downhill','Downhill lie']] },
+      ['uphill','Uphill lie'],['flat','Flat'],['downhill','Downhill lie']] },   /* above/below feet live in the Shot Shaper */
   { key:'wind', label:'Wind', type:'range', min:-20, max:20, step:1,
       fmt:v=> v>0?`${v} mph into`:v<0?`${-v} mph down`:'calm' },
   { key:'elev', label:'Elevation', type:'range', min:-30, max:30, step:1,

@@ -232,27 +232,44 @@ function initCalc(){
    needed. All numbers are population defaults — refine with own LM data.
    ============================================================ */
 function shaperStockAoA(clubId,type){ return type==='wood'?(clubId==='D'?1:-1):type==='iron'?-4:-6; }
-function shaperModel(clubId,shape,amount){
+/* Side-hill lie bias (RH). Ball ABOVE feet → flatter plane, toe-low → starts left and
+   draws; ball BELOW feet → upright → starts right and fades. Returns the spin-axis and
+   start-line nudges (deg) layered onto the chosen shape. Estimates — tune to the player. */
+const SHAPER_LIE = { level:{axis:0,start:0}, above:{axis:-2.5,start:-1.2}, below:{axis:+2.5,start:+1.2} };
+function shaperModel(clubId,shape,amount,lie){
   const c=STATE.clubs.find(x=>x.id===clubId);
   const loft=c?parseFloat(c.loft)||31:31, type=c?c.type:'iron', label=c?c.label:'7';
   const carry=(perf(clubId)||{}).carry||160;
   const aoa=shaperStockAoA(clubId,type);
-  if(shape==='straight') return {face:0,path:0,start:0,curve:0,spinAxis:0,spinLoft:+(loft-aoa).toFixed(1),loft,type,label,carry};
-  /* Reference face/path that finish on target (Study 01: 6i draw 2.2R/4.7R), loft-scaled.
-     Exact spin axis / 3D spin loft / start / curve come from the shared D-plane engine. */
-  const refFace=shape==='draw'?2.2:2.6, refPath=shape==='draw'?4.7:5.4;
-  const amt=amount==='slight'?0.6:amount==='strong'?1.4:1.0;
-  const lf=Math.sqrt(loft/31);                 // lower loft ⇒ less face/path for same curve
-  const dir=shape==='draw'?1:-1;               // draw: face/path RIGHT(+) of target
-  const face=+(refFace*amt*lf*dir).toFixed(1);
-  const path=+(refPath*amt*lf*dir).toFixed(1);
-  const r=dpSolve(face,path,loft,aoa,carry);   // exact engine
-  return {face,path,
-    start:+r.hLaunch.toFixed(1),
-    curve:Math.round(Math.abs(r.curveYds)),
-    spinAxis:+r.spinAxis.toFixed(1),
-    spinLoft:+r.spinLoft.toFixed(1),
-    loft,type,label,carry};
+  let res;
+  if(shape==='straight'){
+    res={face:0,path:0,start:0,curve:0,spinAxis:0,spinLoft:+(loft-aoa).toFixed(1),loft,type,label,carry};
+  } else {
+    /* Reference face/path that finish on target (Study 01: 6i draw 2.2R/4.7R), loft-scaled.
+       Exact spin axis / 3D spin loft / start / curve come from the shared D-plane engine. */
+    const refFace=shape==='draw'?2.2:2.6, refPath=shape==='draw'?4.7:5.4;
+    const amt=amount==='slight'?0.6:amount==='strong'?1.4:1.0;
+    const lf=Math.sqrt(loft/31);                 // lower loft ⇒ less face/path for same curve
+    const dir=shape==='draw'?1:-1;               // draw: face/path RIGHT(+) of target
+    const face=+(refFace*amt*lf*dir).toFixed(1);
+    const path=+(refPath*amt*lf*dir).toFixed(1);
+    const r=dpSolve(face,path,loft,aoa,carry);   // exact engine
+    res={face,path,
+      start:+r.hLaunch.toFixed(1),
+      curve:Math.round(Math.abs(r.curveYds)),
+      spinAxis:+r.spinAxis.toFixed(1),
+      spinLoft:+r.spinLoft.toFixed(1),
+      loft,type,label,carry};
+  }
+  /* layer the side-hill lie bias onto the shape, then recompute curve from the new axis */
+  const lb=SHAPER_LIE[lie]||SHAPER_LIE.level;
+  if(lb.axis||lb.start){
+    res.spinAxis=+(res.spinAxis+lb.axis).toFixed(1);
+    res.start=+(res.start+lb.start).toFixed(1);
+    res.curve=Math.round(Math.abs(dpCurveYds(res.spinAxis,carry)));
+    res.lie=lie;
+  }
+  return res;
 }
 function buildShaperSVG(start,shape){
   const W=220,H=240,cx=W/2,by=H-22,ty=26;
@@ -358,17 +375,20 @@ function buildDPlane3DSVG(m,az,el){
 
 /* Panel 2 — 3D ball flight: curving arc with both the lateral shape (draw/fade) and the
    vertical trajectory (launch, apex, descent) visible in perspective. */
-function buildShotFlight3DSVG(m,az,el){
+function buildShotFlight3DSVG(m,az,el,driftYd){
   const W=252,H=212,pad=22,Zmax=120,LE=2.6;
   const startSlope=Math.tan((m.start||0)*Math.PI/180);
   const ctrlX=startSlope*Zmax*0.5*LE;
   const loft=m.loft||31;
   const peak=Zmax*(0.18+Math.min(0.34,(loft/60)*0.34));
+  /* crosswind drift (world lateral, + = right) accumulates through the flight */
+  const wind=(driftYd||0)*(Zmax/(m.carry||150))*LE;
   const N=28, path=[];
-  for(let i=0;i<=N;i++){const u=i/N; path.push({x:2*(1-u)*u*ctrlX, y:peak*Math.sin(Math.PI*Math.pow(u,0.92)), z:u*Zmax});}
-  const apex={x:2*0.25*ctrlX,y:peak,z:Zmax*0.5};
-  const G=Math.max(20,Math.abs(ctrlX)*1.25);
-  const bounds=[{x:-G,y:0,z:0},{x:G,y:0,z:0},{x:-G,y:0,z:Zmax},{x:G,y:0,z:Zmax},{x:0,y:peak,z:Zmax*0.5}];
+  for(let i=0;i<=N;i++){const u=i/N; const bow=2*(1-u)*u*ctrlX, drift=wind*Math.pow(u,1.4); path.push({x:bow+drift, y:peak*Math.sin(Math.PI*Math.pow(u,0.92)), z:u*Zmax});}
+  const apex={x:2*0.25*ctrlX+wind*Math.pow(0.5,1.4),y:peak,z:Zmax*0.5};
+  const landX=wind;
+  const G=Math.max(20,Math.abs(ctrlX)*1.25,Math.abs(wind)*1.2);
+  const bounds=[{x:-G,y:0,z:0},{x:G,y:0,z:0},{x:-G,y:0,z:Zmax},{x:G,y:0,z:Zmax},{x:0,y:peak,z:Zmax*0.5},{x:landX,y:0,z:Zmax}];
   const T=shaper3DFitter(bounds,az,el,W,H,pad);
   let grid='';
   for(let gz=0;gz<=Zmax;gz+=Zmax/4){const a=T(-G,0,gz),b=T(G,0,gz);grid+=`<line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}" stroke="var(--border2)" stroke-width="0.6" opacity="0.45"/>`;}
@@ -380,13 +400,16 @@ function buildShotFlight3DSVG(m,az,el){
   const slGround=ctrlX!==0?`<line x1="${t0.x.toFixed(1)}" y1="${t0.y.toFixed(1)}" x2="${slPt.x.toFixed(1)}" y2="${slPt.y.toFixed(1)}" stroke="var(--sky)" stroke-width="1" stroke-dasharray="3,3" opacity="0.55"/>`:'';
   const col=shaperShapeColor(m);
   const pts=path.map(p=>{const s=T(p.x,p.y,p.z);return `${s.x.toFixed(1)},${s.y.toFixed(1)}`;}).join(' ');
-  const ball=T(0,0,0),apexS=T(apex.x,apex.y,apex.z),apexG=T(apex.x,0,apex.z);
+  const ball=T(0,0,0),apexS=T(apex.x,apex.y,apex.z),apexG=T(apex.x,0,apex.z),land=T(landX,0,Zmax);
   const apexDrop=`<line x1="${apexS.x.toFixed(1)}" y1="${apexS.y.toFixed(1)}" x2="${apexG.x.toFixed(1)}" y2="${apexG.y.toFixed(1)}" stroke="${col}" stroke-width="0.8" stroke-dasharray="2,2" opacity="0.6"/>`;
   const flagTop=T(0,Math.min(30,peak*0.6),Zmax);  /* flagstick at the target */
+  /* if the wind blows the ball off the target line, show the gap + landing spot */
+  const driftMark=Math.abs(driftYd||0)>=1?`<line x1="${t1.x.toFixed(1)}" y1="${t1.y.toFixed(1)}" x2="${land.x.toFixed(1)}" y2="${land.y.toFixed(1)}" stroke="var(--sky)" stroke-width="1" stroke-dasharray="2,2" opacity="0.7"/><circle cx="${land.x.toFixed(1)}" cy="${land.y.toFixed(1)}" r="2.4" fill="var(--sky)"/><text x="${land.x.toFixed(1)}" y="${(land.y+10).toFixed(1)}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="6.5" fill="var(--sky)">${Math.abs(driftYd)}y ${driftYd>0?'R':'L'}</text>`:'';
   return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block" xmlns="http://www.w3.org/2000/svg">
     ${grid}${tline}${slGround}${apexDrop}
     <polyline points="${pts}" fill="none" stroke="${col}" stroke-width="2.6" stroke-linecap="round"/>
     <circle cx="${apexS.x.toFixed(1)}" cy="${apexS.y.toFixed(1)}" r="2.6" fill="${col}"/>
+    ${driftMark}
     ${sgFlagstick(t1.x,t1.y,flagTop.x,flagTop.y,1)}
     ${sgBall(ball.x,ball.y,5)}
     <text x="${apexS.x.toFixed(1)}" y="${(apexS.y-5).toFixed(1)}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="6.5" fill="${col}">apex</text>
@@ -398,7 +421,13 @@ function currentShaperModel(){
   const clubId=document.getElementById('shaper-club')?.value||'7i';
   const shape=document.getElementById('shaper-shape')?.value||'draw';
   const amount=document.getElementById('shaper-amount')?.value||'standard';
-  return shaperModel(clubId,shape,amount);
+  const lie=document.getElementById('shaper-lie')?.value||'level';
+  return shaperModel(clubId,shape,amount,lie);
+}
+/* crosswind drift (yd, + = ball pushed right) from the shaper's crosswind slider */
+function shaperCrossDrift(){
+  const cross=parseFloat(document.getElementById('shaper-cross')?.value||0);
+  return Math.round((typeof PS_CROSS_YPM!=='undefined'?PS_CROSS_YPM:2.0)*cross);
 }
 /* Re-render only the two 3D panels (used by the rotate/tilt sliders so they keep focus). */
 function renderShaper3D(){
@@ -408,24 +437,36 @@ function renderShaper3D(){
   const el=parseFloat(document.getElementById('shaper-el')?.value);
   const A=isNaN(az)?-28:az, E=isNaN(el)?20:el;
   window.shaper3DAz=A; window.shaper3DEl=E;
+  const drift=shaperCrossDrift();
   row.innerHTML=`
     <div class="shaper-3d-panel"><div class="shaper-3d-title">D-Plane at impact</div>${buildDPlane3DSVG(m,A,E)}</div>
-    <div class="shaper-3d-panel"><div class="shaper-3d-title">Shot shape — 3D ball flight</div>${buildShotFlight3DSVG(m,A,E)}</div>`;
+    <div class="shaper-3d-panel"><div class="shaper-3d-title">Shot shape — 3D ball flight</div>${buildShotFlight3DSVG(m,A,E,drift)}</div>`;
 }
 function renderShotShaper(){
   const out=document.getElementById('shaper-out'); if(!out) return;
   const shape=document.getElementById('shaper-shape')?.value||'draw';
+  const lie=document.getElementById('shaper-lie')?.value||'level';
+  const cross=parseFloat(document.getElementById('shaper-cross')?.value||0);
   const m=currentShaperModel();
   const fmt=v=>Math.abs(v)<0.05?'0.0° square':`${Math.abs(v).toFixed(1)}° ${v>0?'R':'L'}`;
   const az=window.shaper3DAz!=null?window.shaper3DAz:-28, el=window.shaper3DEl!=null?window.shaper3DEl:20;
+  /* side-hill lie + crosswind extra read-out lines (shared by both branches) */
+  const lieLine = lie!=='level'
+    ? `<div class="shaper-line"><span>Lie (side-hill)</span><b>${lie==='above'?'Ball above feet':'Ball below feet'}</b></div>
+       <div class="shaper-note">Ball ${lie==='above'?'above':'below'} the feet biases the shot ${lie==='above'?'left (draw)':'right (fade)'} — already folded into the start line &amp; curve above.</div>` : '';
+  const driftYd=Math.round((typeof PS_CROSS_YPM!=='undefined'?PS_CROSS_YPM:2.0)*cross);
+  const windLine = cross!==0
+    ? `<div class="shaper-line"><span>Crosswind</span><b>${Math.abs(cross)} mph ${cross>0?'L→R':'R→L'}</b></div>
+       <div class="shaper-note">Pushes the ball ~<b>${Math.abs(driftYd)} yd ${driftYd>0?'right':'left'}</b> in the air — aim about <b>${Math.abs(driftYd)} yd ${driftYd>0?'left':'right'}</b> of the target to hold it (shown on the flight as the blue drift).</div>` : '';
   let readout;
   if(shape==='straight'){
     readout=`<div class="shaper-readout">
-      <div class="shaper-line"><span>3D Face</span><b>0.0° square</b></div>
-      <div class="shaper-line"><span>3D Path</span><b>0.0° square</b></div>
-      <div class="shaper-line"><span>Start line</span><b>On target</b></div>
-      <div class="shaper-line"><span>3D spin loft</span><b>${m.spinLoft.toFixed(0)}°</b></div>
-      <div class="shaper-note">Square face, square path — the D-plane is vertical and the ball flies straight. Drag the sliders to rotate; the vertical climb &amp; descent are now part of the picture.</div>
+      <div class="shaper-line"><span>3D Face</span><b>${lie==='level'?'0.0° square':fmt(0)}</b></div>
+      <div class="shaper-line"><span>Start line</span><b>${m.start&&Math.abs(m.start)>=0.05?fmt(m.start)+' of target':'On target'}</b></div>
+      <div class="shaper-line"><span>Spin axis / 3D loft</span><b>${Math.abs(m.spinAxis).toFixed(1)}° ${m.spinAxis<0?'L':m.spinAxis>0?'R':'·'} · ${m.spinLoft.toFixed(0)}°</b></div>
+      ${m.curve?`<div class="shaper-line"><span>Curve</span><b>~${Math.abs(m.curve)} yds ${m.spinAxis<0?'left':'right'}</b></div>`:''}
+      <div class="shaper-note">Square face, square path — without a side-hill lie the ball flies straight. ${lie!=='level'?'The lie below adds the bias.':'Drag the sliders to rotate; the vertical climb &amp; descent are part of the picture.'}</div>
+      ${lieLine}${windLine}
     </div>`;
   } else {
     const side=shape==='draw'?'left':'right';
@@ -439,6 +480,7 @@ function renderShotShaper(){
       <div class="shaper-line"><span>Spin axis / 3D loft</span><b>${Math.abs(m.spinAxis).toFixed(1)}° ${m.spinAxis<0?'L':'R'} · ${m.spinLoft.toFixed(0)}°</b></div>
       <div class="shaper-line"><span>Curve</span><b>~${Math.abs(m.curve)} yds ${side}</b></div>
       <div class="shaper-note">Ball starts ${fmt(m.start)} (≈80% toward the face), then curves ${side} back to target via a ${Math.abs(m.spinAxis).toFixed(1)}° spin-axis tilt. Spin axis = atan(HDiff/VDiff) — lower spin loft curves more. ${launchNote}</div>
+      ${lieLine}${windLine}
     </div>`;
   }
   out.innerHTML=`
@@ -460,13 +502,16 @@ function buildShotShaper(){
       <div class="shaper-ctrl"><label>Club</label><select id="shaper-club" onchange="renderShotShaper()">${opts}</select></div>
       <div class="shaper-ctrl"><label>Shape</label><select id="shaper-shape" onchange="renderShotShaper()"><option value="draw">Draw</option><option value="fade">Fade</option><option value="straight">Straight</option></select></div>
       <div class="shaper-ctrl"><label>Amount</label><select id="shaper-amount" onchange="renderShotShaper()"><option value="slight">Slight</option><option value="standard" selected>Standard</option><option value="strong">Strong</option></select></div>
+      <div class="shaper-ctrl"><label>Lie</label><select id="shaper-lie" onchange="renderShotShaper()"><option value="level">Level stance</option><option value="above">Ball above feet</option><option value="below">Ball below feet</option></select></div>
+      <div class="shaper-ctrl"><label>Crosswind <span id="shaper-cross-val" style="font-family:Arial,sans-serif;font-weight:700;color:var(--ink2)">calm</span></label><input type="range" id="shaper-cross" min="-20" max="20" step="1" value="0" style="width:100%" oninput="document.getElementById('shaper-cross-val').textContent=fmtCross(this.value);renderShotShaper()"><div style="display:flex;justify-content:space-between;font-family:ui-monospace,monospace;font-size:.5rem;color:var(--muted);margin-top:2px"><span>R→L</span><span>L→R</span></div></div>
     </div>
     <div id="shaper-out"></div>`;
   renderShotShaper();
 }
+function fmtCross(v){ v=parseFloat(v)||0; return v===0?'calm':`${Math.abs(v)} mph ${v>0?'L→R':'R→L'}`; }
 
 
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { PARTIAL_CLUBS, SWINGS, buildLookupTable, buildPartialsTable, buildShaperSVG, buildShotShaper, buildDPlane3DSVG, buildShotFlight3DSVG, calcSuggestions, currentShaperModel, effortColor, initCalc, interpFlight, renderCalc, renderShaper3D, renderShotShaper, selectApproachResult, shaper3DProject, shaper3DFitter, shaper3DArrow, shaperModel, shaperStockAoA, wedgeModel });
+Object.assign(window, { PARTIAL_CLUBS, SWINGS, SHAPER_LIE, buildLookupTable, buildPartialsTable, buildShaperSVG, buildShotShaper, buildDPlane3DSVG, buildShotFlight3DSVG, calcSuggestions, currentShaperModel, effortColor, fmtCross, initCalc, interpFlight, renderCalc, renderShaper3D, renderShotShaper, shaperCrossDrift, selectApproachResult, shaper3DProject, shaper3DFitter, shaper3DArrow, shaperModel, shaperStockAoA, wedgeModel });
