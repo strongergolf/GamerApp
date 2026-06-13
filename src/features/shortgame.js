@@ -1,9 +1,12 @@
 // Short Game tab: Chip Shot Options dialler, chip trajectory SVG, chip matrix.
 
+function fmtChipSlope(deg){
+  const n=Math.round((parseFloat(deg)||0)*2)/2;
+  if(n===0) return 'Level';
+  return `${Math.abs(n)}° ${n>0?'up':'down'}`;
+}
 function buildShortGame(){
   const wrap=document.getElementById('shortgame-wrap'); if(!wrap) return;
-  const stimpOpts=[7,7.5,8,8.5,9,9.5,10,10.5,11,11.5,12,12.5,13,13.5,14]
-    .map(v=>`<option value="${v}"${v===STATE.stimp?' selected':''}>${v.toFixed(1)}</option>`).join('');
   wrap.innerHTML=`
     <!-- 1. Distance slider + stimp dropdown -->
     <div class="calc-dist-block">
@@ -21,19 +24,22 @@ function buildShortGame(){
         <input type="number" id="chip-input" min="5" max="55" value="20"
           oninput="window.chipSelectedIdx=-1;const v=Math.max(5,Math.min(55,parseInt(this.value)||20));document.getElementById('chip-slider').value=v;document.getElementById('chip-display').textContent=v;renderChipDial()">
       </div>
-      <div class="calc-manual-col">
-        <label for="sg-stimp-select">Stimp</label>
-        <select id="sg-stimp-select" onchange="STATE.stimp=parseFloat(this.value);const _puS=document.getElementById('putt-stimp-select');if(_puS)_puS.value=this.value;renderChipDial();buildChipMatrix();saveState()" style="font-family:Arial,sans-serif;font-size:.9rem;font-weight:700;padding:6px 8px;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;color:var(--ink);outline:none;width:100%">${stimpOpts}</select>
+      <div class="calc-manual-col" style="flex:0 0 132px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <label style="margin-bottom:0">Stimp</label>
+          <span class="stimp-val" id="sg-stimp-val">${STATE.stimp.toFixed(1)}</span>
+        </div>
+        <input type="range" id="sg-stimp" min="7" max="14" step="0.5" value="${STATE.stimp}" style="width:100%"
+          oninput="STATE.stimp=parseFloat(this.value);document.getElementById('sg-stimp-val').textContent=parseFloat(this.value).toFixed(1);const _puS=document.getElementById('putt-stimp-select');if(_puS)_puS.value=this.value;renderChipDial();buildChipMatrix();saveState()">
       </div>
-      <div class="calc-manual-col" style="flex:0 0 105px">
-        <label>Slope</label>
-        <select id="chip-slope" onchange="renderChipDial();buildChipMatrix()" style="font-family:Arial,sans-serif;font-size:.9rem;font-weight:700;padding:6px 8px;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;color:var(--ink);outline:none;width:100%">
-          <option value="very-uphill">⬆⬆ V. Up</option>
-          <option value="uphill">⬆ Uphill</option>
-          <option value="level" selected>→ Level</option>
-          <option value="downhill">⬇ Down</option>
-          <option value="very-downhill">⬇⬇ V. Down</option>
-        </select>
+      <div class="calc-manual-col" style="flex:0 0 132px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <label style="margin-bottom:0">Slope</label>
+          <span class="stimp-val" id="chip-slope-val">Level</span>
+        </div>
+        <input type="range" id="chip-slope" min="-6" max="6" step="0.5" value="0" style="width:100%"
+          oninput="document.getElementById('chip-slope-val').textContent=fmtChipSlope(this.value);renderChipDial();buildChipMatrix()">
+        <div style="display:flex;justify-content:space-between;font-family:ui-monospace,monospace;font-size:.5rem;color:var(--muted);margin-top:2px"><span>downhill</span><span>uphill</span></div>
       </div>
     </div>
 
@@ -167,7 +173,6 @@ function renderChipDial(){
         <div style="flex:1;min-width:0">
           <div class="calc-swing-label" style="color:${tc}">${chipArchetype(loft)}<span style="font-family:ui-monospace,monospace;font-size:.65rem;font-weight:500;color:var(--muted)"> — </span><span style="font-family:Arial,sans-serif;font-size:1.15rem;font-weight:800;color:${selected?'var(--gold)':tc}">${carry.toFixed(1)}</span><span style="font-family:ui-monospace,monospace;font-size:.65rem;font-weight:500;color:var(--muted)"> carry · ${roll.toFixed(1)} roll · ${total.toFixed(1)} total</span>${noteStr}</div>
         </div>
-        ${selected?'<div class="calc-best-tag">Best Match</div>':''}
       </div>
     </div>`;
   }).join('');
@@ -290,4 +295,4 @@ function buildChipMatrix(){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { buildChipMatrix, buildChipSVG, buildShortGame, renderChipDial, renderSgVars });
+Object.assign(window, { buildChipMatrix, buildChipSVG, buildShortGame, fmtChipSlope, renderChipDial, renderSgVars });

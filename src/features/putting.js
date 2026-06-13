@@ -25,7 +25,7 @@ function buildPutting(){
       </div>
       <div class="calc-manual-col">
         <label for="putt-stimp-select">Stimp</label>
-        <select id="putt-stimp-select" onchange="STATE.stimp=parseFloat(this.value);const _sgS=document.getElementById('sg-stimp-select');if(_sgS)_sgS.value=this.value;renderPutt();saveState()" style="${sel}">${stimpOpts}</select>
+        <select id="putt-stimp-select" onchange="STATE.stimp=parseFloat(this.value);const _sg=document.getElementById('sg-stimp');if(_sg){_sg.value=this.value;const _sgv=document.getElementById('sg-stimp-val');if(_sgv)_sgv.textContent=parseFloat(this.value).toFixed(1);}renderPutt();saveState()" style="${sel}">${stimpOpts}</select>
       </div>
     </div>
 

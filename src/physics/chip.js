@@ -43,28 +43,41 @@ function chipArchetype(loftDeg){
   if(launch<50) return 'Toss / Soft Pitch';
   return 'Flop / Lob';
 }
+/* Continuous green-slope → rollout multiplier. deg = slope of the run-out, + = uphill
+   (less roll), − = downhill (more roll). Piecewise-linear anchors preserve the old
+   categorical values: +6→0.38 (very up), +3→0.62 (up), 0→1.0, −3→1.50, −6→2.20. */
+const CHIP_SLOPE_ANCHORS=[[-6,2.20],[-3,1.50],[0,1.0],[3,0.62],[6,0.38]];
+function chipSlopeMult(deg){
+  const e=Math.max(-6,Math.min(6,deg||0)), A=CHIP_SLOPE_ANCHORS;
+  if(e<=A[0][0]) return A[0][1];
+  if(e>=A[A.length-1][0]) return A[A.length-1][1];
+  for(let i=0;i<A.length-1;i++){ if(e>=A[i][0]&&e<=A[i+1][0]){ const t=(e-A[i][0])/(A[i+1][0]-A[i][0]); return A[i][1]+t*(A[i+1][1]-A[i][1]); } }
+  return 1.0;
+}
+function chipSlopeFactor(slope){
+  return typeof slope==='number' ? chipSlopeMult(slope)
+    : slope==='very-uphill'?0.38 : slope==='uphill'?0.62 : slope==='downhill'?1.50 : slope==='very-downhill'?2.20 : 1.0;
+}
 function chipRollout(carry, loftDeg, stimp, slope){
   const R=chipRollRatio(loftDeg);
   const sa=Math.pow(stimp/9.5, 1.3);
-  const sl=slope==='very-uphill'?0.38 : slope==='uphill'?0.62 : slope==='downhill'?1.50 : slope==='very-downhill'?2.20 : 1.0;
-  return carry * R * sa * sl;
+  return carry * R * sa * chipSlopeFactor(slope);
 }
 function chipCarryForTotal(total, loftDeg, stimp, slope){
   const R=chipRollRatio(loftDeg);
   const sa=Math.pow(stimp/9.5, 1.3);
-  const sl=slope==='very-uphill'?0.38 : slope==='uphill'?0.62 : slope==='downhill'?1.50 : slope==='very-downhill'?2.20 : 1.0;
-  return total / (1 + R * sa * sl);
+  return total / (1 + R * sa * chipSlopeFactor(slope));
 }
 function chipClubs(){
   return STATE.clubs
     .filter(c=>{ const l=parseFloat(c.loft); return l>=34&&l<=70; })
     .sort((a,b)=>parseFloat(a.loft)-parseFloat(b.loft));
 }
-function chipSlopeVal(){ return document.getElementById('chip-slope')?.value||'level'; }
+function chipSlopeVal(){ const v=document.getElementById('chip-slope')?.value; return (v==null||v==='')?0:parseFloat(v); }
 window.chipSelectedIdx = -1; /* −1 = auto-select best match */
 function selectChipClub(i){ window.chipSelectedIdx=i; renderChipDial(); }
 
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { CHIP_ROLL_ANCHORS, chipArchetype, chipCarryForTotal, chipClubs, chipRollRatio, chipRollout, chipSlopeVal, selectChipClub });
+Object.assign(window, { CHIP_ROLL_ANCHORS, CHIP_SLOPE_ANCHORS, chipArchetype, chipCarryForTotal, chipClubs, chipRollRatio, chipRollout, chipSlopeFactor, chipSlopeMult, chipSlopeVal, selectChipClub });

@@ -17,6 +17,19 @@ const EY_WEIGHT = {
   shortgame: { lie:1, stance:1, wind:1, elev:1, shot:1, nerves:1, air:1 }
 };
 
+/* ---- Shot-type (trajectory) model — researched estimates, refine from LM data ----
+   distFrac = how the EFFECTIVE (club-selection) yardage shifts as a fraction of distance.
+     A knockdown flies shorter for a given club, so you club UP (+); a high shot flies a
+     touch farther only to a point, so a small club-down (−).
+   launchMult/spinMult/heightMult/rollMult/landMult = applied per club in the Approach
+   renderer so the effect scales through the bag (a wedge's 30° launch drops more in
+   absolute terms than a long iron's 14°). See report in the commit / chat. */
+const EY_SHOT = {
+  stock:     { distFrac: 0.00, launchMult:1.00, spinMult:1.00, heightMult:1.00, rollMult:1.00, landMult:1.00 },
+  knockdown: { distFrac:+0.07, launchMult:0.60, spinMult:0.80, heightMult:0.68, rollMult:2.10, landMult:0.78 },
+  high:      { distFrac:-0.02, launchMult:1.35, spinMult:1.15, heightMult:1.32, rollMult:0.45, landMult:1.20 }
+};
+
 /* step = categorical slider (snaps through named options); range = continuous */
 const EY_TERMS = [
   { key:'lie', label:'Lie', type:'step', opts:[
@@ -48,7 +61,7 @@ function eyDelta(ctx,key,S){
     case 'wind':   { const hc=(typeof PS_WIND_HEAD!=='undefined'?PS_WIND_HEAD:0.01), tc=(typeof PS_WIND_TAIL!=='undefined'?PS_WIND_TAIL:0.005);
                      d=(st.wind>=0?hc:tc)*st.wind*S*eyWindMult(ctx); break; }   /* + into=longer, − down=shorter */
     case 'elev':   d=st.elev*(typeof PS_ELEV_K!=='undefined'?PS_ELEV_K:1.2); break;
-    case 'shot':   d=(typeof PS_SHOT!=='undefined'?PS_SHOT[st.shot]:0)||0; break;
+    case 'shot':   d=(EY_SHOT[st.shot]?EY_SHOT[st.shot].distFrac:0)*S; break;   /* club-selection shift */
     case 'nerves': d=(typeof PS_NERVES!=='undefined'?PS_NERVES[st.nerves]:0)||0; break;
     case 'air':    d=(typeof psAirDelta==='function'?psAirDelta(S):0)||0; break;
   }
@@ -124,5 +137,5 @@ function eySet(ctx,key,raw){
 function eyReset(ctx){ Object.assign(EY[ctx], EY_DEFAULTS); buildEyPanel(ctx); eyHostRender(ctx); }
 
 // Expose for inline handlers and the renderAll orchestrator.
-Object.assign(window, { EY, EY_TERMS, EY_WEIGHT, eyDelta, eyTotal, eyEffective, eyBase,
+Object.assign(window, { EY, EY_TERMS, EY_WEIGHT, EY_SHOT, eyDelta, eyTotal, eyEffective, eyBase,
   buildEyPanel, eyRefreshSummary, eyHostRender, eySet, eyReset });

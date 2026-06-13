@@ -159,15 +159,22 @@ function renderCalc(target){
   const sug=calcSuggestions(playTarget);
   if(!sug.length){box.innerHTML=`<div class="calc-no-result">No clean match for ${target} yd.</div>`;return;}
   const selIdx=window.approachSelectedIdx>=0&&window.approachSelectedIdx<sug.length?window.approachSelectedIdx:0;
+  /* Shot-type (trajectory) model — knockdown / stock / high. Distance shift is already in
+     playTarget (via the adjuster); here it reshapes launch / spin / height / rollout per club. */
+  const shotType=(typeof EY!=='undefined'&&EY.approach)?EY.approach.shot:'stock';
+  const stm=(typeof EY_SHOT!=='undefined'&&EY_SHOT[shotType])?EY_SHOT[shotType]:{launchMult:1,spinMult:1,heightMult:1,rollMult:1};
   box.innerHTML=sug.map((o,i)=>{
     const selected=i===selIdx, color=effortColor(o.effort);
     const swingDesc=o.sw.key==='full'?'Full swing':o.sw.key==='tq'?'¾ swing':'½ swing';
     const effDesc=o.effort>=98?'Full effort — no margin':o.effort>=90?'Near-full — controlled finish':o.effort>=82?'Measured swing — good option':'Easy swing — high control';
-    const fl=interpFlight(o.club,o.sw.key,playTarget);
+    const fl0=interpFlight(o.club,o.sw.key,playTarget);
+    const fl={launch:Math.round(fl0.launch*stm.launchMult),spin:Math.round(fl0.spin*stm.spinMult),height:Math.round(fl0.height*stm.heightMult)};
     const checkDesc=(()=>{const hs=fl.spin>=8500,ms=fl.spin>=6500,hh=fl.height>=70,mh=fl.height>=50;if(hs&&hh)return'Stops quickly';if(hs&&mh)return'Checks up';if(hs)return'Bites on landing';if(ms&&hh)return'Some check';if(ms&&mh)return'Moderate release';if(ms)return'Low release';if(hh)return'Soft landing';return'Runs out';})();
-    /* Carry/rollout: spin/height check behaviour + green firmness condition */
-    const estRoll=Math.max(0,approachRolloutYds(fl.spin,fl.height)+(window.approachGreenFirmness||0));
-    const estCarry=playTarget-estRoll;
+    /* Roll from the stock flight × the shot-type rollout multiplier + green firmness; the
+       ball lands at the measured target, so Total = target and Carry = target − roll. */
+    const baseRoll=approachRolloutYds(fl0.spin,fl0.height);
+    const estRoll=Math.max(0,Math.round(baseRoll*stm.rollMult)+(window.approachGreenFirmness||0));
+    const estCarry=target-estRoll;
     /* Anchor mini-stat */
     const clockPos=o.sw.key==='full'?'11:00':o.sw.key==='tq'?'10:00':'9:00';
     const diffStr=o.delta===0?'on anchor':`${o.delta>0?'+':''}${o.delta}yds`;
@@ -175,9 +182,8 @@ function renderCalc(target){
       <div class="calc-card-header">
         <div class="calc-club-badge">${o.club.label}<small>${o.club.loft}</small></div>
         <div style="flex:1;min-width:0">
-          <div class="calc-swing-label">${swingDesc}<span style="font-family:ui-monospace,monospace;font-size:.75rem;font-weight:600;color:var(--ink);letter-spacing:.01em"> — Carry ${estCarry} · Roll ${estRoll} · Total ${playTarget} yds</span></div>
+          <div class="calc-swing-label">${swingDesc}<span style="font-family:ui-monospace,monospace;font-size:.75rem;font-weight:600;color:var(--ink);letter-spacing:.01em"> — Carry ${estCarry} · Roll ${estRoll} · Total ${target} yds</span></div>
         </div>
-        ${selected?'<div class="calc-best-tag">Best Match</div>':''}
       </div>
       <div class="calc-card-body">
         <div class="calc-effort-col">
@@ -196,13 +202,16 @@ function renderCalc(target){
   if(trajWrap && sug.length){
     const pick=sug[selIdx]||sug[0];
     const p=STATE.performance[pick.club.id]||{};
-    const fl=interpFlight(pick.club,pick.sw.key,playTarget);
+    const fl0=interpFlight(pick.club,pick.sw.key,playTarget);
+    const fl={launch:Math.round(fl0.launch*stm.launchMult),spin:Math.round(fl0.spin*stm.spinMult),height:Math.round(fl0.height*stm.heightMult)};
     const swingLabel=pick.sw.key==='full'?'Full':pick.sw.key==='tq'?'¾':'½';
-    const tRoll=Math.max(0,approachRolloutYds(fl.spin,fl.height)+(window.approachGreenFirmness||0));
-    const tCarry=playTarget-tRoll;
-    const svgHtml=buildSideSVG(pick.club,{carry:tCarry,total:playTarget,launch:fl.launch,spin:fl.spin,land:p.land||45,ht:fl.height,bspd:p.bspd||0});
+    const tRoll=Math.max(0,Math.round(approachRolloutYds(fl0.spin,fl0.height)*stm.rollMult)+(window.approachGreenFirmness||0));
+    const tCarry=target-tRoll;
+    const tLand=Math.round((p.land||45)*(stm.landMult||1));
+    const shotTag=shotType!=='stock'?` · ${shotType}`:'';
+    const svgHtml=buildSideSVG(pick.club,{carry:tCarry,total:target,launch:fl.launch,spin:fl.spin,land:tLand,ht:fl.height,bspd:p.bspd||0});
     trajWrap.innerHTML=`<div class="approach-traj-wrap">
-      <div class="chip-svg-label" style="font-size:.8rem;font-weight:700;color:var(--ink);letter-spacing:.01em">${pick.club.label} ${swingLabel} — carry ${tCarry} · roll ${tRoll} · total ${playTarget} yds · ${fl.launch}° · ${(fl.spin/1000).toFixed(1)}k</div>
+      <div class="chip-svg-label" style="font-size:.8rem;font-weight:700;color:var(--ink);letter-spacing:.01em">${pick.club.label} ${swingLabel}${shotTag} — carry ${tCarry} · roll ${tRoll} · total ${target} yds · ${fl.launch}° · ${(fl.spin/1000).toFixed(1)}k</div>
       ${svgHtml}
     </div>`;
   } else if(trajWrap){ trajWrap.innerHTML=''; }
@@ -274,7 +283,9 @@ function shaper3DProject(x,y,z,az,el){
   const ar=az*Math.PI/180, er=el*Math.PI/180;
   const X = x*Math.cos(ar) + z*Math.sin(ar);
   const Z = -x*Math.sin(ar) + z*Math.cos(ar);
-  const Y2 = y*Math.cos(er) - Z*Math.sin(er);
+  /* +Z (downrange, toward target) recedes up-and-away → ball sits near/foreground,
+     target reads into the distance (down-the-line familiarity). */
+  const Y2 = y*Math.cos(er) + Z*Math.sin(er);
   return { x:X, y:-Y2 };
 }
 /* Fit a scene's bounding points into the viewBox; returns a world→screen mapper. */
