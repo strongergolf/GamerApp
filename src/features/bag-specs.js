@@ -30,7 +30,7 @@ function buildSpecs(){
     return loftNum(b)-loftNum(a); /* descending loft: X wedge first, driver last */
   });
   const carryOf=c=> c.type==='putter'?0:(perf(c.id).carry||0);
-  const mini=(label,val)=>`<div class="spec-mini"><span class="sm-l">${label}</span><span class="sm-v">${val==null||val===''?'—':val}</span></div>`;
+  const mini=(label,val,wCls='')=>`<div class="spec-mini${wCls?' '+wCls:''}"><span class="sm-l">${label}</span><span class="sm-v">${val==null||val===''?'—':val}</span></div>`;
   let lastType=null;
   sorted.forEach((c,i)=>{
     if(c.type!==lastType){
@@ -42,32 +42,58 @@ function buildSpecs(){
     const sigma1=hasC?Math.round(getDispersion(carry)*0.608*10)/10:null;   /* 1σ lateral (yd) */
     const sigma2=sigma1!=null?Math.round(sigma1*2*10)/10:null;             /* 2σ lateral (yd) */
     const row=document.createElement('div'); row.className='specs-club-row spec-card';
-    row.innerHTML=`
-      <span class="spec-club ${c.type}">${c.label}</span>
-      <div class="sc-id">
-        <span class="sc-name">${c.make} ${c.model}</span>
-        <span class="sc-sub">${c.year} · ${c.shaft}</span>
-      </div>
-      ${mini('Length',c.length)}${mini('Loft',c.loft)}${mini('Lie',c.lie)}
-      <div class="sc-sep"></div>
-      ${mini('Carry',hasC?carry:'—')}${mini('Total',total||'—')}${mini('1σ L/R',sigma1!=null?sigma1:'—')}${mini('2σ L/R',sigma2!=null?sigma2:'—')}
-      <div class="specs-chevron">▾</div>`;
+    row.innerHTML=
+      `<span class="spec-club ${c.type}">${c.label}</span>`+
+      `<div class="sc-id"><span class="sc-name">${c.make} ${c.model}</span><span class="sc-sub">${c.year} · ${c.shaft}</span></div>`+
+      mini('Length',c.length,'sm-w-len')+mini('Loft',c.loft,'sm-w-deg')+mini('Lie',c.lie,'sm-w-deg')+
+      `<div class="sc-sep"></div>`+
+      mini('Carry',hasC?carry:'—','sm-w-yd')+mini('Total',total||'—','sm-w-yd')+
+      mini('1σ L/R',sigma1!=null?sigma1:'—','sm-w-lr')+mini('2σ L/R',sigma2!=null?sigma2:'—','sm-w-lr')+
+      `<div class="specs-chevron">▾</div>`;
     const group=document.createElement('div'); group.className='specs-rep-group';
     row.addEventListener('click',()=>toggleSpecs(c,row,group));
     wrap.appendChild(row); wrap.appendChild(group);
-    /* Inline gapping chip: carry gap from this club to the next carry-bearing club. */
+    /* 7-column gap row aligned under each spec column */
     const thisCarry=carryOf(c);
     if(thisCarry>0){
       let j=i+1; while(j<sorted.length && carryOf(sorted[j])<=0) j++;
       if(j<sorted.length){
-        const gap=Math.abs(thisCarry-carryOf(sorted[j]));
-        let bg='var(--bg2)', col='var(--muted)', flag='';
-        if(gap>15){ bg='rgba(196,66,122,.12)'; col='var(--gold2,#c4427a)'; flag=' gap'; }
-        else if(gap<8){ bg='rgba(214,96,112,.14)'; col='#d96070'; flag=' overlap'; }
-        const chip=document.createElement('div');
-        chip.style.cssText='display:flex;justify-content:center;padding:1px 0';
-        chip.innerHTML=`<span style="font-family:ui-monospace,monospace;font-size:.68rem;font-weight:700;letter-spacing:.04em;color:${col};background:${bg};border-radius:20px;padding:3px 11px">↕ ${gap} yd${flag}</span>`;
-        wrap.appendChild(chip);
+        const cn=sorted[j]; const pn=perf(cn.id);
+        const carryN=pn.carry||0, totalN=pn.total||0;
+        const gap=Math.abs(thisCarry-carryN);
+        const totalGap=total&&totalN?Math.abs(total-totalN):null;
+        /* physical diffs */
+        const fDeg=s=>parseFloat((s||'').replace(/[^\d.]/g,''))||null;
+        const lenA=parseFloat(c.length)||null, lenB=parseFloat(cn.length)||null;
+        const loftA=fDeg(c.loft), loftB=fDeg(cn.loft);
+        const lieA=fDeg(c.lie), lieB=fDeg(cn.lie);
+        const lenDiff=lenA&&lenB?'↕ '+(Math.round(Math.abs(lenA-lenB)*100)/100)+'"':'—';
+        const loftDiff=loftA&&loftB?'↕ '+(Math.round(Math.abs(loftA-loftB)*10)/10)+'°':'—';
+        const lieDiff=lieA&&lieB?(lieA===lieB?'=':'↕ '+(Math.round(Math.abs(lieA-lieB)*10)/10)+'°'):'—';
+        /* sigma diffs */
+        const sigma1N=carryN>0?Math.round(getDispersion(carryN)*0.608*10)/10:null;
+        const sigma2N=sigma1N!=null?Math.round(sigma1N*2*10)/10:null;
+        const sig1Diff=sigma1!=null&&sigma1N!=null?'↕ '+(Math.round(Math.abs(sigma1-sigma1N)*10)/10):'—';
+        const sig2Diff=sigma2!=null&&sigma2N!=null?'↕ '+(Math.round(Math.abs(sigma2-sigma2N)*10)/10):'—';
+        /* carry colour */
+        let cBg='var(--bg2)', cCol='var(--muted)';
+        if(gap>15){cBg='rgba(196,66,122,.12)'; cCol='var(--gold2,#c4427a)';}
+        else if(gap<8){cBg='rgba(214,96,112,.14)'; cCol='#d96070';}
+        const gb=(val,wCls,bg,col)=>`<div class="spec-mini gap-mini ${wCls}"><span class="gap-chip" style="background:${bg};color:${col}">${val}</span></div>`;
+        const gapRow=document.createElement('div'); gapRow.className='spec-gap-row';
+        gapRow.innerHTML=
+          `<span class="spec-club" style="visibility:hidden">${c.label}</span>`+
+          `<div class="sc-id" style="visibility:hidden"><span class="sc-name">x</span><span class="sc-sub">x</span></div>`+
+          gb(lenDiff,'sm-w-len','var(--bg2)','var(--muted)')+
+          gb(loftDiff,'sm-w-deg','var(--bg2)','var(--muted)')+
+          gb(lieDiff,'sm-w-deg','var(--bg2)','var(--muted)')+
+          `<div class="sc-sep" style="visibility:hidden"></div>`+
+          gb('↕ '+gap,'sm-w-yd',cBg,cCol)+
+          gb(totalGap!=null?'↕ '+totalGap:'—','sm-w-yd','var(--bg2)','var(--muted)')+
+          gb(sig1Diff,'sm-w-lr','var(--bg2)','var(--muted)')+
+          gb(sig2Diff,'sm-w-lr','var(--bg2)','var(--muted)')+
+          `<div class="specs-chevron" style="visibility:hidden">▾</div>`;
+        wrap.appendChild(gapRow);
       }
     }
   });
