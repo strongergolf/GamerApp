@@ -65,12 +65,12 @@
   <div class="calc-dist-block">
     <div class="calc-yardage-display"><div class="calc-yardage-num" id="calc-display">95</div><div class="calc-yardage-label">total yards</div></div>
     <div class="calc-slider-col">
-      <div class="calc-slider-limits"><span>37 yd</span><span>170 yd</span></div>
-      <input type="range" class="yard-slider" id="yard-slider" min="37" max="170" value="95" step="1"
+      <div class="calc-slider-limits"><span>37 yd</span><span>200 yd</span></div>
+      <input type="range" class="yard-slider" id="yard-slider" min="37" max="200" value="95" step="1"
         oninput="document.getElementById('calc-display').textContent=this.value;document.getElementById('yard-input').value=this.value;renderCalc(parseInt(this.value));renderExpectedShots('es-150',parseInt(this.value),'fairway')">
     </div>
-    <div class="calc-manual-col"><label for="yard-input">Yards</label><input type="number" id="yard-input" min="37" max="170" value="95"
-      oninput="const v=Math.max(35,Math.min(165,parseInt(this.value)||95));document.getElementById('yard-slider').value=v;document.getElementById('calc-display').textContent=v;renderCalc(v);renderExpectedShots('es-150',v,'fairway')"></div>
+    <div class="calc-manual-col"><label for="yard-input">Yards</label><input type="number" id="yard-input" min="37" max="200" value="95"
+      oninput="const v=Math.max(37,Math.min(200,parseInt(this.value)||95));document.getElementById('yard-slider').value=v;document.getElementById('calc-display').textContent=v;renderCalc(v);renderExpectedShots('es-150',v,'fairway')"></div>
     <div class="calc-manual-col" style="flex:0 0 100px">
       <label for="approach-firmness">Firmness</label>
       <select id="approach-firmness" onchange="window.approachGreenFirmness=parseInt(this.value);window.approachSelectedIdx=-1;buildPartialsTable();renderCalc(parseInt(document.getElementById('yard-slider').value))" style="font-family:Arial,sans-serif;font-size:.85rem;font-weight:700;padding:7px 10px;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;color:var(--ink);outline:none;width:100%">

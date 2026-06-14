@@ -571,6 +571,9 @@ table.chip-matrix tr:hover td{background:var(--surface2)}
 .shaper-scene{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:6px}
 .shaper-wind{font-family:Arial,sans-serif;font-size:.72rem;line-height:1.45;color:var(--ink2);margin-top:6px;text-align:center;min-height:1px}
 .shaper-wind b{color:var(--ink)}
+.shaper-rot{display:flex;gap:18px;flex-wrap:wrap;align-items:center;justify-content:center;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)}
+.shaper-rot label{display:flex;align-items:center;gap:8px;font-family:ui-monospace,monospace;font-size:.56rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+.shaper-rot input[type=range]{width:110px;accent-color:var(--accent,#c4427a)}
 .shaper-readout{min-width:0}
 .shaper-line{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:6px 0;border-bottom:1px solid var(--border)}
 .shaper-line span{font-family:ui-monospace,monospace;font-size:.6rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}

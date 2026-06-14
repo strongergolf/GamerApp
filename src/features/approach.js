@@ -155,7 +155,7 @@ function renderCalc(target){
   const playTarget = Math.max(20, Math.min(300, target+eyAdj));
   if(typeof eyRefreshSummary==='function') eyRefreshSummary('approach');
   const box=document.getElementById('calc-results');
-  if(target<37||target>170){box.innerHTML=`<div class="calc-no-result">Outside partial-swing range (37–170 yd). Use the Bag ladder for longer distances.</div>`;return;}
+  if(target<37||target>200){box.innerHTML=`<div class="calc-no-result">Outside range (37–200 yd). Use the Bag ladder for longer distances.</div>`;return;}
   const sug=calcSuggestions(playTarget);
   if(!sug.length){box.innerHTML=`<div class="calc-no-result">No clean match for ${target} yd.</div>`;return;}
   const selIdx=window.approachSelectedIdx>=0&&window.approachSelectedIdx<sug.length?window.approachSelectedIdx:0;
@@ -218,7 +218,7 @@ function renderCalc(target){
 }
 function initCalc(){
   const s=document.getElementById('yard-slider'),inp=document.getElementById('yard-input');
-  const sync=v=>{window.approachSelectedIdx=-1;const x=Math.max(37,Math.min(170,parseInt(v)||95));s.value=x;inp.value=x;renderCalc(x);renderExpectedShots('es-150',x,'fairway');const pct=((x-37)/133)*100;s.style.background=`linear-gradient(90deg,var(--ink) ${pct}%,var(--bg2) ${pct}%)`;};
+  const sync=v=>{window.approachSelectedIdx=-1;const x=Math.max(37,Math.min(200,parseInt(v)||95));s.value=x;inp.value=x;renderCalc(x);renderExpectedShots('es-150',x,'fairway');const pct=((x-37)/163)*100;s.style.background=`linear-gradient(90deg,var(--ink) ${pct}%,var(--bg2) ${pct}%)`;};
   s.addEventListener('input',()=>sync(s.value));
   inp.addEventListener('input',()=>sync(inp.value));
   sync(95);
@@ -349,10 +349,12 @@ function buildShaperScene3D(m,az,el,driftYd){
   const ctrlX=startSlope*Zmax*0.5*LE;
   const peak=Zmax*(0.18+Math.min(0.34,(loft/60)*0.34));
   const wind=(driftYd||0)*(Zmax/(m.carry||150))*LE;
-  /* flight arc */
+  /* flight arc — height peaks ~70% of the way to the target (long climb, steep descent,
+     reflecting drag) so the apex is always nearer the target than the ball */
+  const HK=1.94, uPk=0.70;
   const N=30, fpath=[];
-  for(let i=0;i<=N;i++){const u=i/N; fpath.push({x:2*(1-u)*u*ctrlX+wind*Math.pow(u,1.4), y:peak*Math.sin(Math.PI*Math.pow(u,0.92)), z:u*Zmax});}
-  const apex={x:2*0.25*ctrlX+wind*Math.pow(0.5,1.4),y:peak,z:Zmax*0.5}, landX=wind;
+  for(let i=0;i<=N;i++){const u=i/N; fpath.push({x:2*(1-u)*u*ctrlX+wind*Math.pow(u,1.4), y:peak*Math.sin(Math.PI*Math.pow(u,HK)), z:u*Zmax});}
+  const apex={x:2*(1-uPk)*uPk*ctrlX+wind*Math.pow(uPk,1.4),y:peak,z:Zmax*uPk}, landX=wind;
   /* impact geometry near origin */
   const fr=13, facePts=[];
   for(let i=0;i<28;i++){const th=i/28*2*Math.PI; facePts.push(ry(rx({x:fr*Math.cos(th),y:fr*Math.sin(th),z:0},-loft),face));}
@@ -397,10 +399,16 @@ function buildShaperScene3D(m,az,el,driftYd){
   </svg>`;
 }
 
-/* Step-slider option lists for the shaper controls */
-const SHAPER_SHAPES=[['draw','Draw'],['straight','Straight'],['fade','Fade']];
-const SHAPER_AMOUNTS=[['slight','Slight'],['standard','Standard'],['strong','Strong']];
-const SHAPER_LIES=[['level','Level stance'],['above','Ball above feet'],['below','Ball below feet']];
+/* Shape + amount combined into one 5-step slider: [id,label,shape,amount] */
+const SHAPER_CURVES=[
+  ['slice','Slice','fade','strong'],
+  ['fade','Fade','fade','standard'],
+  ['straight','Straight','straight','standard'],
+  ['draw','Draw','draw','standard'],
+  ['hook','Hook','draw','strong']
+];
+/* side-hill stance (was "Lie"): shape bias */
+const SHAPER_LIES=[['level','Level'],['above','Ball above feet'],['below','Ball below feet']];
 /* clubs available to the shaper, sorted long → short (driver/woods left, wedges right) */
 function shaperClubList(){
   return STATE.clubs.filter(c=>c.type!=='putter')
@@ -413,14 +421,13 @@ function currentShaperModel(){
   const clubs=shaperClubList();
   const ci=_clampIdx(document.getElementById('shaper-club')?.value, clubs.length||1);
   const clubId=clubs[ci]||'7i';
-  const shape=SHAPER_SHAPES[_clampIdx(document.getElementById('shaper-shape')?.value,3)][0];
-  const amount=SHAPER_AMOUNTS[_clampIdx(document.getElementById('shaper-amount')?.value,3)][0];
-  const lie=SHAPER_LIES[_clampIdx(document.getElementById('shaper-lie')?.value,3)][0];
-  return shaperModel(clubId,shape,amount,lie);
+  const cv=SHAPER_CURVES[_clampIdx(document.getElementById('shaper-curve')?.value,SHAPER_CURVES.length)];
+  const stance=SHAPER_LIES[_clampIdx(document.getElementById('shaper-stance')?.value,3)][0];
+  return shaperModel(clubId,cv[2],cv[3],stance);
 }
-/* crosswind drift (yd, + = ball pushed right) from the shaper's crosswind slider */
+/* crosswind drift (yd, + = ball pushed right) — read from Situational Info (no duplicate control) */
 function shaperCrossDrift(){
-  const cross=parseFloat(document.getElementById('shaper-cross')?.value||0);
+  const cross=(typeof EY!=='undefined'&&EY.approach)?(parseFloat(EY.approach.cross)||0):0;
   return Math.round((typeof PS_CROSS_YPM!=='undefined'?PS_CROSS_YPM:2.0)*cross);
 }
 /* Re-render the 3D scene + crosswind note (rotate/tilt/crosswind keep slider focus). */
@@ -431,21 +438,21 @@ function renderShaper3D(){
   const el=parseFloat(document.getElementById('shaper-el')?.value);
   const A=isNaN(az)?-28:az, E=isNaN(el)?20:el;
   window.shaper3DAz=A; window.shaper3DEl=E;
-  const cross=parseFloat(document.getElementById('shaper-cross')?.value||0);
+  const cross=(typeof EY!=='undefined'&&EY.approach)?(parseFloat(EY.approach.cross)||0):0;
   const drift=shaperCrossDrift();
-  const cv=document.getElementById('shaper-cross-val'); if(cv) cv.textContent=fmtCross(cross);
   scene.innerHTML=buildShaperScene3D(m,A,E,drift);
   const wind=document.getElementById('shaper-wind');
   if(wind) wind.innerHTML = cross!==0
-    ? `<b>Crosswind ${Math.abs(cross)} mph ${cross>0?'L→R':'R→L'}</b> — pushes the ball ~${Math.abs(drift)} yd ${drift>0?'right':'left'}; aim ~${Math.abs(drift)} yd ${drift>0?'left':'right'} of target.`
+    ? `<b>Crosswind ${Math.abs(cross)} mph ${cross>0?'L→R':'R→L'}</b> <span style="color:var(--muted)">(Situational Info)</span> — drifts ~${Math.abs(drift)} yd ${drift>0?'right':'left'}; aim ~${Math.abs(drift)} yd ${drift>0?'left':'right'}.`
     : '';
 }
 /* Re-render the specs (left) + update control labels + the 3D scene. */
 function renderShotShaper(){
   const out=document.getElementById('shaper-specs'); if(!out) return;
   const m=currentShaperModel();
-  const lie=SHAPER_LIES[_clampIdx(document.getElementById('shaper-lie')?.value,3)][0];
-  const shape=SHAPER_SHAPES[_clampIdx(document.getElementById('shaper-shape')?.value,3)][0];
+  const cv=SHAPER_CURVES[_clampIdx(document.getElementById('shaper-curve')?.value,SHAPER_CURVES.length)];
+  const stance=SHAPER_LIES[_clampIdx(document.getElementById('shaper-stance')?.value,3)][0];
+  const shape=cv[2];
   const fmt=v=>Math.abs(v)<0.05?'0.0° square':`${Math.abs(v).toFixed(1)}° ${v>0?'R':'L'}`;
   /* refresh control value labels (controls are not rebuilt, so update in place) */
   const clubs=shaperClubList();
@@ -453,11 +460,10 @@ function renderShotShaper(){
   const ci=_clampIdx(document.getElementById('shaper-club')?.value,clubs.length||1);
   const cc=STATE.clubs.find(c=>c.id===clubs[ci]);
   setV('shaper-club', cc?`${cc.label} · ${cc.loft}`:'—');
-  setV('shaper-shape', SHAPER_SHAPES[_clampIdx(document.getElementById('shaper-shape')?.value,3)][1]);
-  setV('shaper-amount', SHAPER_AMOUNTS[_clampIdx(document.getElementById('shaper-amount')?.value,3)][1]);
-  setV('shaper-lie', SHAPER_LIES[_clampIdx(document.getElementById('shaper-lie')?.value,3)][1]);
-  const lieLine = lie!=='level'
-    ? `<div class="shaper-line"><span>Side-hill lie</span><b>${lie==='above'?'Above feet → draw bias':'Below feet → fade bias'}</b></div>` : '';
+  setV('shaper-curve', cv[1]);
+  setV('shaper-stance', SHAPER_LIES[_clampIdx(document.getElementById('shaper-stance')?.value,3)][1]);
+  const lieLine = stance!=='level'
+    ? `<div class="shaper-line"><span>Stance (side-hill)</span><b>${stance==='above'?'Above feet → draw bias':'Below feet → fade bias'}</b></div>` : '';
   let rows;
   if(shape==='straight'){
     rows=`
@@ -489,29 +495,28 @@ function buildShotShaper(){
   const stepCtrl=(id,label,max,val)=>`<div class="shaper-ctrl"><label>${label} <span class="shaper-ctrl-v" id="${id}-v">—</span></label><input type="range" id="${id}" min="0" max="${max}" step="1" value="${val}" oninput="renderShotShaper()"></div>`;
   wrap.innerHTML=`
     <div class="section-label">Shot Shaper <span class="proto-badge">prototype</span></div>
-    <p class="intro-note" style="margin-bottom:10px">D-plane shot-shaping in 3D — impact geometry (club path, face, spin axis) and the resulting ball flight in one rotating image. Specs on the left; drag Rotate/Tilt to spin it. Reference defaults — refine with your own launch-monitor data.</p>
+    <p class="intro-note" style="margin-bottom:10px">D-plane shot-shaping in 3D — impact geometry (club path, face, spin axis) and the resulting ball flight in one rotating image. Specs on the left; Rotate/Tilt sit under the image. Crosswind comes from Situational Info. Reference defaults — refine with your own launch-monitor data.</p>
     <div class="shaper-controls">
       ${stepCtrl('shaper-club','Club',clubs.length-1,ci)}
-      ${stepCtrl('shaper-shape','Shape',2,0)}
-      ${stepCtrl('shaper-amount','Amount',2,1)}
-      ${stepCtrl('shaper-lie','Lie',2,0)}
-      <div class="shaper-ctrl"><label>Crosswind <span class="shaper-ctrl-v" id="shaper-cross-val">calm</span></label><input type="range" id="shaper-cross" min="-20" max="20" step="1" value="0" oninput="renderShaper3D()"><div class="shaper-axis-mini"><span>R→L</span><span>L→R</span></div></div>
-      <div class="shaper-ctrl"><label>Rotate</label><input type="range" id="shaper-az" min="-90" max="90" step="2" value="${az}" oninput="renderShaper3D()"></div>
-      <div class="shaper-ctrl"><label>Tilt</label><input type="range" id="shaper-el" min="4" max="62" step="2" value="${el}" oninput="renderShaper3D()"></div>
+      ${stepCtrl('shaper-curve','Shape',SHAPER_CURVES.length-1,3)}
+      ${stepCtrl('shaper-stance','Stance',2,0)}
     </div>
     <div class="shaper-stage">
       <div class="shaper-specs" id="shaper-specs"></div>
       <div class="shaper-scene-col">
         <div class="shaper-scene" id="shaper-scene"></div>
         <div class="shaper-wind" id="shaper-wind"></div>
+        <div class="shaper-rot">
+          <label>Rotate<input type="range" id="shaper-az" min="-90" max="90" step="2" value="${az}" oninput="renderShaper3D()"></label>
+          <label>Tilt<input type="range" id="shaper-el" min="4" max="62" step="2" value="${el}" oninput="renderShaper3D()"></label>
+        </div>
       </div>
     </div>`;
   renderShotShaper();
 }
-function fmtCross(v){ v=parseFloat(v)||0; return v===0?'calm':`${Math.abs(v)} mph ${v>0?'L→R':'R→L'}`; }
 
 
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { PARTIAL_CLUBS, SWINGS, SHAPER_LIE, SHAPER_SHAPES, SHAPER_AMOUNTS, SHAPER_LIES, buildLookupTable, buildPartialsTable, buildShaperSVG, buildShotShaper, buildShaperScene3D, shaperAxisTriad, shaperClubList, calcSuggestions, currentShaperModel, effortColor, fmtCross, initCalc, interpFlight, renderCalc, renderShaper3D, renderShotShaper, shaperCrossDrift, selectApproachResult, shaper3DProject, shaper3DFitter, shaper3DArrow, shaperModel, shaperStockAoA, wedgeModel });
+Object.assign(window, { PARTIAL_CLUBS, SWINGS, SHAPER_LIE, SHAPER_CURVES, SHAPER_LIES, buildLookupTable, buildPartialsTable, buildShaperSVG, buildShotShaper, buildShaperScene3D, shaperAxisTriad, shaperClubList, calcSuggestions, currentShaperModel, effortColor, initCalc, interpFlight, renderCalc, renderShaper3D, renderShotShaper, shaperCrossDrift, selectApproachResult, shaper3DProject, shaper3DFitter, shaper3DArrow, shaperModel, shaperStockAoA, wedgeModel });
