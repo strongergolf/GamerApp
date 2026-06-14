@@ -9,6 +9,17 @@
   --c-wood:#d96070; --c-iron:#1a5aaa; --c-wedge:#00853F; --c-putter:#6b7280;
   --header-bg:#0C2340;
 }
+/* Dark theme — overrides the neutral palette; accents (green/gold/sky) carry through */
+body.theme-dark{
+  --bg:#0d1626; --bg2:#15223a; --surface:#172642; --surface2:#1d2e4e;
+  --border:#2a3c5a; --border2:#3d567c; --ink:#e9eef6; --ink2:#c3d3e8; --muted:#90a6c4;
+  --green:#1fb866; --green2:#27d077; --green-pale:#123026;
+  --gold:#e88494; --gold2:#ef94a4; --gold-pale:#3a2027;
+  --sky:#5aa0e8; --sky-pale:#16263f;
+  --grey:#8b95a3; --grey2:#5a6675; --grey-pale:#1c2840;
+  --c-wood:#e88494; --c-iron:#5aa0e8; --c-wedge:#27d077; --c-putter:#8b95a3;
+}
+body.theme-dark::after{opacity:.25}
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--ink);font-family:Arial,sans-serif;min-height:100vh;overflow-x:hidden}
 body::after{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='80' height='80' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");background-repeat:repeat;pointer-events:none;z-index:1000;opacity:.5}
@@ -560,6 +571,16 @@ table.chip-matrix tr:hover td{background:var(--surface2)}
 .sg-prov{font-family:ui-monospace,monospace;font-size:.5rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;border-radius:4px;padding:1px 5px;white-space:nowrap;vertical-align:middle}
 .prov-legend{display:flex;flex-direction:column;gap:7px;margin-top:8px}
 .prov-legend-item{display:flex;align-items:baseline;gap:8px;font-family:Arial,sans-serif;font-size:.76rem;color:var(--ink2);line-height:1.4}
+/* Settings rows + toggle switch */
+.set-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:4px 0}
+.set-label{font-family:Arial,sans-serif;font-size:.86rem;font-weight:700;color:var(--ink)}
+.set-sub{font-family:Arial,sans-serif;font-size:.72rem;color:var(--muted);margin-top:2px;line-height:1.4}
+.set-switch{position:relative;display:inline-block;width:46px;height:26px;flex-shrink:0}
+.set-switch input{opacity:0;width:0;height:0}
+.set-slider{position:absolute;inset:0;background:var(--border2);border-radius:26px;transition:background .2s;cursor:pointer}
+.set-slider::before{content:'';position:absolute;height:20px;width:20px;left:3px;top:3px;background:#fff;border-radius:50%;transition:transform .2s}
+.set-switch input:checked+.set-slider{background:var(--green2)}
+.set-switch input:checked+.set-slider::before{transform:translateX(20px)}
 /* Definitions dropdown (Practice → Resources) */
 .defs-dropdown{margin-top:16px;border:1px solid var(--border);border-radius:10px;background:var(--surface);padding:0 14px}
 .defs-dropdown>summary{cursor:pointer;padding:13px 0;font-family:Arial,sans-serif;font-size:.82rem;font-weight:800;color:var(--ink);list-style:none}

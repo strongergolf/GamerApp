@@ -380,10 +380,28 @@
   </div>
 </div>
 
-<!-- MY APP SETTINGS -->
+<!-- SETTINGS -->
 <div id="page-reference" class="page">
-  <div class="section-label" style="margin-top:0">My App Settings</div>
-  <p class="intro-note">A private, personal build — your data lives in this browser. The StrongerGolf vocabulary &amp; launch-monitor cross-map now live under <strong>Practice → Resources → Definitions</strong>.</p>
+  <div class="section-label" style="margin-top:0">Settings</div>
+  <p class="intro-note">App-level preferences — separate from your golfer profile (that lives under <strong>Myself</strong>). The StrongerGolf vocabulary &amp; launch-monitor cross-map now live under <strong>Improve → Resources → Definitions</strong>.</p>
+  <div class="profile-card">
+    <h3>Appearance</h3>
+    <div class="set-row">
+      <div><div class="set-label">Dark mode</div><div class="set-sub">Easier on the eyes indoors / at night.</div></div>
+      <label class="set-switch"><input type="checkbox" id="set-dark" onchange="sgToggleTheme(this.checked)"><span class="set-slider"></span></label>
+    </div>
+  </div>
+  <div class="profile-card">
+    <h3>Data Imports <span style="font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;letter-spacing:.05em;color:var(--muted);text-transform:none">launch monitor, TPI, 3D motion — verify to earn Captured</span></h3>
+    <p class="gen-note">Connect a source, confirm it's your account, and StrongerGolf folds the session into your data with a <span class="sg-prov" style="color:#00853F;background:rgba(0,133,63,.12)">Captured</span> badge. Sessions are weighted (a 50-ball block on one club ≠ 50 independent shots) and tracked over time for trends.</p>
+    <div class="prov-legend" style="margin-bottom:10px">
+      <div class="prov-legend-item"><b style="color:var(--ink)">Trackman / Foresight / FlightScope</b> — shot-by-shot ball &amp; club data</div>
+      <div class="prov-legend-item"><b style="color:var(--ink)">TPI screen</b> — physical-screen results</div>
+      <div class="prov-legend-item"><b style="color:var(--ink)">MindTrak</b> — focus / arousal data</div>
+      <div class="prov-legend-item"><b style="color:var(--ink)">GEARS / 3D motion</b> — kinematic-sequence capture</div>
+    </div>
+    <div class="btn-row"><button class="btn" disabled style="opacity:.55;cursor:not-allowed">Connect a source — coming soon</button></div>
+  </div>
   <div class="profile-card">
     <h3>Data</h3>
     <p class="gen-note">Your bag, performance numbers, swing data and profile are saved in this browser. Export a backup, import it on another device, or reset to the original demo bag.</p>

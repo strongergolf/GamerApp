@@ -52,4 +52,18 @@ function sgProvOf(...kinds){
   return kinds.length ? 'verified' : 'presumed';
 }
 
-Object.assign(window, { SG_RED, SG_BALL_FILL, SG_BALL_STROKE, sgBall, sgFlagstick, SG_PROV, sgProv, sgProvOf });
+/* ---- Theme (light / dark) — persisted in localStorage, applied on load ---- */
+const SG_THEME_KEY='strongergolf_theme';
+function sgApplyTheme(){
+  let t='light';
+  try{ t=localStorage.getItem(SG_THEME_KEY)||'light'; }catch(e){}
+  if(document.body) document.body.classList.toggle('theme-dark', t==='dark');
+  const cb=document.getElementById('set-dark'); if(cb) cb.checked=(t==='dark');
+}
+function sgToggleTheme(on){
+  try{ localStorage.setItem(SG_THEME_KEY, on?'dark':'light'); }catch(e){}
+  if(document.body) document.body.classList.toggle('theme-dark', !!on);
+}
+sgApplyTheme();
+
+Object.assign(window, { SG_RED, SG_BALL_FILL, SG_BALL_STROKE, sgBall, sgFlagstick, SG_PROV, sgProv, sgProvOf, sgApplyTheme, sgToggleTheme });
