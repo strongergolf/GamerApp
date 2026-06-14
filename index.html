@@ -162,119 +162,9 @@
 <div id="page-resources" class="page">
   <p class="intro-note"><strong>Resources</strong> — the reference library behind every link: D-plane visuals, elite force profiles, kinematic-sequence and ground-force benchmarks, and the ball-flight laws. The "ideal" you are measuring against in <em>Assess</em>. Tap a link to expand.</p>
   <div id="resources-wrap"></div>
-</div>
-
-<!-- SPECS -->
-<div id="page-specs" class="page">
-  <div class="section-label" style="margin-top:0">Ball</div>
-  <div class="specs-wrap" id="ball-specs-wrap"></div>
-  <div class="section-label" style="margin-top:18px">Club Specifications</div>
-  <p class="intro-note">Tap any club to edit its specs and performance, and to see replacement options within ±2° effective loft.</p>
-  <div id="gapping-wrap"></div>
-  <div class="specs-wrap" id="specs-wrap"></div>
-
-  <div class="section-label" style="margin-top:22px">Ball</div>
-  <div class="profile-card" style="margin-bottom:0;border-radius:10px">
-    <div class="edit-grid" id="ball-grid"></div>
-    <div class="btn-row"><button class="btn btn-primary" onclick="saveProfile()">Save</button></div>
-  </div>
-
-  <div class="section-label" style="margin-top:22px">Add a Club</div>
-  <div class="add-club-wrap" id="add-club-wrap">
-    <div class="add-club-body">
-      <div class="edit-grid">
-        <div class="edit-subhead">Make &amp; Model</div>
-        <div class="edit-field"><label>Display Label</label><input id="nc-label" placeholder="e.g. 4i"></div>
-        <div class="edit-field"><label>Type</label><select id="nc-type"><option value="iron">Iron</option><option value="wood">Wood / Hybrid</option><option value="wedge">Wedge</option><option value="putter">Putter</option></select></div>
-        <div class="edit-subhead">Physical Spec</div>
-        <div class="edit-field"><label>Make</label><input id="nc-make" placeholder="e.g. Callaway"></div>
-        <div class="edit-field"><label>Model</label><input id="nc-model" placeholder="e.g. Apex MB"></div>
-        <div class="edit-field"><label>Year</label><input id="nc-year" type="number" placeholder="2024"></div>
-        <div class="edit-field"><label>Shaft</label><input id="nc-shaft" placeholder="e.g. ProjX 5.5"></div>
-        <div class="edit-field"><label>Length</label><input id="nc-length" placeholder='e.g. 37"'></div>
-        <div class="edit-field"><label>Eff. Loft</label><input id="nc-loft" placeholder="e.g. 24°"></div>
-        <div class="edit-field"><label>Orig. Loft</label><input id="nc-origloft" placeholder="e.g. 23°"></div>
-        <div class="edit-field"><label>Lie</label><input id="nc-lie" placeholder="e.g. 61°"></div>
-        <div class="edit-field"><label>Swing Wt</label><input id="nc-swt" placeholder="e.g. D2"></div>
-        <div class="edit-field"><label>Overall Weight (g)</label><input id="nc-weight" type="number" placeholder="e.g. 315"></div>
-        <div class="edit-subhead">Stock Shot</div>
-        <div class="edit-field"><label>Carry (yd)</label><input id="nc-carry" type="number"></div>
-        <div class="edit-field"><label>Total (yd)</label><input id="nc-total" type="number"></div>
-        <div class="edit-field"><label>Ball Speed (mph)</label><input id="nc-bspd" type="number"></div>
-        <div class="edit-field"><label>Club Speed (mph)</label><input id="nc-cspd" type="number"></div>
-        <div class="edit-field"><label>Launch (°)</label><input id="nc-launch" type="number" step="0.1"></div>
-        <div class="edit-field"><label>Spin (rpm)</label><input id="nc-spin" type="number"></div>
-        <div class="edit-field"><label>Max Height (ft)</label><input id="nc-ht" type="number"></div>
-        <div class="edit-field"><label>Land Angle (°)</label><input id="nc-land" type="number" step="0.1"></div>
-      </div>
-      <div class="btn-row">
-        <button class="btn btn-accent" onclick="addNewClub()">Add to Bag</button>
-        <button class="btn" onclick="clearNewClubForm()">Clear</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- PLAN A SHOT -->
-<div id="page-planshot" class="page">
-  <div class="section-label" style="margin-top:0">Plan a Shot</div>
-  <p class="intro-note">Build the true number from your target out. The effective-yardage equation below is live — tap any term to open its detail and inputs.</p>
-  <div id="planshot-wrap"></div>
-</div>
-
-<!-- PLAN A ROUND (course strategy + editor folded in) -->
-<div id="page-courses" class="page">
-  <div id="course-strategy-wrap"></div>
-  <div class="section-label" style="margin-top:22px">Course Editor</div>
-  <div id="course-editor-wrap"></div>
-</div>
-
-<!-- LONG TERM PLANS -->
-<div id="page-longterm" class="page">
-  <div class="section-label" style="margin-top:0">Long Term Plans</div>
-  <p class="intro-note">Your season arc — handicap goal, volume, and milestones.</p>
-  <div id="longterm-wrap"></div>
-</div>
-
-<!-- PROFILE -->
-<div id="page-profile" class="page">
-  <div class="profile-card">
-    <h3>Golfer Profile <span style="font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;letter-spacing:.05em;color:var(--muted);text-transform:none">handicap, scoring stats &amp; goals · goal handicap drives the SG diamond goal ring</span></h3>
-    <div class="edit-grid" id="profile-grid"></div>
-    <div id="hcp-trend-wrap" style="margin-top:12px"></div>
-    <div class="btn-row"><button class="btn btn-primary" onclick="saveProfile()">Save Profile</button></div>
-  </div>
-  <div class="profile-card">
-    <h3>Launch Monitor Profile <span style="font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;letter-spacing:.05em;color:var(--muted);text-transform:none">stored session data from your fitting or lesson · enriches shot modelling</span></h3>
-    <div class="edit-grid" id="lm-grid"></div>
-    <div class="btn-row"><button class="btn btn-primary" onclick="saveProfile()">Save Profile</button></div>
-  </div>
-  <div class="profile-card">
-    <h3>Coach Mode <span style="font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;letter-spacing:.05em;color:var(--muted);text-transform:none">preview</span></h3>
-    <p class="gen-note">A locker room with a locker per student: switch between players, each with their own bag, baselines, swing data and skills-test history. Build lesson notes against any link in the causal chain and track every student's trend in one place.</p>
-    <div class="btn-row"><button class="btn" disabled style="opacity:.55;cursor:not-allowed">Add a student locker — coming soon</button></div>
-  </div>
-  <div class="profile-card">
-    <h3>Typical Baseline Conditions <span style="font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;letter-spacing:.05em;color:var(--muted);text-transform:none">measuring conditions, home course setup &amp; surface types your stock numbers were captured in</span></h3>
-    <div class="edit-grid" id="baseline-grid"></div>
-    <div class="btn-row"><button class="btn btn-primary" onclick="saveProfile()">Save Profile</button></div>
-  </div>
-  <div class="profile-card">
-    <h3>Data</h3>
-    <p class="gen-note">Your bag, performance numbers, swing data and profile are saved in this browser. Export a backup, import it on another device, or reset to the original demo bag.</p>
-    <div class="btn-row">
-      <button class="btn" onclick="exportData()">Export JSON</button>
-      <button class="btn" onclick="triggerImportFile()">Import JSON</button>
-      <button class="btn" onclick="resetData()">Reset to Demo</button>
-      <input type="file" id="import-file" accept="application/json" style="display:none" onchange="importData(event)">
-    </div>
-  </div>
-</div>
-
-<!-- APP REFERENCES -->
-<div id="page-reference" class="page">
-  <div class="section-label" style="margin-top:0">App References</div>
-  <p class="intro-note">The StrongerGolf vocabulary, worded to keep front-of-mind that <strong>impact is a 3D event</strong>: every variable has a Vertical and a Horizontal component of one 3D vector. <strong>Tap any card</strong> to expand deeper context and alternate launch-monitor names.</p>
+  <details class="defs-dropdown">
+    <summary>Definitions — StrongerGolf vocabulary &amp; launch-monitor cross-map</summary>
+    <p class="intro-note">The StrongerGolf vocabulary, worded to keep front-of-mind that <strong>impact is a 3D event</strong>: every variable has a Vertical and a Horizontal component of one 3D vector. <strong>Tap any card</strong> to expand deeper context and alternate launch-monitor names.</p>
 
   <div class="section-label">Definitions</div>
   <div class="ref-grid">
@@ -382,6 +272,139 @@
     </table>
   </div>
   <p class="intro-note" style="margin-top:10px;font-size:.62rem">Sources: StrongerGolf research corpus — D-Plane (Jorgensen, <em>Physics of Golf</em>), 3 Phases of the Downswing (Strong &amp; Zibrik), impact-geometry glossary; Trackman University; Foresight Sports GCQuad documentation; Full Swing Golf technology references.</p>
+  </details>
+</div>
+
+<!-- SPECS -->
+<div id="page-specs" class="page">
+  <div class="section-label" style="margin-top:0">Ball</div>
+  <div class="specs-wrap" id="ball-specs-wrap"></div>
+  <div class="section-label" style="margin-top:18px">Club Specifications</div>
+  <p class="intro-note">Tap any club to edit its specs and performance, and to see replacement options within ±2° effective loft.</p>
+  <div id="gapping-wrap"></div>
+  <div class="specs-wrap" id="specs-wrap"></div>
+
+  <div class="section-label" style="margin-top:22px">Ball</div>
+  <div class="profile-card" style="margin-bottom:0;border-radius:10px">
+    <div class="edit-grid" id="ball-grid"></div>
+    <div class="btn-row"><button class="btn btn-primary" onclick="saveProfile()">Save</button></div>
+  </div>
+
+  <div class="section-label" style="margin-top:22px">Add a Club</div>
+  <div class="add-club-wrap" id="add-club-wrap">
+    <div class="add-club-body">
+      <div class="edit-grid">
+        <div class="edit-subhead">Make &amp; Model</div>
+        <div class="edit-field"><label>Display Label</label><input id="nc-label" placeholder="e.g. 4i"></div>
+        <div class="edit-field"><label>Type</label><select id="nc-type"><option value="iron">Iron</option><option value="wood">Wood / Hybrid</option><option value="wedge">Wedge</option><option value="putter">Putter</option></select></div>
+        <div class="edit-subhead">Physical Spec</div>
+        <div class="edit-field"><label>Make</label><input id="nc-make" placeholder="e.g. Callaway"></div>
+        <div class="edit-field"><label>Model</label><input id="nc-model" placeholder="e.g. Apex MB"></div>
+        <div class="edit-field"><label>Year</label><input id="nc-year" type="number" placeholder="2024"></div>
+        <div class="edit-field"><label>Shaft</label><input id="nc-shaft" placeholder="e.g. ProjX 5.5"></div>
+        <div class="edit-field"><label>Length</label><input id="nc-length" placeholder='e.g. 37"'></div>
+        <div class="edit-field"><label>Eff. Loft</label><input id="nc-loft" placeholder="e.g. 24°"></div>
+        <div class="edit-field"><label>Orig. Loft</label><input id="nc-origloft" placeholder="e.g. 23°"></div>
+        <div class="edit-field"><label>Lie</label><input id="nc-lie" placeholder="e.g. 61°"></div>
+        <div class="edit-field"><label>Swing Wt</label><input id="nc-swt" placeholder="e.g. D2"></div>
+        <div class="edit-field"><label>Overall Weight (g)</label><input id="nc-weight" type="number" placeholder="e.g. 315"></div>
+        <div class="edit-subhead">Stock Shot</div>
+        <div class="edit-field"><label>Carry (yd)</label><input id="nc-carry" type="number"></div>
+        <div class="edit-field"><label>Total (yd)</label><input id="nc-total" type="number"></div>
+        <div class="edit-field"><label>Ball Speed (mph)</label><input id="nc-bspd" type="number"></div>
+        <div class="edit-field"><label>Club Speed (mph)</label><input id="nc-cspd" type="number"></div>
+        <div class="edit-field"><label>Launch (°)</label><input id="nc-launch" type="number" step="0.1"></div>
+        <div class="edit-field"><label>Spin (rpm)</label><input id="nc-spin" type="number"></div>
+        <div class="edit-field"><label>Max Height (ft)</label><input id="nc-ht" type="number"></div>
+        <div class="edit-field"><label>Land Angle (°)</label><input id="nc-land" type="number" step="0.1"></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-accent" onclick="addNewClub()">Add to Bag</button>
+        <button class="btn" onclick="clearNewClubForm()">Clear</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PLAN A SHOT -->
+<div id="page-planshot" class="page">
+  <div class="section-label" style="margin-top:0">Plan a Shot</div>
+  <p class="intro-note">Build the true number from your target out. The effective-yardage equation below is live — tap any term to open its detail and inputs.</p>
+  <div id="planshot-wrap"></div>
+</div>
+
+<!-- PLAN A ROUND (course strategy + editor folded in) -->
+<div id="page-courses" class="page">
+  <div id="course-strategy-wrap"></div>
+  <div class="section-label" style="margin-top:22px">Course Editor</div>
+  <div id="course-editor-wrap"></div>
+</div>
+
+<!-- LONG TERM PLANS -->
+<div id="page-longterm" class="page">
+  <div class="section-label" style="margin-top:0">Long Term Plans</div>
+  <p class="intro-note">Your season arc — handicap goal, volume, and milestones.</p>
+  <div id="longterm-wrap"></div>
+</div>
+
+<!-- PROFILE -->
+<div id="page-profile" class="page">
+  <div class="profile-card">
+    <h3>Golfer Profile <span style="font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;letter-spacing:.05em;color:var(--muted);text-transform:none">handicap, scoring stats &amp; goals · goal handicap drives the SG diamond goal ring</span></h3>
+    <div class="edit-grid" id="profile-grid"></div>
+    <div id="hcp-trend-wrap" style="margin-top:12px"></div>
+    <div class="btn-row"><button class="btn btn-primary" onclick="saveProfile()">Save Profile</button></div>
+  </div>
+  <div class="profile-card">
+    <h3>Launch Monitor Profile <span style="font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;letter-spacing:.05em;color:var(--muted);text-transform:none">stored session data from your fitting or lesson · enriches shot modelling</span></h3>
+    <div class="edit-grid" id="lm-grid"></div>
+    <div class="btn-row"><button class="btn btn-primary" onclick="saveProfile()">Save Profile</button></div>
+  </div>
+  <div class="profile-card">
+    <h3>Typical Baseline Conditions <span style="font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;letter-spacing:.05em;color:var(--muted);text-transform:none">measuring conditions, home course setup &amp; surface types your stock numbers were captured in</span></h3>
+    <div class="edit-grid" id="baseline-grid"></div>
+    <div class="btn-row"><button class="btn btn-primary" onclick="saveProfile()">Save Profile</button></div>
+  </div>
+</div>
+
+<!-- MY COMMUNITY (placeholder — multi-user / coaching, not the current build focus) -->
+<div id="page-community" class="page">
+  <div class="profile-card" style="margin-top:0">
+    <h3>My Community <span style="font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;letter-spacing:.05em;color:var(--muted);text-transform:none">preview</span></h3>
+    <p class="gen-note">StrongerGolf is built first as a private, personal — but very comprehensive — golf knowledge &amp; reference tool. This page is a placeholder for a future multi-player layer: should it ever expand to beta testers or a commercial release, a community would live here. Not the current development focus.</p>
+  </div>
+  <div class="profile-card">
+    <h3>Coach Mode <span style="font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;letter-spacing:.05em;color:var(--muted);text-transform:none">preview</span></h3>
+    <p class="gen-note">A locker room with a locker per student: switch between players, each with their own bag, baselines, swing data and skills-test history. Build lesson notes against any link in the causal chain and track every student's trend in one place.</p>
+    <div class="btn-row"><button class="btn" disabled style="opacity:.55;cursor:not-allowed">Add a student locker — coming soon</button></div>
+  </div>
+</div>
+
+<!-- MY APP SETTINGS -->
+<div id="page-reference" class="page">
+  <div class="section-label" style="margin-top:0">My App Settings</div>
+  <p class="intro-note">A private, personal build — your data lives in this browser. The StrongerGolf vocabulary &amp; launch-monitor cross-map now live under <strong>Practice → Resources → Definitions</strong>.</p>
+  <div class="profile-card">
+    <h3>Data</h3>
+    <p class="gen-note">Your bag, performance numbers, swing data and profile are saved in this browser. Export a backup, import it on another device, or reset to the original demo bag.</p>
+    <div class="btn-row">
+      <button class="btn" onclick="exportData()">Export JSON</button>
+      <button class="btn" onclick="triggerImportFile()">Import JSON</button>
+      <button class="btn" onclick="resetData()">Reset to Demo</button>
+      <input type="file" id="import-file" accept="application/json" style="display:none" onchange="importData(event)">
+    </div>
+  </div>
+  <div class="profile-card">
+    <h3>Data Provenance <span style="font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;letter-spacing:.05em;color:var(--muted);text-transform:none">how every number is sourced</span></h3>
+    <p class="gen-note">Every data point is labelled by how trustworthy its source is. Calculations inherit the weakest source of their inputs — only maths built purely on Captured data earns Verified.</p>
+    <div class="prov-legend">
+      <div class="prov-legend-item"><span class="sg-prov" style="color:#00853F;background:rgba(0,133,63,.12)">Captured</span> measured by a device — launch monitor, GPS, putt timer.</div>
+      <div class="prov-legend-item"><span class="sg-prov" style="color:#00853F;background:rgba(0,133,63,.12)">✓ Verified</span> calculated directly from Captured data.</div>
+      <div class="prov-legend-item"><span class="sg-prov" style="color:#1a5aaa;background:rgba(26,90,170,.12)">Input</span> typed in by you — specs, baselines, typical-round stats.</div>
+      <div class="prov-legend-item"><span class="sg-prov" style="color:#b07d12;background:rgba(196,150,30,.16)">Presumed</span> assumed / interviewed / app default — not measured.</div>
+    </div>
+    <p class="gen-note" style="margin-top:10px">Down the road, answering profile questions (e.g. capturing your full-bag dispersion) can unlock features like full course strategy — but interviewed answers are labelled <em>Presumed</em>, not Captured, until backed by measured data (a Trackman session, on-course tracking, etc.).</p>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>

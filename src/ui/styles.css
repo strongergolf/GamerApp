@@ -556,6 +556,18 @@ table.chip-matrix tr:hover td{background:var(--surface2)}
 
 /* Prototype features (Play tab) */
 .proto-badge{font-family:ui-monospace,monospace;font-size:.5rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--gold);background:var(--gold-pale);border:1px solid var(--gold2);border-radius:4px;padding:1px 5px;margin-left:7px;vertical-align:middle}
+/* Data provenance badges (Captured / Verified / Input / Presumed) */
+.sg-prov{font-family:ui-monospace,monospace;font-size:.5rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;border-radius:4px;padding:1px 5px;white-space:nowrap;vertical-align:middle}
+.prov-legend{display:flex;flex-direction:column;gap:7px;margin-top:8px}
+.prov-legend-item{display:flex;align-items:baseline;gap:8px;font-family:Arial,sans-serif;font-size:.76rem;color:var(--ink2);line-height:1.4}
+/* Definitions dropdown (Practice → Resources) */
+.defs-dropdown{margin-top:16px;border:1px solid var(--border);border-radius:10px;background:var(--surface);padding:0 14px}
+.defs-dropdown>summary{cursor:pointer;padding:13px 0;font-family:Arial,sans-serif;font-size:.82rem;font-weight:800;color:var(--ink);list-style:none}
+.defs-dropdown>summary::-webkit-details-marker{display:none}
+.defs-dropdown>summary::before{content:'▸  ';color:var(--muted)}
+.defs-dropdown[open]>summary{border-bottom:1px solid var(--border);margin-bottom:12px}
+.defs-dropdown[open]>summary::before{content:'▾  '}
+.defs-dropdown>*:last-child{margin-bottom:14px}
 /* Shot Shaper */
 .shaper-controls{display:grid;grid-template-columns:repeat(4,1fr);gap:10px 12px;margin-bottom:12px}
 @media (max-width:640px){.shaper-controls{grid-template-columns:repeat(2,1fr)}}
