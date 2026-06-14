@@ -197,24 +197,16 @@ function renderCalc(target){
       </div>
     </div>`;
   }).join('');
-  /* Trajectory for selected shot */
-  const trajWrap=document.getElementById('approach-traj-wrap');
-  if(trajWrap && sug.length){
+  /* Selected shot → drives the combined 3D image (impact geometry + flight + roll-out) */
+  if(sug.length){
     const pick=sug[selIdx]||sug[0];
-    const p=STATE.performance[pick.club.id]||{};
     const fl0=interpFlight(pick.club,pick.sw.key,playTarget);
     const fl={launch:Math.round(fl0.launch*stm.launchMult),spin:Math.round(fl0.spin*stm.spinMult),height:Math.round(fl0.height*stm.heightMult)};
-    const swingLabel=pick.sw.key==='full'?'Full':pick.sw.key==='tq'?'¾':'½';
     const tRoll=Math.max(0,Math.round(approachRolloutYds(fl0.spin,fl0.height)*stm.rollMult)+(window.approachGreenFirmness||0));
     const tCarry=target-tRoll;
-    const tLand=Math.round((p.land||45)*(stm.landMult||1));
-    const shotTag=shotType!=='stock'?` · ${shotType}`:'';
-    const svgHtml=buildSideSVG(pick.club,{carry:tCarry,total:target,launch:fl.launch,spin:fl.spin,land:tLand,ht:fl.height,bspd:p.bspd||0});
-    trajWrap.innerHTML=`<div class="approach-traj-wrap">
-      <div class="chip-svg-label" style="font-size:.8rem;font-weight:700;color:var(--ink);letter-spacing:.01em">${pick.club.label} ${swingLabel}${shotTag} — carry ${tCarry} · roll ${tRoll} · total ${target} yds · ${fl.launch}° · ${(fl.spin/1000).toFixed(1)}k</div>
-      ${svgHtml}
-    </div>`;
-  } else if(trajWrap){ trajWrap.innerHTML=''; }
+    window.approachShot={ clubId:pick.club.id, carry:tCarry, roll:tRoll, total:target, heightYd:(fl.height||90)/3, vlaunch:fl.launch, spin:fl.spin };
+  } else { window.approachShot=null; }
+  if(typeof renderShotShaper==='function') renderShotShaper();
 }
 function initCalc(){
   const s=document.getElementById('yard-slider'),inp=document.getElementById('yard-input');
@@ -337,65 +329,72 @@ function shaperAxisTriad(az,el,ax,ay,len){
     + one(1,0,0,'#d96070','X') + one(0,1,0,'var(--green)','Y') + one(0,0,1,'var(--sky)','Z');
 }
 
-/* Combined 3D scene: impact geometry (club path, circular face + normal, spin axis) at
-   the ball end, and the resulting 3D ball flight curving away to the target — one rotating
-   image. World axes x = lateral, y = up, z = downrange. */
-function buildShaperScene3D(m,az,el,driftYd){
-  const W=300,H=290,pad=26,Zmax=120,LE=2.6;
+/* Combined 3D scene — ONE rotating image: impact geometry (club path, circular face +
+   normal, spin axis) at the ball end, plus the full ball flight using the trajectory model
+   (carry arc peaking ~72%, then run/roll-out to the pin) with the lateral shape + crosswind.
+   Driven by the selected approach shot (shot = {carry,roll,total,heightYd}) so it tracks
+   the distance/condition sliders live. World axes x = lateral, y = up, z = downrange (yd). */
+function buildShaperScene3D(m,az,el,driftYd,shot){
+  const W=300,H=290,pad=26,LE=1.9;
   const rx=(p,a)=>{a*=Math.PI/180;return {x:p.x,y:p.y*Math.cos(a)-p.z*Math.sin(a),z:p.y*Math.sin(a)+p.z*Math.cos(a)};};
   const ry=(p,a)=>{a*=Math.PI/180;return {x:p.x*Math.cos(a)+p.z*Math.sin(a),y:p.y,z:-p.x*Math.sin(a)+p.z*Math.cos(a)};};
+  shot=shot||{};
+  const carry=Math.max(5,shot.carry||140), roll=Math.max(0,shot.roll||0), total=Math.max(carry,carry+roll);
+  const heightYd=Math.max(4,shot.heightYd||carry*0.18);
   const loft=m.loft||31, face=m.face||0, hpath=(m.path||0)*1.5, spinAxis=m.spinAxis||0;
   const startSlope=Math.tan((m.start||0)*Math.PI/180);
-  const ctrlX=startSlope*Zmax*0.5*LE;
-  const peak=Zmax*(0.18+Math.min(0.34,(loft/60)*0.34));
-  const wind=(driftYd||0)*(Zmax/(m.carry||150))*LE;
-  /* flight arc — height peaks ~70% of the way to the target (long climb, steep descent,
-     reflecting drag) so the apex is always nearer the target than the ball */
-  const HK=1.94, uPk=0.70;
-  const N=30, fpath=[];
-  for(let i=0;i<=N;i++){const u=i/N; fpath.push({x:2*(1-u)*u*ctrlX+wind*Math.pow(u,1.4), y:peak*Math.sin(Math.PI*Math.pow(u,HK)), z:u*Zmax});}
-  const apex={x:2*(1-uPk)*uPk*ctrlX+wind*Math.pow(uPk,1.4),y:peak,z:Zmax*uPk}, landX=wind;
-  /* impact geometry near origin */
-  const fr=13, facePts=[];
+  const ctrlX=startSlope*carry*0.5*LE;          /* lateral bow — exaggerated for visibility */
+  const windYd=(driftYd||0)*LE;                  /* crosswind drift to landing */
+  /* carry arc — height peaks ~72% of the carry (long climb, steep descent) */
+  const HK=2.1, uPk=0.72, N=32, fpath=[];
+  for(let i=0;i<=N;i++){const u=i/N; fpath.push({x:2*(1-u)*u*ctrlX+windYd*Math.pow(u,1.4), y:heightYd*Math.sin(Math.PI*Math.pow(u,HK)), z:u*carry});}
+  const landX=fpath[N].x;
+  /* roll-out run along the ground, carry → total, drifting slightly on with the wind */
+  const rollPts=[]; if(roll>0.4){ const RN=6; for(let i=1;i<=RN;i++){const t=i/RN; rollPts.push({x:landX+windYd*0.12*t,y:0,z:carry+roll*t});} }
+  const stopX=rollPts.length?rollPts[rollPts.length-1].x:landX;
+  const apex={x:2*(1-uPk)*uPk*ctrlX+windYd*Math.pow(uPk,1.4),y:heightYd,z:carry*uPk};
+  /* impact geometry near the ball, scaled to the shot */
+  const fr=Math.max(6,total*0.045), facePts=[];
   for(let i=0;i<28;i++){const th=i/28*2*Math.PI; facePts.push(ry(rx({x:fr*Math.cos(th),y:fr*Math.sin(th),z:0},-loft),face));}
   let nrm={x:0,y:0,z:1}; nrm=ry(rx(nrm,-loft),face);
-  const FLp=30, prr=hpath*Math.PI/180, pathEnd={x:Math.sin(prr)*FLp,y:0,z:Math.cos(prr)*FLp};
-  const sar=-spinAxis*Math.PI/180, axL=17, axZ=20;
+  const FLp=total*0.12, prr=hpath*Math.PI/180, pathEnd={x:Math.sin(prr)*FLp,y:0,z:Math.cos(prr)*FLp};
+  const sar=-spinAxis*Math.PI/180, axL=total*0.06, axZ=total*0.1;
   const axA={x:-axL*Math.cos(sar),y:-axL*Math.sin(sar),z:axZ}, axB={x:axL*Math.cos(sar),y:axL*Math.sin(sar),z:axZ};
-  const G=Math.max(24,Math.abs(ctrlX)*1.2,Math.abs(wind)*1.2,fr+4);
-  const bounds=[{x:-G,y:0,z:0},{x:G,y:0,z:0},{x:-G,y:0,z:Zmax},{x:G,y:0,z:Zmax},{x:0,y:peak,z:Zmax*0.5},{x:0,y:fr+4,z:0},{x:landX,y:0,z:Zmax},{x:0,y:-axL-4,z:axZ}];
+  const G=Math.max(total*0.16,Math.abs(ctrlX)*1.2,Math.abs(windYd)*1.2,fr+4);
+  const bounds=[{x:-G,y:0,z:0},{x:G,y:0,z:0},{x:-G,y:0,z:total},{x:G,y:0,z:total},{x:0,y:heightYd,z:carry*uPk},{x:0,y:fr+4,z:0},{x:stopX,y:0,z:total}];
   const T=shaper3DFitter(bounds,az,el,W,H,pad);
   const P=p=>T(p.x,p.y,p.z);
   let grid='';
-  for(let gz=0;gz<=Zmax;gz+=Zmax/4){const a=T(-G,0,gz),b=T(G,0,gz);grid+=`<line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}" stroke="var(--border2)" stroke-width="0.6" opacity="0.4"/>`;}
-  [-G,0,G].forEach(gx=>{const a=T(gx,0,0),b=T(gx,0,Zmax);grid+=`<line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}" stroke="var(--border2)" stroke-width="0.6" opacity="0.4"/>`;});
-  const t0=T(0,0,0),t1=T(0,0,Zmax);
+  for(let i=0;i<=4;i++){const gz=total*i/4;const a=T(-G,0,gz),b=T(G,0,gz);grid+=`<line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}" stroke="var(--border2)" stroke-width="0.6" opacity="0.4"/>`;}
+  [-G,0,G].forEach(gx=>{const a=T(gx,0,0),b=T(gx,0,total);grid+=`<line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}" stroke="var(--border2)" stroke-width="0.6" opacity="0.4"/>`;});
+  const t0=T(0,0,0),t1=T(0,0,total);
   const tline=`<line x1="${t0.x.toFixed(1)}" y1="${t0.y.toFixed(1)}" x2="${t1.x.toFixed(1)}" y2="${t1.y.toFixed(1)}" stroke="var(--gold2)" stroke-width="1.2" stroke-dasharray="5,4" opacity="0.7"/>`;
-  const slPt=T(startSlope*Zmax*LE,0,Zmax);
-  const slGround=ctrlX!==0?`<line x1="${t0.x.toFixed(1)}" y1="${t0.y.toFixed(1)}" x2="${slPt.x.toFixed(1)}" y2="${slPt.y.toFixed(1)}" stroke="var(--sky)" stroke-width="1" stroke-dasharray="3,3" opacity="0.5"/>`:'';
   const col=shaperShapeColor(m);
   const pts=fpath.map(p=>{const s=P(p);return `${s.x.toFixed(1)},${s.y.toFixed(1)}`;}).join(' ');
-  const apexS=P(apex),apexG=T(apex.x,0,apex.z),land=T(landX,0,Zmax),ball=T(0,0,0);
+  const apexS=P(apex),apexG=T(apex.x,0,apex.z),land=T(landX,0,carry),ball=T(0,0,0);
   const apexDrop=`<line x1="${apexS.x.toFixed(1)}" y1="${apexS.y.toFixed(1)}" x2="${apexG.x.toFixed(1)}" y2="${apexG.y.toFixed(1)}" stroke="${col}" stroke-width="0.8" stroke-dasharray="2,2" opacity="0.55"/>`;
+  /* roll-out as a dashed ground run + green tint */
+  let rollLine=''; if(rollPts.length){ const rp=[land,...rollPts.map(P)].map(s=>`${s.x.toFixed(1)},${s.y.toFixed(1)}`).join(' '); rollLine=`<polyline points="${rp}" fill="none" stroke="var(--green2)" stroke-width="2" stroke-dasharray="3,2.5" opacity="0.85"/>`; }
   /* impact geometry */
   const pathArrow=shaper3DArrow(T(0,0,0),P(pathEnd),'var(--sky)',1.6);
   const fp=facePts.map(P);
   const faceDisc=`<polygon points="${fp.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ')}" fill="rgba(26,90,170,0.20)" stroke="var(--c-iron)" stroke-width="1.4"/>`;
-  const nrmArrow=shaper3DArrow(T(0,0,0),T(nrm.x*18,nrm.y*18,nrm.z*18),'var(--c-iron)',1.3);
+  const nrmArrow=shaper3DArrow(T(0,0,0),P({x:nrm.x*fr*1.3,y:nrm.y*fr*1.3,z:nrm.z*fr*1.3}),'var(--c-iron)',1.3);
   const sA=P(axA),sB=P(axB);
   const axisLine=`<line x1="${sA.x.toFixed(1)}" y1="${sA.y.toFixed(1)}" x2="${sB.x.toFixed(1)}" y2="${sB.y.toFixed(1)}" stroke="${col}" stroke-width="2" stroke-linecap="round"/><circle cx="${sA.x.toFixed(1)}" cy="${sA.y.toFixed(1)}" r="2.3" fill="${col}"/><circle cx="${sB.x.toFixed(1)}" cy="${sB.y.toFixed(1)}" r="2.3" fill="${col}"/>`;
-  const flagTop=T(0,Math.min(30,peak*0.6),Zmax);
-  const driftMark=Math.abs(driftYd||0)>=1?`<line x1="${t1.x.toFixed(1)}" y1="${t1.y.toFixed(1)}" x2="${land.x.toFixed(1)}" y2="${land.y.toFixed(1)}" stroke="var(--sky)" stroke-width="1" stroke-dasharray="2,2" opacity="0.7"/><circle cx="${land.x.toFixed(1)}" cy="${land.y.toFixed(1)}" r="2.4" fill="var(--sky)"/><text x="${land.x.toFixed(1)}" y="${(land.y+10).toFixed(1)}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="6.5" fill="var(--sky)">${Math.abs(driftYd)}y ${driftYd>0?'R':'L'}</text>`:'';
+  const flagTop=T(0,Math.min(heightYd*0.7,total*0.12),total);
   return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block" xmlns="http://www.w3.org/2000/svg">
-    ${grid}${tline}${slGround}${apexDrop}
+    ${grid}${tline}${apexDrop}
     <polyline points="${pts}" fill="none" stroke="${col}" stroke-width="2.6" stroke-linecap="round"/>
+    ${rollLine}
     <circle cx="${apexS.x.toFixed(1)}" cy="${apexS.y.toFixed(1)}" r="2.4" fill="${col}"/>
+    <circle cx="${land.x.toFixed(1)}" cy="${land.y.toFixed(1)}" r="2.6" fill="var(--green2)"/>
     ${pathArrow}${faceDisc}${nrmArrow}${axisLine}
-    ${driftMark}
     ${sgFlagstick(t1.x,t1.y,flagTop.x,flagTop.y,1)}
     ${sgBall(ball.x,ball.y,5)}
     ${shaperAxisTriad(az,el,24,H-20,15)}
     <text x="${apexS.x.toFixed(1)}" y="${(apexS.y-5).toFixed(1)}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="6.5" fill="${col}">apex</text>
+    ${roll>0.4?`<text x="${land.x.toFixed(1)}" y="${(land.y+11).toFixed(1)}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="6" fill="var(--green)">land · ${Math.round(roll)}y roll</text>`:''}
   </svg>`;
 }
 
@@ -416,21 +415,20 @@ function shaperClubList(){
     .map(c=>c.id);
 }
 const _clampIdx=(v,n)=>Math.max(0,Math.min(n-1,Math.round(parseFloat(v)||0)));
-/* Read the current control values (all step-sliders) into a shaper model. */
+/* the club the combined image is built around = the currently selected approach shot */
+function shaperClubId(){ return (window.approachShot&&window.approachShot.clubId)||'7i'; }
+/* Read the current shaping controls into a shaper model for the selected approach club. */
 function currentShaperModel(){
-  const clubs=shaperClubList();
-  const ci=_clampIdx(document.getElementById('shaper-club')?.value, clubs.length||1);
-  const clubId=clubs[ci]||'7i';
   const cv=SHAPER_CURVES[_clampIdx(document.getElementById('shaper-curve')?.value,SHAPER_CURVES.length)];
   const stance=SHAPER_LIES[_clampIdx(document.getElementById('shaper-stance')?.value,3)][0];
-  return shaperModel(clubId,cv[2],cv[3],stance);
+  return shaperModel(shaperClubId(),cv[2],cv[3],stance);
 }
 /* crosswind drift (yd, + = ball pushed right) — read from Situational Info (no duplicate control) */
 function shaperCrossDrift(){
   const cross=(typeof EY!=='undefined'&&EY.approach)?(parseFloat(EY.approach.cross)||0):0;
   return Math.round((typeof PS_CROSS_YPM!=='undefined'?PS_CROSS_YPM:2.0)*cross);
 }
-/* Re-render the 3D scene + crosswind note (rotate/tilt/crosswind keep slider focus). */
+/* Re-render the combined 3D scene + crosswind note (rotate/tilt/crosswind keep slider focus). */
 function renderShaper3D(){
   const scene=document.getElementById('shaper-scene'); if(!scene) return;
   const m=currentShaperModel();
@@ -440,63 +438,61 @@ function renderShaper3D(){
   window.shaper3DAz=A; window.shaper3DEl=E;
   const cross=(typeof EY!=='undefined'&&EY.approach)?(parseFloat(EY.approach.cross)||0):0;
   const drift=shaperCrossDrift();
-  scene.innerHTML=buildShaperScene3D(m,A,E,drift);
+  scene.innerHTML=buildShaperScene3D(m,A,E,drift,window.approachShot||null);
   const wind=document.getElementById('shaper-wind');
   if(wind) wind.innerHTML = cross!==0
     ? `<b>Crosswind ${Math.abs(cross)} mph ${cross>0?'L→R':'R→L'}</b> <span style="color:var(--muted)">(Situational Info)</span> — drifts ~${Math.abs(drift)} yd ${drift>0?'right':'left'}; aim ~${Math.abs(drift)} yd ${drift>0?'left':'right'}.`
     : '';
 }
-/* Re-render the specs (left) + update control labels + the 3D scene. */
+/* Re-render the Impact & Swing conditions list (left) + control labels + the 3D scene.
+   These are the impact conditions that PRODUCE the shot — listed alongside the model. */
 function renderShotShaper(){
   const out=document.getElementById('shaper-specs'); if(!out) return;
   const m=currentShaperModel();
   const cv=SHAPER_CURVES[_clampIdx(document.getElementById('shaper-curve')?.value,SHAPER_CURVES.length)];
   const stance=SHAPER_LIES[_clampIdx(document.getElementById('shaper-stance')?.value,3)][0];
-  const shape=cv[2];
-  const fmt=v=>Math.abs(v)<0.05?'0.0° square':`${Math.abs(v).toFixed(1)}° ${v>0?'R':'L'}`;
-  /* refresh control value labels (controls are not rebuilt, so update in place) */
-  const clubs=shaperClubList();
   const setV=(id,txt)=>{const e=document.getElementById(id+'-v'); if(e) e.textContent=txt;};
-  const ci=_clampIdx(document.getElementById('shaper-club')?.value,clubs.length||1);
-  const cc=STATE.clubs.find(c=>c.id===clubs[ci]);
-  setV('shaper-club', cc?`${cc.label} · ${cc.loft}`:'—');
   setV('shaper-curve', cv[1]);
   setV('shaper-stance', SHAPER_LIES[_clampIdx(document.getElementById('shaper-stance')?.value,3)][1]);
-  const lieLine = stance!=='level'
-    ? `<div class="shaper-line"><span>Stance (side-hill)</span><b>${stance==='above'?'Above feet → draw bias':'Below feet → fade bias'}</b></div>` : '';
-  let rows;
-  if(shape==='straight'){
-    rows=`
-      <div class="shaper-line"><span>3D Face / Path</span><b>square</b></div>
-      <div class="shaper-line"><span>Start line</span><b>${m.start&&Math.abs(m.start)>=0.05?fmt(m.start)+' of target':'On target'}</b></div>
-      <div class="shaper-line"><span>Spin axis · 3D loft</span><b>${Math.abs(m.spinAxis).toFixed(1)}° ${m.spinAxis<0?'L':m.spinAxis>0?'R':'·'} · ${m.spinLoft.toFixed(0)}°</b></div>
-      ${m.curve?`<div class="shaper-line"><span>Curve</span><b>~${Math.abs(m.curve)} yds ${m.spinAxis<0?'left':'right'}</b></div>`:''}
-      ${lieLine}
-      <div class="shaper-note">Square face &amp; path — flies straight unless a side-hill lie or crosswind acts on it.</div>`;
-  } else {
-    const side=shape==='draw'?'left':'right';
-    rows=`
-      <div class="shaper-line"><span>3D Face (HFace)</span><b>${fmt(m.face)}</b></div>
-      <div class="shaper-line"><span>3D Path (HPath)</span><b>${fmt(m.path)}</b></div>
-      <div class="shaper-line"><span>Start line</span><b>${fmt(m.start)} of target</b></div>
-      <div class="shaper-line"><span>Spin axis · 3D loft</span><b>${Math.abs(m.spinAxis).toFixed(1)}° ${m.spinAxis<0?'L':'R'} · ${m.spinLoft.toFixed(0)}°</b></div>
-      <div class="shaper-line"><span>Curve</span><b>~${Math.abs(m.curve)} yds ${side}</b></div>
-      ${lieLine}
-      <div class="shaper-note">Ball starts ${fmt(m.start)} (≈80% toward the face), then curves ${side} back to target via a ${Math.abs(m.spinAxis).toFixed(1)}° spin-axis tilt.</div>`;
-  }
-  out.innerHTML=`<div class="shaper-readout">${rows}<div class="shaper-axis-key">X lateral · Y up · Z downrange</div></div>`;
+  const fmt=v=>Math.abs(v)<0.05?'0.0° sq':`${Math.abs(v).toFixed(1)}° ${v>0?'R':'L'}`;
+  const fmtV=v=>`${v>0?'+':''}${v.toFixed(1)}°`;
+  const club=STATE.clubs.find(c=>c.id===shaperClubId());
+  const p=perf(shaperClubId())||{};
+  const aoa=shaperStockAoA(shaperClubId(), club?club.type:'iron');       /* VPath = angle of attack */
+  const dynLoft=m.loft;                                                  /* VFace ≈ dynamic loft */
+  const cspd=p.cspd;                                                     /* clubhead speed (entered) */
+  /* gear effect from the club's recorded miss tendency, if any */
+  const mt=(STATE.missTendency||{})[shaperClubId()]||{};
+  const gear = mt.heelToe==='toe' ? 'Toe → draw spin' : mt.heelToe==='heel' ? 'Heel → fade spin' : 'Centred (neutral)';
+  /* swing-plane estimate: presumed VPlane by club, HPlane from the D-plane relationship */
+  const vPlane = club&&club.type==='wood'?47 : club&&club.type==='wedge'?61 : 55;
+  const hPlane = (typeof dpHPlane==='function') ? dpHPlane(aoa, vPlane, m.path) : m.path;
+  const head=`<div class="shaper-spec-head">Impact &amp; Swing — ${club?club.label:'—'}${club?' · '+club.loft:''} <span class="sg-prov" style="color:#b07d12;background:rgba(196,150,30,.16)">Presumed</span></div>`;
+  const line=(k,v)=>`<div class="shaper-line"><span>${k}</span><b>${v}</b></div>`;
+  const rows=
+    line('3D Path (V·H)', `${fmtV(aoa)} AoA · ${fmt(m.path)}`)
+    +line('3D Face (V·H)', `${dynLoft.toFixed(0)}° loft · ${fmt(m.face)}`)
+    +line('Spin axis · loft', `${Math.abs(m.spinAxis).toFixed(1)}° ${m.spinAxis<0?'L':m.spinAxis>0?'R':'·'} · ${m.spinLoft.toFixed(0)}°`)
+    +line('Start · curve', `${fmt(m.start)} · ~${Math.abs(m.curve)} yd ${m.spinAxis<0?'left':m.spinAxis>0?'right':'straight'}`)
+    +line('Clubhead speed', cspd?`${cspd} mph <span class="sg-prov" style="color:#1a5aaa;background:rgba(26,90,170,.12)">Input</span>`:'—')
+    +line('Gear effect', gear)
+    +line('Swing plane (V·H)', `~${vPlane}° · ${fmtV(hPlane)} <span style="color:var(--muted);font-size:.6rem">est</span>`)
+    +(stance!=='level'?line('Stance (side-hill)', stance==='above'?'Above feet → draw':'Below feet → fade'):'');
+  const setup = m.spinAxis<-0.4 ? 'Setup for draw: ball slightly back, close stance a touch, swing out to the spin-axis line.'
+            : m.spinAxis>0.4 ? 'Setup for fade: ball slightly forward, open stance a touch, hold the face through impact.'
+            : 'Setup square: ball centre, square stance, neutral grip pressure.';
+  out.innerHTML=`<div class="shaper-readout">${head}${rows}
+    <div class="shaper-note">${setup}</div>
+    <div class="shaper-axis-key">X lateral · Y up · Z downrange · estimates until launch-monitor data is imported</div></div>`;
   renderShaper3D();
 }
 function buildShotShaper(){
   const wrap=document.getElementById('shot-shaper-wrap'); if(!wrap) return;
-  const clubs=shaperClubList();
-  let ci=clubs.indexOf('7i'); if(ci<0) ci=Math.floor(clubs.length/2);
   const stepCtrl=(id,label,max,val)=>`<div class="shaper-ctrl"><label>${label} <span class="shaper-ctrl-v" id="${id}-v">—</span></label><input type="range" id="${id}" min="0" max="${max}" step="1" value="${val}" oninput="renderShotShaper()"></div>`;
   wrap.innerHTML=`
     <div class="section-label">Shot Shaper — Controls <span class="proto-badge">prototype</span></div>
-    <p class="intro-note" style="margin-bottom:10px">Set the shot here; the rotating 3D image (impact geometry + ball flight) sits up top beside the trajectory. Crosswind comes from Situational Info. Reference defaults — refine with your own launch-monitor data.</p>
+    <p class="intro-note" style="margin-bottom:10px">The club is your selected shot above; shape and stance reshape the rotating 3D image up top in real time. Crosswind comes from Situational Info. Reference defaults — refine with your own launch-monitor data.</p>
     <div class="shaper-controls">
-      ${stepCtrl('shaper-club','Club',clubs.length-1,ci)}
       ${stepCtrl('shaper-curve','Shape',SHAPER_CURVES.length-1,3)}
       ${stepCtrl('shaper-stance','Stance',2,0)}
     </div>
