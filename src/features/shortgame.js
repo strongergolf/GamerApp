@@ -56,15 +56,15 @@ function buildShortGame(){
     <div id="chip-results"></div>
 
 
-    <!-- 6. Chip Matrix -->
-    <div class="section-label">Chip Reference Matrix — Total Distance by Club &amp; Carry</div>
-    <p class="intro-note" style="margin-bottom:10px">Launch = 75% of loft. Roll ratio: Low Runner 1:5 (7i) → Standard 1:2 (P) → Toss 1:1 (G) → Flop 5:1 (X). Cells show carry + rollout at current stimp and slope.</p>
-    <div class="chip-matrix-wrap"><table class="chip-matrix" id="chip-matrix-table"></table></div>
-
-    <!-- 7. Short Game Variables -->
+    <!-- 5. Short Game Variables -->
     <div class="section-label" style="margin-top:22px">Short Game Variables</div>
     <p class="intro-note" style="margin-bottom:10px">Setup and motion choices reshape the shot's impact conditions — shaft lean, vertical path, effective loft and bounce — which flow into the launch &amp; spin of the Chip Shot Options above. Defaults match the standard chip; changes shift every club in the dial.</p>
-    <div id="sg-vars-wrap"></div>`;
+    <div id="sg-vars-wrap"></div>
+
+    <!-- 6. Chip Matrix — at-a-glance, very bottom of the tab -->
+    <div class="section-label" style="margin-top:22px">Chip Reference Matrix — Total Distance by Club &amp; Carry</div>
+    <p class="intro-note" style="margin-bottom:10px">Launch = 75% of loft. Roll ratio: Low Runner 1:5 (7i) → Standard 1:2 (P) → Toss 1:1 (G) → Flop 5:1 (X). Cells show carry + rollout at current stimp and slope.</p>
+    <div class="chip-matrix-wrap"><table class="chip-matrix" id="chip-matrix-table"></table></div>`;
 
   buildChipMatrix();
   renderSgVars();

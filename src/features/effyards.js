@@ -7,10 +7,13 @@
 // approach vs short-game shots — all default to 1.0 for now.
 
 const EY = {
-  approach:  { lie:'fairway', stance:'flat', wind:0, elev:0, shot:'stock', nerves:'none' },
-  shortgame: { lie:'fairway', stance:'flat', wind:0, elev:0, shot:'stock', nerves:'none' }
+  approach:  { lie:'fairway', stance:'level', wind:0, elev:0, shot:'stock', nerves:'none' },
+  shortgame: { lie:'fairway', stance:'level', wind:0, elev:0, shot:'stock', nerves:'none' }
 };
-const EY_DEFAULTS = { lie:'fairway', stance:'flat', wind:0, elev:0, shot:'stock', nerves:'none' };
+const EY_DEFAULTS = { lie:'fairway', stance:'level', wind:0, elev:0, shot:'stock', nerves:'none' };
+/* Side-hill stance (ball relative to feet) → distance delta (yd). Both directions cost a
+   little distance through off-centre contact / choking down; estimates, refine later. */
+const EY_STANCE = { wellbelow:-4, below:-2, level:0, above:-2, wellabove:-4 };
 /* refine later: scale a term's yardage impact per shot type */
 const EY_WEIGHT = {
   approach:  { lie:1, stance:1, wind:1, elev:1, shot:1, nerves:1, air:1 },
@@ -36,7 +39,7 @@ const EY_TERMS = [
       ['heavyrough','Heavy rough'],['bunker','Bunker'],['hardpan','Hardpan'],['divot','Divot'],
       ['fairway','Fairway'],['tee','Tee'],['lightrough','Light rough · flyer']] },
   { key:'stance', label:'Stance', type:'step', opts:[
-      ['uphill','Uphill lie'],['flat','Flat'],['downhill','Downhill lie']] },   /* above/below feet live in the Shot Shaper */
+      ['wellbelow','Well below feet'],['below','Below feet'],['level','Level'],['above','Above feet'],['wellabove','Well above feet']] },
   { key:'wind', label:'Wind', type:'range', min:-20, max:20, step:1,
       fmt:v=> v>0?`${v} mph into`:v<0?`${-v} mph down`:'calm' },
   { key:'elev', label:'Elevation', type:'range', min:-30, max:30, step:1,
@@ -57,7 +60,7 @@ function eyDelta(ctx,key,S){
   let d=0;
   switch(key){
     case 'lie':    d=(typeof PS_LIE!=='undefined'?PS_LIE[st.lie]:0)||0; break;
-    case 'stance': d=(typeof PS_STANCE!=='undefined'?PS_STANCE[st.stance]:0)||0; break;
+    case 'stance': d=EY_STANCE[st.stance]||0; break;   /* side-hill stance distance cost */
     case 'wind':   { const hc=(typeof PS_WIND_HEAD!=='undefined'?PS_WIND_HEAD:0.01), tc=(typeof PS_WIND_TAIL!=='undefined'?PS_WIND_TAIL:0.005);
                      d=(st.wind>=0?hc:tc)*st.wind*S*eyWindMult(ctx); break; }   /* + into=longer, − down=shorter */
     case 'elev':   d=st.elev*(typeof PS_ELEV_K!=='undefined'?PS_ELEV_K:1.2); break;
@@ -136,5 +139,5 @@ function eySet(ctx,key,raw){
 function eyReset(ctx){ Object.assign(EY[ctx], EY_DEFAULTS); buildEyPanel(ctx); eyHostRender(ctx); }
 
 // Expose for inline handlers and the renderAll orchestrator.
-Object.assign(window, { EY, EY_TERMS, EY_WEIGHT, EY_SHOT, eyDelta, eyTotal, eyEffective, eyBase,
+Object.assign(window, { EY, EY_TERMS, EY_WEIGHT, EY_SHOT, EY_STANCE, eyDelta, eyTotal, eyEffective, eyBase,
   buildEyPanel, eyRefreshSummary, eyHostRender, eySet, eyReset });
