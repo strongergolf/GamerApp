@@ -563,9 +563,14 @@ table.chip-matrix tr:hover td{background:var(--surface2)}
 .shaper-ctrl-v{color:var(--ink);font-family:Arial,sans-serif;font-weight:700;text-transform:none;letter-spacing:0;margin-left:4px}
 .shaper-ctrl input[type=range]{width:100%;accent-color:var(--accent,#c4427a)}
 .shaper-axis-mini{display:flex;justify-content:space-between;font-family:ui-monospace,monospace;font-size:.5rem;color:var(--muted);margin-top:2px}
-/* combined 3D stage: specs left, rotating scene right */
+/* Approach top row: narrowed selected-shot trajectory + Shot Shaper 3D image side by side */
+.approach-top-row{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;margin:2px 0}
+.approach-traj-col{flex:1 1 240px;min-width:0}
+.approach-top-row .shaper-scene-col{flex:1 1 250px}
+@media (max-width:600px){.approach-traj-col,.approach-top-row .shaper-scene-col{flex:1 1 100%}}
+.shaper-scene-title{font-family:Arial,sans-serif;font-size:.6rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:4px;text-align:center}
 .shaper-stage{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
-.shaper-specs{flex:1;min-width:200px}
+.shaper-specs{min-width:0;margin-top:4px}
 .shaper-scene-col{flex:0 0 300px;max-width:100%}
 @media (max-width:620px){.shaper-scene-col{flex:1 1 100%}}
 .shaper-scene{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:6px}

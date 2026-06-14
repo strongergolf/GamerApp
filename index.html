@@ -89,8 +89,19 @@
   <!-- 2. Expected shots -->
   <div id="es-150" class="expected-shots-strip"></div>
 
-  <!-- 3. Trajectory for selected shot -->
-  <div id="approach-traj-wrap"></div>
+  <!-- 3. Selected-shot trajectory + Shot Shaper 3D image, side by side -->
+  <div class="approach-top-row">
+    <div id="approach-traj-wrap" class="approach-traj-col"></div>
+    <div class="shaper-scene-col">
+      <div class="shaper-scene-title">Shot Shaper</div>
+      <div class="shaper-scene" id="shaper-scene"></div>
+      <div class="shaper-wind" id="shaper-wind"></div>
+      <div class="shaper-rot">
+        <label>Rotate<input type="range" id="shaper-az" min="-90" max="90" step="2" value="-28" oninput="renderShaper3D()"></label>
+        <label>Tilt<input type="range" id="shaper-el" min="4" max="62" step="2" value="20" oninput="renderShaper3D()"></label>
+      </div>
+    </div>
+  </div>
 
   <!-- 4. Shot options -->
   <div class="calc-results" id="calc-results"></div>

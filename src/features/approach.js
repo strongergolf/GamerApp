@@ -491,27 +491,16 @@ function buildShotShaper(){
   const wrap=document.getElementById('shot-shaper-wrap'); if(!wrap) return;
   const clubs=shaperClubList();
   let ci=clubs.indexOf('7i'); if(ci<0) ci=Math.floor(clubs.length/2);
-  const az=window.shaper3DAz!=null?window.shaper3DAz:-28, el=window.shaper3DEl!=null?window.shaper3DEl:20;
   const stepCtrl=(id,label,max,val)=>`<div class="shaper-ctrl"><label>${label} <span class="shaper-ctrl-v" id="${id}-v">—</span></label><input type="range" id="${id}" min="0" max="${max}" step="1" value="${val}" oninput="renderShotShaper()"></div>`;
   wrap.innerHTML=`
-    <div class="section-label">Shot Shaper <span class="proto-badge">prototype</span></div>
-    <p class="intro-note" style="margin-bottom:10px">D-plane shot-shaping in 3D — impact geometry (club path, face, spin axis) and the resulting ball flight in one rotating image. Specs on the left; Rotate/Tilt sit under the image. Crosswind comes from Situational Info. Reference defaults — refine with your own launch-monitor data.</p>
+    <div class="section-label">Shot Shaper — Controls <span class="proto-badge">prototype</span></div>
+    <p class="intro-note" style="margin-bottom:10px">Set the shot here; the rotating 3D image (impact geometry + ball flight) sits up top beside the trajectory. Crosswind comes from Situational Info. Reference defaults — refine with your own launch-monitor data.</p>
     <div class="shaper-controls">
       ${stepCtrl('shaper-club','Club',clubs.length-1,ci)}
       ${stepCtrl('shaper-curve','Shape',SHAPER_CURVES.length-1,3)}
       ${stepCtrl('shaper-stance','Stance',2,0)}
     </div>
-    <div class="shaper-stage">
-      <div class="shaper-specs" id="shaper-specs"></div>
-      <div class="shaper-scene-col">
-        <div class="shaper-scene" id="shaper-scene"></div>
-        <div class="shaper-wind" id="shaper-wind"></div>
-        <div class="shaper-rot">
-          <label>Rotate<input type="range" id="shaper-az" min="-90" max="90" step="2" value="${az}" oninput="renderShaper3D()"></label>
-          <label>Tilt<input type="range" id="shaper-el" min="4" max="62" step="2" value="${el}" oninput="renderShaper3D()"></label>
-        </div>
-      </div>
-    </div>`;
+    <div class="shaper-specs" id="shaper-specs"></div>`;
   renderShotShaper();
 }
 
