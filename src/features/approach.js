@@ -343,16 +343,21 @@ function buildShaperScene3D(m,az,el,driftYd,shot){
   const heightYd=Math.max(4,shot.heightYd||carry*0.18);
   const loft=m.loft||31, face=m.face||0, hpath=(m.path||0)*1.5, spinAxis=m.spinAxis||0;
   const startSlope=Math.tan((m.start||0)*Math.PI/180);
-  const ctrlX=startSlope*carry*0.5*LE;          /* lateral bow — exaggerated for visibility */
   const windYd=(driftYd||0)*LE;                  /* crosswind drift to landing */
-  /* carry arc — height peaks ~72% of the carry (long climb, steep descent) */
+  /* Lateral shape: the ball launches roughly STRAIGHT along the start line for the first
+     third, the curve builds through the middle third, then it settles back toward target
+     while it falls — so the bend is held off early instead of bowing from the very start. */
+  const sLat=startSlope*carry*LE;                /* lateral at carry if it flew dead straight */
+  const cb=u=>{ const t=Math.max(0,Math.min(1,(u-0.30)/0.70)); return t*t*(3-2*t); };  /* curve-back, ~0 first third */
+  const bow=u=> sLat*u*(1-cb(u)) + windYd*Math.pow(u,1.7);   /* start-line travel that curves back; wind builds late */
+  /* carry arc — height peaks ~72% of the carry (long climb, steep descent / the "fall") */
   const HK=2.1, uPk=0.72, N=32, fpath=[];
-  for(let i=0;i<=N;i++){const u=i/N; fpath.push({x:2*(1-u)*u*ctrlX+windYd*Math.pow(u,1.4), y:heightYd*Math.sin(Math.PI*Math.pow(u,HK)), z:u*carry});}
+  for(let i=0;i<=N;i++){const u=i/N; fpath.push({x:bow(u), y:heightYd*Math.sin(Math.PI*Math.pow(u,HK)), z:u*carry});}
   const landX=fpath[N].x;
   /* roll-out run along the ground, carry → total, drifting slightly on with the wind */
   const rollPts=[]; if(roll>0.4){ const RN=6; for(let i=1;i<=RN;i++){const t=i/RN; rollPts.push({x:landX+windYd*0.12*t,y:0,z:carry+roll*t});} }
   const stopX=rollPts.length?rollPts[rollPts.length-1].x:landX;
-  const apex={x:2*(1-uPk)*uPk*ctrlX+windYd*Math.pow(uPk,1.4),y:heightYd,z:carry*uPk};
+  const apex={x:bow(uPk),y:heightYd,z:carry*uPk};
   /* impact geometry near the ball, scaled to the shot */
   const fr=Math.max(6,total*0.045), facePts=[];
   for(let i=0;i<28;i++){const th=i/28*2*Math.PI; facePts.push(ry(rx({x:fr*Math.cos(th),y:fr*Math.sin(th),z:0},-loft),face));}
@@ -360,7 +365,7 @@ function buildShaperScene3D(m,az,el,driftYd,shot){
   const FLp=total*0.12, prr=hpath*Math.PI/180, pathEnd={x:Math.sin(prr)*FLp,y:0,z:Math.cos(prr)*FLp};
   const sar=-spinAxis*Math.PI/180, axL=total*0.06, axZ=total*0.1;
   const axA={x:-axL*Math.cos(sar),y:-axL*Math.sin(sar),z:axZ}, axB={x:axL*Math.cos(sar),y:axL*Math.sin(sar),z:axZ};
-  const G=Math.max(total*0.16,Math.abs(ctrlX)*1.2,Math.abs(windYd)*1.2,fr+4);
+  const G=Math.max(total*0.16,Math.abs(sLat)*0.55,Math.abs(windYd)*1.2,fr+4);
   const bounds=[{x:-G,y:0,z:0},{x:G,y:0,z:0},{x:-G,y:0,z:total},{x:G,y:0,z:total},{x:0,y:heightYd,z:carry*uPk},{x:0,y:fr+4,z:0},{x:stopX,y:0,z:total}];
   const T=shaper3DFitter(bounds,az,el,W,H,pad);
   const P=p=>T(p.x,p.y,p.z);
@@ -375,11 +380,11 @@ function buildShaperScene3D(m,az,el,driftYd,shot){
   const apexDrop=`<line x1="${apexS.x.toFixed(1)}" y1="${apexS.y.toFixed(1)}" x2="${apexG.x.toFixed(1)}" y2="${apexG.y.toFixed(1)}" stroke="${col}" stroke-width="0.8" stroke-dasharray="2,2" opacity="0.55"/>`;
   /* roll-out as a dashed ground run + green tint */
   let rollLine=''; if(rollPts.length){ const rp=[land,...rollPts.map(P)].map(s=>`${s.x.toFixed(1)},${s.y.toFixed(1)}`).join(' '); rollLine=`<polyline points="${rp}" fill="none" stroke="var(--green2)" stroke-width="2" stroke-dasharray="3,2.5" opacity="0.85"/>`; }
-  /* impact geometry */
+  /* impact geometry — kept light: club-path line on the ground, a face RING (no heavy
+     plane fill), and the tilted spin axis. Exact numbers are listed in the specs panel. */
   const pathArrow=shaper3DArrow(T(0,0,0),P(pathEnd),'var(--sky)',1.6);
   const fp=facePts.map(P);
-  const faceDisc=`<polygon points="${fp.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ')}" fill="rgba(26,90,170,0.20)" stroke="var(--c-iron)" stroke-width="1.4"/>`;
-  const nrmArrow=shaper3DArrow(T(0,0,0),P({x:nrm.x*fr*1.3,y:nrm.y*fr*1.3,z:nrm.z*fr*1.3}),'var(--c-iron)',1.3);
+  const faceRing=`<polygon points="${fp.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ')}" fill="none" stroke="var(--c-iron)" stroke-width="1.8"/>`;
   const sA=P(axA),sB=P(axB);
   const axisLine=`<line x1="${sA.x.toFixed(1)}" y1="${sA.y.toFixed(1)}" x2="${sB.x.toFixed(1)}" y2="${sB.y.toFixed(1)}" stroke="${col}" stroke-width="2" stroke-linecap="round"/><circle cx="${sA.x.toFixed(1)}" cy="${sA.y.toFixed(1)}" r="2.3" fill="${col}"/><circle cx="${sB.x.toFixed(1)}" cy="${sB.y.toFixed(1)}" r="2.3" fill="${col}"/>`;
   const flagTop=T(0,Math.min(heightYd*0.7,total*0.12),total);
@@ -389,7 +394,7 @@ function buildShaperScene3D(m,az,el,driftYd,shot){
     ${rollLine}
     <circle cx="${apexS.x.toFixed(1)}" cy="${apexS.y.toFixed(1)}" r="2.4" fill="${col}"/>
     <circle cx="${land.x.toFixed(1)}" cy="${land.y.toFixed(1)}" r="2.6" fill="var(--green2)"/>
-    ${pathArrow}${faceDisc}${nrmArrow}${axisLine}
+    ${pathArrow}${faceRing}${axisLine}
     ${sgFlagstick(t1.x,t1.y,flagTop.x,flagTop.y,1)}
     ${sgBall(ball.x,ball.y,5)}
     ${shaperAxisTriad(az,el,24,H-20,15)}
@@ -488,15 +493,26 @@ function renderShotShaper(){
 }
 function buildShotShaper(){
   const wrap=document.getElementById('shot-shaper-wrap'); if(!wrap) return;
+  const az=window.shaper3DAz!=null?window.shaper3DAz:-28, el=window.shaper3DEl!=null?window.shaper3DEl:20;
   const stepCtrl=(id,label,max,val)=>`<div class="shaper-ctrl"><label>${label} <span class="shaper-ctrl-v" id="${id}-v">—</span></label><input type="range" id="${id}" min="0" max="${max}" step="1" value="${val}" oninput="renderShotShaper()"></div>`;
   wrap.innerHTML=`
-    <div class="section-label">Shot Shaper — Controls <span class="proto-badge">prototype</span></div>
-    <p class="intro-note" style="margin-bottom:10px">The club is your selected shot above; shape and stance reshape the rotating 3D image up top in real time. Crosswind comes from Situational Info. Reference defaults — refine with your own launch-monitor data.</p>
+    <div class="section-label">Your Shot — Impact &amp; Ball Flight <span class="proto-badge">prototype</span></div>
+    <p class="intro-note" style="margin-bottom:10px">The club is your selected shot above; Shape and Stance reshape the rotating 3D image in real time. Crosswind comes from Situational Info. Reference defaults — refine with your own launch-monitor data.</p>
     <div class="shaper-controls">
       ${stepCtrl('shaper-curve','Shape',SHAPER_CURVES.length-1,3)}
       ${stepCtrl('shaper-stance','Stance',2,0)}
     </div>
-    <div class="shaper-specs" id="shaper-specs"></div>`;
+    <div class="shaper-stage">
+      <div class="shaper-specs" id="shaper-specs"></div>
+      <div class="shaper-scene-col">
+        <div class="shaper-scene" id="shaper-scene"></div>
+        <div class="shaper-wind" id="shaper-wind"></div>
+        <div class="shaper-rot">
+          <label>Rotate<input type="range" id="shaper-az" min="-90" max="90" step="2" value="${az}" oninput="renderShaper3D()"></label>
+          <label>Tilt<input type="range" id="shaper-el" min="4" max="62" step="2" value="${el}" oninput="renderShaper3D()"></label>
+        </div>
+      </div>
+    </div>`;
   renderShotShaper();
 }
 

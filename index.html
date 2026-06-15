@@ -89,23 +89,10 @@
   <!-- 2. Expected shots -->
   <div id="es-150" class="expected-shots-strip"></div>
 
-  <!-- 3. Combined 3D shot image — impact geometry + ball flight + roll-out, rotatable -->
-  <div class="approach-top-row">
-    <div class="shaper-scene-col">
-      <div class="shaper-scene-title">Your Shot — impact &amp; ball flight</div>
-      <div class="shaper-scene" id="shaper-scene"></div>
-      <div class="shaper-wind" id="shaper-wind"></div>
-      <div class="shaper-rot">
-        <label>Rotate<input type="range" id="shaper-az" min="-90" max="90" step="2" value="-28" oninput="renderShaper3D()"></label>
-        <label>Tilt<input type="range" id="shaper-el" min="4" max="62" step="2" value="20" oninput="renderShaper3D()"></label>
-      </div>
-    </div>
-  </div>
-
-  <!-- 4. Shot options -->
+  <!-- 3. Shot options (the selected shot) -->
   <div class="calc-results" id="calc-results"></div>
 
-  <!-- 5. Shot Shaper (prototype) -->
+  <!-- 4. Your Shot — combined 3D image + Impact & Swing specs, below the selected shot -->
   <div id="shot-shaper-wrap"></div>
 
   <!-- 6. Stimp / Slope -->
