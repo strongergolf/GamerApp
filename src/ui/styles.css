@@ -564,6 +564,9 @@ table.chip-matrix tr:hover td{background:var(--surface2)}
 .ref-table td:first-child{font-weight:700;color:var(--ink)}
 .ref-table tr:last-child td{border-bottom:none}
 
+/* Print buttons on the reference matrices */
+.print-btn{font-family:Arial,sans-serif;font-size:.6rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 11px;background:transparent;border:1px solid var(--border2);border-radius:14px;color:var(--ink2);cursor:pointer;white-space:nowrap;flex-shrink:0}
+.print-btn:hover{border-color:var(--green2);color:var(--green)}
 /* Prototype features (Play tab) */
 .proto-badge{font-family:ui-monospace,monospace;font-size:.5rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--gold);background:var(--gold-pale);border:1px solid var(--gold2);border-radius:4px;padding:1px 5px;margin-left:7px;vertical-align:middle}
 /* Data provenance badges (Captured / Verified / Input / Presumed) */

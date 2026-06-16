@@ -33,7 +33,7 @@
 <!-- BAG -->
 <div id="page-bag" class="page active">
   <p class="intro-note">Tap any club to expand full ball-flight data. Carries reflect playing conditions when the adjustment is on.</p>
-  <div class="section-label" style="margin-top:14px">Full Carry Distances</div>
+  <div class="section-label" style="margin-top:14px;display:flex;align-items:center;justify-content:space-between;gap:10px">Full Carry Distances <button class="print-btn" onclick="printMatrix('bag')">⎙ Print</button></div>
   <div class="ladder-wrap" id="ladder-wrap"></div>
 
   <div class="legend" style="justify-content:flex-end;margin-top:14px">
@@ -82,24 +82,8 @@
   <!-- 3. Shot options (each expands a Side view + Overhead dispersion dropdown) -->
   <div class="calc-results" id="calc-results"></div>
 
-  <!-- 4. Stimp / Slope -->
-  <div class="stimp-bar" style="margin-top:18px">
-    <label>Stimp</label>
-    <div class="stimp-val" id="partials-stimp-val">9.5</div>
-    <input type="range" id="partials-stimp-range" min="7" max="14" step="0.5" value="9.5"
-      oninput="STATE.stimp=parseFloat(this.value);document.getElementById('partials-stimp-val').textContent=STATE.stimp.toFixed(1);const sv=document.getElementById('sg-stimp-val');if(sv)sv.textContent=STATE.stimp.toFixed(1);const _sg=document.getElementById('sg-stimp');if(_sg)_sg.value=this.value;const _puS=document.getElementById('putt-stimp-select');if(_puS)_puS.value=this.value;buildChipMatrix();saveState()">
-    <label>Slope</label>
-    <select id="partials-slope" onchange="buildPartialsTable()"
-      style="font-family:Arial,sans-serif;font-size:.9rem;font-weight:700;padding:5px 9px;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;color:var(--ink);outline:none">
-      <option value="level">→ Level</option>
-      <option value="uphill">⬆ Uphill</option>
-      <option value="downhill">⬇ Downhill</option>
-    </select>
-  </div>
-
-  <!-- 7. Distance Matrix — at-a-glance, very bottom of the tab -->
-  <div class="section-label">Distance Matrix — Total &amp; Carry</div>
-  <p class="intro-note" style="margin-bottom:10px">Full (11:00) · ¾ (10:00) · ½ (9:00) swings per club. Big number = <strong>total</strong>; small number below = <strong>carry</strong>. Full-swing values come straight from your Bag; partial carries are derived from each club's carry/total ratio. Firmness adds rollout to the total.</p>
+  <!-- 4. Distance Matrix — at-a-glance, very bottom of the tab -->
+  <div class="section-label" style="display:flex;align-items:center;justify-content:space-between;gap:10px">Distance Matrix — Total &amp; Carry <button class="print-btn" onclick="printMatrix('approach')">⎙ Print</button></div>
   <div class="partials-table-wrap"><table class="partials" id="partials-table"></table></div>
 </div>
 
