@@ -272,7 +272,7 @@ function buildChipMatrix(){
     const loft=parseFloat(c.loft);
     html+=`<tr><td style="padding-left:12px"><span style="font-family:Arial,sans-serif;font-weight:800;font-size:.95rem;color:${typeColor(c)}">${c.label}</span> <span style="font-family:ui-monospace,monospace;font-size:.6rem;font-weight:600;color:var(--ink2)">${c.loft}</span></td>`;
     carries.forEach(carry=>{
-      const roll=chipRollout(carry,loft,stimp,slope);
+      const roll=chipRollout(carry,loft,stimp,slope,true);   /* baseline reference — no per-shot firmness/lie */
       const total=carry+roll;
       html+=`<td><div class="chip-cell" style="color:${typeColor(c)}">${total.toFixed(1)}<small>+${roll.toFixed(1)}</small></div></td>`;
     });

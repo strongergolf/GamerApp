@@ -25,6 +25,22 @@ const EY_FIRMNESS = { vsoft:-2, soft:-1, avg:0, firm:2, vfirm:4 };
 /* Short-game firmness → multiplier on chip roll-out (window.chipFirmFactor): softer needs
    more carry / less roll to the hole; firmer rolls out more. */
 const EY_CHIP_FIRM = { vsoft:0.70, soft:0.85, avg:1.0, firm:1.30, vfirm:1.60 };
+/* Short-game SITUATION → its own LIE options, each with a roll-out multiplier (more roll =
+   less backspin = less carry for the same target). Edit each situation independently here.
+   Fairway is the baseline (standard = 1.0). Rough: small carry loss, big spin loss (more
+   roll). Bunker: the more buried, the less carry and the more roll. */
+const SG_SITUATION_LIES = {
+  fairway: { lies:[['clean','Clean / sitting up'],['standard','Standard'],['tight','Tight / hardpan'],['down','Sitting down']],
+             rollMult:{ clean:0.92, standard:1.0, tight:1.10, down:1.20 } },
+  rough:   { lies:[['light','Light rough'],['medium','Medium rough'],['heavy','Heavy rough']],
+             rollMult:{ light:1.30, medium:1.60, heavy:2.00 } },
+  bunker:  { lies:[['bare','Bare / crunchy'],['up','Sitting up'],['down','Sitting down'],['fried','Buried / fried egg']],
+             rollMult:{ bare:1.40, up:1.05, down:1.60, fried:2.40 } }
+};
+function sgLieRollMult(){
+  const set=SG_SITUATION_LIES[EY.shortgame.situation]; if(!set) return 1;
+  return (set.rollMult&&set.rollMult[EY.shortgame.lieq]!=null)?set.rollMult[EY.shortgame.lieq]:1;
+}
 /* SG status → strokes-gained lie key (SR table lies: fairway / rough / sand) */
 function approachLie(){
   const s=(EY.approach&&EY.approach.situation)||'fairway';
@@ -65,9 +81,15 @@ const EY_TERM_LEVEL = { key:'level', label:'Level', type:'range', min:-6, max:6,
 const EY_TERM_FIRM = { key:'firmness', label:'Firmness', type:'step', noContrib:true, opts:[
       ['vsoft','Very soft'],['soft','Soft'],['avg','Average'],['firm','Firm'],['vfirm','Very firm']] };
 function eyTerms(ctx){
-  return ctx==='shortgame'
-    ? [EY_TERM_SITUATION, EY_TERM_LIE, EY_TERM_STANCE, EY_TERM_LEVEL, EY_TERM_FIRM]
-    : [EY_TERM_SITUATION, EY_TERM_LIE, EY_TERM_STANCE, EY_TERM_ELEV, EY_TERM_FIRM];
+  if(ctx==='shortgame'){
+    const set=SG_SITUATION_LIES[EY.shortgame.situation]||SG_SITUATION_LIES.fairway;
+    return [
+      { key:'situation', label:'Situation', type:'step', noContrib:true, opts:[['fairway','Fairway'],['rough','Rough'],['bunker','Bunker']] },
+      { key:'lieq', label:'Lie', type:'step', noContrib:true, opts:set.lies },   /* options depend on Situation; effect is roll-out */
+      EY_TERM_STANCE, EY_TERM_LEVEL, EY_TERM_FIRM
+    ];
+  }
+  return [EY_TERM_SITUATION, EY_TERM_LIE, EY_TERM_STANCE, EY_TERM_ELEV, EY_TERM_FIRM];
 }
 
 function eyBase(ctx){
@@ -80,8 +102,8 @@ function eyDelta(ctx,key,S){
   const st=EY[ctx]; const w=(EY_WEIGHT[ctx]&&EY_WEIGHT[ctx][key]!=null)?EY_WEIGHT[ctx][key]:1;
   let d=0;
   switch(key){
-    case 'situation': d=EY_SITUATION[st.situation]||0; break;
-    case 'lieq':      d=EY_LIE[st.lieq]||0; break;
+    case 'situation': d=ctx==='shortgame'?0:(EY_SITUATION[st.situation]||0); break;
+    case 'lieq':      d=ctx==='shortgame'?0:(EY_LIE[st.lieq]||0); break;   /* short game lie = roll-out, not yardage */
     case 'stance':    d=EY_STANCE[st.stance]||0; break;
     case 'elev':      d=(st.elev||0)*(typeof PS_ELEV_K!=='undefined'?PS_ELEV_K:1.2); break;
     case 'level':     d=0; break;   /* short-game green slope → chip roll-out (chipSlopeVal), not yardage */
@@ -158,16 +180,24 @@ function eyHostRender(ctx){
     if(typeof buildChipMatrix==='function') buildChipMatrix();   /* Level + firmness shift the matrix */
   }
 }
-/* keep the firmness globals in sync with the panel state */
+/* keep the short-game roll globals in sync with the panel state */
 function eySyncFirmness(ctx){
   if(ctx==='approach') window.approachGreenFirmness = EY_FIRMNESS[EY.approach.firmness]||0;
-  else if(ctx==='shortgame') window.chipFirmFactor = EY_CHIP_FIRM[EY.shortgame.firmness]||1;
+  else if(ctx==='shortgame'){ window.chipFirmFactor = EY_CHIP_FIRM[EY.shortgame.firmness]||1; window.chipLieRollMult = sgLieRollMult(); }
 }
 function eySet(ctx,key,raw){
   const term=eyTerms(ctx).find(t=>t.key===key); if(!term) return;
   if(term.type==='step'){ const i=Math.max(0,Math.min(term.opts.length-1,Math.round(parseFloat(raw)))); EY[ctx][key]=term.opts[i][0]; }
   else { EY[ctx][key]=parseFloat(raw)||0; }
-  if(key==='firmness') eySyncFirmness(ctx);
+  /* changing the short-game Situation swaps the Lie option set → rebuild the panel */
+  if(ctx==='shortgame' && key==='situation'){
+    const set=SG_SITUATION_LIES[EY.shortgame.situation];
+    EY.shortgame.lieq = set ? set.lies[0][0] : 'standard';
+    eySyncFirmness('shortgame');
+    buildEyPanel('shortgame'); eyHostRender('shortgame');
+    return;
+  }
+  if(key==='firmness' || (ctx==='shortgame'&&key==='lieq')) eySyncFirmness(ctx);
   eyRefreshSummary(ctx);
   eyHostRender(ctx);
 }
@@ -178,5 +208,5 @@ function eyReset(ctx){
 }
 
 // Expose for inline handlers and the renderAll orchestrator.
-Object.assign(window, { EY, eyTerms, EY_WEIGHT, EY_SHOT, EY_STANCE, EY_SITUATION, EY_LIE, EY_FIRMNESS, EY_CHIP_FIRM, approachLie, eyDelta, eyTotal, eyEffective, eyBase,
+Object.assign(window, { EY, eyTerms, EY_WEIGHT, EY_SHOT, EY_STANCE, EY_SITUATION, EY_LIE, EY_FIRMNESS, EY_CHIP_FIRM, SG_SITUATION_LIES, sgLieRollMult, approachLie, eyDelta, eyTotal, eyEffective, eyBase,
   buildEyPanel, eyRefreshSummary, eyHostRender, eySet, eyReset, eySyncFirmness });

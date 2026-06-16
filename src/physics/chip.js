@@ -58,18 +58,22 @@ function chipSlopeFactor(slope){
   return typeof slope==='number' ? chipSlopeMult(slope)
     : slope==='very-uphill'?0.38 : slope==='uphill'?0.62 : slope==='downhill'?1.50 : slope==='very-downhill'?2.20 : 1.0;
 }
-/* Green-firmness multiplier on rollout, from the Short Game Situational Info firmness
-   (softer → less roll / more carry to the hole; firmer → more roll). Default 1.0. */
+/* Per-shot roll-out multipliers from Short Game Situational Info: firmness (softer → less
+   roll, firmer → more) and the situation+lie roll-out (rough/bunker run more). Default 1.0.
+   The reference matrix / print card pass baseline=true to ignore these per-shot conditions. */
 function chipFirm(){ return (typeof window!=='undefined'&&window.chipFirmFactor)?window.chipFirmFactor:1; }
-function chipRollout(carry, loftDeg, stimp, slope){
+function chipLie(){ return (typeof window!=='undefined'&&window.chipLieRollMult)?window.chipLieRollMult:1; }
+function chipRollout(carry, loftDeg, stimp, slope, baseline){
   const R=chipRollRatio(loftDeg);
   const sa=Math.pow(stimp/9.5, 1.3);
-  return carry * R * sa * chipSlopeFactor(slope) * chipFirm();
+  const m = baseline ? 1 : chipFirm()*chipLie();
+  return carry * R * sa * chipSlopeFactor(slope) * m;
 }
-function chipCarryForTotal(total, loftDeg, stimp, slope){
+function chipCarryForTotal(total, loftDeg, stimp, slope, baseline){
   const R=chipRollRatio(loftDeg);
   const sa=Math.pow(stimp/9.5, 1.3);
-  return total / (1 + R * sa * chipSlopeFactor(slope) * chipFirm());
+  const m = baseline ? 1 : chipFirm()*chipLie();
+  return total / (1 + R * sa * chipSlopeFactor(slope) * m);
 }
 function chipClubs(){
   return STATE.clubs
@@ -87,4 +91,4 @@ function selectChipClub(i){ window.chipSelectedIdx=i; renderChipDial(); }
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { CHIP_ROLL_ANCHORS, CHIP_SLOPE_ANCHORS, chipArchetype, chipCarryForTotal, chipClubs, chipFirm, chipRollRatio, chipRollout, chipSlopeFactor, chipSlopeMult, chipSlopeVal, selectChipClub });
+Object.assign(window, { CHIP_ROLL_ANCHORS, CHIP_SLOPE_ANCHORS, chipArchetype, chipCarryForTotal, chipClubs, chipFirm, chipLie, chipRollRatio, chipRollout, chipSlopeFactor, chipSlopeMult, chipSlopeVal, selectChipClub });

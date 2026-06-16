@@ -34,7 +34,7 @@ function prChipTable(){
   let body='';
   clubs.forEach(c=>{
     const loft=parseFloat(c.loft)||35;
-    const cells=carries.map(carry=>{ const total=carry+(typeof chipRollout==='function'?chipRollout(carry,loft,stimp,0):carry); return `<td>${Math.round(total*10)/10}</td>`; }).join('');
+    const cells=carries.map(carry=>{ const total=carry+(typeof chipRollout==='function'?chipRollout(carry,loft,stimp,0,true):carry); return `<td>${Math.round(total*10)/10}</td>`; }).join('');
     body+=`<tr><td class="club"><span class="big">${c.label}</span><span class="sm">${c.loft||''}</span></td>${cells}</tr>`;
   });
   const head=`<tr><th>Club</th>${carries.map(y=>`<th>${y} yd<span class="thsub">Carry</span></th>`).join('')}</tr>`;
