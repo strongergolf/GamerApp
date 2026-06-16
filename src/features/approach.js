@@ -433,21 +433,84 @@ function shaperCrossDrift(){
   const cross=(typeof EY!=='undefined'&&EY.approach)?(parseFloat(EY.approach.cross)||0):0;
   return Math.round((typeof PS_CROSS_YPM!=='undefined'?PS_CROSS_YPM:2.0)*cross);
 }
-/* Re-render the combined 3D scene + crosswind note (rotate/tilt/crosswind keep slider focus). */
+/* ============================================================
+   TRAJECTORY VIEW — stylized 2D multi-panel (NOT physics):
+   main side-view arc + overhead dispersion + down-the-line. Club-coloured.
+   ============================================================ */
+const trajCol=type=>`var(--c-${type==='wood'?'wood':type==='wedge'?'wedge':type==='putter'?'putter':'iron'})`;
+const trajApexFrac=type=>type==='wood'?0.30:type==='wedge'?0.20:0.25;   /* apex height / carry */
+/* dispersion half-width (yd) — spec anchors: 100→7, 150→10, 200→20, 270→30 */
+function trajDisp(carry){
+  const A=[[0,4],[100,7],[150,10],[200,20],[270,30],[320,34]];
+  const c=Math.max(0,carry||0);
+  for(let i=0;i<A.length-1;i++){ if(c>=A[i][0]&&c<=A[i+1][0]){ const t=(c-A[i][0])/(A[i+1][0]-A[i][0]); return A[i][1]+t*(A[i+1][1]-A[i][1]); } }
+  return A[A.length-1][1];
+}
+/* Side view — cubic/quad bezier, ascent ~60% / descent ~40% (steeper landing), apex by club. */
+function trajSideSVG(carry,total,apexFrac,col){
+  const W=300,H=160,PAD=16,gy=H-30;
+  const carryPx=W-PAD-46, x0=PAD, landX=x0+carryPx;
+  const apexH=Math.max(22,Math.min(gy-14,apexFrac*carryPx));
+  const ax=x0+0.6*carryPx, ay=gy-apexH;
+  const rollPx=total>carry?Math.min(38,(total-carry)/Math.max(1,carry)*carryPx*3.2):0;
+  const stopX=Math.min(W-6,landX+rollPx);
+  const arc=`M ${x0},${gy} Q ${(x0+0.30*carryPx).toFixed(1)},${(gy-apexH*0.98).toFixed(1)} ${ax.toFixed(1)},${ay.toFixed(1)} Q ${(ax+0.16*carryPx).toFixed(1)},${(gy-apexH*0.50).toFixed(1)} ${landX.toFixed(1)},${gy}`;
+  const roll=stopX>landX+2?`<line x1="${landX.toFixed(1)}" y1="${gy}" x2="${stopX.toFixed(1)}" y2="${gy}" stroke="${col}" stroke-width="1.6" stroke-dasharray="3,2.5" opacity="0.45"/>`:'';
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block" xmlns="http://www.w3.org/2000/svg">
+    <line x1="${PAD-6}" y1="${gy}" x2="${W-6}" y2="${gy}" stroke="var(--border2)" stroke-width="1"/>
+    <path d="${arc}" fill="none" stroke="${col}" stroke-width="2.8" stroke-linecap="round"/>
+    ${roll}
+    <circle cx="${x0}" cy="${gy}" r="4" fill="var(--ink)"/>
+    <circle cx="${ax.toFixed(1)}" cy="${ay.toFixed(1)}" r="2.4" fill="${col}" opacity="0.8"/>
+    <circle cx="${landX.toFixed(1)}" cy="${gy}" r="3" fill="${col}"/>
+    <text x="${landX.toFixed(1)}" y="${gy+14}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" font-weight="700" fill="${col}">${Math.round(carry)} carry</text>
+    ${total>carry+1?`<text x="${stopX.toFixed(1)}" y="${(gy-6).toFixed(1)}" text-anchor="end" font-family="ui-monospace,monospace" font-size="7" fill="var(--muted)">${Math.round(total)} total</text>`:''}
+  </svg>`;
+}
+/* Overhead dispersion — target line + ellipse centred on it at the landing distance. */
+function trajOverheadSVG(carry,disp,col){
+  const W=150,H=132,cx=W/2,yNear=H-14,yFar=16;
+  const landY=yFar+(yNear-yFar)*0.18;
+  const rx=Math.max(7,Math.min(W*0.34,disp*1.9));
+  const ry=Math.min(landY-yFar+8,rx*1.5);
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block" xmlns="http://www.w3.org/2000/svg">
+    <line x1="${cx}" y1="${yNear}" x2="${cx}" y2="${yFar}" stroke="var(--border2)" stroke-width="1" stroke-dasharray="4,4"/>
+    <ellipse cx="${cx}" cy="${landY.toFixed(1)}" rx="${rx.toFixed(1)}" ry="${ry.toFixed(1)}" fill="${col}" fill-opacity="0.14" stroke="${col}" stroke-width="1.4"/>
+    <circle cx="${cx}" cy="${yNear}" r="3.5" fill="var(--ink)"/>
+    <text x="${cx}" y="${yFar-3}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="7.5" font-weight="700" fill="${col}">${Math.round(carry)} yd</text>
+    <text x="${cx}" y="${(landY+ry+10).toFixed(1)}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="6.5" fill="var(--muted)">±${Math.round(disp)} L/R</text>
+  </svg>`;
+}
+/* Down-the-line — foreshortened arc from behind + a faint lateral dispersion "window". */
+function trajDtlSVG(apexFrac,disp,col){
+  const W=150,H=132,cx=W/2,gy=H-16,apexY=20;
+  const arc=`M ${cx},${gy} C ${cx-5},${(gy-(gy-apexY)*0.55).toFixed(1)} ${cx-4},${(apexY+9).toFixed(1)} ${cx},${apexY} C ${(cx+4)},${(apexY+9).toFixed(1)} ${(cx+6)},${(gy-(gy-apexY)*0.4).toFixed(1)} ${(cx+2)},${(gy-2).toFixed(1)}`;
+  const wW=Math.max(10,Math.min(W*0.6,disp*1.7));
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block" xmlns="http://www.w3.org/2000/svg">
+    <rect x="${(cx-wW/2).toFixed(1)}" y="${(apexY-4).toFixed(1)}" width="${wW.toFixed(1)}" height="${(gy-apexY+4).toFixed(1)}" fill="${col}" fill-opacity="0.08"/>
+    <line x1="${cx}" y1="${gy}" x2="${cx}" y2="${apexY-3}" stroke="var(--border2)" stroke-width="0.8" stroke-dasharray="3,3" opacity="0.6"/>
+    <path d="${arc}" fill="none" stroke="${col}" stroke-width="2.6" stroke-linecap="round"/>
+    <circle cx="${cx}" cy="${gy}" r="3.5" fill="var(--ink)"/>
+    <text x="${cx}" y="${gy+13}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="6.5" fill="var(--muted)">${Math.round(wW>0?disp*2:0)} yd window</text>
+  </svg>`;
+}
+function buildTrajView(shot){
+  shot=shot||{};
+  const carry=Math.max(20,shot.carry||140), total=Math.max(carry,shot.total||carry+5);
+  const club=STATE.clubs.find(c=>c.id===shot.clubId);
+  const type=club?club.type:'iron';
+  const col=trajCol(type), disp=trajDisp(carry), apexFrac=trajApexFrac(type);
+  const panel=(cls,title,svg)=>`<div class="traj-panel ${cls}"><div class="traj-panel-title">${title}</div>${svg}</div>`;
+  return `<div class="traj-view">
+    ${panel('traj-main','Side view',trajSideSVG(carry,total,apexFrac,col))}
+    ${panel('traj-sub','Overhead — dispersion',trajOverheadSVG(carry,disp,col))}
+    ${panel('traj-sub','Down the line',trajDtlSVG(apexFrac,disp,col))}
+  </div>`;
+}
+/* Re-render the trajectory view (called by the distance / Situational Info / shaping sliders). */
 function renderShaper3D(){
   const scene=document.getElementById('shaper-scene'); if(!scene) return;
-  const m=currentShaperModel();
-  const az=parseFloat(document.getElementById('shaper-az')?.value);
-  const el=parseFloat(document.getElementById('shaper-el')?.value);
-  const A=isNaN(az)?-28:az, E=isNaN(el)?20:el;
-  window.shaper3DAz=A; window.shaper3DEl=E;
-  const cross=(typeof EY!=='undefined'&&EY.approach)?(parseFloat(EY.approach.cross)||0):0;
-  const drift=shaperCrossDrift();
-  scene.innerHTML=buildShaperScene3D(m,A,E,drift,window.approachShot||null);
-  const wind=document.getElementById('shaper-wind');
-  if(wind) wind.innerHTML = cross!==0
-    ? `<b>Crosswind ${Math.abs(cross)} mph ${cross>0?'L→R':'R→L'}</b> <span style="color:var(--muted)">(Situational Info)</span> — drifts ~${Math.abs(drift)} yd ${drift>0?'right':'left'}; aim ~${Math.abs(drift)} yd ${drift>0?'left':'right'}.`
-    : '';
+  scene.innerHTML=buildTrajView(window.approachShot||null);
 }
 /* Re-render the Impact & Swing conditions list (left) + control labels + the 3D scene.
    These are the impact conditions that PRODUCE the shot — listed alongside the model. */
@@ -493,26 +556,16 @@ function renderShotShaper(){
 }
 function buildShotShaper(){
   const wrap=document.getElementById('shot-shaper-wrap'); if(!wrap) return;
-  const az=window.shaper3DAz!=null?window.shaper3DAz:-28, el=window.shaper3DEl!=null?window.shaper3DEl:20;
   const stepCtrl=(id,label,max,val)=>`<div class="shaper-ctrl"><label>${label} <span class="shaper-ctrl-v" id="${id}-v">—</span></label><input type="range" id="${id}" min="0" max="${max}" step="1" value="${val}" oninput="renderShotShaper()"></div>`;
   wrap.innerHTML=`
-    <div class="section-label">Your Shot — Impact &amp; Ball Flight <span class="proto-badge">prototype</span></div>
-    <p class="intro-note" style="margin-bottom:10px">The club is your selected shot above; Shape and Stance reshape the rotating 3D image in real time. Crosswind comes from Situational Info. Reference defaults — refine with your own launch-monitor data.</p>
+    <div class="section-label">Your Shot — Ball Flight</div>
+    <p class="intro-note" style="margin-bottom:10px">A stylised side view, overhead dispersion and down-the-line for the selected shot above. Shape &amp; Stance set the impact conditions listed below. Reference defaults — refine with your own launch-monitor data.</p>
     <div class="shaper-controls">
       ${stepCtrl('shaper-curve','Shape',SHAPER_CURVES.length-1,3)}
       ${stepCtrl('shaper-stance','Stance',2,0)}
     </div>
-    <div class="shaper-stage">
-      <div class="shaper-specs" id="shaper-specs"></div>
-      <div class="shaper-scene-col">
-        <div class="shaper-scene" id="shaper-scene"></div>
-        <div class="shaper-wind" id="shaper-wind"></div>
-        <div class="shaper-rot">
-          <label>Rotate<input type="range" id="shaper-az" min="-90" max="90" step="2" value="${az}" oninput="renderShaper3D()"></label>
-          <label>Tilt<input type="range" id="shaper-el" min="4" max="62" step="2" value="${el}" oninput="renderShaper3D()"></label>
-        </div>
-      </div>
-    </div>`;
+    <div class="shaper-scene" id="shaper-scene"></div>
+    <div class="shaper-specs" id="shaper-specs"></div>`;
   renderShotShaper();
 }
 
