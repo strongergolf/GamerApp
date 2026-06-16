@@ -67,20 +67,10 @@
     <div class="calc-slider-col">
       <div class="calc-slider-limits"><span>37 yd</span><span>200 yd</span></div>
       <input type="range" class="yard-slider" id="yard-slider" min="37" max="200" value="95" step="1"
-        oninput="document.getElementById('calc-display').textContent=this.value;document.getElementById('yard-input').value=this.value;renderCalc(parseInt(this.value));renderExpectedShots('es-150',parseInt(this.value),'fairway')">
+        oninput="document.getElementById('calc-display').textContent=this.value;document.getElementById('yard-input').value=this.value;renderCalc(parseInt(this.value));renderExpectedShots('es-150',parseInt(this.value),approachLie())">
     </div>
     <div class="calc-manual-col"><label for="yard-input">Yards</label><input type="number" id="yard-input" min="37" max="200" value="95"
-      oninput="const v=Math.max(37,Math.min(200,parseInt(this.value)||95));document.getElementById('yard-slider').value=v;document.getElementById('calc-display').textContent=v;renderCalc(v);renderExpectedShots('es-150',v,'fairway')"></div>
-    <div class="calc-manual-col" style="flex:0 0 100px">
-      <label for="approach-firmness">Firmness</label>
-      <select id="approach-firmness" onchange="window.approachGreenFirmness=parseInt(this.value);window.approachSelectedIdx=-1;buildPartialsTable();renderCalc(parseInt(document.getElementById('yard-slider').value))" style="font-family:Arial,sans-serif;font-size:.85rem;font-weight:700;padding:7px 10px;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;color:var(--ink);outline:none;width:100%">
-        <option value="-2">Very Soft</option>
-        <option value="-1">Soft</option>
-        <option value="0" selected>Average</option>
-        <option value="2">Firm</option>
-        <option value="4">Very Firm</option>
-      </select>
-    </div>
+      oninput="const v=Math.max(37,Math.min(200,parseInt(this.value)||95));document.getElementById('yard-slider').value=v;document.getElementById('calc-display').textContent=v;renderCalc(v);renderExpectedShots('es-150',v,approachLie())"></div>
   </div>
 
   <!-- 1b. Plays-like adjusters -->
@@ -89,13 +79,10 @@
   <!-- 2. Expected shots -->
   <div id="es-150" class="expected-shots-strip"></div>
 
-  <!-- 3. Shot options (the selected shot) -->
+  <!-- 3. Shot options (each expands a Side view + Overhead dispersion dropdown) -->
   <div class="calc-results" id="calc-results"></div>
 
-  <!-- 4. Your Shot — combined 3D image + Impact & Swing specs, below the selected shot -->
-  <div id="shot-shaper-wrap"></div>
-
-  <!-- 6. Stimp / Slope -->
+  <!-- 4. Stimp / Slope -->
   <div class="stimp-bar" style="margin-top:18px">
     <label>Stimp</label>
     <div class="stimp-val" id="partials-stimp-val">9.5</div>

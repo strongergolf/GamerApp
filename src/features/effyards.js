@@ -7,21 +7,30 @@
 // approach vs short-game shots — all default to 1.0 for now.
 
 const EY = {
-  approach:  { situation:'fairway', lieq:'standard', stance:'level', wind:0, cross:0, elev:0, shot:'stock' },
-  shortgame: { situation:'fairway', lieq:'standard', stance:'level', wind:0, cross:0, elev:0, shot:'stock' }
+  approach:  { situation:'fairway', lieq:'standard', stance:'level', elev:0, firmness:'avg' },
+  shortgame: { situation:'fairway', lieq:'standard', stance:'level', elev:0, firmness:'avg' }
 };
-const EY_DEFAULTS = { situation:'fairway', lieq:'standard', stance:'level', wind:0, cross:0, elev:0, shot:'stock' };
-/* Situation = Strokes-Gained status (where you're playing from) → base distance cost (yd) */
+const EY_DEFAULTS = { situation:'fairway', lieq:'standard', stance:'level', elev:0, firmness:'avg' };
+/* Situation = Strokes-Gained status (where you're playing from) → base distance cost (yd).
+   Also drives the Expected Strokes / Strokes-Gained lie via approachLie(). */
 const EY_SITUATION = { tee:+2, fairway:0, rough:-6, bunker:-8, recovery:-15 };
 /* Lie = how the ball sits within that situation → distance modifier (stacks on Situation) */
 const EY_LIE = { clean:+2, standard:0, down:-4, buried:-9 };
 /* Stance = up/downhill slope you stand on (independent of target elevation). Uphill adds
    loft → shorter → club up (+); downhill delofts → longer (−). Estimates, refine later. */
 const EY_STANCE = { welldownhill:-8, downhill:-4, level:0, uphill:+4, welluphill:+8 };
+/* Firmness = green firmness → yards added to ROLL-OUT (the carry/roll split in the shot
+   cards), via window.approachGreenFirmness. Does not change club selection. */
+const EY_FIRMNESS = { vsoft:-2, soft:-1, avg:0, firm:2, vfirm:4 };
+/* SG status → strokes-gained lie key (SR table lies: fairway / rough / sand) */
+function approachLie(){
+  const s=(EY.approach&&EY.approach.situation)||'fairway';
+  return s==='rough'?'rough' : s==='bunker'?'sand' : s==='recovery'?'rough' : 'fairway';
+}
 /* refine later: scale a term's yardage impact per context */
 const EY_WEIGHT = {
-  approach:  { situation:1, lieq:1, stance:1, wind:1, cross:1, elev:1, shot:1, air:1 },
-  shortgame: { situation:1, lieq:1, stance:1, wind:1, cross:1, elev:1, shot:1, air:1 }
+  approach:  { situation:1, lieq:1, stance:1, elev:1, firmness:1, air:1 },
+  shortgame: { situation:1, lieq:1, stance:1, elev:1, firmness:1, air:1 }
 };
 
 /* ---- Shot-type (trajectory) model — researched estimates, refine from LM data ----
@@ -45,13 +54,10 @@ const EY_TERMS = [
       ['clean','Clean / up'],['standard','Standard'],['down','Sitting down'],['buried','Buried / thick']] },
   { key:'stance', label:'Stance', type:'step', opts:[
       ['welldownhill','Well downhill'],['downhill','Downhill'],['level','Level'],['uphill','Uphill'],['welluphill','Well uphill']] },
-  { key:'wind', label:'Head/Downwind', type:'range', min:-25, max:25, step:1,
-      fmt:v=> v>0?`${v} mph into`:v<0?`${-v} mph down`:'calm' },
-  { key:'cross', label:'Crosswind', type:'range', min:-25, max:25, step:1,
-      fmt:v=>{ if(v===0) return 'calm'; const a=Math.round((typeof PS_CROSS_YPM!=='undefined'?PS_CROSS_YPM:2)*Math.abs(v)); return `${Math.abs(v)} mph ${v>0?'L→R':'R→L'} · aim ${a}y ${v>0?'L':'R'}`; } },
   { key:'elev', label:'Elevation', type:'range', min:-30, max:30, step:1,
       fmt:v=> v>0?`+${v} yd up`:v<0?`${v} yd down`:'level' },
-  { key:'shot', label:'Trajectory Modifier', type:'step', opts:[['knockdown','Knockdown / low'],['stock','Stock'],['high','High / soft']] }
+  { key:'firmness', label:'Firmness', type:'step', noContrib:true, opts:[
+      ['vsoft','Very soft'],['soft','Soft'],['avg','Average'],['firm','Firm'],['vfirm','Very firm']] }
 ];
 
 function eyBase(ctx){
@@ -59,9 +65,6 @@ function eyBase(ctx){
   if(ctx==='shortgame') return parseInt(document.getElementById('chip-slider')?.value||20);
   return 0;
 }
-/* 3rd-level interaction: trajectory hang-time amplifies wind. A high/soft ball hangs up,
-   so the wind moves the number MORE; a low knockdown bores through, so it moves it LESS. */
-function eyWindMult(ctx){ const s=EY[ctx].shot; return s==='knockdown'?0.5 : s==='high'?1.4 : 1.0; }
 /* per-term yardage delta for a context, given base yardage S */
 function eyDelta(ctx,key,S){
   const st=EY[ctx]; const w=(EY_WEIGHT[ctx]&&EY_WEIGHT[ctx][key]!=null)?EY_WEIGHT[ctx][key]:1;
@@ -70,16 +73,13 @@ function eyDelta(ctx,key,S){
     case 'situation': d=EY_SITUATION[st.situation]||0; break;
     case 'lieq':      d=EY_LIE[st.lieq]||0; break;
     case 'stance':    d=EY_STANCE[st.stance]||0; break;
-    case 'wind':      { const hc=(typeof PS_WIND_HEAD!=='undefined'?PS_WIND_HEAD:0.01), tc=(typeof PS_WIND_TAIL!=='undefined'?PS_WIND_TAIL:0.005);
-                        d=(st.wind>=0?hc:tc)*st.wind*S*eyWindMult(ctx); break; }   /* + into=longer, − down=shorter; hang-time scaled */
-    case 'cross':     d=0; break;   /* crosswind is an aim offset, not a distance change (feeds the Shot Shaper drift) */
     case 'elev':      d=st.elev*(typeof PS_ELEV_K!=='undefined'?PS_ELEV_K:1.2); break;
-    case 'shot':      d=(EY_SHOT[st.shot]?EY_SHOT[st.shot].distFrac:0)*S; break;   /* club-selection shift */
+    case 'firmness':  d=0; break;   /* changes the roll-out split, not club selection (approachGreenFirmness) */
     case 'air':       d=(typeof psAirDelta==='function'?psAirDelta(S):0)||0; break;
   }
   return d*w;
 }
-const EY_KEYS=['situation','lieq','stance','wind','cross','elev','shot','air'];
+const EY_KEYS=['situation','lieq','stance','elev','firmness','air'];
 function eyTotal(ctx,S){ return EY_KEYS.reduce((a,k)=>a+eyDelta(ctx,k,S),0); }
 /* effective (plays-like) yardage for a context, given a measured base */
 function eyEffective(ctx,measured){ return measured + eyTotal(ctx,measured); }
@@ -111,7 +111,7 @@ function buildEyPanel(ctx){
     return `<div class="ey-term">
       <div class="ey-term-head">
         <span class="ey-term-label">${term.label}</span>
-        <span class="ey-term-val"><span id="ey-${ctx}-${term.key}-v">${eyTermValLabel(ctx,term)}</span> <b id="ey-${ctx}-${term.key}-c" style="color:${eyColor(d)}">${eyFmt(d)}</b></span>
+        <span class="ey-term-val"><span id="ey-${ctx}-${term.key}-v">${eyTermValLabel(ctx,term)}</span>${term.noContrib?'':` <b id="ey-${ctx}-${term.key}-c" style="color:${eyColor(d)}">${eyFmt(d)}</b>`}</span>
       </div>
       ${control}
     </div>`;
@@ -138,7 +138,8 @@ function eyHostRender(ctx){
   if(ctx==='approach'){
     const t=parseInt(document.getElementById('yard-slider')?.value||95);
     if(typeof renderCalc==='function') renderCalc(t);
-    if(typeof renderShaper3D==='function') renderShaper3D();   /* crosswind feeds the Shot Shaper drift */
+    if(typeof renderExpectedShots==='function') renderExpectedShots('es-150', t, approachLie());  /* Situation drives SG lie */
+    if(typeof buildPartialsTable==='function') buildPartialsTable();                              /* firmness affects the matrix */
   }
   else if(ctx==='shortgame'){ if(typeof renderChipDial==='function') renderChipDial(); }
 }
@@ -146,11 +147,16 @@ function eySet(ctx,key,raw){
   const term=EY_TERMS.find(t=>t.key===key); if(!term) return;
   if(term.type==='step'){ const i=Math.max(0,Math.min(term.opts.length-1,Math.round(parseFloat(raw)))); EY[ctx][key]=term.opts[i][0]; }
   else { EY[ctx][key]=parseFloat(raw)||0; }
+  if(key==='firmness' && ctx==='approach') window.approachGreenFirmness = EY_FIRMNESS[EY.approach.firmness]||0;
   eyRefreshSummary(ctx);
   eyHostRender(ctx);
 }
-function eyReset(ctx){ Object.assign(EY[ctx], EY_DEFAULTS); buildEyPanel(ctx); eyHostRender(ctx); }
+function eyReset(ctx){
+  Object.assign(EY[ctx], EY_DEFAULTS);
+  if(ctx==='approach') window.approachGreenFirmness = EY_FIRMNESS[EY.approach.firmness]||0;
+  buildEyPanel(ctx); eyHostRender(ctx);
+}
 
 // Expose for inline handlers and the renderAll orchestrator.
-Object.assign(window, { EY, EY_TERMS, EY_WEIGHT, EY_SHOT, EY_STANCE, EY_SITUATION, EY_LIE, eyDelta, eyTotal, eyEffective, eyBase,
+Object.assign(window, { EY, EY_TERMS, EY_WEIGHT, EY_SHOT, EY_STANCE, EY_SITUATION, EY_LIE, EY_FIRMNESS, approachLie, eyDelta, eyTotal, eyEffective, eyBase,
   buildEyPanel, eyRefreshSummary, eyHostRender, eySet, eyReset });

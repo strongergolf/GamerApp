@@ -44,7 +44,6 @@ function refreshAll(){
   renderConditions();
   buildLadder();
   buildPartialsTable();
-  buildShotShaper();
   /* Sync approach stimp control from STATE (values are in static HTML so can't use template literals) */
   const _psv=document.getElementById('partials-stimp-val'); if(_psv) _psv.textContent=STATE.stimp.toFixed(1);
   const _psr=document.getElementById('partials-stimp-range'); if(_psr) _psr.value=STATE.stimp;
@@ -53,7 +52,7 @@ function refreshAll(){
   buildEyPanel('shortgame');
   buildPutting();
   renderPuttSG();
-  renderExpectedShots('es-150', 95, 'fairway');
+  renderExpectedShots('es-150', 95, typeof approachLie==='function'?approachLie():'fairway');
   renderExpectedShots('es-short', 20, 'atg');
   renderExpectedShots('es-putting', 15, 'green');
   buildAssess();

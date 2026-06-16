@@ -169,6 +169,7 @@ function renderCalc(target){
     const effDesc=o.effort>=98?'Full effort — no margin':o.effort>=90?'Near-full — controlled finish':o.effort>=82?'Measured swing — good option':'Easy swing — high control';
     const fl0=interpFlight(o.club,o.sw.key,playTarget);
     const fl={launch:Math.round(fl0.launch*stm.launchMult),spin:Math.round(fl0.spin*stm.spinMult),height:Math.round(fl0.height*stm.heightMult)};
+    const p=STATE.performance[o.club.id]||{};
     const checkDesc=(()=>{const hs=fl.spin>=8500,ms=fl.spin>=6500,hh=fl.height>=70,mh=fl.height>=50;if(hs&&hh)return'Stops quickly';if(hs&&mh)return'Checks up';if(hs)return'Bites on landing';if(ms&&hh)return'Some check';if(ms&&mh)return'Moderate release';if(ms)return'Low release';if(hh)return'Soft landing';return'Runs out';})();
     /* Roll from the stock flight × the shot-type rollout multiplier + green firmness; the
        ball lands at the measured target, so Total = target and Carry = target − roll. */
@@ -195,22 +196,16 @@ function renderCalc(target){
         <div class="calc-mini-stat"><div class="calc-mini-label">Height / Check</div><div class="calc-mini-val">${fl.height}ft · ${checkDesc}</div></div>
         <div class="calc-mini-stat"><div class="calc-mini-label">Anchor / Diff</div><div class="calc-mini-val">${clockPos} · ${diffStr}</div></div>
       </div>
+      ${selected?`<div class="calc-traj-drop">
+        <div class="traj-panel traj-main"><div class="traj-panel-title">Side view — carry &amp; roll</div>${buildSideSVG(o.club,{carry:estCarry,total:target,launch:fl.launch,spin:fl.spin,land:Math.round((p.land||45)*(stm.landMult||1)),ht:fl.height,bspd:p.bspd||0})}</div>
+        <div class="traj-panel"><div class="traj-panel-title">Overhead — dispersion</div>${trajOverheadSVG(estCarry,trajDisp(estCarry),trajCol(o.club.type))}</div>
+      </div>`:''}
     </div>`;
   }).join('');
-  /* Selected shot → drives the combined 3D image (impact geometry + flight + roll-out) */
-  if(sug.length){
-    const pick=sug[selIdx]||sug[0];
-    const fl0=interpFlight(pick.club,pick.sw.key,playTarget);
-    const fl={launch:Math.round(fl0.launch*stm.launchMult),spin:Math.round(fl0.spin*stm.spinMult),height:Math.round(fl0.height*stm.heightMult)};
-    const tRoll=Math.max(0,Math.round(approachRolloutYds(fl0.spin,fl0.height)*stm.rollMult)+(window.approachGreenFirmness||0));
-    const tCarry=target-tRoll;
-    window.approachShot={ clubId:pick.club.id, carry:tCarry, roll:tRoll, total:target, heightYd:(fl.height||90)/3, vlaunch:fl.launch, spin:fl.spin };
-  } else { window.approachShot=null; }
-  if(typeof renderShotShaper==='function') renderShotShaper();
 }
 function initCalc(){
   const s=document.getElementById('yard-slider'),inp=document.getElementById('yard-input');
-  const sync=v=>{window.approachSelectedIdx=-1;const x=Math.max(37,Math.min(200,parseInt(v)||95));s.value=x;inp.value=x;renderCalc(x);renderExpectedShots('es-150',x,'fairway');const pct=((x-37)/163)*100;s.style.background=`linear-gradient(90deg,var(--ink) ${pct}%,var(--bg2) ${pct}%)`;};
+  const sync=v=>{window.approachSelectedIdx=-1;const x=Math.max(37,Math.min(200,parseInt(v)||95));s.value=x;inp.value=x;renderCalc(x);renderExpectedShots('es-150',x,typeof approachLie==='function'?approachLie():'fairway');const pct=((x-37)/163)*100;s.style.background=`linear-gradient(90deg,var(--ink) ${pct}%,var(--bg2) ${pct}%)`;};
   s.addEventListener('input',()=>sync(s.value));
   inp.addEventListener('input',()=>sync(inp.value));
   sync(95);
