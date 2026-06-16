@@ -3,7 +3,7 @@
 function buildPutting(){
   const wrap=document.getElementById('putting-wrap'); if(!wrap) return;
   wrap.innerHTML=`
-    <!-- 1. Distance slider -->
+    <!-- 1. Distance slider + Stimp (matches Short Game) -->
     <div class="calc-dist-block">
       <div class="calc-yardage-display">
         <div class="calc-yardage-num" id="putt-dist-display">15</div>
@@ -19,21 +19,26 @@ function buildPutting(){
         <input type="number" id="putt-dist-input" min="2" max="60" value="15"
           oninput="const _v=Math.max(2,Math.min(60,parseInt(this.value)||15));document.getElementById('putt-dist').value=_v;document.getElementById('putt-dist-display').textContent=_v;renderPutt();renderExpectedShots('es-putting',_v,'green')">
       </div>
+      <div class="calc-manual-col calc-stimp-col">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <label style="margin-bottom:0">Stimp</label>
+          <span class="stimp-val" id="putt-stimp-val">${STATE.stimp.toFixed(1)}</span>
+        </div>
+        <input type="range" id="putt-stimp" min="7" max="14" step="0.5" value="${STATE.stimp}" style="width:100%"
+          oninput="STATE.stimp=parseFloat(this.value);document.getElementById('putt-stimp-val').textContent=parseFloat(this.value).toFixed(1);const _sg=document.getElementById('sg-stimp');if(_sg){_sg.value=this.value;const _v2=document.getElementById('sg-stimp-val');if(_v2)_v2.textContent=parseFloat(this.value).toFixed(1);}renderPutt();saveState()">
+      </div>
     </div>
 
-    <!-- 2. Expected shots strip -->
-    <div id="es-putting" class="expected-shots-strip"></div>
-
-    <!-- 3. Putt Read — Situational-Info-style panel (Break · Slope · Side Slope · Pace · Stimp) -->
+    <!-- 2. Situational Info — Break Direction · Putt Slope · Side Slope · Pace -->
     <div class="ey-panel" style="margin:12px 0 14px">
-      <div class="ey-head"><span class="ey-title">Putt Read</span></div>
+      <div class="ey-head"><span class="ey-title">Situational Info</span></div>
       <div class="ey-grid">
         <div class="ey-term">
-          <div class="ey-term-head"><span class="ey-term-label">Break</span><span class="ey-term-val" id="putt-dir-v">↩ L → R</span></div>
+          <div class="ey-term-head"><span class="ey-term-label">Break Direction</span><span class="ey-term-val" id="putt-dir-v">↩ L → R</span></div>
           <input type="range" id="putt-dir" min="0" max="2" step="1" value="0" oninput="onPuttBreakSlider(this.value)">
         </div>
         <div class="ey-term">
-          <div class="ey-term-head"><span class="ey-term-label">Green Slope</span><span class="ey-term-val" id="putt-slope-display">Level</span></div>
+          <div class="ey-term-head"><span class="ey-term-label">Putt Slope</span><span class="ey-term-val" id="putt-slope-display">Level</span></div>
           <input type="range" id="putt-slope" min="-60" max="60" step="1" value="0" oninput="document.getElementById('putt-slope-display').textContent=fmtSlopeElev(this.value);renderPutt()">
         </div>
         <div class="ey-term">
@@ -41,15 +46,14 @@ function buildPutting(){
           <input type="range" id="putt-grade" min="0" max="5" step="0.5" value="2" oninput="onPuttGradeInput(this.value)">
         </div>
         <div class="ey-term">
-          <div class="ey-term-head"><span class="ey-term-label">Pace (in past)</span><span class="ey-term-val" id="putt-pace-val">12&quot;</span></div>
+          <div class="ey-term-head"><span class="ey-term-label">Pace (&quot; past hole)</span><span class="ey-term-val" id="putt-pace-val">12&quot;</span></div>
           <input type="range" id="putt-pace" min="4" max="36" step="2" value="12" oninput="document.getElementById('putt-pace-val').textContent=this.value+'&quot;';renderPutt()">
-        </div>
-        <div class="ey-term">
-          <div class="ey-term-head"><span class="ey-term-label">Stimp</span><span class="ey-term-val" id="putt-stimp-val">${STATE.stimp.toFixed(1)}</span></div>
-          <input type="range" id="putt-stimp" min="7" max="14" step="0.5" value="${STATE.stimp}" oninput="STATE.stimp=parseFloat(this.value);document.getElementById('putt-stimp-val').textContent=parseFloat(this.value).toFixed(1);const _sg=document.getElementById('sg-stimp');if(_sg){_sg.value=this.value;const _v2=document.getElementById('sg-stimp-val');if(_v2)_v2.textContent=parseFloat(this.value).toFixed(1);}renderPutt();saveState()">
         </div>
       </div>
     </div>
+
+    <!-- 3. Expected shots strip (below Situational Info, matching Approach / Short Game) -->
+    <div id="es-putting" class="expected-shots-strip"></div>
 
     <!-- 4. Required Break card (left) · Putt SVG (right) -->
     <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:start">

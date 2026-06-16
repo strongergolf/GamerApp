@@ -24,7 +24,7 @@ function buildShortGame(){
         <input type="number" id="chip-input" min="5" max="55" value="20"
           oninput="window.chipSelectedIdx=-1;const v=Math.max(5,Math.min(55,parseInt(this.value)||20));document.getElementById('chip-slider').value=v;document.getElementById('chip-display').textContent=v;renderChipDial()">
       </div>
-      <div class="calc-manual-col" style="flex:0 0 132px">
+      <div class="calc-manual-col calc-stimp-col">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
           <label style="margin-bottom:0">Stimp</label>
           <span class="stimp-val" id="sg-stimp-val">${STATE.stimp.toFixed(1)}</span>
