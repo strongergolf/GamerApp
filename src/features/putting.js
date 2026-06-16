@@ -2,12 +2,8 @@
 
 function buildPutting(){
   const wrap=document.getElementById('putting-wrap'); if(!wrap) return;
-  const stimpOpts=[7,7.5,8,8.5,9,9.5,10,10.5,11,11.5,12,12.5,13,13.5,14]
-    .map(v=>`<option value="${v}"${v===STATE.stimp?' selected':''}>${v.toFixed(1)}</option>`).join('');
-  const lbl='font-family:ui-monospace,monospace;font-size:.62rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:4px';
-  const sel='font-family:Arial,sans-serif;font-size:.9rem;font-weight:700;padding:6px 8px;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;color:var(--ink);outline:none;width:100%';
   wrap.innerHTML=`
-    <!-- 1. Distance slider + stimp dropdown -->
+    <!-- 1. Distance slider -->
     <div class="calc-dist-block">
       <div class="calc-yardage-display">
         <div class="calc-yardage-num" id="putt-dist-display">15</div>
@@ -23,49 +19,35 @@ function buildPutting(){
         <input type="number" id="putt-dist-input" min="2" max="60" value="15"
           oninput="const _v=Math.max(2,Math.min(60,parseInt(this.value)||15));document.getElementById('putt-dist').value=_v;document.getElementById('putt-dist-display').textContent=_v;renderPutt();renderExpectedShots('es-putting',_v,'green')">
       </div>
-      <div class="calc-manual-col">
-        <label for="putt-stimp-select">Stimp</label>
-        <select id="putt-stimp-select" onchange="STATE.stimp=parseFloat(this.value);const _sg=document.getElementById('sg-stimp');if(_sg){_sg.value=this.value;const _sgv=document.getElementById('sg-stimp-val');if(_sgv)_sgv.textContent=parseFloat(this.value).toFixed(1);}renderPutt();saveState()" style="${sel}">${stimpOpts}</select>
-      </div>
     </div>
 
     <!-- 2. Expected shots strip -->
     <div id="es-putting" class="expected-shots-strip"></div>
 
-    <!-- 3. 4-control box: break · green slope · side slope · pace -->
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin:12px 0 14px;display:grid;grid-template-columns:1fr 1fr;gap:14px 18px">
-      <div>
-        <label style="${lbl}">Break</label>
-        <select id="putt-dir" onchange="onPuttBreakChange(this.value)" style="${sel}">
-          <option value="lr">↩ L → R</option>
-          <option value="rl">↪ R → L</option>
-          <option value="straight">↑ Straight</option>
-        </select>
-      </div>
-      <div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-          <label style="${lbl};margin-bottom:0">Green Slope</label>
-          <span class="stimp-val" id="putt-slope-display">Level</span>
+    <!-- 3. Putt Read — Situational-Info-style panel (Break · Slope · Side Slope · Pace · Stimp) -->
+    <div class="ey-panel" style="margin:12px 0 14px">
+      <div class="ey-head"><span class="ey-title">Putt Read</span></div>
+      <div class="ey-grid">
+        <div class="ey-term">
+          <div class="ey-term-head"><span class="ey-term-label">Break</span><span class="ey-term-val" id="putt-dir-v">↩ L → R</span></div>
+          <input type="range" id="putt-dir" min="0" max="2" step="1" value="0" oninput="onPuttBreakSlider(this.value)">
         </div>
-        <input type="range" id="putt-slope" min="-60" max="60" step="1" value="0" style="width:100%"
-          oninput="document.getElementById('putt-slope-display').textContent=fmtSlopeElev(this.value);renderPutt()">
-        <div style="display:flex;justify-content:space-between;font-family:ui-monospace,monospace;font-size:.5rem;color:var(--muted);margin-top:2px"><span>5 ft down</span><span>level</span><span>5 ft up</span></div>
-      </div>
-      <div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-          <label style="${lbl};margin-bottom:0">Side Slope at Point of Influence</label>
-          <span class="stimp-val" id="putt-grade-display">2</span>
+        <div class="ey-term">
+          <div class="ey-term-head"><span class="ey-term-label">Green Slope</span><span class="ey-term-val" id="putt-slope-display">Level</span></div>
+          <input type="range" id="putt-slope" min="-60" max="60" step="1" value="0" oninput="document.getElementById('putt-slope-display').textContent=fmtSlopeElev(this.value);renderPutt()">
         </div>
-        <input type="range" id="putt-grade" min="0" max="5" step="0.5" value="2" style="width:100%"
-          oninput="onPuttGradeInput(this.value)">
-      </div>
-      <div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-          <label style="${lbl};margin-bottom:0">Pace (inches past)</label>
-          <span class="stimp-val" id="putt-pace-val">12&quot;</span>
+        <div class="ey-term">
+          <div class="ey-term-head"><span class="ey-term-label">Side Slope at Point of Influence</span><span class="ey-term-val" id="putt-grade-display">2</span></div>
+          <input type="range" id="putt-grade" min="0" max="5" step="0.5" value="2" oninput="onPuttGradeInput(this.value)">
         </div>
-        <input type="range" id="putt-pace" min="4" max="36" step="2" value="12" style="width:100%"
-          oninput="document.getElementById('putt-pace-val').textContent=this.value+'&quot;';renderPutt()">
+        <div class="ey-term">
+          <div class="ey-term-head"><span class="ey-term-label">Pace (in past)</span><span class="ey-term-val" id="putt-pace-val">12&quot;</span></div>
+          <input type="range" id="putt-pace" min="4" max="36" step="2" value="12" oninput="document.getElementById('putt-pace-val').textContent=this.value+'&quot;';renderPutt()">
+        </div>
+        <div class="ey-term">
+          <div class="ey-term-head"><span class="ey-term-label">Stimp</span><span class="ey-term-val" id="putt-stimp-val">${STATE.stimp.toFixed(1)}</span></div>
+          <input type="range" id="putt-stimp" min="7" max="14" step="0.5" value="${STATE.stimp}" oninput="STATE.stimp=parseFloat(this.value);document.getElementById('putt-stimp-val').textContent=parseFloat(this.value).toFixed(1);const _sg=document.getElementById('sg-stimp');if(_sg){_sg.value=this.value;const _v2=document.getElementById('sg-stimp-val');if(_v2)_v2.textContent=parseFloat(this.value).toFixed(1);}renderPutt();saveState()">
+        </div>
       </div>
     </div>
 
@@ -100,22 +82,27 @@ function slopeCategoryFromElev(e){
   return 'level';
 }
 /* Break ⇄ Side Slope interlock: Straight zeroes the grade, and grade 0 ⇒ Straight. */
-function onPuttBreakChange(v){
-  if(v==='straight'){
-    const g=document.getElementById('putt-grade'); if(g){ g.value=0; const d=document.getElementById('putt-grade-display'); if(d) d.textContent='0'; }
-  } else {
-    const g=document.getElementById('putt-grade');
-    if(g && parseFloat(g.value)===0){ g.value=2; const d=document.getElementById('putt-grade-display'); if(d) d.textContent='2'; }
-  }
+/* Break is a 3-stop slider: L→R (0) · Straight (1) · R→L (2). */
+const PUTT_BREAKS=[['lr','↩ L → R'],['straight','↑ Straight'],['rl','↪ R → L']];
+const _puttBreakIdx=()=>{ const d=document.getElementById('putt-dir'); return d?Math.max(0,Math.min(2,Math.round(parseFloat(d.value)||0))):0; };
+function puttBreakId(){ return PUTT_BREAKS[_puttBreakIdx()][0]; }
+function onPuttBreakSlider(idx){
+  const i=Math.max(0,Math.min(2,Math.round(parseFloat(idx)||0)));
+  const lbl=document.getElementById('putt-dir-v'); if(lbl) lbl.textContent=PUTT_BREAKS[i][1];
+  const g=document.getElementById('putt-grade'), gd=document.getElementById('putt-grade-display');
+  /* Straight zeroes the side slope, and vice-versa */
+  if(PUTT_BREAKS[i][0]==='straight'){ if(g){ g.value=0; if(gd) gd.textContent='0'; } }
+  else if(g && parseFloat(g.value)===0){ g.value=2; if(gd) gd.textContent='2'; }
   renderPutt();
 }
 function onPuttGradeInput(v){
   const g=parseFloat(v)||0;
-  const d=document.getElementById('putt-grade-display'); if(d) d.textContent=v;
-  const dir=document.getElementById('putt-dir');
+  const gd=document.getElementById('putt-grade-display'); if(gd) gd.textContent=v;
+  const dir=document.getElementById('putt-dir'), dv=document.getElementById('putt-dir-v');
   if(dir){
-    if(g===0 && dir.value!=='straight'){ dir.value='straight'; }
-    else if(g>0 && dir.value==='straight'){ dir.value='lr'; }
+    const curId=PUTT_BREAKS[_puttBreakIdx()][0];
+    if(g===0 && curId!=='straight'){ dir.value=1; if(dv) dv.textContent=PUTT_BREAKS[1][1]; }
+    else if(g>0 && curId==='straight'){ dir.value=0; if(dv) dv.textContent=PUTT_BREAKS[0][1]; }
   }
   renderPutt();
 }
@@ -123,7 +110,7 @@ function onPuttGradeInput(v){
 function renderPutt(){
   const dist=parseInt(document.getElementById('putt-dist')?.value||15);
   const grade=parseFloat(document.getElementById('putt-grade')?.value||2);
-  const dir=document.getElementById('putt-dir')?.value||'lr';
+  const dir=puttBreakId();
   const elevIn=parseFloat(document.getElementById('putt-slope')?.value||0);
   const pace=parseInt(document.getElementById('putt-pace')?.value||12);
   const stimp=STATE.stimp;
@@ -295,4 +282,4 @@ function buildPuttSVG(distFt,breakIn,dir,slope,pace){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { buildPuttSVG, buildPutting, renderPutt, renderPuttSG, fmtSlopeElev, slopeCategoryFromElev, onPuttBreakChange, onPuttGradeInput });
+Object.assign(window, { buildPuttSVG, buildPutting, renderPutt, renderPuttSG, fmtSlopeElev, slopeCategoryFromElev, PUTT_BREAKS, puttBreakId, onPuttBreakSlider, onPuttGradeInput });

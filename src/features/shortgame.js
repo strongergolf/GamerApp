@@ -30,7 +30,7 @@ function buildShortGame(){
           <span class="stimp-val" id="sg-stimp-val">${STATE.stimp.toFixed(1)}</span>
         </div>
         <input type="range" id="sg-stimp" min="7" max="14" step="0.5" value="${STATE.stimp}" style="width:100%"
-          oninput="STATE.stimp=parseFloat(this.value);document.getElementById('sg-stimp-val').textContent=parseFloat(this.value).toFixed(1);const _puS=document.getElementById('putt-stimp-select');if(_puS)_puS.value=this.value;renderChipDial();buildChipMatrix();saveState()">
+          oninput="STATE.stimp=parseFloat(this.value);document.getElementById('sg-stimp-val').textContent=parseFloat(this.value).toFixed(1);const _pu=document.getElementById('putt-stimp');if(_pu){_pu.value=this.value;const _pv=document.getElementById('putt-stimp-val');if(_pv)_pv.textContent=parseFloat(this.value).toFixed(1);}renderChipDial();buildChipMatrix();saveState()">
       </div>
     </div>
 
