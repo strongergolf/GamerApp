@@ -32,15 +32,6 @@ function buildShortGame(){
         <input type="range" id="sg-stimp" min="7" max="14" step="0.5" value="${STATE.stimp}" style="width:100%"
           oninput="STATE.stimp=parseFloat(this.value);document.getElementById('sg-stimp-val').textContent=parseFloat(this.value).toFixed(1);const _puS=document.getElementById('putt-stimp-select');if(_puS)_puS.value=this.value;renderChipDial();buildChipMatrix();saveState()">
       </div>
-      <div class="calc-manual-col" style="flex:0 0 132px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-          <label style="margin-bottom:0">Slope</label>
-          <span class="stimp-val" id="chip-slope-val">Level</span>
-        </div>
-        <input type="range" id="chip-slope" min="-6" max="6" step="0.5" value="0" style="width:100%"
-          oninput="document.getElementById('chip-slope-val').textContent=fmtChipSlope(this.value);renderChipDial();buildChipMatrix()">
-        <div style="display:flex;justify-content:space-between;font-family:ui-monospace,monospace;font-size:.5rem;color:var(--muted);margin-top:2px"><span>downhill</span><span>uphill</span></div>
-      </div>
     </div>
 
     <!-- 1b. Plays-like adjusters -->
@@ -58,12 +49,10 @@ function buildShortGame(){
 
     <!-- 5. Short Game Variables -->
     <div class="section-label" style="margin-top:22px">Short Game Variables</div>
-    <p class="intro-note" style="margin-bottom:10px">Setup and motion choices reshape the shot's impact conditions — shaft lean, vertical path, effective loft and bounce — which flow into the launch &amp; spin of the Chip Shot Options above. Defaults match the standard chip; changes shift every club in the dial.</p>
     <div id="sg-vars-wrap"></div>
 
     <!-- 6. Chip Matrix — at-a-glance, very bottom of the tab -->
     <div class="section-label" style="margin-top:22px;display:flex;align-items:center;justify-content:space-between;gap:10px">Chip Reference Matrix — Total Distance by Club &amp; Carry <button class="print-btn" onclick="printMatrix('chip')">⎙ Print</button></div>
-    <p class="intro-note" style="margin-bottom:10px">Launch = 75% of loft. Roll ratio: Low Runner 1:5 (7i) → Standard 1:2 (P) → Toss 1:1 (G) → Flop 5:1 (X). Cells show carry + rollout at current stimp and slope.</p>
     <div class="chip-matrix-wrap"><table class="chip-matrix" id="chip-matrix-table"></table></div>`;
 
   buildChipMatrix();
@@ -122,11 +111,10 @@ function renderSgVars(){
         <div class="sgv-shot-cell"><span class="sgv-k">Spin</span><span class="sgv-v">${arrow(net.dSpin)} ${fmt(net.dSpin,' rpm',0)}</span></div>
         <div class="sgv-shot-cell"><span class="sgv-k">Bounce</span><span class="sgv-v">${arrow(net.dBounce)} ${fmt(net.dBounce,'°')}</span></div>
       </div>
-      <div class="sgv-readout-foot">vs. the standard chip (Middle · Neutral · Square · Level · Blend). <button type="button" class="sgv-reset" onclick="resetSgVars()">Reset to standard</button></div>
+      <div class="sgv-readout-foot">vs. the standard chip (Middle · Neutral · Square). <button type="button" class="sgv-reset" onclick="resetSgVars()">Reset to standard</button></div>
     </div>`;
   wrap.innerHTML=`
     <div class="sgv-cat"><div class="sgv-cat-head">Setup</div>${SG_VARS.setup.map(varRow).join('')}</div>
-    <div class="sgv-cat"><div class="sgv-cat-head">Pivot &amp; Release</div>${SG_VARS.pivot.map(varRow).join('')}</div>
     ${readout}`;
 }
 

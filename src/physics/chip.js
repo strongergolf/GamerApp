@@ -58,26 +58,33 @@ function chipSlopeFactor(slope){
   return typeof slope==='number' ? chipSlopeMult(slope)
     : slope==='very-uphill'?0.38 : slope==='uphill'?0.62 : slope==='downhill'?1.50 : slope==='very-downhill'?2.20 : 1.0;
 }
+/* Green-firmness multiplier on rollout, from the Short Game Situational Info firmness
+   (softer → less roll / more carry to the hole; firmer → more roll). Default 1.0. */
+function chipFirm(){ return (typeof window!=='undefined'&&window.chipFirmFactor)?window.chipFirmFactor:1; }
 function chipRollout(carry, loftDeg, stimp, slope){
   const R=chipRollRatio(loftDeg);
   const sa=Math.pow(stimp/9.5, 1.3);
-  return carry * R * sa * chipSlopeFactor(slope);
+  return carry * R * sa * chipSlopeFactor(slope) * chipFirm();
 }
 function chipCarryForTotal(total, loftDeg, stimp, slope){
   const R=chipRollRatio(loftDeg);
   const sa=Math.pow(stimp/9.5, 1.3);
-  return total / (1 + R * sa * chipSlopeFactor(slope));
+  return total / (1 + R * sa * chipSlopeFactor(slope) * chipFirm());
 }
 function chipClubs(){
   return STATE.clubs
     .filter(c=>{ const l=parseFloat(c.loft); return l>=34&&l<=70; })
     .sort((a,b)=>parseFloat(a.loft)-parseFloat(b.loft));
 }
-function chipSlopeVal(){ const v=document.getElementById('chip-slope')?.value; return (v==null||v==='')?0:parseFloat(v); }
+/* Green slope now lives in Short Game → Situational Info as the "Level" term (±6°). */
+function chipSlopeVal(){
+  if(typeof EY!=='undefined' && EY.shortgame && EY.shortgame.level!=null) return parseFloat(EY.shortgame.level)||0;
+  const v=document.getElementById('chip-slope')?.value; return (v==null||v==='')?0:parseFloat(v);
+}
 window.chipSelectedIdx = -1; /* −1 = auto-select best match */
 function selectChipClub(i){ window.chipSelectedIdx=i; renderChipDial(); }
 
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { CHIP_ROLL_ANCHORS, CHIP_SLOPE_ANCHORS, chipArchetype, chipCarryForTotal, chipClubs, chipRollRatio, chipRollout, chipSlopeFactor, chipSlopeMult, chipSlopeVal, selectChipClub });
+Object.assign(window, { CHIP_ROLL_ANCHORS, CHIP_SLOPE_ANCHORS, chipArchetype, chipCarryForTotal, chipClubs, chipFirm, chipRollRatio, chipRollout, chipSlopeFactor, chipSlopeMult, chipSlopeVal, selectChipClub });
