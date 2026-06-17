@@ -147,7 +147,8 @@ function toggleSpecs(c,row,group){
       <div class="rep-inline-delta ${dc}">${ds}</div>
     </div>`;
   }).join('');
-  group.innerHTML=editHtml+repLabel+repHtml;
+  const missHtml = c.type!=='putter' ? buildMissBlock(c) : '';
+  group.innerHTML=editHtml+missHtml+repLabel+repHtml;
   group.classList.add('open');
   setTimeout(()=>group.scrollIntoView({behavior:'smooth',block:'nearest'}),50);
 }

@@ -127,7 +127,6 @@ function toggleDetail(c,row,group,inner){
         <div class="flight-col-top"><div class="flight-label">Overhead — Dispersion</div><div class="flight-svg-wrap">${buildTopSVG(c,p)}</div></div>
       </div>
     </div>
-    ${buildMissBlock(c)}
     ${c.id==='D'?buildDriverCarryNudge(p):''}
     ${c.id==='D'?buildDriverOptimizerHTML():''}`;
   renderExpectedShots(`es-bag-${c.id}`, p.total||p.carry, 'fairway');
@@ -227,95 +226,35 @@ function buildSideSVG(c,p){
   </svg>`;
 }
 
-/* OVERHEAD DISPERSION — true geometric cone angle */
+/* OVERHEAD DISPERSION — zoomed shot pattern centred on a typical green.
+   Rather than a fan from the tee, we frame a single ~30 yd green and overlay the
+   1σ / 2σ dispersion oval on its centre, so you can read at a glance how much of
+   the green a stock shot holds. Lateral spread from gd(); depth a touch larger. */
 function buildTopSVG(c,p){
-  const W=120,H=108,PAD_B=12,PAD_T=10,PAD_S=8;
+  const W=120,H=112;
   const tc=typeHex(c.type);
-  const ox=W/2, oy=H-PAD_B, drawH=oy-PAD_T;
+  const cx=W/2, cy=H/2+3;
   function gd(y){ if(y<=100)return 3.0; if(y<=150)return 3.5+(y-100)/50*1.5; if(y<=200)return 5.0+(y-150)/50*5.0; if(y<=270)return 10.0+(y-200)/70*5.0; return 15.0; }
 
-  const pr=STATE.partials[c.id];
   const carry=p.carry||100;
-  const dists=pr?[pr.full,pr.tq,pr.half]:[carry,Math.round(carry*0.66),Math.round(carry*0.33)];
-  const fullDist=dists[0], halfDist=dists[2];
+  const dispYd=gd(carry);                 // ~1σ lateral half-width, yards
+  const depthYd=dispYd*1.4;               // distance control runs a touch deeper than wide
 
-  const availHW=(W/2)-PAD_S;
-  const fullDisp=gd(fullDist);
-  const halfAngle=Math.atan2(fullDisp, fullDist);
-  const toY=d=>oy-(d/fullDist)*drawH;
-  const toHW=d=>Math.min(availHW, Math.tan(halfAngle)*((d/fullDist)*drawH));
-  const fullY=toY(fullDist), fullHW=toHW(fullDist);
-  const halfY=toY(halfDist), halfHW=toHW(halfDist);
+  /* Fixed "typical green": 30 yd across (15 yd radius), drawn to fill the frame.
+     Same yards→px scale drives the dispersion oval, so the oval grows/shrinks
+     against a constant green. */
+  const greenR_yd=15, greenR_px=42;
+  const scale=greenR_px/greenR_yd;
+  const ovW=dispYd*scale, ovH=depthYd*scale;
 
-  const loftDeg=parseFloat(c.loft)||99;
-  const showPartialTick = loftDeg > 31;
-  const cone=`${ox},${oy} ${(ox-fullHW).toFixed(1)},${fullY.toFixed(1)} ${(ox+fullHW).toFixed(1)},${fullY.toFixed(1)}`;
-  const gid='disp_'+c.id;
-
-  /* Background: fairway for long clubs (loft ≤ 23°), green for irons/wedges (loft > 23°)
-     Average fairway width ≈ 40 yards. Average green diameter ≈ 30 yards.
-     We scale the background so its width matches the dispersion context. */
-  const isLong = loftDeg <= 23;  /* D, F, H, U */
-  let bgElem='';
-  if(isLong){
-    /* Fairway: 30yd wide, scaled using the same px/yd as the dispersion cone */
-    const fwyScale=fullHW/fullDisp;                          // px per yard at full distance
-    const fwyHW=Math.min(availHW, 15*fwyScale);              // 15yd = half of 30yd fairway
-    const fwyX=ox-fwyHW;
-    bgElem=`
-      <rect x="0" y="${PAD_T}" width="${W}" height="${drawH}" fill="#00853F" rx="3"/>
-      <rect x="${fwyX.toFixed(1)}" y="${PAD_T}" width="${(fwyHW*2).toFixed(1)}" height="${drawH}" fill="#00a84f" rx="3"/>
-      <text x="${W/2}" y="${PAD_T+7}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="5" fill="rgba(255,255,255,0.5)">fairway 30yd wide</text>`;
-  } else {
-    /* Green: circle with 10yd radius, same px/yd scale as cone */
-    const gScale=fullHW/fullDisp;
-    const gR=Math.min(availHW-2, 10*gScale);                 // 10yd radius
-    const gCy=fullY+(oy-fullY)*0.3;
-    bgElem=`
-      <rect x="0" y="${PAD_T}" width="${W}" height="${drawH}" fill="#0a5a2a" rx="3"/>
-      <ellipse cx="${ox}" cy="${gCy.toFixed(1)}" rx="${gR.toFixed(1)}" ry="${gR.toFixed(1)}" fill="#00a84f"/>
-      <ellipse cx="${ox}" cy="${gCy.toFixed(1)}" rx="${(gR*0.55).toFixed(1)}" ry="${(gR*0.55).toFixed(1)}" fill="rgba(255,255,255,0.08)"/>
-      <text x="${W/2}" y="${PAD_T+7}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="5" fill="rgba(255,255,255,0.5)">green r=10yd</text>`;
-    /* Landing zone ellipse — depth variance ±~6yd shown proportionally */
-    const lz_x=fullHW*0.7;
-    const lz_y=drawH*0.12;
-    bgElem+=`<ellipse cx="${ox}" cy="${fullY.toFixed(1)}" rx="${lz_x.toFixed(1)}" ry="${lz_y.toFixed(1)}" fill="${tc}" opacity="0.18"/>
-      <text x="${ox}" y="${(fullY+lz_y+8).toFixed(1)}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="5" fill="${tc}" opacity="0.8">landing zone</text>`;
-  }
-
-  const edges=`
-    <line x1="${ox}" y1="${oy}" x2="${(ox-fullHW).toFixed(1)}" y2="${fullY.toFixed(1)}" stroke="${tc}" stroke-width="1" opacity="0.7"/>
-    <line x1="${ox}" y1="${oy}" x2="${(ox+fullHW).toFixed(1)}" y2="${fullY.toFixed(1)}" stroke="${tc}" stroke-width="1" opacity="0.7"/>`;
-  const target=`<line x1="${ox}" y1="${oy}" x2="${ox}" y2="${fullY.toFixed(1)}" stroke="rgba(255,255,255,0.5)" stroke-width="0.7" stroke-dasharray="3,3"/>`;
-  const angleDeg=(halfAngle*180/Math.PI).toFixed(1);
-  const angleLabel=`<text x="${ox}" y="${oy+11}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="5.5" fill="${tc}" opacity="0.9">${angleDeg}° L/R</text>`;
-
-  function tick(dist,yPos,hw,label,dispYd,bold,labelSide){
-    const lx = labelSide==='right' ? (ox+hw+2).toFixed(1) : (ox-hw-2).toFixed(1);
-    const la = labelSide==='right' ? 'start' : 'end';
-    const yx = ox;
-    return `<line x1="${(ox-hw).toFixed(1)}" y1="${yPos.toFixed(1)}" x2="${(ox+hw).toFixed(1)}" y2="${yPos.toFixed(1)}" stroke="rgba(255,255,255,0.8)" stroke-width="${bold?'0.9':'0.5'}"/>
-    <text x="${lx}" y="${(yPos+3).toFixed(1)}" text-anchor="${la}" font-family="ui-monospace,monospace" font-size="${bold?'6':'5'}" fill="rgba(255,255,255,${bold?'0.95':'0.7'})" font-weight="${bold?'bold':'normal'}">${dispYd.toFixed(1)} L/R</text>
-    <text x="${yx}" y="${(yPos-2).toFixed(1)}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="5" fill="rgba(255,255,255,0.65)">${label}</text>`;
-  }
-
-  const ticks=[
-    tick(fullDist, fullY, fullHW, fullDist+'yd', fullDisp, true),
-    ...(showPartialTick?[tick(halfDist, halfY, halfHW, halfDist+'yd', gd(halfDist), false, 'right')]:[])
-  ].join('');
-
-  return `<svg viewBox="0 0 ${W} ${H+14}" style="width:100%;display:block;overflow:visible" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="${gid}" x1="0" y1="1" x2="0" y2="0">
-        <stop offset="0%" stop-color="${tc}" stop-opacity="0.45"/>
-        <stop offset="100%" stop-color="${tc}" stop-opacity="0.10"/>
-      </linearGradient>
-      <clipPath id="cone_${c.id}"><polygon points="${cone}"/></clipPath>
-    </defs>
-    ${bgElem}
-    <polygon points="${cone}" fill="url(#${gid})" clip-path="url(#cone_${c.id})"/>
-    ${edges}${target}${ticks}${angleLabel}
-    <circle cx="${ox}" cy="${oy}" r="2.5" fill="${tc}"/>
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block;overflow:visible" xmlns="http://www.w3.org/2000/svg">
+    <text x="${cx}" y="13" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9" font-weight="bold" fill="var(--ink2)">${carry} yd</text>
+    <circle cx="${cx}" cy="${cy}" r="${greenR_px}" fill="#00a84f" fill-opacity="0.14" stroke="#00a84f" stroke-width="1" stroke-opacity="0.55"/>
+    <text x="${(cx+greenR_px*0.62).toFixed(1)}" y="${(cy-greenR_px*0.62).toFixed(1)}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="5" fill="#00853F" opacity="0.65">30yd green</text>
+    <ellipse cx="${cx}" cy="${cy}" rx="${(ovW*2).toFixed(1)}" ry="${(ovH*2).toFixed(1)}" fill="${tc}" fill-opacity="0.10" stroke="${tc}" stroke-opacity="0.4" stroke-width="0.8" stroke-dasharray="3,2"/>
+    <ellipse cx="${cx}" cy="${cy}" rx="${ovW.toFixed(1)}" ry="${ovH.toFixed(1)}" fill="${tc}" fill-opacity="0.30" stroke="${tc}" stroke-opacity="0.75" stroke-width="1"/>
+    <circle cx="${cx}" cy="${cy}" r="1.6" fill="var(--ink)"/>
+    <text x="${cx}" y="${H-3}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="6.5" fill="${tc}">±${dispYd.toFixed(1)} yd L/R · 1σ⁄2σ</text>
   </svg>`;
 }
 

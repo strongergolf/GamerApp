@@ -107,14 +107,14 @@ body::after{content:'';position:fixed;inset:0;background-image:url("data:image/s
 .detail-club-name{font-family:Arial,sans-serif;font-size:1.9rem;font-weight:800;letter-spacing:.03em;line-height:1}
 .detail-club-name.wood{color:var(--c-wood)} .detail-club-name.iron{color:var(--c-iron)} .detail-club-name.wedge{color:var(--c-wedge)}
 .detail-club-spec{font-family:ui-monospace,monospace;font-size:.64rem;color:var(--muted);line-height:1.5}
-.detail-stats{display:grid;grid-template-columns:repeat(3,1fr)}
-@media(min-width:500px){.detail-stats{grid-template-columns:repeat(4,1fr)}}
-.stat-cell{padding:13px 12px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);text-align:center}
-.stat-cell:nth-child(3n){border-right:none}
-@media(min-width:500px){.stat-cell:nth-child(3n){border-right:1px solid var(--border)}.stat-cell:nth-child(4n){border-right:none}}
-.stat-label{font-family:ui-monospace,monospace;font-size:.58rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:4px}
-.stat-value{font-family:Arial,sans-serif;font-size:1.4rem;font-weight:700;color:var(--ink);letter-spacing:.02em;line-height:1}
-.stat-unit{font-family:ui-monospace,monospace;font-size:.58rem;color:var(--muted);letter-spacing:.08em;margin-top:2px}
+.detail-stats{display:grid;grid-template-columns:repeat(4,1fr)}
+@media(min-width:560px){.detail-stats{grid-template-columns:repeat(8,1fr)}}
+.stat-cell{padding:7px 5px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);text-align:center}
+.stat-cell:nth-child(4n){border-right:none}
+@media(min-width:560px){.stat-cell:nth-child(4n){border-right:1px solid var(--border)}.stat-cell:nth-child(8n){border-right:none}.stat-cell{border-bottom:none}}
+.stat-label{font-family:ui-monospace,monospace;font-size:.52rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:2px;white-space:nowrap}
+.stat-value{font-family:Arial,sans-serif;font-size:1.02rem;font-weight:700;color:var(--ink);letter-spacing:.01em;line-height:1}
+.stat-unit{font-family:ui-monospace,monospace;font-size:.5rem;color:var(--muted);letter-spacing:.05em;margin-top:1px}
 .stat-cell.hl-carry .stat-value{color:var(--green)} .stat-cell.hl-speed .stat-value{color:var(--sky)}
 .stat-cell.hl-spin .stat-value{color:var(--amber)} .stat-cell.hl-land .stat-value{color:var(--red)}
 .flight-wrap{padding:15px 18px;border-top:1px solid var(--border);background:var(--surface2)}
