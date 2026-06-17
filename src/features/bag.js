@@ -232,15 +232,17 @@ function buildSideSVG(c,p){
 /* OVERHEAD DISPERSION — zoomed shot pattern centred on a typical green.
    Rather than a fan from the tee, we frame a single ~30 yd green and overlay the
    1σ / 2σ dispersion oval on its centre, so you can read at a glance how much of
-   the green a stock shot holds. Lateral spread from gd(); depth a touch larger. */
+   the green a stock shot holds. Lateral spread from getDispersion() (same source as
+   the L/R badges); depth a touch larger. The pattern is slanted long-left / short-
+   right (a typical miss tilt) rather than a perfectly upright oval. */
+const DISP_SLANT = -15;   /* deg; − tilts the oval long-left / short-right */
 function buildTopSVG(c,p){
   const W=120,H=112;
   const tc=typeHex(c.type);
   const cx=W/2, cy=H/2+3;
-  function gd(y){ if(y<=100)return 3.0; if(y<=150)return 3.5+(y-100)/50*1.5; if(y<=200)return 5.0+(y-150)/50*5.0; if(y<=270)return 10.0+(y-200)/70*5.0; return 15.0; }
 
   const carry=p.carry||100;
-  const dispYd=gd(carry);                 // ~1σ lateral half-width, yards
+  const dispYd=getDispersion(carry)*0.608; // 1σ lateral half-width, yards (matches badges)
   const depthYd=dispYd*1.4;               // distance control runs a touch deeper than wide
 
   /* Fixed "typical green": 30 yd across (15 yd radius), drawn to fill the frame.
@@ -254,8 +256,10 @@ function buildTopSVG(c,p){
     <text x="${cx}" y="13" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9" font-weight="bold" fill="var(--ink2)">${carry} yd</text>
     <circle cx="${cx}" cy="${cy}" r="${greenR_px}" fill="#00a84f" fill-opacity="0.14" stroke="#00a84f" stroke-width="1" stroke-opacity="0.55"/>
     <text x="${(cx+greenR_px*0.62).toFixed(1)}" y="${(cy-greenR_px*0.62).toFixed(1)}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="5" fill="#00853F" opacity="0.65">30yd green</text>
-    <ellipse cx="${cx}" cy="${cy}" rx="${(ovW*2).toFixed(1)}" ry="${(ovH*2).toFixed(1)}" fill="${tc}" fill-opacity="0.10" stroke="${tc}" stroke-opacity="0.4" stroke-width="0.8" stroke-dasharray="3,2"/>
-    <ellipse cx="${cx}" cy="${cy}" rx="${ovW.toFixed(1)}" ry="${ovH.toFixed(1)}" fill="${tc}" fill-opacity="0.30" stroke="${tc}" stroke-opacity="0.75" stroke-width="1"/>
+    <g transform="rotate(${DISP_SLANT} ${cx} ${cy})">
+      <ellipse cx="${cx}" cy="${cy}" rx="${(ovW*2).toFixed(1)}" ry="${(ovH*2).toFixed(1)}" fill="${tc}" fill-opacity="0.10" stroke="${tc}" stroke-opacity="0.4" stroke-width="0.8" stroke-dasharray="3,2"/>
+      <ellipse cx="${cx}" cy="${cy}" rx="${ovW.toFixed(1)}" ry="${ovH.toFixed(1)}" fill="${tc}" fill-opacity="0.30" stroke="${tc}" stroke-opacity="0.75" stroke-width="1"/>
+    </g>
     <circle cx="${cx}" cy="${cy}" r="1.6" fill="var(--ink)"/>
     <text x="${cx}" y="${H-3}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="6.5" fill="${tc}">±${dispYd.toFixed(1)} yd L/R · 1σ⁄2σ</text>
   </svg>`;
