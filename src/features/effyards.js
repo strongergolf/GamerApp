@@ -41,6 +41,13 @@ function sgLieRollMult(){
   const set=SG_SITUATION_LIES[EY.shortgame.situation]; if(!set) return 1;
   return (set.rollMult&&set.rollMult[EY.shortgame.lieq]!=null)?set.rollMult[EY.shortgame.lieq]:1;
 }
+/* "Plays-longer" difficulty (display only) for the short-game lie. Derived from the
+   same rollMult severity that drives the carry/roll split: a worse lie (less spin,
+   more release) makes the same shot to the hole play like a longer clean-lie shot.
+   Feeds the effective-yardage readout ONLY — never the dial's target total, since the
+   ball still has to travel the measured distance to the hole. */
+const SG_LIE_PLAYS_K = 10;
+function sgLiePlaysYd(){ return Math.max(0, (sgLieRollMult()-1)*SG_LIE_PLAYS_K); }
 /* SG status → strokes-gained lie key (SR table lies: fairway / rough / sand) */
 function approachLie(){
   const s=(EY.approach&&EY.approach.situation)||'fairway';
@@ -85,7 +92,7 @@ function eyTerms(ctx){
     const set=SG_SITUATION_LIES[EY.shortgame.situation]||SG_SITUATION_LIES.fairway;
     return [
       { key:'situation', label:'Situation', type:'step', noContrib:true, opts:[['fairway','Fairway'],['rough','Rough'],['bunker','Bunker']] },
-      { key:'lieq', label:'Lie', type:'step', noContrib:true, opts:set.lies },   /* options depend on Situation; effect is roll-out */
+      { key:'lieq', label:'Lie', type:'step', opts:set.lies },   /* options depend on Situation; effect = roll-out split + plays-longer difficulty */
       EY_TERM_STANCE, EY_TERM_LEVEL, EY_TERM_FIRM
     ];
   }
@@ -114,8 +121,16 @@ function eyDelta(ctx,key,S){
 }
 function eyKeys(ctx){ return eyTerms(ctx).map(t=>t.key).concat('air'); }
 function eyTotal(ctx,S){ return eyKeys(ctx).reduce((a,k)=>a+eyDelta(ctx,k,S),0); }
+/* Display-only difficulty added to the effective-yardage readout (not the dial total). */
+function eyDifficulty(ctx){ return ctx==='shortgame' ? sgLiePlaysYd() : 0; }
+/* Per-term badge contribution. Mostly = eyDelta, but the short-game Lie surfaces its
+   plays-longer difficulty (display only, so it never feeds eyTotal / the dial target). */
+function eyContrib(ctx,key,S){
+  if(ctx==='shortgame' && key==='lieq') return sgLiePlaysYd();
+  return eyDelta(ctx,key,S);
+}
 /* effective (plays-like) yardage for a context, given a measured base */
-function eyEffective(ctx,measured){ return measured + eyTotal(ctx,measured); }
+function eyEffective(ctx,measured){ return measured + eyTotal(ctx,measured) + eyDifficulty(ctx); }
 
 const eyColor=d=>d>0.5?'#d96070':d<-0.5?'#1a5aaa':'var(--muted)';
 const eyFmt=d=>{ const r=Math.round(d); return (r>0?'+':r<0?'−':'')+Math.abs(r); };
@@ -124,7 +139,7 @@ function eyTermValLabel(ctx,term){
   return term.fmt(EY[ctx][term.key]);
 }
 function eySummaryHTML(ctx,S){
-  const tot=eyTotal(ctx,S), eff=Math.round(S+tot), air=eyDelta(ctx,'air',S);
+  const tot=eyTotal(ctx,S)+eyDifficulty(ctx), eff=Math.round(S+tot), air=eyDelta(ctx,'air',S);
   return `<span class="ey-meas">${Math.round(S)}</span><span class="ey-arrow">plays</span>`
     +`<span class="ey-eff">${eff} yd</span><span class="ey-adj" style="color:${eyColor(tot)}">${eyFmt(tot)} yd</span>`
     +`<span class="ey-air">air ${eyFmt(air)} (auto)</span>`;
@@ -134,7 +149,7 @@ function buildEyPanel(ctx){
   if(typeof eySyncFirmness==='function') eySyncFirmness(ctx);
   const S=eyBase(ctx);
   const rows=eyTerms(ctx).map(term=>{
-    const d=eyDelta(ctx,term.key,S);
+    const d=eyContrib(ctx,term.key,S);
     let control;
     if(term.type==='step'){
       const idx=Math.max(0,term.opts.findIndex(o=>o[0]===EY[ctx][term.key]));
@@ -163,7 +178,7 @@ function eyRefreshSummary(ctx){
   const S=eyBase(ctx);
   eyTerms(ctx).forEach(term=>{
     const c=document.getElementById(`ey-${ctx}-${term.key}-c`);
-    if(c){ const d=eyDelta(ctx,term.key,S); c.textContent=eyFmt(d); c.style.color=eyColor(d); }
+    if(c){ const d=eyContrib(ctx,term.key,S); c.textContent=eyFmt(d); c.style.color=eyColor(d); }
     const v=document.getElementById(`ey-${ctx}-${term.key}-v`); if(v) v.textContent=eyTermValLabel(ctx,term);
   });
   const sum=document.getElementById(`ey-${ctx}-summary`); if(sum) sum.innerHTML=eySummaryHTML(ctx,S);
