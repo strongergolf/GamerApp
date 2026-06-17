@@ -196,9 +196,11 @@ function renderCalc(target){
         <div class="calc-mini-stat"><div class="calc-mini-label">Height / Check</div><div class="calc-mini-val">${fl.height}ft · ${checkDesc}</div></div>
         <div class="calc-mini-stat"><div class="calc-mini-label">Anchor / Diff</div><div class="calc-mini-val">${clockPos} · ${diffStr}</div></div>
       </div>
-      ${selected?`<div class="calc-traj-drop">
-        <div class="traj-panel traj-main"><div class="traj-panel-title">Side view — carry &amp; roll</div>${buildSideSVG(o.club,{carry:estCarry,total:target,launch:fl.launch,spin:fl.spin,land:Math.round((p.land||45)*(stm.landMult||1)),ht:fl.height,bspd:p.bspd||0})}</div>
-        <div class="traj-panel"><div class="traj-panel-title">Overhead — dispersion</div>${trajOverheadSVG(estCarry,trajDisp(estCarry),trajCol(o.club.type))}</div>
+      ${selected?`<div class="flight-wrap" style="padding:13px 0 2px;margin-top:10px;background:none">
+        <div class="flight-row">
+          <div class="flight-col-main"><div class="flight-label">Trajectory &amp; Rollout</div><div class="flight-svg-wrap">${buildSideSVG(o.club,{carry:estCarry,total:target,launch:fl.launch,spin:fl.spin,land:Math.round((p.land||45)*(stm.landMult||1)),ht:fl.height,bspd:p.bspd||0})}</div></div>
+          <div class="flight-col-top"><div class="flight-label">Overhead — Dispersion</div><div class="flight-svg-wrap">${buildTopSVG(o.club,{carry:estCarry})}</div></div>
+        </div>
       </div>`:''}
     </div>`;
   }).join('');

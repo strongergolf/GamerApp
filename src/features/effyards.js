@@ -11,14 +11,19 @@ const EY = {
   shortgame: { situation:'fairway', lieq:'standard', stance:'level', level:0, firmness:'avg' }
 };
 const EY_DEFAULTS = { situation:'fairway', lieq:'standard', stance:'level', elev:0, level:0, firmness:'avg' };
-/* Situation = Strokes-Gained status (where you're playing from) → base distance cost (yd).
+/* All Situational-Info terms use the EFFECTIVE-YARDAGE convention: + = the shot plays
+   LONGER (club up), − = plays shorter (club down). So a condition that costs ball
+   distance reads +, and one that adds ball distance reads −. */
+/* Situation = Strokes-Gained status (where you're playing from) → effective-yardage cost.
+   Rough/sand/recovery cost distance (+, club up); a teed-up lie flies a touch farther (−).
    Also drives the Expected Strokes / Strokes-Gained lie via approachLie(). */
-const EY_SITUATION = { tee:+2, fairway:0, rough:-6, bunker:-8, recovery:-15 };
-/* Lie quality → carry effect (yd) for APPROACH. Short Game uses half (EY_WEIGHT).
+const EY_SITUATION = { tee:-2, fairway:0, rough:+6, bunker:+8, recovery:+15 };
+/* Lie quality → effective yardage for APPROACH. Short Game uses half (EY_WEIGHT).
+   Hardpan/sitting-down/buried cost distance (+, club up); a clean sit-up flies farther (−).
    Buried & sitting-down also cut spin / add roll on a real shot (display only for now). */
-const EY_LIE = { clean:+2, standard:0, hardpan:-4, down:-8, buried:-12 };
+const EY_LIE = { clean:-2, standard:0, hardpan:+4, down:+8, buried:+12 };
 /* Stance up/downhill ≈ club changes: ~1 club ≈ 10 yd ≈ 4° loft. ±1 club hill, ±2 well.
-   Uphill plays shorter → club up (+); downhill plays longer → club down (−). */
+   Uphill plays longer → club up (+); downhill flies farther → club down (−). */
 const EY_STANCE = { welldownhill:-20, downhill:-10, level:0, uphill:+10, welluphill:+20 };
 /* Approach green firmness → yards added to ROLL-OUT (window.approachGreenFirmness). */
 const EY_FIRMNESS = { vsoft:-2, soft:-1, avg:0, firm:2, vfirm:4 };
