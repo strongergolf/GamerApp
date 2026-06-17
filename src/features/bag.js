@@ -46,7 +46,10 @@ function buildLadder(){
     const dispBase=getDispersion(stock);                    /* model half-width (90% CI ≈ 1.645σ) */
     const sigma1=Math.round(dispBase*0.608*10)/10;          /* 1σ ≈ 68% lateral half-width */
     const sigma2=Math.round(sigma1*2*10)/10;                /* 2σ ≈ 95% */
-    const dc=dispColor(dispBase);
+    /* Dispersion badges coloured by club type (iron = blue, wood/utility = red,
+       wedge = green) for a cleaner read than the old magnitude-based shading. */
+    const dcRGB={wood:'217,96,112',iron:'26,90,170',wedge:'0,133,63',putter:'107,114,128'}[c.type]||'107,114,128';
+    const dc={ color:typeHex(c.type), bg:`rgba(${dcRGB},.12)`, border:`rgba(${dcRGB},.34)` };
     /* Lateral miss as % of total yardage now lives in Locker Room → My Bag (buildLateralGapping). */
     const adjBit = window.adjustOn && shown!==stock
       ? `<span class="adj">${shown}</span><span class="stock-sm">stock ${stock}</span>`
