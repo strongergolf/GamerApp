@@ -126,14 +126,15 @@ const PRACTICE_AREAS=[
        ${ballRefHtml()}
 
        <div class="lvl-subhead" style="margin-top:14px">Club Behaviour at Impact — D-Plane Tendencies</div>
-       <div class="chain-caption" style="margin-top:4px">Each club's <strong>stock-shot</strong> D-plane: horizontal face, horizontal path and attack angle (all in degrees, left −/right +). <strong>Stock shape, curve and start line are computed live</strong> — face vs path, scaled by loft (lower loft curves more). These tendencies feed the Bag dispersion and the <strong>Plan</strong> tab's hole overlays. Edits save automatically. <span class="placeholder-flag">prototype</span></div>
-       ${buildDplaneGrid()}`,
+       <div class="chain-caption" style="margin-top:4px">Each club's <strong>stock-shot</strong> D-plane: horizontal face, horizontal path, dynamic loft and attack angle (degrees, left −/right +). The 3D render shows the <span style="color:#c43c9e;font-weight:700">path</span> &amp; <span style="color:#2a6fc4;font-weight:700">face</span> vectors, the <span style="color:#b8860b;font-weight:700">D-plane</span> wedge and the perpendicular <span style="color:#cc2a2a;font-weight:700">spin axis</span>; <strong>stock shape &amp; 3D spin loft read out live</strong>. Tap a club to load it; edits save automatically. <span class="placeholder-flag">prototype</span></div>
+       <div class="dpl-layout">
+         <div class="dpl-grid-col">${buildDplaneGrid()}</div>
+         <div class="dpl-vis-col"><div id="dplane-visual"></div></div>
+       </div>`,
      improve:()=>ballImprove(),
      resources:()=>`
        ${ballLawsRef()}
-       <div class="lvl-subhead" style="margin-top:16px">D-Plane Visual <span class="placeholder-flag">prototype</span></div>
-       <div class="chain-caption" style="margin-top:4px">The selected club's stock-shot D-plane from three angles — <strong>Down the Line</strong>, <strong>Overhead</strong>, <strong>Face-On</strong> (each slightly offset for depth). <span style="color:#c43c9e;font-weight:700">Path</span> &amp; <span style="color:#2a6fc4;font-weight:700">Face</span> vectors, the <span style="color:#c8721e;font-weight:700">D-plane</span> wedge, and the perpendicular <span style="color:#cc2a2a;font-weight:700">spin axis</span>.</div>
-       <div id="dplane-visual"></div>
+       <div class="chain-caption" style="margin-top:14px">The interactive D-plane shaper — per-club impact inputs alongside the live 3D render — now lives under <strong>Assess → Ball Flight &amp; Club Behaviour → D-Plane Tendencies</strong>.</div>
        ${buildGearEffectL2()}
 
        <div class="chain-caption" style="margin-top:14px">Driver distance optimization (Foresight launch &amp; spin windows) now lives under the <strong>Driver</strong> in <strong>Stock Shots</strong>.</div>`},
@@ -763,24 +764,18 @@ function buildDplaneGrid(){
   let html=`<div style="overflow-x:auto"><table class="dpl-table"><thead><tr>
     <th style="${th};text-align:left;padding-left:8px">Club</th>
     <th style="${th2}">Horiz.<br>Face°</th><th style="${th2}">Horiz.<br>Path°</th>
-    <th style="${th2}">Vert. Face°<br>(Dyn Loft)</th><th style="${th2}">Vert. Path°<br>(AoA)</th>
-    <th style="${th2}">Ideal<br>AoA</th>
-    <th style="${th2}">Stock<br>Shape</th><th style="${th2}">3D Spin<br>Loft</th></tr></thead><tbody>`;
+    <th style="${th2}">Vert. Face°<br>(Dyn Loft)</th><th style="${th2}">Vert. Path°<br>(AoA)</th></tr></thead><tbody>`;
   clubs.forEach(c=>{
     const d=(STATE.dplane&&STATE.dplane[c.id])||{};
     const vFace=d.vFace!=null?d.vFace:parseFloat(c.loft)||30;   // fallback to static loft
-    const p=perf(c.id)||{};
-    const sh=dplaneShape(d.hFace,d.hPath,vFace,d.aoa,p.carry||150);
+    const sel=c.id===window.dpVisClub?' style="background:var(--bg2)"':'';
     const inp=(field,val)=>`<input class="dpl-input" value="${escapeHtml(val==null?'':val)}" inputmode="decimal" oninput="setDplaneCell('${c.id}','${field}',this.value)">`;
-    html+=`<tr>
-      <td style="padding:5px 8px;white-space:nowrap"><span style="font-family:Arial,sans-serif;font-weight:800;font-size:.85rem;color:var(--ink)">${c.label}</span> <span style="font-family:ui-monospace,monospace;font-size:.56rem;color:var(--muted)">${c.loft}</span></td>
+    html+=`<tr${sel}>
+      <td onclick="setDpVisClub('${c.id}')" title="Show this club in the 3D render" style="padding:5px 8px;white-space:nowrap;cursor:pointer"><span style="font-family:Arial,sans-serif;font-weight:800;font-size:.85rem;color:var(--ink)">${c.label}</span> <span style="font-family:ui-monospace,monospace;font-size:.56rem;color:var(--muted)">${c.loft}</span></td>
       <td>${inp('hFace',d.hFace)}</td>
       <td>${inp('hPath',d.hPath)}</td>
       <td>${inp('vFace',vFace)}</td>
       <td>${inp('aoa',d.aoa)}</td>
-      <td id="dpc-aoa-${c.id}" style="text-align:center;white-space:nowrap">${dplAoaCell(c,d.aoa)}</td>
-      <td id="dpc-shape-${c.id}" style="text-align:center;white-space:nowrap">${dplShapeCell(sh)}</td>
-      <td id="dpc-sl-${c.id}" style="text-align:center;font-family:ui-monospace,monospace;font-size:.62rem;color:var(--ink2)">${sh.spinLoft.toFixed(1)}°</td>
     </tr>`;
   });
   return html+'</tbody></table></div>';
@@ -901,6 +896,8 @@ const DP_VIEWS=[
   {key:'over',name:'Overhead',      R:[1,0.04,0],  U:[0,0.16,1], ground:true},
   {key:'face',name:'Face-On',       R:[0,0.04,1],  U:[0.22,1,0]}
 ];
+/* Single 3/4 perspective camera for the D-plane shaper render (behind-right, above). */
+const DP_VIEW_3D={key:'iso', name:'D-Plane — 3D', R:[1,0,0.5], U:[0.22,1,0.32]};
 function dpDot(p,b){ return p.x*b[0]+p.y*b[1]+p.z*b[2]; }
 /* Spin axis (− = left/draw, + = right/fade) → 7-bucket ball-flight category. */
 function dpBallFlight(axis){
@@ -962,8 +959,8 @@ function renderDPlaneVisual(){
       <label style="font-family:ui-monospace,monospace;font-size:.56rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)">Club</label>
       <select class="strat-select" style="max-width:150px" onchange="setDpVisClub(this.value)">${opts}</select>
     </div>
-    <div class="dpv-readout">3D Spin Loft <b style="color:#b8860b">${sh.spinLoft.toFixed(1)}°</b><span class="dpv-sep">·</span>Spin Axis <b style="color:#cc2a2a">${Math.abs(sh.spinAxis).toFixed(1)}°${side}</b><span class="dpv-sep">·</span>Ball Flight <b style="color:#111">${fl}</b></div>
-    <div class="dpv-grid">${DP_VIEWS.map(v=>buildDPlaneView(v,wv)).join('')}</div>`;
+    <div class="dpv-readout">Stock Shape <b style="color:#111">${fl}</b><span class="dpv-sep">·</span>3D Spin Loft <b style="color:#b8860b">${sh.spinLoft.toFixed(1)}°</b><span class="dpv-sep">·</span>Spin Axis <b style="color:#cc2a2a">${Math.abs(sh.spinAxis).toFixed(1)}°${side}</b></div>
+    <div class="dpv-single">${buildDPlaneView(DP_VIEW_3D,wv)}</div>`;
 }
 function buildGearEffectL2(){
   const dToe=dpGearAxisShift(3,'wood'), iToe=dpGearAxisShift(3,'iron');

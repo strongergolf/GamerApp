@@ -692,6 +692,11 @@ table.chip-matrix tr:hover td{background:var(--surface2)}
 .dpv-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 @media(max-width:560px){.dpv-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:380px){.dpv-grid{grid-template-columns:1fr}}
+/* D-Plane shaper: per-club inputs (left) beside the single 3D render (right) */
+.dpl-layout{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;margin-top:6px}
+.dpl-grid-col{flex:1 1 300px;min-width:0}
+.dpl-vis-col{flex:0 1 250px;min-width:218px}
+.dpv-single .dpv-panel{background:#eef6fc}
 .dpv-panel{border:1px solid var(--border2);border-radius:8px;overflow:hidden;background:#eef6fc}
 .dpv-title{font-family:ui-monospace,monospace;font-size:.55rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink2);text-align:center;padding:4px 0 2px;background:var(--bg2)}
 .dpv-readout{font-family:Arial,sans-serif;font-size:.92rem;font-weight:600;color:var(--ink2);margin-bottom:8px;line-height:1.5}
