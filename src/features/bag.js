@@ -130,7 +130,6 @@ function toggleDetail(c,row,group,inner){
         <div class="flight-col-top"><div class="flight-label">Overhead — Dispersion</div><div class="flight-svg-wrap">${buildTopSVG(c,p)}</div></div>
       </div>
     </div>
-    ${c.id==='D'?buildDriverCarryNudge(p):''}
     ${c.id==='D'?buildDriverOptimizerHTML():''}`;
   renderExpectedShots(`es-bag-${c.id}`, p.total||p.carry, 'fairway');
   if(c.id==='D' && typeof updateDriverOpt==='function') updateDriverOpt();
@@ -319,21 +318,7 @@ function buildGearEffectPanel(c){
     </div>
   </div>`;
 }
-function buildDriverCarryNudge(p){
-  const carry=p.carry||270, perDeg=2;
-  const g3=Math.round(3*perDeg), g5=Math.round(5*perDeg);
-  return `<div class="gear-panel">
-    <div class="gear-title">Driver Carry Potential — Attack Angle <span class="proto-badge">prototype</span></div>
-    <div class="gear-sub">StrongerGolf study: even skilled players average a <b>negative</b> driver attack angle (~−3°). The driver rewards hitting <b>up</b> — at the same ball speed, a positive AoA adds carry.</div>
-    <div class="nudge-row">
-      <div class="nudge-cell"><div class="nudge-val">${carry}</div><div class="nudge-lbl">carry now (neutral AoA)</div></div>
-      <div class="nudge-cell"><div class="nudge-val" style="color:var(--green)">+${g3}</div><div class="nudge-lbl">est. yd at +3° up</div></div>
-      <div class="nudge-cell"><div class="nudge-val" style="color:var(--green)">+${g5}</div><div class="nudge-lbl">est. yd at +5° up</div></div>
-    </div>
-    <div class="gear-sub" style="margin-top:6px">Rough estimate (~2 yd per +1° AoA at driver speed). Tune precisely in the Driver Optimizer (Diagnose → Ball Flight).</div>
-  </div>`;
-}
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { buildDriverCarryNudge, buildGapping, buildGearEffectPanel, buildGearFaceSVG, buildLadder, buildMissBlock, buildSideSVG, buildTopSVG, missNote, missSelect, renderConditions, setMiss, statCell, toggleDetail, updateCondSummary });
+Object.assign(window, { buildGapping, buildGearEffectPanel, buildGearFaceSVG, buildLadder, buildMissBlock, buildSideSVG, buildTopSVG, missNote, missSelect, renderConditions, setMiss, statCell, toggleDetail, updateCondSummary });
