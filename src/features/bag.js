@@ -115,10 +115,10 @@ function toggleDetail(c,row,group,inner){
       ${statCell('Total',p.total||'—','yd','')}
       ${statCell('Ball Speed',p.bspd,'mph','hl-speed')}
       ${statCell('Club Speed',p.cspd,'mph','hl-speed')}
-      ${statCell('Vert. Launch',(p.launch!=null?p.launch+'°':'—'),'degrees','')}
+      ${statCell('Vert. Launch',(p.launch!=null?p.launch:'—'),'°','')}
       ${statCell('Spin Rate',(p.spin!=null?p.spin.toLocaleString():'—'),'rpm','hl-spin')}
-      ${statCell('Max Height',p.ht,'feet','')}
-      ${statCell('Land Angle',(p.land!=null?p.land+'°':'—'),'degrees','hl-land')}
+      ${statCell('Max Height',p.ht,'ft','')}
+      ${statCell('Land Angle',(p.land!=null?p.land:'—'),'°','hl-land')}
     </div>
     <div id="es-bag-${c.id}" class="expected-shots-strip"></div>
     <div class="flight-wrap">
