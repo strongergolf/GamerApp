@@ -17,12 +17,12 @@ function buildShortGame(){
       <div class="calc-slider-col">
         <div class="calc-slider-limits"><span>5 yd</span><span>55 yd</span></div>
         <input type="range" class="yard-slider" id="chip-slider" min="5" max="55" value="20" step="1"
-          oninput="window.chipSelectedIdx=-1;document.getElementById('chip-display').textContent=this.value;document.getElementById('chip-input').value=this.value;renderChipDial()">
+          oninput="document.getElementById('chip-display').textContent=this.value;document.getElementById('chip-input').value=this.value;renderChipDial()">
       </div>
       <div class="calc-manual-col">
         <label for="chip-input">Yards</label>
         <input type="number" id="chip-input" min="5" max="55" value="20"
-          oninput="window.chipSelectedIdx=-1;const v=Math.max(5,Math.min(55,parseInt(this.value)||20));document.getElementById('chip-slider').value=v;document.getElementById('chip-display').textContent=v;renderChipDial()">
+          oninput="const v=Math.max(5,Math.min(55,parseInt(this.value)||20));document.getElementById('chip-slider').value=v;document.getElementById('chip-display').textContent=v;renderChipDial()">
       </div>
       <div class="calc-manual-col calc-stimp-col">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
