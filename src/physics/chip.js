@@ -43,6 +43,22 @@ function chipArchetype(loftDeg){
   if(launch<50) return 'Toss / Soft Pitch';
   return 'Flop / Lob';
 }
+/* Displayed launch angle (°). Chips and short pitches launch BELOW static loft — shaft
+   lean delofts the face and friction launch pulls the ball down — so launch ≈ 0.68 × loft
+   fits current launch-monitor data (a 56° wedge pitches ~34–37°; Andrew Rice / Trackman
+   "Chip Shot Code"). The roll model keeps its own internal loft keying; this is the number
+   we surface. Presumed — refine from the player's own LM data. */
+function chipLaunch(loftDeg){ return (parseFloat(loftDeg)||50)*0.68; }
+/* Short-game / partial-pitch backspin estimate (rpm). Anchored to current LM data for
+   urethane balls and clean contact at men's speeds: ~1,500 rpm on a 5 yd chip rising to
+   ~6,000–6,500 on a 50 yd pitch (Trackman "Chip Shot Code" / Andrew Rice wedge study).
+   Backspin tracks ball speed (≈ carry) far more than loft across this range — higher-lofted
+   wedges add only a little. Presumed — refine from the player's own LM session. */
+function chipSpin(carryYd, loftDeg){
+  const base = 1200 + 105*Math.max(0, carryYd);            // distance (ball speed) is the main driver
+  const loftAdj = ((parseFloat(loftDeg)||52) - 52) * 25;   // mild: ~+25 rpm per ° vs a 52° reference
+  return Math.round(Math.max(800, base + loftAdj)/50)*50;  // nearest 50 rpm
+}
 /* Continuous green-slope → rollout multiplier. deg = slope of the run-out, + = uphill
    (less roll), − = downhill (more roll). Piecewise-linear anchors preserve the old
    categorical values: +6→0.38 (very up), +3→0.62 (up), 0→1.0, −3→1.50, −6→2.20. */
@@ -91,4 +107,4 @@ function selectChipClub(i){ window.chipSelectedIdx=i; renderChipDial(); }
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { CHIP_ROLL_ANCHORS, CHIP_SLOPE_ANCHORS, chipArchetype, chipCarryForTotal, chipClubs, chipFirm, chipLie, chipRollRatio, chipRollout, chipSlopeFactor, chipSlopeMult, chipSlopeVal, selectChipClub });
+Object.assign(window, { CHIP_ROLL_ANCHORS, CHIP_SLOPE_ANCHORS, chipArchetype, chipCarryForTotal, chipClubs, chipFirm, chipLaunch, chipLie, chipRollRatio, chipRollout, chipSlopeFactor, chipSlopeMult, chipSlopeVal, chipSpin, selectChipClub });

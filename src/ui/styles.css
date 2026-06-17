@@ -495,6 +495,9 @@ table.chip-matrix tr:hover td{background:var(--surface2)}
 .sgv-eff{font-family:ui-monospace,monospace;font-size:.62rem;color:var(--muted);margin-top:5px;letter-spacing:.02em}
 .sgv-tbd{color:var(--gold);opacity:.85;font-style:italic}
 .sgv-readout{background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:12px 14px;margin-bottom:18px}
+/* When the Net Shot Effect lives inside the adjustment box, sit it flush as a divided
+   section rather than its own card. */
+.sgv-cat>.sgv-readout{background:none;border:none;border-top:1px solid var(--border);border-radius:0;padding:12px 0 0;margin:12px 0 0}
 .sgv-readout-head{font-family:Arial,sans-serif;font-size:.62rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
 .sgv-impact{display:flex;flex-wrap:wrap;gap:6px 16px;font-family:ui-monospace,monospace;font-size:.66rem;color:var(--muted);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)}
 .sgv-impact b{color:var(--ink);font-weight:700}

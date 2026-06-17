@@ -40,15 +40,12 @@ function buildShortGame(){
     <!-- 2. Expected shots -->
     <div id="es-short" class="expected-shots-strip"></div>
 
-    <!-- 3. Trajectory (populated by renderChipDial) -->
-    <div id="chip-traj-wrap"></div>
-
-    <!-- 4. Shot options -->
+    <!-- 3. Shot options (selected shot opens its trajectory drop below it) -->
     <div id="chip-results"></div>
 
 
-    <!-- 5. Short Game Variables -->
-    <div class="section-label" style="margin-top:22px">Short Game Variables</div>
+    <!-- 4. Short Game Setup Adjustment Options -->
+    <div class="section-label" style="margin-top:22px">Short Game Setup Adjustment Options</div>
     <div id="sg-vars-wrap"></div>
 
     <!-- 6. Chip Matrix — at-a-glance, very bottom of the tab -->
@@ -114,8 +111,10 @@ function renderSgVars(){
       <div class="sgv-readout-foot">vs. the standard chip (Middle · Neutral · Square). <button type="button" class="sgv-reset" onclick="resetSgVars()">Reset to standard</button></div>
     </div>`;
   wrap.innerHTML=`
-    <div class="sgv-cat"><div class="sgv-cat-head">Setup</div>${SG_VARS.setup.map(varRow).join('')}</div>
-    ${readout}`;
+    <div class="sgv-cat">
+      ${SG_VARS.setup.map(varRow).join('')}
+      ${readout}
+    </div>`;
 }
 
 function renderChipDial(){
@@ -156,6 +155,19 @@ function renderChipDial(){
     const tc=typeColor(c);
     const note = carry<0.5 ? 'carry too short' : carry>25 ? 'pitch / full shot territory' : '';
     const noteStr = note ? ` <span style="color:var(--gold);font-size:.68rem">· ${note}</span>` : '';
+    /* Selected shot opens its trajectory drop directly below the card (as on Approach). */
+    let drop='';
+    if(selected){
+      const effNote = Math.abs(sgDelta)>=0.5 ? ` <span style="color:var(--gold);font-weight:700">plays ${loft.toFixed(0)}° eff</span>` : '';
+      const launch = typeof chipLaunch==='function' ? chipLaunch(loft) : loft*0.68;
+      const spin = typeof chipSpin==='function' ? chipSpin(carry,loft) : 0;
+      drop=`<div class="calc-traj-drop" style="grid-template-columns:1fr">
+        <div class="traj-panel traj-main">
+          <div class="traj-panel-title">${c.label} (${c.loft})${effNote} — carry ${carry.toFixed(1)} → roll ${roll.toFixed(1)} yd · launch ${launch.toFixed(0)}° · ~${spin.toLocaleString()} rpm · ${chipArchetype(loft)}</div>
+          ${buildChipSVG(carry,roll,loft)}
+        </div>
+      </div>`;
+    }
     return `<div class="calc-result-card ${selected?'best':''}"
         onclick="selectChipClub(${i})" style="cursor:pointer${!practical&&!selected?';opacity:.5':''}">
       <div class="calc-card-header">
@@ -164,21 +176,10 @@ function renderChipDial(){
           <div class="calc-swing-label" style="color:${tc}">${chipArchetype(loft)}<span style="font-family:ui-monospace,monospace;font-size:.65rem;font-weight:500;color:var(--muted)"> — </span><span style="font-family:Arial,sans-serif;font-size:1.15rem;font-weight:800;color:${selected?'var(--gold)':tc}">${carry.toFixed(1)}</span><span style="font-family:ui-monospace,monospace;font-size:.65rem;font-weight:500;color:var(--muted)"> carry · ${roll.toFixed(1)} roll · ${total.toFixed(1)} total</span>${noteStr}</div>
         </div>
       </div>
+      ${drop}
     </div>`;
   }).join('');
 
-  /* SVG for selected/best club — shown in traj-wrap above the cards */
-  const trajWrap=document.getElementById('chip-traj-wrap');
-  if(trajWrap){
-    if(displayIdx>=0){
-      const {c,carry,roll,loft}=rows[displayIdx];
-      const effNote = Math.abs(sgDelta)>=0.5 ? ` <span style="color:var(--gold);font-weight:700">plays ${loft.toFixed(0)}° eff</span>` : '';
-      trajWrap.innerHTML=`<div class="chip-svg-wrap">
-        <div class="chip-svg-label" style="font-size:.8rem;font-weight:700;color:var(--ink);letter-spacing:.01em">${c.label} (${c.loft})${effNote} — carry ${carry.toFixed(1)} yd → roll ${roll.toFixed(1)} yd · launch ${(loft*0.75).toFixed(0)}° · ${chipArchetype(loft)}</div>
-        ${buildChipSVG(carry,roll,loft)}
-      </div>`;
-    } else { trajWrap.innerHTML=''; }
-  }
   results.innerHTML=cards;
   renderExpectedShots('es-short', measuredYd, 'atg');
 }
