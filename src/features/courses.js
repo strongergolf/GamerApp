@@ -144,7 +144,7 @@ function buildCourses(){
   const courseOpts=cs.map((x,i)=>`<option value="${i}"${i===e.cIdx?' selected':''}>${escapeHtml(x.name||'Course')}</option>`).join('');
   const holeTabs=(c.holes||[]).map((x,i)=>`<button class="cf-hole-tab${i===e.hIdx?' active':''}" onclick="cfSelectHole(${i})">${x.num}</button>`).join('');
   const modeBtn=(m,lbl)=>`<button class="cf-mode${e.mode===m?' active':''}" onclick="cfSetMode('${m}')">${lbl}</button>`;
-  const scaleTxt = h&&h.scaleYpu ? `${h.scaleYpu.toFixed(2)} yds/unit (calibrated)` : (h&&h.tee&&h.pin&&h.yards ? `${(h.yards/Math.hypot(h.pin.x-h.tee.x,h.pin.y-h.tee.y)).toFixed(2)} yds/unit (from tee→pin)` : 'not set');
+  const scaleTxt = h&&h.scaleYpu ? `${h.scaleYpu.toFixed(2)} yd/unit (calibrated)` : (h&&h.tee&&h.pin&&h.yards ? `${(h.yards/Math.hypot(h.pin.x-h.tee.x,h.pin.y-h.tee.y)).toFixed(2)} yd/unit (from tee→pin)` : 'not set');
   wrap.innerHTML=`
     <div class="section-label" style="margin-top:0">Course Editor <span class="proto-badge">prototype</span></div>
     ${cfImportBox()}

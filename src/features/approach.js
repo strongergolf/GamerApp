@@ -178,12 +178,12 @@ function renderCalc(target){
     const estCarry=target-estRoll;
     /* Anchor mini-stat */
     const clockPos=o.sw.key==='full'?'11:00':o.sw.key==='tq'?'10:00':'9:00';
-    const diffStr=o.delta===0?'on anchor':`${o.delta>0?'+':''}${o.delta}yds`;
+    const diffStr=o.delta===0?'on anchor':`${o.delta>0?'+':''}${o.delta}yd`;
     return `<div class="calc-result-card ${selected?'best':''}" onclick="selectApproachResult(${i})" style="cursor:pointer">
       <div class="calc-card-header">
         <div class="calc-club-badge">${o.club.label}<small>${o.club.loft}</small></div>
         <div style="flex:1;min-width:0">
-          <div class="calc-swing-label">${swingDesc}<span style="font-family:ui-monospace,monospace;font-size:.75rem;font-weight:600;color:var(--ink);letter-spacing:.01em"> — Carry ${estCarry} · Roll ${estRoll} · Total ${target} yds</span></div>
+          <div class="calc-swing-label">${swingDesc}<span style="font-family:ui-monospace,monospace;font-size:.75rem;font-weight:600;color:var(--ink);letter-spacing:.01em"> — Carry ${estCarry} · Roll ${estRoll} · Total ${target} yd</span></div>
         </div>
       </div>
       <div class="calc-card-body">

@@ -111,8 +111,8 @@ function toggleDetail(c,row,group,inner){
       <div class="detail-club-spec" style="font-size:.88rem;color:var(--ink2)">${c.make} ${c.model}<br><span style="color:var(--ink2)">${c.shaft} · ${c.length}</span></div>
     </div>
     <div class="detail-stats">
-      ${statCell('Carry',p.carry,'yards','hl-carry')}
-      ${statCell('Total',p.total||'—','yards','')}
+      ${statCell('Carry',p.carry,'yd','hl-carry')}
+      ${statCell('Total',p.total||'—','yd','')}
       ${statCell('Ball Speed',p.bspd,'mph','hl-speed')}
       ${statCell('Club Speed',p.cspd,'mph','hl-speed')}
       ${statCell('Vert. Launch',(p.launch!=null?p.launch+'°':'—'),'degrees','')}
@@ -301,10 +301,10 @@ function buildDriverCarryNudge(p){
     <div class="gear-sub">StrongerGolf study: even skilled players average a <b>negative</b> driver attack angle (~−3°). The driver rewards hitting <b>up</b> — at the same ball speed, a positive AoA adds carry.</div>
     <div class="nudge-row">
       <div class="nudge-cell"><div class="nudge-val">${carry}</div><div class="nudge-lbl">carry now (neutral AoA)</div></div>
-      <div class="nudge-cell"><div class="nudge-val" style="color:var(--green)">+${g3}</div><div class="nudge-lbl">est. yds at +3° up</div></div>
-      <div class="nudge-cell"><div class="nudge-val" style="color:var(--green)">+${g5}</div><div class="nudge-lbl">est. yds at +5° up</div></div>
+      <div class="nudge-cell"><div class="nudge-val" style="color:var(--green)">+${g3}</div><div class="nudge-lbl">est. yd at +3° up</div></div>
+      <div class="nudge-cell"><div class="nudge-val" style="color:var(--green)">+${g5}</div><div class="nudge-lbl">est. yd at +5° up</div></div>
     </div>
-    <div class="gear-sub" style="margin-top:6px">Rough estimate (~2 yds per +1° AoA at driver speed). Tune precisely in the Driver Optimizer (Diagnose → Ball Flight).</div>
+    <div class="gear-sub" style="margin-top:6px">Rough estimate (~2 yd per +1° AoA at driver speed). Tune precisely in the Driver Optimizer (Diagnose → Ball Flight).</div>
   </div>`;
 }
 
