@@ -602,44 +602,13 @@ table.chip-matrix tr:hover td{background:var(--surface2)}
 .defs-dropdown[open]>summary{border-bottom:1px solid var(--border);margin-bottom:12px}
 .defs-dropdown[open]>summary::before{content:'▾  '}
 .defs-dropdown>*:last-child{margin-bottom:14px}
-/* Shot Shaper */
-.shaper-controls{display:grid;grid-template-columns:repeat(4,1fr);gap:10px 12px;margin-bottom:12px}
-@media (max-width:640px){.shaper-controls{grid-template-columns:repeat(2,1fr)}}
-.shaper-ctrl label{display:block;font-family:ui-monospace,monospace;font-size:.56rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:4px}
-.shaper-ctrl-v{color:var(--ink);font-family:Arial,sans-serif;font-weight:700;text-transform:none;letter-spacing:0;margin-left:4px}
-.shaper-ctrl input[type=range]{width:100%;accent-color:var(--accent,#c4427a)}
-.shaper-axis-mini{display:flex;justify-content:space-between;font-family:ui-monospace,monospace;font-size:.5rem;color:var(--muted);margin-top:2px}
-/* Approach top row: narrowed selected-shot trajectory + Shot Shaper 3D image side by side */
-.approach-top-row{display:flex;justify-content:center;margin:2px 0}
-.approach-top-row .shaper-scene-col{flex:0 1 360px;max-width:100%}
-.shaper-scene-title{font-family:Arial,sans-serif;font-size:.6rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:4px;text-align:center}
-.shaper-stage{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
-.shaper-specs{min-width:0;margin-top:4px}
-.shaper-scene-col{flex:0 0 300px;max-width:100%}
-@media (max-width:620px){.shaper-scene-col{flex:1 1 100%}}
-.shaper-scene{display:block}
-/* Trajectory view — main side arc + overhead dispersion + down-the-line */
-.traj-view{display:grid;grid-template-columns:3fr 2fr;gap:10px;margin:10px 0}
+/* Trajectory panels — per-shot side view + overhead (chip & approach option drops) */
 .traj-panel{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px 10px 6px}
 .traj-panel-title{font-family:Arial,sans-serif;font-size:.61rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:4px;text-align:center}
 .traj-main{grid-column:1;grid-row:1/span 2}
-@media (max-width:560px){.traj-view{grid-template-columns:1fr 1fr}.traj-main{grid-column:1/3;grid-row:auto}}
-/* Per-shot-option dropdown: side view + overhead dispersion */
 .calc-traj-drop{display:grid;grid-template-columns:3fr 2fr;gap:10px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
 .calc-traj-drop .traj-main{grid-row:1}
 @media (max-width:520px){.calc-traj-drop{grid-template-columns:1fr}.calc-traj-drop .traj-main{grid-row:auto}}
-.shaper-wind{font-family:Arial,sans-serif;font-size:.72rem;line-height:1.45;color:var(--ink2);margin-top:6px;text-align:center;min-height:1px}
-.shaper-wind b{color:var(--ink)}
-.shaper-rot{display:flex;gap:18px;flex-wrap:wrap;align-items:center;justify-content:center;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)}
-.shaper-rot label{display:flex;align-items:center;gap:8px;font-family:ui-monospace,monospace;font-size:.56rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
-.shaper-rot input[type=range]{width:110px;accent-color:var(--accent,#c4427a)}
-.shaper-readout{min-width:0}
-.shaper-line{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:6px 0;border-bottom:1px solid var(--border)}
-.shaper-line span{font-family:ui-monospace,monospace;font-size:.6rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
-.shaper-line b{font-family:Arial,sans-serif;font-size:1rem;font-weight:800;color:var(--ink);text-align:right}
-.shaper-note{font-family:Arial,sans-serif;font-size:.74rem;line-height:1.5;color:var(--ink2);margin-top:8px}
-.shaper-note b{color:var(--ink)}
-.shaper-axis-key{font-family:ui-monospace,monospace;font-size:.54rem;letter-spacing:.04em;color:var(--muted);margin-top:8px}
 /* Gear-effect + driver nudge panels */
 .gear-panel{background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:11px 13px;margin-top:10px}
 .gear-title{font-family:Arial,sans-serif;font-weight:800;font-size:.85rem;color:var(--ink);margin-bottom:3px}

@@ -731,32 +731,7 @@ function dplaneShape(hFace,hPath,vFace,vPath,carry){
     hdiff: r.hDiff
   };
 }
-function dplShapeCell(sh){
-  const col = sh.shape==='Draw'?'var(--green)' : sh.shape==='Fade'?'var(--c-wood)' : 'var(--muted)';
-  const curveTxt = sh.shape==='Straight'?'—' : sh.curve<1?'minimal' : `~${sh.curve} yd`;
-  return `<b style="color:${col}">${sh.shape}</b> <span style="font-family:ui-monospace,monospace;font-size:.54rem;color:var(--muted)">${curveTxt}</span>`;
-}
 function dplFmt(v){ v=+v||0; return Math.abs(v)<0.05?'0.0':(v>0?'+':'')+v.toFixed(1); }
-/* Ideal angle of attack (vertical path) per club, the coaching target.
-   Driver hits up; everything else descends, steeper with loft. */
-function idealAoA(c){
-  const t=c.type, loft=parseFloat(c.loft)||30;
-  if(t==='driver') return 4;
-  if(t==='wood') return -1;
-  if(t==='hybrid') return -2;
-  if(t==='wedge') return -5;
-  /* irons: long −3 → short −4.5 by loft band */
-  if(loft<28) return -3; if(loft<=37) return -4; return -4.5;
-}
-function dplAoaCell(c,aoa){
-  const ideal=idealAoA(c);
-  const cur=(aoa===''||aoa==null)?null:parseFloat(aoa);
-  const delta=(cur!=null&&!isNaN(cur))?cur-ideal:null;
-  const on=delta!=null&&Math.abs(delta)<=1.5;
-  const col=delta==null?'var(--muted)':on?'var(--green)':'var(--gold)';
-  const dtxt=delta==null?'target':(delta>0?'+':'')+(+delta.toFixed(1))+(on?' ✓':'');
-  return `<span style="font-family:ui-monospace,monospace;font-size:.62rem;color:var(--ink2)">${ideal>0?'+':''}${ideal}°</span><div style="font-family:ui-monospace,monospace;font-size:.5rem;color:${col};margin-top:1px">${dtxt}</div>`;
-}
 function buildDplaneGrid(){
   const clubs=STATE.clubs.filter(c=>c.type!=='putter');
   const th='padding:5px 4px;font-family:ui-monospace,monospace;font-size:.5rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--border);background:var(--bg2);text-align:center';
@@ -784,13 +759,6 @@ function setDplaneCell(id,field,value){
   if(!STATE.dplane) STATE.dplane={};
   if(!STATE.dplane[id]) STATE.dplane[id]={hFace:0,hPath:0,aoa:0};
   STATE.dplane[id][field]=parseFloat(value)||0;
-  const c=STATE.clubs.find(x=>x.id===id); if(!c) return;
-  const p=perf(id)||{}, d=STATE.dplane[id];
-  const vFace=d.vFace!=null?d.vFace:parseFloat(c.loft)||30;
-  const sh=dplaneShape(d.hFace,d.hPath,vFace,d.aoa,p.carry||150);
-  const shEl=document.getElementById('dpc-shape-'+id); if(shEl) shEl.innerHTML=dplShapeCell(sh);
-  const slEl=document.getElementById('dpc-sl-'+id); if(slEl) slEl.textContent=sh.spinLoft.toFixed(1)+'°';
-  const aoaEl=document.getElementById('dpc-aoa-'+id); if(aoaEl) aoaEl.innerHTML=dplAoaCell(c,d.aoa);
   if(typeof buildCourseStrategy==='function') buildCourseStrategy();
   if(typeof renderDPlaneVisual==='function') renderDPlaneVisual();
   saveState();
@@ -977,4 +945,4 @@ function buildGearEffectL2(){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { STRAT_OPTS, ballRefHtml, buildAssess, buildImprove, buildResources, buildCourseStrategy, buildDPlaneView, buildDplaneGrid, buildForceProfileSVG, buildGearEffectL2, buildKinematicSequenceSVG, buildStrategyPrefs, dpBallFlight, dpWorldVectors, dplFmt, dplShapeCell, dplAoaCell, dplaneShape, idealAoA, escapeHtml, forceRow, getPath, metricBox, renderDPlaneVisual, saveSwing, setDpVisClub, setDplaneCell, setStrategy, setPath, stratLabel, stratSelect, stratSummary, toggleLevel });
+Object.assign(window, { STRAT_OPTS, ballRefHtml, buildAssess, buildImprove, buildResources, buildCourseStrategy, buildDPlaneView, buildDplaneGrid, buildForceProfileSVG, buildGearEffectL2, buildKinematicSequenceSVG, buildStrategyPrefs, dpBallFlight, dpWorldVectors, dplFmt, dplaneShape, escapeHtml, forceRow, getPath, metricBox, renderDPlaneVisual, saveSwing, setDpVisClub, setDplaneCell, setStrategy, setPath, stratLabel, stratSelect, stratSummary, toggleLevel });
