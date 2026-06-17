@@ -47,11 +47,17 @@ function chipArchetype(loftDeg){
   return 'Flop / Lob';
 }
 /* Displayed launch angle (°). Chips and short pitches launch BELOW static loft — shaft
-   lean delofts the face and friction launch pulls the ball down — so launch ≈ 0.68 × loft
-   fits current launch-monitor data (a 56° wedge pitches ~34–37°; Andrew Rice / Trackman
-   "Chip Shot Code"). The roll model keeps its own internal loft keying; this is the number
-   we surface. Presumed — refine from the player's own LM data. */
-function chipLaunch(loftDeg){ return (parseFloat(loftDeg)||50)*0.68; }
+   lean delofts the face and friction launch pulls the ball down. The FRACTION of loft
+   that becomes launch is itself loft-dependent: higher-lofted wedges deloft more and lose
+   more to friction launch, so the fraction tapers from ~0.70 at a PW down to ~0.62 at 60°
+   (clamped 0.60–0.74 so low-loft runners stay near their dynamic loft and lobs hold a
+   floor). Anchored to Andrew Rice / Trackman "Chip Shot Code" / Molinari data — e.g. a
+   56° pitches ~36°. Presumed — refine from the player's own LM data. */
+function chipLaunch(loftDeg){
+  const L=parseFloat(loftDeg)||50;
+  const frac=Math.max(0.60, Math.min(0.74, 0.70 - 0.0057*(L-46)));
+  return L*frac;
+}
 /* Short-game / partial-pitch backspin estimate (rpm). Anchored to current LM data for
    urethane balls and clean contact at men's speeds: ~1,500 rpm on a 5 yd chip rising to
    ~6,000–6,500 on a 50 yd pitch (Trackman "Chip Shot Code" / Andrew Rice wedge study).
