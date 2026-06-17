@@ -191,8 +191,9 @@ function buildChipSVG(carryYd, rollYd, loftDeg){
   const carryPx=carryYd*scale, rollPx=rollYd*scale;
   const ballX=PAD, landX=PAD+carryPx, stopX=PAD+carryPx+rollPx;
 
-  /* Launch angle = 75% of loft (StrongerGolf rule) */
-  const launchDeg=loftDeg*0.75;
+  /* Launch angle from the research-based display rule (~0.68×loft) so the drawn arc
+     matches the launch number shown in the readout. */
+  const launchDeg= typeof chipLaunch==='function' ? chipLaunch(loftDeg) : loftDeg*0.68;
   const launchRad=launchDeg*Math.PI/180;
 
   /* Peak height from projectile: H = carry × tan(α)/4

@@ -20,22 +20,27 @@ const SG_VARS = {
   setup: [
     { key:'ballPos', label:'Ball Position', sub:'Horizontal Shaft Lean & Vertical Path', def:'middle',
       opts:[
-        { id:'back',    label:'Back',    eff:{ horizLean:+9, vertPath:-6 } },
-        { id:'middle',  label:'Middle',  eff:{ horizLean:+6, vertPath:-3 } },
-        { id:'forward', label:'Forward', eff:{ horizLean:+3, vertPath:0  } }
+        { id:'back',     label:'Back',           eff:{ horizLean:+9,   vertPath:-6   } },
+        { id:'cback',    label:'Center-Back',    eff:{ horizLean:+7.5, vertPath:-4.5 } },
+        { id:'middle',   label:'Middle',         eff:{ horizLean:+6,   vertPath:-3   } },
+        { id:'cforward', label:'Center-Forward', eff:{ horizLean:+4.5, vertPath:-1.5 } },
+        { id:'forward',  label:'Forward',        eff:{ horizLean:+3,   vertPath:0    } }
       ] },
     { key:'handPos', label:'Hand Position', sub:'Vertical Shaft Lean', def:'neutral',
       opts:[
         { id:'high',    label:'High Hands',    eff:{ vertLean:+4 }, prov:true },
+        { id:'shigh',   label:'Slightly High', eff:{ vertLean:+2 }, prov:true },
         { id:'neutral', label:'Neutral Hands', eff:{ vertLean:0  } },
+        { id:'slow',    label:'Slightly Low',  eff:{ vertLean:-2 }, prov:true },
         { id:'low',     label:'Low Hands',     eff:{ vertLean:-4 }, prov:true }
       ] },
     { key:'face', label:'Face Orientation', sub:'Effective Loft & Bounce', def:'square',
       opts:[
-        { id:'closed', label:'Slightly Closed', eff:{ loft:-1, bounce:-1 }, prov:true },
-        { id:'square', label:'Square',          eff:{ loft:0,  bounce:0  } },
-        { id:'sopen',  label:'Slightly Open',   eff:{ loft:+1, bounce:+1 } },
-        { id:'open',   label:'Open',            eff:{ loft:+4, bounce:+4 } }
+        { id:'closed',  label:'Slightly Closed', eff:{ loft:-2, bounce:-2 } },
+        { id:'square',  label:'Square',          eff:{ loft:0,  bounce:0  } },
+        { id:'sopen',   label:'Slightly Open',   eff:{ loft:+2, bounce:+2 } },
+        { id:'open',    label:'Open',            eff:{ loft:+4, bounce:+4 } },
+        { id:'wayopen', label:'Way Open',        eff:{ loft:+6, bounce:+6 } }
       ] }
   ],
   pivot: [
@@ -57,7 +62,7 @@ const SG_VARS = {
 /* Translation coefficients — provisional, tune here as the model evolves. */
 const SG_K = {
   leanDeloft:  1.0,   /* ° effective loft removed per ° forward (horizontal) shaft lean */
-  launchRatio: 0.75,  /* launch = effective loft × this (matches chip dial rule) */
+  launchRatio: 0.68,  /* launch = effective loft × this (matches chipLaunch display rule) */
   spinPerSteep:130,   /* rpm added per ° of downward (steeper) vertical path */
   spinPerLean: 90     /* rpm added per ° forward shaft lean (added compression) */
 };
