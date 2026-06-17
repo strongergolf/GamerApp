@@ -78,7 +78,6 @@ function driverOptimalZones(bspd){
 
 function buildDriverOptimizerHTML(){
   return `<div class="drv-opt-section">
-    <div class="flight-label">Driver Optimizer — Foresight reference <span style="font-weight:400;text-transform:none;color:var(--muted)">· neutral AoA assumed (hitting up adds carry)</span></div>
     <div class="drv-opt-wrap">
       <div class="drv-opt-body">
         <div class="drv-result-display" id="drv-carry-display">
