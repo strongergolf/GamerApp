@@ -17,7 +17,6 @@
    P 47° → 1:2 (R=2.0)    G 51° → 1:1 (R=1.0)    S 56° → 2:1 (R=0.5)
    X 65° → 5:1 (R=0.2). */
 const CHIP_ROLL_ANCHORS=[
-  [3.0,  9.0],   /* putter (Texas wedge) — ~10% skid, ~90% true roll (Quintic Ball Roll) */
   [26.7, 6.0],   /* floor below 7i */
   [35.0, 5.0],   /* 7-iron  1:5 */
   [39.0, 4.0],   /* 8-iron  1:4 */
@@ -42,7 +41,6 @@ function chipRollRatio(loftDeg){
 }
 function chipArchetype(loftDeg){
   const L=parseFloat(loftDeg)||50;
-  if(L<15) return 'Putt · Texas Wedge';
   if(L<40) return 'Low Runner';
   if(L<53) return 'Standard Chip';
   if(L<67) return 'Toss / Soft Pitch';
@@ -102,19 +100,10 @@ function chipCarryForTotal(total, loftDeg, stimp, slope, baseline){
   const m = baseline ? 1 : chipFirm()*chipLie();
   return total / (1 + R * sa * chipSlopeFactor(slope) * m);
 }
-function chipClubs(opts){
-  const list = STATE.clubs
+function chipClubs(){
+  return STATE.clubs
     .filter(c=>{ const l=parseFloat(c.loft); return l>=34&&l<=70; })
     .sort((a,b)=>parseFloat(a.loft)-parseFloat(b.loft));
-  /* Putter ("Texas wedge") — offered as a dial option only, and only from a fairway /
-     fringe lie (you can't reasonably putt from rough or sand). Kept out of the carry-
-     based reference matrix. */
-  const fairwayLie = (typeof EY==='undefined') || !EY.shortgame || EY.shortgame.situation==='fairway';
-  if(opts && opts.putter && fairwayLie){
-    const putter = STATE.clubs.find(c=>c.type==='putter' && parseFloat(c.loft)>0);
-    if(putter) list.unshift(putter);
-  }
-  return list;
 }
 /* Green slope now lives in Short Game → Situational Info as the "Level" term (±6°). */
 function chipSlopeVal(){

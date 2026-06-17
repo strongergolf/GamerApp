@@ -54,8 +54,8 @@ function buildShortGame(){
 
   buildChipMatrix();
   renderSgVars();
-  /* Default selection: P wedge (same list shape as the dial so indices line up) */
-  const _clubs=chipClubs({putter:true});
+  /* Default selection: P wedge */
+  const _clubs=chipClubs();
   const _pIdx=_clubs.findIndex(c=>c.id==='P');
   window.chipSelectedIdx=_pIdx>=0?_pIdx:-1;
   renderChipDial();
@@ -125,7 +125,7 @@ function renderChipDial(){
   const totalYd=Math.max(3, Math.round(measuredYd+eyAdj));
   if(typeof eyRefreshSummary==='function') eyRefreshSummary('shortgame');
   const stimp=STATE.stimp, slope=chipSlopeVal();
-  const clubs=chipClubs({putter:true});
+  const clubs=chipClubs();
   const results=document.getElementById('chip-results'); if(!results) return;
   if(!clubs.length){ results.innerHTML='<div class="calc-no-result">No clubs in range.</div>'; return; }
 
@@ -136,17 +136,13 @@ function renderChipDial(){
   /* compute rows for all clubs */
   let bestIdx=-1, bestDiff=999;
   const rows=clubs.map((c,i)=>{
-    const isPutter = c.type==='putter';
-    /* Setup adjustments don't apply to a putt; the wedge floor (≥10°) would otherwise
-       clamp the putter's ~3° loft up into chip territory. */
-    const loft = isPutter ? (parseFloat(c.loft)||3) : Math.max(10, parseFloat(c.loft)+sgDelta);
+    const loft=Math.max(10, parseFloat(c.loft)+sgDelta);
     const carry=chipCarryForTotal(totalYd,loft,stimp,slope);
     const roll=chipRollout(carry,loft,stimp,slope);
     const total=carry+roll;
     const practical = carry>=0.5 && carry<=25; /* chip range */
     const diff=Math.abs(total-totalYd);
-    /* Putter is an option, not the auto-pick — leave the highlight on the best chip. */
-    if(diff<bestDiff&&practical&&!isPutter){ bestDiff=diff; bestIdx=i; }
+    if(diff<bestDiff&&practical){ bestDiff=diff; bestIdx=i; }
     return {c,loft,carry,roll,total,practical};
   });
 
@@ -156,38 +152,30 @@ function renderChipDial(){
   const typeColor=c=>c.type==='wedge'?'var(--c-wedge)':c.type==='iron'?'var(--c-iron)':c.type==='putter'?'var(--c-putter)':'var(--c-wood)';
   const cards=rows.map(({c,loft,carry,roll,total,practical},i)=>{
     const selected = i===displayIdx;
-    const isPutter = c.type==='putter';
-    const carryWord = isPutter ? 'skid' : 'carry';
     const tc=typeColor(c);
     const note = carry<0.5 ? 'carry too short' : carry>25 ? 'pitch / full shot territory' : '';
     const noteStr = note ? ` <span style="color:var(--gold);font-size:.68rem">· ${note}</span>` : '';
     /* Selected shot opens its trajectory drop directly below the card (as on Approach). */
     let drop='';
     if(selected){
-      let title;
-      if(isPutter){
-        /* A putt skids ~10% then true-rolls; backspin/launch from the chip model don't
-           apply, so we show the roll picture instead (Quintic Ball Roll / SAM PuttLab). */
-        title=`${c.label} (${c.loft}) — Texas wedge · skid ${carry.toFixed(1)} → true roll · ${roll.toFixed(1)} yd roll · ${total.toFixed(1)} yd total · ${stimp.toFixed(1)} stimp`;
-      } else {
-        const effNote = Math.abs(sgDelta)>=0.5 ? ` <span style="color:var(--gold);font-weight:700">plays ${loft.toFixed(0)}° eff</span>` : '';
-        const launch = typeof chipLaunch==='function' ? chipLaunch(loft) : loft*0.68;
-        const spin = typeof chipSpin==='function' ? chipSpin(carry,loft) : 0;
-        title=`${c.label} (${c.loft})${effNote} — carry ${carry.toFixed(1)} → roll ${roll.toFixed(1)} yd · launch ${launch.toFixed(0)}° · ~${spin.toLocaleString()} rpm · ${chipArchetype(loft)}`;
-      }
+      const effNote = Math.abs(sgDelta)>=0.5 ? ` <span style="color:var(--gold);font-weight:700">plays ${loft.toFixed(0)}° eff</span>` : '';
+      const launch = typeof chipLaunch==='function' ? chipLaunch(loft) : loft*0.68;
+      const spin = typeof chipSpin==='function' ? chipSpin(carry,loft) : 0;
       drop=`<div class="calc-traj-drop" style="grid-template-columns:1fr">
         <div class="traj-panel traj-main">
-          <div class="traj-panel-title">${title}</div>
+          <div class="traj-panel-title">${c.label} (${c.loft})${effNote} — carry ${carry.toFixed(1)} → roll ${roll.toFixed(1)} yd · launch ${launch.toFixed(0)}° · ~${spin.toLocaleString()} rpm · ${chipArchetype(loft)}</div>
           ${buildChipSVG(carry,roll,loft)}
         </div>
       </div>`;
     }
+    const muted='font-family:ui-monospace,monospace;font-size:.65rem;font-weight:500;color:var(--muted)';
+    const bigCol=selected?'var(--gold)':tc;
     return `<div class="calc-result-card ${selected?'best':''}"
         onclick="selectChipClub(${i})" style="cursor:pointer${!practical&&!selected?';opacity:.5':''}">
       <div class="calc-card-header">
         <div class="calc-club-badge" style="color:${tc}">${c.label}<small>${c.loft}</small></div>
         <div style="flex:1;min-width:0">
-          <div class="calc-swing-label" style="color:${tc}">${chipArchetype(loft)}<span style="font-family:ui-monospace,monospace;font-size:.65rem;font-weight:500;color:var(--muted)"> — </span><span style="font-family:Arial,sans-serif;font-size:1.15rem;font-weight:800;color:${selected?'var(--gold)':tc}">${carry.toFixed(1)}</span><span style="font-family:ui-monospace,monospace;font-size:.65rem;font-weight:500;color:var(--muted)"> ${carryWord} · ${roll.toFixed(1)} roll · ${total.toFixed(1)} total</span>${noteStr}</div>
+          <div class="calc-swing-label" style="color:${tc}">${chipArchetype(loft)}<span style="${muted}"> — </span><span style="font-family:Arial,sans-serif;font-size:1.15rem;font-weight:800;color:${bigCol}">${carry.toFixed(1)}</span><span style="${muted}"> carry · </span><span style="font-family:Arial,sans-serif;font-size:.92rem;font-weight:700;color:${bigCol}">${roll.toFixed(1)}</span><span style="${muted}"> roll · ${total.toFixed(1)} total</span>${noteStr}</div>
         </div>
       </div>
       ${drop}

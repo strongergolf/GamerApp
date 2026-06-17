@@ -56,7 +56,7 @@ function buildPutting(){
     <div id="es-putting" class="expected-shots-strip"></div>
 
     <!-- 4. Required Break card (left) · Putt SVG (right) -->
-    <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:start">
+    <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:start;margin-top:14px">
       <div style="flex:1;min-width:220px">
         <div id="putt-result-wrap"></div>
       </div>
