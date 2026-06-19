@@ -10,14 +10,14 @@ function buildSpecs(){
   if(bw){
     const pf=STATE.profile;
     const ballLabel=pf.ballMake&&pf.ballModel?`${pf.ballMake} ${pf.ballModel}`:'No ball on file';
-    const ballSub=[ pf.ballLayers, pf.ballCover, pf.ballCompression?`comp ${pf.ballCompression}`:'', pf.ballFirmness, pf.ballSpin?pf.ballSpin+' spin':'' ].filter(Boolean).join(' · ');
-    bw.innerHTML=`<div class="specs-col-head"><span></span><span>Model</span><span>Cover</span><span>Feel</span><span>Spin</span><span></span></div>
+    const ballSub=[ pf.ballLayers, pf.ballCover, pf.ballColor, pf.ballAlignment ].filter(Boolean).join(' · ');
+    bw.innerHTML=`<div class="specs-col-head"><span></span><span>Model</span><span>Feel</span><span>Spin</span><span>Trajectory</span><span></span></div>
       <div class="specs-club-row ball-row" onclick="showGroup('setup',document.querySelector('.ngroup:last-child'));setTimeout(()=>document.getElementById('ball-grid')?.scrollIntoView({behavior:'smooth'}),200)">
         <span class="spec-club" style="font-family:Arial,sans-serif;font-weight:800;font-size:1.1rem;color:var(--grey)">B</span>
         <div class="spec-model">${ballLabel}<small>${ballSub||'tap to edit in Profile'}</small></div>
-        <div class="spec-val">${pf.ballCover||'—'}</div>
         <div class="spec-val">${pf.ballFirmness||'—'}</div>
         <div class="spec-val">${pf.ballSpin||'—'}</div>
+        <div class="spec-val">${pf.ballTrajectory||'—'}</div>
         <div class="specs-chevron">▸</div>
       </div>`;
   }
@@ -266,14 +266,14 @@ function buildProfile(){
     <div class="edit-field"><label>Cover Material</label>${sel('ball-cover',['','Urethane','Ionomer / Surlyn','TPU','Hybrid'],pf.ballCover||'')}</div>
     <div class="edit-field"><label>Cover Firmness</label>${sel('ball-firmness',['','Firm','Medium','Soft'],pf.ballFirmness||'')}</div>
     <div class="edit-field"><label>Construction</label>${sel('ball-layers',['','2-piece','3-piece','4-piece','5-piece'],pf.ballLayers||'')}</div>
-    <div class="edit-field"><label>Compression</label><input id="ball-compression" type="number" value="${escapeHtml(pf.ballCompression||'')}" placeholder="e.g. 90 (30–120+)"></div>
+    <div class="edit-field"><label>Color</label>${sel('ball-color',['','White','Yellow','Orange','Pink','Red','Green','Matte White','Matte Yellow','Other'],pf.ballColor||'')}</div>
     <div class="edit-field"><label>Spin Characteristics</label>${sel('ball-spin',['','Low','Medium','High'],pf.ballSpin||'')}</div>
     <div class="edit-field"><label>Trajectory Tendency</label>${sel('ball-trajectory',['','Low','Mid','High'],pf.ballTrajectory||'')}</div>
     <div class="edit-field" style="grid-column:1/-1"><label>Notes</label><input id="ball-notes" value="${escapeHtml(pf.ballNotes||'')}" placeholder="feel preference, conditions, wind performance, short game control…"></div>`;
 }
 /* Clear the Edit Golf Ball form fields (does not persist until Save Edits). */
 function clearBallForm(){
-  ['ball-make','ball-model','ball-align','ball-cover','ball-firmness','ball-layers','ball-compression','ball-spin','ball-trajectory','ball-notes']
+  ['ball-make','ball-model','ball-align','ball-cover','ball-firmness','ball-layers','ball-color','ball-spin','ball-trajectory','ball-notes']
     .forEach(id=>{ const e=document.getElementById(id); if(e) e.value=''; });
   if(typeof toast==='function') toast('Ball fields cleared — Save Edits to apply');
 }
@@ -309,7 +309,7 @@ function saveProfile(){
   pf.ballModel=document.getElementById('ball-model').value;
   pf.ballAlignment=document.getElementById('ball-align').value;
   pf.ballNotes=document.getElementById('ball-notes').value;
-  pf.ballCompression=document.getElementById('ball-compression')?.value||'';
+  pf.ballColor=document.getElementById('ball-color')?.value||'';
   pf.ballCover=document.getElementById('ball-cover')?.value||'';
   pf.ballLayers=document.getElementById('ball-layers')?.value||'';
   pf.ballFirmness=document.getElementById('ball-firmness')?.value||'';
