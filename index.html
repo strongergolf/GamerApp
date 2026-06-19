@@ -226,17 +226,16 @@
 
 <!-- SPECS -->
 <div id="page-specs" class="page">
-  <div class="section-label" style="margin-top:0">Ball</div>
+  <div class="section-label" style="margin-top:0">Golf Ball</div>
   <div class="specs-wrap" id="ball-specs-wrap"></div>
-  <div class="section-label" style="margin-top:18px">Club Specifications</div>
-  <p class="intro-note">Tap any club to edit its specs and performance, and to see replacement options within ±2° effective loft.</p>
+  <div class="section-label" style="margin-top:18px">Clubs</div>
   <div id="gapping-wrap"></div>
   <div class="specs-wrap" id="specs-wrap"></div>
 
-  <div class="section-label" style="margin-top:22px">Ball</div>
+  <div class="section-label" style="margin-top:22px">Edit Golf Ball</div>
   <div class="profile-card" style="margin-bottom:0;border-radius:10px">
     <div class="edit-grid" id="ball-grid"></div>
-    <div class="btn-row"><button class="btn btn-primary" onclick="saveProfile()">Save</button></div>
+    <div class="btn-row"><button class="btn btn-primary" onclick="saveProfile()">Save Edits</button><button class="btn" onclick="clearBallForm()">Clear</button></div>
   </div>
 
   <div class="section-label" style="margin-top:22px">Add a Club</div>
@@ -268,7 +267,7 @@
         <div class="edit-field"><label>Land Angle (°)</label><input id="nc-land" type="number" step="0.1"></div>
       </div>
       <div class="btn-row">
-        <button class="btn btn-accent" onclick="addNewClub()">Add to Bag</button>
+        <button class="btn btn-accent" onclick="addNewClub()">Add to My Bag</button>
         <button class="btn" onclick="clearNewClubForm()">Clear</button>
       </div>
     </div>

@@ -83,23 +83,10 @@ function buildLadder(){
   });
 }
 function buildGapping(){
+  /* The per-club gap distances render inline in the Clubs list (see buildSpecs); the
+     summary line was removed at the user's request. */
   const wrap=document.getElementById('gapping-wrap');
-  if(!wrap) return;
-  /* Concise summary only — the per-club gap distances now render inline in the
-     Club Specifications list (see buildSpecs). */
-  const list=STATE.clubs.filter(c=>c.type!=='putter')
-    .map(c=>({c,carry:perf(c.id)?.carry||0}))
-    .filter(x=>x.carry>0)
-    .sort((a,b)=>b.carry-a.carry);
-  if(list.length<2){ wrap.innerHTML=''; return; }
-  let gapFlags=0, overlapFlags=0;
-  for(let i=0;i<list.length-1;i++){
-    const gap=list[i].carry-list[i+1].carry;
-    if(gap>15) gapFlags++; else if(gap<8) overlapFlags++;
-  }
-  wrap.innerHTML = (gapFlags||overlapFlags)
-    ? `<div style="font-family:Arial,sans-serif;font-size:.74rem;color:var(--muted);padding:0 0 8px">Gapping: ${gapFlags?`<b style="color:var(--gold2,#c4427a)">${gapFlags}</b> gap${gapFlags!==1?'s':''} &gt;15 yd`:''}${gapFlags&&overlapFlags?' · ':''}${overlapFlags?`<b style="color:#d96070">${overlapFlags}</b> overlap${overlapFlags!==1?'s':''} &lt;8 yd`:''} — flagged inline below.</div>`
-    : `<div style="font-family:Arial,sans-serif;font-size:.74rem;color:var(--green);padding:0 0 8px">✓ Even gapping — no gaps over 15 yd or overlaps under 8 yd.</div>`;
+  if(wrap) wrap.innerHTML='';
 }
 function toggleDetail(c,row,group,inner){
   const open=group.classList.contains('open');

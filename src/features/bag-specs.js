@@ -271,6 +271,12 @@ function buildProfile(){
     <div class="edit-field"><label>Trajectory Tendency</label>${sel('ball-trajectory',['','Low','Mid','High'],pf.ballTrajectory||'')}</div>
     <div class="edit-field" style="grid-column:1/-1"><label>Notes</label><input id="ball-notes" value="${escapeHtml(pf.ballNotes||'')}" placeholder="feel preference, conditions, wind performance, short game control…"></div>`;
 }
+/* Clear the Edit Golf Ball form fields (does not persist until Save Edits). */
+function clearBallForm(){
+  ['ball-make','ball-model','ball-align','ball-cover','ball-firmness','ball-layers','ball-compression','ball-spin','ball-trajectory','ball-notes']
+    .forEach(id=>{ const e=document.getElementById(id); if(e) e.value=''; });
+  if(typeof toast==='function') toast('Ball fields cleared — Save Edits to apply');
+}
 function saveProfile(){
   const pf=STATE.profile;
   pf.name=document.getElementById('pf-name').value;
@@ -404,4 +410,4 @@ function logHcpSnapshot(){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { buildProfile, buildSpecs, exportData, generateFromSwingSpeed, hcpTrendHtml, importData, logHcpSnapshot, resetData, saveCalibration, saveClub, saveProfile, sel, toggleSpecs });
+Object.assign(window, { buildProfile, buildSpecs, clearBallForm, exportData, generateFromSwingSpeed, hcpTrendHtml, importData, logHcpSnapshot, resetData, saveCalibration, saveClub, saveProfile, sel, toggleSpecs });
