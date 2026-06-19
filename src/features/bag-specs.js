@@ -11,12 +11,12 @@ function buildSpecs(){
     const pf=STATE.profile;
     const ballLabel=pf.ballMake&&pf.ballModel?`${pf.ballMake} ${pf.ballModel}`:'No ball on file';
     const ballSub=[ pf.ballLayers, pf.ballCover, pf.ballCompression?`comp ${pf.ballCompression}`:'', pf.ballFirmness, pf.ballSpin?pf.ballSpin+' spin':'' ].filter(Boolean).join(' · ');
-    bw.innerHTML=`<div class="specs-col-head"><span></span><span>Model</span><span>Cover</span><span>Comp</span><span>Spin</span><span></span></div>
-      <div class="specs-club-row" onclick="showGroup('setup',document.querySelector('.ngroup:last-child'));setTimeout(()=>document.getElementById('ball-grid')?.scrollIntoView({behavior:'smooth'}),200)">
+    bw.innerHTML=`<div class="specs-col-head"><span></span><span>Model</span><span>Cover</span><span>Feel</span><span>Spin</span><span></span></div>
+      <div class="specs-club-row ball-row" onclick="showGroup('setup',document.querySelector('.ngroup:last-child'));setTimeout(()=>document.getElementById('ball-grid')?.scrollIntoView({behavior:'smooth'}),200)">
         <span class="spec-club" style="font-family:Arial,sans-serif;font-weight:800;font-size:1.1rem;color:var(--grey)">B</span>
         <div class="spec-model">${ballLabel}<small>${ballSub||'tap to edit in Profile'}</small></div>
         <div class="spec-val">${pf.ballCover||'—'}</div>
-        <div class="spec-val">${pf.ballCompression||'—'}</div>
+        <div class="spec-val">${pf.ballFirmness||'—'}</div>
         <div class="spec-val">${pf.ballSpin||'—'}</div>
         <div class="specs-chevron">▸</div>
       </div>`;
