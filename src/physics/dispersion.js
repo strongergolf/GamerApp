@@ -19,6 +19,9 @@ function getDispersion(carry){
   if(carry<=270) return 18.9 + (carry-230)/40 * 4.6;  // → 23.5
   return 23.5;
 }
+/* Single "86% L/R" lateral half-width — the band that catches ~86% of shots (≈1.48σ).
+   getDispersion is the 90% CI (1.645σ), so 86% ≈ ×0.90. Replaces the old 1σ/2σ pair app-wide. */
+function disp86(carry){ return Math.round(getDispersion(carry)*0.90*10)/10; }
 function typeLabel(t){ return t==='wood'?'Woods & Hybrids':t==='iron'?'Irons':t==='wedge'?'Wedges':'Putter'; }
 function typeHex(t){ return t==='wood'?'#d96070':t==='iron'?'#1a5aaa':t==='wedge'?'#00853F':t==='putter'?'#6b7280':'#6b7280'; }
 function perf(id){ return STATE.performance[id] || {}; }
@@ -26,4 +29,4 @@ function perf(id){ return STATE.performance[id] || {}; }
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { MAX_CARRY, getDispersion, perf, typeHex, typeLabel });
+Object.assign(window, { MAX_CARRY, getDispersion, disp86, perf, typeHex, typeLabel });

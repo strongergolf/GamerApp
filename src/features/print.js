@@ -26,7 +26,7 @@ function prSwingTable(clubIds){
   const head=`<tr><th>Club</th>${swings.map(s=>`<th>${s[0]}<span class="thsub">${s[1]}</span></th>`).join('')}</tr>`;
   return `<table class="ref"><thead>${head}</thead><tbody>${body}</tbody></table>`;
 }
-/* Full-swing reference: Carry · Total · horizontal dispersion (1σ / 2σ L/R) per club. */
+/* Full-swing reference: Carry · Total · horizontal dispersion (single 86% L/R) per club. */
 function prFullTable(clubIds){
   const firm=window.approachGreenFirmness||0;
   let body='';
@@ -35,14 +35,13 @@ function prFullTable(clubIds){
     const p=perf(id); if(p.carry==null&&p.total==null) return;
     const carry=p.carry!=null?Math.round(p.carry)+firm:null;
     const total=p.total!=null?Math.round(p.total)+firm:carry;
-    const s1=(p.carry!=null&&typeof getDispersion==='function')?Math.round(getDispersion(p.carry)*0.608*10)/10:null;
-    const s2=s1!=null?Math.round(s1*2*10)/10:null;
+    const d86=(p.carry!=null&&typeof disp86==='function')?disp86(p.carry):null;
     body+=`<tr><td class="club"><span class="big">${c.label}</span><span class="sm">${c.loft||''}</span></td>`
       +`<td>${carry!=null?carry:'&mdash;'}</td>`
       +`<td><span class="big">${total!=null?total:'&mdash;'}</span></td>`
-      +`<td>${s1!=null?'&plusmn;'+s1+' / '+s2:'&mdash;'}</td></tr>`;
+      +`<td>${d86!=null?'&plusmn;'+d86:'&mdash;'}</td></tr>`;
   });
-  const head=`<tr><th>Club</th><th>Carry</th><th>Total</th><th>Disp L/R<span class="thsub">1&sigma; / 2&sigma;</span></th></tr>`;
+  const head=`<tr><th>Club</th><th>Carry</th><th>Total</th><th>86% L/R</th></tr>`;
   return `<table class="ref"><thead>${head}</thead><tbody>${body}</tbody></table>`;
 }
 /* Chip matrix — total distance (carry + rollout) for a 2 / 5 / 10 yd carry per club. */

@@ -43,9 +43,7 @@ function buildLadder(){
     const stock=p.carry||0;
     const shown=window.adjustOn?adjCarry(stock):stock;
     const pct=Math.round((shown/MAX_CARRY)*100);
-    const dispBase=getDispersion(stock);                    /* model half-width (90% CI ≈ 1.645σ) */
-    const sigma1=Math.round(dispBase*0.608*10)/10;          /* 1σ ≈ 68% lateral half-width */
-    const sigma2=Math.round(sigma1*2*10)/10;                /* 2σ ≈ 95% */
+    const d86=disp86(stock);                                /* single 86% L/R lateral half-width */
     /* Dispersion badges coloured by club type (iron = blue, wood/utility = red,
        wedge = green) for a cleaner read than the old magnitude-based shading. */
     const dcRGB={wood:'217,96,112',iron:'26,90,170',wedge:'0,133,63',putter:'107,114,128'}[c.type]||'107,114,128';
@@ -67,12 +65,8 @@ function buildLadder(){
       </div>
       <div class="disp-badge-wrap">
         <div class="disp-badge-row">
-          <span class="disp-ci-label">2σ</span>
-          <span class="disp-badge" style="background:${dc.bg};color:${dc.color};border:1px solid ${dc.border}">${sigma2} L/R</span>
-        </div>
-        <div class="disp-badge-row">
-          <span class="disp-ci-label">1σ</span>
-          <span class="disp-badge disp-badge-sm" style="background:${dc.bg};color:${dc.color};border:1px solid ${dc.border};opacity:0.75">${sigma1} L/R</span>
+          <span class="disp-ci-label">86%</span>
+          <span class="disp-badge" style="background:${dc.bg};color:${dc.color};border:1px solid ${dc.border}">${d86} L/R</span>
         </div>
       </div>
       <div class="ladder-chevron">▾</div>`;
@@ -236,16 +230,16 @@ function fairwayPath(cx,top,bot,halfPx){
   return `M ${lt.toFixed(1)},${top} Q ${lm.toFixed(1)},${my.toFixed(1)} ${lb.toFixed(1)},${bot} `
        + `L ${rb.toFixed(1)},${bot} Q ${rm.toFixed(1)},${my.toFixed(1)} ${rt.toFixed(1)},${top} Z`;
 }
-/* OVERHEAD DISPERSION — 1σ/2σ shot oval over the surface you're actually landing on:
+/* OVERHEAD DISPERSION — single 86% shot oval over the surface you're actually landing on:
    a typical ~30 yd green (organic outline) for irons & wedges, or a 40 yd-wide fairway
-   for woods/hybrids. Lateral spread from getDispersion() (same source as the L/R badges),
-   depth a touch larger, slanted long-left / short-right (a typical miss tilt). */
+   for woods/hybrids. Lateral spread = disp86() (same source as the L/R badges), depth
+   capped ≈ ±7 yd, slanted long-left / short-right (a typical miss tilt). */
 const DISP_SLANT = 15;   /* deg; tilts the oval long-left / short-right (mirrored) */
 function buildTopSVG(c,p){
   const W=120,H=112,cx=W/2,cy=H/2+3,tc=typeHex(c.type);
   const carry=p.carry||100;
-  const dispYd=getDispersion(carry)*0.608; // 1σ lateral half-width, yards (matches badges)
-  const depthYd=Math.min(dispYd*1.4, 3.5); // depth (distance control) capped so the oval runs ≈ ±7 yd deep at 2σ
+  const dispYd=disp86(carry);             // single 86% L/R lateral half-width, yards (matches badges)
+  const depthYd=Math.min(dispYd, 7);      // depth (distance control) capped at ≈ ±7 yd
   const isWood=c.type==='wood';
 
   let bg, ctxLabel, scale;
@@ -273,11 +267,10 @@ function buildTopSVG(c,p){
     ${bg}
     <text x="${cx}" y="21" text-anchor="middle" font-family="ui-monospace,monospace" font-size="5" fill="#00853F" opacity="0.7">${ctxLabel}</text>
     <g transform="rotate(${DISP_SLANT} ${cx} ${cy})">
-      <ellipse cx="${cx}" cy="${cy}" rx="${(ovW*2).toFixed(1)}" ry="${(ovH*2).toFixed(1)}" fill="${tc}" fill-opacity="0.10" stroke="${tc}" stroke-opacity="0.4" stroke-width="0.8" stroke-dasharray="3,2"/>
-      <ellipse cx="${cx}" cy="${cy}" rx="${ovW.toFixed(1)}" ry="${ovH.toFixed(1)}" fill="${tc}" fill-opacity="0.30" stroke="${tc}" stroke-opacity="0.75" stroke-width="1"/>
+      <ellipse cx="${cx}" cy="${cy}" rx="${ovW.toFixed(1)}" ry="${ovH.toFixed(1)}" fill="${tc}" fill-opacity="0.28" stroke="${tc}" stroke-opacity="0.75" stroke-width="1.1"/>
     </g>
     <circle cx="${cx}" cy="${cy}" r="1.6" fill="var(--ink)"/>
-    <text x="${cx}" y="${H-3}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="6.5" fill="${tc}">±${dispYd.toFixed(1)} yd L/R · 1σ⁄2σ</text>
+    <text x="${cx}" y="${H-3}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="6.5" fill="${tc}">±${dispYd.toFixed(1)} yd L/R · 86%</text>
   </svg>`;
 }
 

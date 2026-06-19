@@ -39,8 +39,7 @@ function buildSpecs(){
     }
     const p=perf(c.id), carry=p.carry||0, total=p.total||0;
     const hasC=c.type!=='putter'&&carry>0;
-    const sigma1=hasC?Math.round(getDispersion(carry)*0.608*10)/10:null;   /* 1σ lateral (yd) */
-    const sigma2=sigma1!=null?Math.round(sigma1*2*10)/10:null;             /* 2σ lateral (yd) */
+    const d86=hasC?disp86(carry):null;                                     /* single 86% L/R lateral (yd) */
     const row=document.createElement('div'); row.className='specs-club-row spec-card';
     row.innerHTML=
       `<span class="spec-club ${c.type}">${c.label}</span>`+
@@ -48,7 +47,7 @@ function buildSpecs(){
       mini('Length',c.length,'sm-w-len')+mini('Loft',c.loft,'sm-w-deg')+mini('Lie',c.lie,'sm-w-deg')+
       `<div class="sc-sep"></div>`+
       mini('Carry',hasC?carry:'—','sm-w-yd')+mini('Total',total||'—','sm-w-yd')+
-      mini('1σ L/R',sigma1!=null?sigma1:'—','sm-w-lr')+mini('2σ L/R',sigma2!=null?sigma2:'—','sm-w-lr')+
+      mini('86% L/R',d86!=null?d86:'—','sm-w-lr')+
       `<div class="specs-chevron">▾</div>`;
     const group=document.createElement('div'); group.className='specs-rep-group';
     row.addEventListener('click',()=>toggleSpecs(c,row,group));
@@ -70,11 +69,9 @@ function buildSpecs(){
         const lenDiff=lenA&&lenB?'↕ '+(Math.round(Math.abs(lenA-lenB)*100)/100)+'"':'—';
         const loftDiff=loftA&&loftB?'↕ '+(Math.round(Math.abs(loftA-loftB)*10)/10)+'°':'—';
         const lieDiff=lieA&&lieB?(lieA===lieB?'=':'↕ '+(Math.round(Math.abs(lieA-lieB)*10)/10)+'°'):'—';
-        /* sigma diffs */
-        const sigma1N=carryN>0?Math.round(getDispersion(carryN)*0.608*10)/10:null;
-        const sigma2N=sigma1N!=null?Math.round(sigma1N*2*10)/10:null;
-        const sig1Diff=sigma1!=null&&sigma1N!=null?'↕ '+(Math.round(Math.abs(sigma1-sigma1N)*10)/10):'—';
-        const sig2Diff=sigma2!=null&&sigma2N!=null?'↕ '+(Math.round(Math.abs(sigma2-sigma2N)*10)/10):'—';
+        /* 86% L/R diff */
+        const d86N=carryN>0?disp86(carryN):null;
+        const d86Diff=d86!=null&&d86N!=null?'↕ '+(Math.round(Math.abs(d86-d86N)*10)/10):'—';
         /* carry colour */
         let cBg='var(--bg2)', cCol='var(--muted)';
         if(gap>15){cBg='rgba(196,66,122,.12)'; cCol='var(--gold2,#c4427a)';}
@@ -90,8 +87,7 @@ function buildSpecs(){
           `<div class="sc-sep" style="visibility:hidden"></div>`+
           gb('↕ '+gap,'sm-w-yd',cBg,cCol)+
           gb(totalGap!=null?'↕ '+totalGap:'—','sm-w-yd','var(--bg2)','var(--muted)')+
-          gb(sig1Diff,'sm-w-lr','var(--bg2)','var(--muted)')+
-          gb(sig2Diff,'sm-w-lr','var(--bg2)','var(--muted)')+
+          gb(d86Diff,'sm-w-lr','var(--bg2)','var(--muted)')+
           `<div class="specs-chevron" style="visibility:hidden">▾</div>`;
         wrap.appendChild(gapRow);
       }
@@ -262,7 +258,7 @@ function buildProfile(){
   if(_bgg) _bgg.innerHTML=`
     <div class="edit-field"><label>Make</label><input id="ball-make" value="${escapeHtml(pf.ballMake||'')}" placeholder="e.g. Titleist"></div>
     <div class="edit-field"><label>Model</label><input id="ball-model" value="${escapeHtml(pf.ballModel||'')}" placeholder="e.g. Pro V1x"></div>
-    <div class="edit-field"><label>Alignment Marking</label><input id="ball-align" value="${escapeHtml(pf.ballAlignment||'')}" placeholder="e.g. line, dot, none"></div>
+    <div class="edit-field"><label>ID Marking</label><input id="ball-align" value="${escapeHtml(pf.ballAlignment||'')}" placeholder="e.g. line, dot, initials"></div>
     <div class="edit-field"><label>Cover Material</label>${sel('ball-cover',['','Urethane','Ionomer / Surlyn','TPU','Hybrid'],pf.ballCover||'')}</div>
     <div class="edit-field"><label>Cover Firmness</label>${sel('ball-firmness',['','Firm','Medium','Soft'],pf.ballFirmness||'')}</div>
     <div class="edit-field"><label>Construction</label>${sel('ball-layers',['','2-piece','3-piece','4-piece','5-piece'],pf.ballLayers||'')}</div>
