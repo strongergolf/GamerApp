@@ -258,19 +258,21 @@ function buildTopSVG(c,p){
   const W=120,H=112,cx=W/2,cy=H/2+3,tc=typeHex(c.type);
   const carry=p.carry||100;
   const dispYd=getDispersion(carry)*0.608; // 1σ lateral half-width, yards (matches badges)
-  const depthYd=dispYd*1.4;               // distance control runs a touch deeper than wide
+  const depthYd=Math.min(dispYd*1.4, 3.5); // depth (distance control) capped so the oval runs ≈ ±7 yd deep at 2σ
   const isWood=c.type==='wood';
 
   let bg, ctxLabel, scale;
   if(isWood){
-    /* Fairway, ~40 yd wide — woods & hybrids finish out here, not on a green.
-       Rough fills behind a tapered, bowed-edge fairway corridor. */
-    const halfPx=50; scale=halfPx/20;                       // 40yd across → ~100px
-    const top=8, bot=H-7;
-    bg=`<rect x="0" y="${top}" width="${W}" height="${(bot-top)}" fill="#2c7a4c" fill-opacity="0.14"/>
-        <path d="${fairwayPath(cx,top,bot,halfPx)}" fill="#46b56a" fill-opacity="0.20" stroke="#2f9a55" stroke-width="1" stroke-opacity="0.5"/>
+    /* Zoomed out so it reads as a course: the 40 yd fairway, a 10 yd intermediate cut,
+       then heavy rough — woods & hybrids finish out here, not on a green. */
+    scale=1.5;                                              // ~±40yd visible across the frame
+    const top=6, bot=H-6;
+    const fwHalf=20*scale, cutHalf=30*scale;                // fairway 40yd · +10yd first cut
+    bg=`<rect x="0" y="${top}" width="${W}" height="${(bot-top)}" fill="#1f6e40" fill-opacity="0.22"/>
+        <path d="${fairwayPath(cx,top,bot,cutHalf)}" fill="#2f9a55" fill-opacity="0.22"/>
+        <path d="${fairwayPath(cx,top,bot,fwHalf)}" fill="#46b56a" fill-opacity="0.26" stroke="#2f9a55" stroke-width="1" stroke-opacity="0.55"/>
         <line x1="${cx}" y1="${top+5}" x2="${cx}" y2="${bot-5}" stroke="#2f9a55" stroke-width="0.6" stroke-dasharray="5,5" opacity="0.4"/>`;
-    ctxLabel='~40yd fairway';
+    ctxLabel='40yd FW · 10yd cut · rough';
   } else {
     /* Typical green (~30 yd diameter), smooth organic outline. */
     scale=40/15;                                            // ~15yd radius → 40px
