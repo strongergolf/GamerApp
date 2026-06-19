@@ -26,6 +26,25 @@ function prSwingTable(clubIds){
   const head=`<tr><th>Club</th>${swings.map(s=>`<th>${s[0]}<span class="thsub">${s[1]}</span></th>`).join('')}</tr>`;
   return `<table class="ref"><thead>${head}</thead><tbody>${body}</tbody></table>`;
 }
+/* Full-swing reference: Carry · Total · horizontal dispersion (1σ / 2σ L/R) per club. */
+function prFullTable(clubIds){
+  const firm=window.approachGreenFirmness||0;
+  let body='';
+  clubIds.forEach(id=>{
+    const c=(STATE.clubs||[]).find(x=>x.id===id); if(!c||c.type==='putter') return;
+    const p=perf(id); if(p.carry==null&&p.total==null) return;
+    const carry=p.carry!=null?Math.round(p.carry)+firm:null;
+    const total=p.total!=null?Math.round(p.total)+firm:carry;
+    const s1=(p.carry!=null&&typeof getDispersion==='function')?Math.round(getDispersion(p.carry)*0.608*10)/10:null;
+    const s2=s1!=null?Math.round(s1*2*10)/10:null;
+    body+=`<tr><td class="club"><span class="big">${c.label}</span><span class="sm">${c.loft||''}</span></td>`
+      +`<td>${carry!=null?carry:'&mdash;'}</td>`
+      +`<td><span class="big">${total!=null?total:'&mdash;'}</span></td>`
+      +`<td>${s1!=null?'&plusmn;'+s1+' / '+s2:'&mdash;'}</td></tr>`;
+  });
+  const head=`<tr><th>Club</th><th>Carry</th><th>Total</th><th>Disp L/R<span class="thsub">1&sigma; / 2&sigma;</span></th></tr>`;
+  return `<table class="ref"><thead>${head}</thead><tbody>${body}</tbody></table>`;
+}
 /* Chip matrix — total distance (carry + rollout) for a 2 / 5 / 10 yd carry per club. */
 function prChipTable(){
   const carries=[2,5,10], stimp=STATE.stimp;
@@ -52,12 +71,13 @@ function stockShotsPrintTable(){ return prSwingTable(prStockClubIds()); }
 
 const PR_ARC=`<svg class="arc" viewBox="0 0 220 30" xmlns="http://www.w3.org/2000/svg"><path d="M 8,26 C 151,16 166,-6 212,26" fill="none" stroke="#F4C2C2" stroke-width="2.4" stroke-linecap="round"/></svg>`;
 const prMark=`<div class="mark"><span class="s">Stronger</span><span class="g">Golf</span></div>`;
-function prSide(leftTitle,leftTbl,rightTitle,rightTbl){
+function prSide(topTitle,topTbl,botTitle,botTbl){
   return `<section class="card">
     <div class="head">${PR_ARC}${prMark}<div class="sub">On-Course Reference</div></div>
     <div class="cols">
-      <div class="col"><div class="mtitle">${leftTitle}</div>${leftTbl}</div>
-      <div class="col"><div class="mtitle">${rightTitle}</div>${rightTbl}</div>
+      <div class="half"><div class="mtitle">${topTitle}</div>${topTbl}</div>
+      <div class="fold"><span>fold</span></div>
+      <div class="half"><div class="mtitle">${botTitle}</div>${botTbl}</div>
     </div>
     <div class="foot">${prMark}<span>Gamer&rsquo;s App &middot; ${new Date().toLocaleDateString()}</span></div>
   </section>`;
@@ -66,15 +86,17 @@ function printCardHTML(sides){
   const css=`
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:Arial,Helvetica,sans-serif;color:#0C2340}
-    .card{padding:18px 20px;page-break-after:always}
+    .card{padding:14px 18px;page-break-after:always;display:flex;flex-direction:column;min-height:251mm}
     .card:last-child{page-break-after:auto}
     .head{text-align:center;border-bottom:3px solid #00853F;padding-bottom:7px;margin-bottom:12px}
     .head .arc{width:140px;height:17px;display:block;margin:0 auto -1px}
     .mark{font-family:'Arial Narrow',Arial,sans-serif;font-size:1.7rem;font-weight:800;line-height:1}
     .mark .s{color:#00853F}.mark .g{color:#d96070}
     .head .sub{font-size:.62rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#3a5a7a;margin-top:3px}
-    .cols{display:flex;gap:16px;align-items:flex-start}
-    .col{flex:1;min-width:0}
+    .cols{flex:1;display:flex;flex-direction:column}
+    .half{flex:1;min-width:0;min-height:0}
+    .fold{flex:0 0 auto;border-top:1px dashed #9fb0c2;text-align:center;margin:10px 0;height:0}
+    .fold span{position:relative;top:-6px;background:#fff;padding:0 10px;font-size:7.5px;letter-spacing:.22em;text-transform:uppercase;color:#9fb0c2}
     .mtitle{font-size:.72rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#0C2340;text-align:center;margin-bottom:5px}
     table.ref{width:100%;border-collapse:collapse}
     table.ref th{background:#0C2340;color:#fff;padding:5px 4px;border:1px solid #0C2340;font-size:9px;font-weight:700;letter-spacing:.04em;line-height:1.15}
@@ -88,13 +110,13 @@ function printCardHTML(sides){
     .foot{display:flex;align-items:center;justify-content:space-between;margin-top:12px;border-top:1px solid #c0cedd;padding-top:7px}
     .foot .mark{font-size:.95rem}
     .foot span{font-size:9px;color:#3a5a7a;letter-spacing:.04em}
-    @page{margin:12mm;size:landscape}@media print{.card{padding:0}}`;
+    @page{margin:12mm;size:portrait}@media print{.card{padding:0}}`;
   return `<!doctype html><html><head><meta charset="utf-8"><title>StrongerGolf — Reference Card</title><style>${css}</style></head><body>${sides.join('')}</body></html>`;
 }
 function printCard(){
-  const chip=prChipTable();
-  const side1=prSide('Partial Approach Shots', prSwingTable(typeof PARTIAL_CLUBS!=='undefined'?PARTIAL_CLUBS:['7i','8i','9i','P','W','S','X']), 'Chip Shot Matrix', chip);
-  const side2=prSide('Full-Swing Stock Shots', prSwingTable(prStockClubIds()), 'Chip Shot Matrix', chip);
+  const partialIds=(typeof PARTIAL_CLUBS!=='undefined'?PARTIAL_CLUBS:['7i','8i','9i','P','W','S','X']);
+  const side1=prSide('Partial Approach Shots', prSwingTable(partialIds), 'Chip Shot Matrix', prChipTable());
+  const side2=prSide('Full Swing Stock Shots', prFullTable(prStockClubIds()), 'Full Swing Stock Shots — 7i → Lob', prFullTable(partialIds));
   const w=window.open('','_blank');
   if(!w){ if(typeof toast==='function') toast('Allow pop-ups to print the card'); return; }
   w.document.open(); w.document.write(printCardHTML([side1,side2])); w.document.close();
@@ -104,4 +126,4 @@ function printCard(){
 /* All three matrix buttons print the unified two-sided reference card. */
 function printMatrix(type){ printCard(); }
 
-Object.assign(window, { printMatrix, printCard, prSwingTable, prChipTable, prStockClubIds, stockShotsPrintTable, printCardHTML });
+Object.assign(window, { printMatrix, printCard, prSwingTable, prFullTable, prChipTable, prStockClubIds, stockShotsPrintTable, printCardHTML });
