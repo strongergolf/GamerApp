@@ -228,10 +228,10 @@ function buildSideSVG(c,p){
   </svg>`;
 }
 
-/* Organic "typical green" outline — Catmull-Rom through angle-wobbled points so it
-   reads as a real green rather than a perfect circle. */
+/* "Typical green" outline — a smooth, near-round organic blob (~30 yd) via Catmull-Rom
+   through six gently-varied points. Plain on top — no squiggle. */
 function greenBlobPath(cx,cy,rx,ry){
-  const ang=[-80,-28,22,72,122,172,224,292], rf=[0.96,1.06,0.92,1.05,0.95,1.08,0.93,1.0];
+  const ang=[-90,-30,30,90,150,210], rf=[1.0,0.96,1.04,1.0,0.97,1.03];
   const P=ang.map((a,i)=>{const r=a*Math.PI/180;return {x:cx+Math.cos(r)*rx*rf[i], y:cy+Math.sin(r)*ry*rf[i]};});
   const n=P.length; let d=`M ${P[0].x.toFixed(1)},${P[0].y.toFixed(1)} `;
   for(let i=0;i<n;i++){
@@ -240,6 +240,14 @@ function greenBlobPath(cx,cy,rx,ry){
     d+=`C ${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)} `;
   }
   return d+'Z';
+}
+/* Fairway lane (overhead) — a softly tapered, bowed-edge corridor receding up the frame,
+   so it reads as a fairway rather than a hard rectangle. Rough fills behind it. */
+function fairwayPath(cx,top,bot,halfPx){
+  const tH=halfPx*0.84, bH=halfPx, my=(top+bot)/2, mH=halfPx*1.02;
+  const lt=cx-tH, rt=cx+tH, lb=cx-bH, rb=cx+bH, lm=cx-mH, rm=cx+mH;
+  return `M ${lt.toFixed(1)},${top} Q ${lm.toFixed(1)},${my.toFixed(1)} ${lb.toFixed(1)},${bot} `
+       + `L ${rb.toFixed(1)},${bot} Q ${rm.toFixed(1)},${my.toFixed(1)} ${rt.toFixed(1)},${top} Z`;
 }
 /* OVERHEAD DISPERSION — 1σ/2σ shot oval over the surface you're actually landing on:
    a typical ~30 yd green (organic outline) for irons & wedges, or a 40 yd-wide fairway
@@ -255,18 +263,19 @@ function buildTopSVG(c,p){
 
   let bg, ctxLabel, scale;
   if(isWood){
-    /* Fairway, 40 yd wide — woods & hybrids finish out here, not on a green. */
+    /* Fairway, ~40 yd wide — woods & hybrids finish out here, not on a green.
+       Rough fills behind a tapered, bowed-edge fairway corridor. */
     const halfPx=50; scale=halfPx/20;                       // 40yd across → ~100px
-    const top=8, bot=H-7, fx=(cx-halfPx).toFixed(1);
-    bg=`<rect x="0" y="${top}" width="${W}" height="${bot-top}" fill="#1c7a46" fill-opacity="0.09"/>
-        <rect x="${fx}" y="${top}" width="${(halfPx*2).toFixed(1)}" height="${bot-top}" rx="7" fill="#3aae63" fill-opacity="0.16" stroke="#2f9a55" stroke-width="1" stroke-opacity="0.5"/>
-        <line x1="${cx}" y1="${top+3}" x2="${cx}" y2="${bot-3}" stroke="#2f9a55" stroke-width="0.6" stroke-dasharray="4,4" opacity="0.45"/>`;
-    ctxLabel='40yd fairway';
+    const top=8, bot=H-7;
+    bg=`<rect x="0" y="${top}" width="${W}" height="${(bot-top)}" fill="#2c7a4c" fill-opacity="0.14"/>
+        <path d="${fairwayPath(cx,top,bot,halfPx)}" fill="#46b56a" fill-opacity="0.20" stroke="#2f9a55" stroke-width="1" stroke-opacity="0.5"/>
+        <line x1="${cx}" y1="${top+5}" x2="${cx}" y2="${bot-5}" stroke="#2f9a55" stroke-width="0.6" stroke-dasharray="5,5" opacity="0.4"/>`;
+    ctxLabel='~40yd fairway';
   } else {
-    /* Typical green (~30 yd), organic outline. */
+    /* Typical green (~30 yd diameter), smooth organic outline. */
     scale=40/15;                                            // ~15yd radius → 40px
-    bg=`<path d="${greenBlobPath(cx,cy,42,33)}" fill="#00a84f" fill-opacity="0.13" stroke="#00853F" stroke-width="1.1" stroke-opacity="0.55"/>`;
-    ctxLabel='30yd green';
+    bg=`<path d="${greenBlobPath(cx,cy,40,36)}" fill="#3aae63" fill-opacity="0.16" stroke="#00853F" stroke-width="1.1" stroke-opacity="0.55"/>`;
+    ctxLabel='~30yd green';
   }
   const ovW=dispYd*scale, ovH=depthYd*scale;
 
