@@ -253,7 +253,7 @@ function fairwayPath(cx,top,bot,halfPx){
    a typical ~30 yd green (organic outline) for irons & wedges, or a 40 yd-wide fairway
    for woods/hybrids. Lateral spread from getDispersion() (same source as the L/R badges),
    depth a touch larger, slanted long-left / short-right (a typical miss tilt). */
-const DISP_SLANT = -15;   /* deg; − tilts the oval long-left / short-right */
+const DISP_SLANT = 15;   /* deg; tilts the oval long-left / short-right (mirrored) */
 function buildTopSVG(c,p){
   const W=120,H=112,cx=W/2,cy=H/2+3,tc=typeHex(c.type);
   const carry=p.carry||100;
