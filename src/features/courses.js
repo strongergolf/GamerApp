@@ -338,9 +338,39 @@ function cfImportBox(){
   </div>`;
 }
 
+/* ---- Round Strategy & Live Tracking — skeleton infrastructure to evolve ----
+   window.activeRound holds a transient in-progress round; per-shot capture, GPS auto-location,
+   ball/impact estimation and the real-time recommendation engine are placeholders for now. */
+function startRound(){
+  const c=cfCur();
+  window.activeRound={ course:c?c.name:'', startedAt:Date.now(), holes:[] };
+  buildRoundTracker();
+}
+function endRound(){ window.activeRound=null; buildRoundTracker(); }
+function buildRoundTracker(){
+  const wrap=document.getElementById('round-tracker-wrap'); if(!wrap) return;
+  const r=window.activeRound;
+  wrap.innerHTML=`
+    <div class="profile-card" style="margin-top:0">
+      <h3>Course Strategy — Shot by Shot <span class="proto-badge">coming</span></h3>
+      <p class="intro-note" style="margin-top:6px">Overlay your <b>86% dispersion</b> on each mapped hole to pick tee aim &amp; approach targets that minimise expected score (or follow your chosen strategy). Needs a mapped hole plus your bag distances &amp; dispersion — the Tee/Approach target selectors in <b>Plan a Shot</b> feed this.</p>
+    </div>
+    <div class="profile-card">
+      <h3>Live Round Tracking <span class="proto-badge">skeleton</span></h3>
+      ${r?`
+        <div style="font-family:ui-monospace,monospace;font-size:.7rem;color:var(--muted)">Round in progress · ${escapeHtml(r.course||'course')} · started ${new Date(r.startedAt).toLocaleTimeString()}</div>
+        <p class="intro-note" style="margin-top:8px">Coming: log each shot (lie · distance · club · result), capture location manually or via <b>GPS</b>, estimate ball &amp; impact/swing data, and get a <b>real-time next-shot recommendation</b> that adapts to this round's results.</p>
+        <button class="btn" style="margin-top:10px" onclick="endRound()">End round</button>`
+      :`
+        <p class="intro-note" style="margin-top:6px">Track a round in real time: manual or GPS shot locations, estimated ball/impact data, and live shot recommendations that learn from how you're hitting it today.</p>
+        <button class="btn btn-primary" style="margin-top:8px" onclick="startRound()">Start round</button>`}
+    </div>`;
+}
+
 Object.assign(window, {
   CF_W, CF_H, cfCourses, cfCur, cfHole, cfAddCourse, cfDeleteCourse, cfSelectCourse, cfRenameCourse,
   cfAddHole, cfSelectHole, cfSetHoleField, cfSetMode, cfCanvasClick, cfFinishFeature, cfUndoPoint,
   cfClearFeature, cfLoadBg, cfClearBg, renderHoleSVG, buildCourses, cfModeHint, cfRefreshCanvas,
-  osmToMeters, osmCentroid, osmParse, osmNearestHoleIdx, osmBuildHole, osmBuildCourse, cfOsmImport, cfImportBox, cfLoadPresets
+  osmToMeters, osmCentroid, osmParse, osmNearestHoleIdx, osmBuildHole, osmBuildCourse, cfOsmImport, cfImportBox, cfLoadPresets,
+  startRound, endRound, buildRoundTracker
 });

@@ -62,6 +62,7 @@ function refreshAll(){
   renderDPlaneVisual();
   buildCourseStrategy();
   buildCourses();
+  buildRoundTracker();
   buildLongTerm();
   buildPlanShot();
   buildSpecs();
