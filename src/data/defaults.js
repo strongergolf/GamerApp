@@ -16,7 +16,7 @@ const DEFAULT_DATA = {
     lmBrand:'', lmSessionDate:'', lmDriverAoA:'', lmDriverPath:'', lmDriverFace:'', lmSmash:'', lmNotes:'',
     /* course conditions */
     roughLength:'', greenGrass:'', fairwayGrass:'', roughGrass:'', bunkerSand:'' },
-  baseline: { tempF:75, altitudeFt:0, humidity:50, pressureInHg:29.92 },
+  baseline: { tempF:70, altitudeFt:0, humidity:50, pressureInHg:29.92 },   /* today's playing conditions (Environmental Adjustment); standard ref = STD_COND */
   densityK: 0.65,
   stimp: 9.5,
   /* Short Game Variables (Short Game tab) — selected option id per variable.

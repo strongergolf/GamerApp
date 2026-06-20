@@ -41,7 +41,7 @@ function triggerImportFile(){ document.getElementById('import-file').click(); }
 /* Rebuild every data-dependent surface from current STATE — WITHOUT changing the active
    tab. Called after Locker Room edits so changes propagate everywhere relevant. */
 function refreshAll(){
-  renderConditions();
+  buildEnvPanels();
   buildLadder();
   buildPartialsTable();
   /* Sync approach stimp control from STATE (values are in static HTML so can't use template literals) */
@@ -74,10 +74,7 @@ function renderAll(){
   refreshAll();
   showGroup(currentGroup, document.querySelector('.ngroup.active'));
 }
-function initConditions(){
-  ['c-temp','c-alt','c-hum','c-pres'].forEach(id=>document.getElementById(id).addEventListener('input',()=>{ buildLadder(); updateCondSummary(); }));
-  document.getElementById('adj-toggle').addEventListener('change',e=>{ window.adjustOn=e.target.checked; buildLadder(); updateCondSummary(); });
-}
+function initConditions(){ /* Environmental Adjustment panels use inline handlers now (see buildEnvPanels). */ }
 
 loadState();
 renderAll();

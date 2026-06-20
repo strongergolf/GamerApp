@@ -35,19 +35,7 @@
   <div class="section-label" style="margin-top:2px;display:flex;align-items:center;justify-content:space-between;gap:10px">Full Swing Distances <button class="print-btn" onclick="printMatrix('bag')">⎙ Print</button></div>
   <div class="ladder-wrap" id="ladder-wrap"></div>
 
-  <div class="cond-strip" style="margin-top:18px">
-    <div class="cond-head">
-      <div class="cond-title">Environmental Adjustment</div>
-      <label class="cond-toggle"><input type="checkbox" id="adj-toggle"> Adjust carries</label>
-    </div>
-    <div class="cond-body">
-      <div class="cond-field"><label>Temp °F</label><input type="number" id="c-temp" step="1"></div>
-      <div class="cond-field"><label>Altitude ft</label><input type="number" id="c-alt" step="50"></div>
-      <div class="cond-field"><label>Humidity %</label><input type="number" id="c-hum" min="0" max="100" step="1"></div>
-      <div class="cond-field"><label>Pressure inHg</label><input type="number" id="c-pres" step="0.01"></div>
-    </div>
-    <div class="cond-summary" id="cond-summary"></div>
-  </div>
+  <div id="env-bag" style="margin-top:18px"></div>
 </div>
 
 <!-- PARTIALS -->
@@ -73,6 +61,8 @@
 
   <!-- 3. Shot options (each expands a Side view + Overhead dispersion dropdown) -->
   <div class="calc-results" id="calc-results"></div>
+
+  <div id="env-approach" style="margin:6px 0 16px"></div>
 
   <!-- 4. Distance Matrix — at-a-glance, very bottom of the tab -->
   <div class="section-label" style="display:flex;align-items:center;justify-content:space-between;gap:10px">Distance Matrix — Total &amp; Carry <button class="print-btn" onclick="printMatrix('approach')">⎙ Print</button></div>
@@ -309,7 +299,7 @@
     <div class="btn-row"><button class="btn btn-primary" onclick="saveProfile()">Save Profile</button></div>
   </div>
   <div class="profile-card">
-    <h3>Typical Baseline Conditions <span style="font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;letter-spacing:.05em;color:var(--muted);text-transform:none">measuring conditions, home course setup &amp; surface types your stock numbers were captured in</span></h3>
+    <h3>Home Course &amp; Conditions <span style="font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;letter-spacing:.05em;color:var(--muted);text-transform:none">home setup &amp; surface types · live weather is set in the Environmental Adjustment on Stock Shots / Approach</span></h3>
     <div class="edit-grid" id="baseline-grid"></div>
     <div class="btn-row"><button class="btn btn-primary" onclick="saveProfile()">Save Profile</button></div>
   </div>

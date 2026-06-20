@@ -17,24 +17,25 @@ function airDensity(c){
   const Pd = P - Pv;
   return Pd/(287.058*T) + Pv/(461.495*T);              /* kg/m^3 */
 }
+/* Fixed standard reference — stock carries are assumed captured on a "standard day". The
+   Environmental Adjustment edits TODAY's conditions (STATE.baseline); the carry factor scales
+   off the air-density ratio vs this standard. */
+const STD_COND = { tempF:70, altitudeFt:0, humidity:50, pressureInHg:29.92 };
 function carryFactor(){
   if(!window.adjustOn) return 1;
-  const rhoB = airDensity(STATE.baseline);
-  const rhoC = airDensity(STATE.baseline === STATE._cur ? STATE.baseline : currentConditions());
-  return 1 + STATE.densityK * (rhoB/rhoC - 1);
+  const rhoStd = airDensity(STD_COND), rhoC = airDensity(currentConditions());
+  if(!rhoC) return 1;
+  return 1 + STATE.densityK * (rhoStd/rhoC - 1);
 }
+/* Today's playing conditions live on STATE.baseline (edited via the Environmental Adjustment). */
 function currentConditions(){
-  return {
-    tempF: num('c-temp', STATE.baseline.tempF),
-    altitudeFt: num('c-alt', STATE.baseline.altitudeFt),
-    humidity: num('c-hum', STATE.baseline.humidity),
-    pressureInHg: parseFloat(document.getElementById('c-pres').value) || STATE.baseline.pressureInHg
-  };
+  const b = STATE.baseline || STD_COND;
+  return { tempF:b.tempF, altitudeFt:b.altitudeFt, humidity:b.humidity, pressureInHg:b.pressureInHg };
 }
-function num(id, fb){ const v = parseFloat(document.getElementById(id).value); return isNaN(v)?fb:v; }
+function num(id, fb){ const v = parseFloat(document.getElementById(id)?.value); return isNaN(v)?fb:v; }
 function adjCarry(stock){ return Math.round(stock * carryFactor()); }
 
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { adjCarry, airDensity, carryFactor, currentConditions, num, satVaporPressure });
+Object.assign(window, { STD_COND, adjCarry, airDensity, carryFactor, currentConditions, num, satVaporPressure });

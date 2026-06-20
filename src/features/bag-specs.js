@@ -231,18 +231,10 @@ function buildProfile(){
     <div class="edit-field"><label>Face Angle (°)</label><input id="pf-lmface" type="number" step="0.1" value="${escapeHtml(pf.lmDriverFace||'')}" placeholder="+ = open, − = closed"></div>
     <div class="edit-field"><label>Smash Factor</label><input id="pf-lmsmash" type="number" step="0.01" value="${escapeHtml(pf.lmSmash||'')}" placeholder="e.g. 1.48"></div>
     <div class="edit-field" style="grid-column:1/-1"><label>Notes</label><input id="pf-lmnotes" value="${escapeHtml(pf.lmNotes||'')}" placeholder="fitter, date, key observations, session goals…"></div>`;
-  /* Typical Baseline Conditions — measuring conditions + home setup + course surfaces */
-  const b=STATE.baseline;
+  /* Home Course & Conditions — home setup + course surfaces (live weather + density K now
+     live in the Environmental Adjustment on Stock Shots / Approach). */
   const _bg=document.getElementById('baseline-grid');
   if(_bg) _bg.innerHTML=`
-    <div class="edit-subhead">Measuring Conditions</div>
-    <div class="edit-field"><label>Temp °F</label><input id="bl-temp" type="number" value="${b.tempF}"></div>
-    <div class="edit-field"><label>Altitude ft</label><input id="bl-alt" type="number" value="${b.altitudeFt}"></div>
-    <div class="edit-field"><label>Humidity %</label><input id="bl-hum" type="number" value="${b.humidity}"></div>
-    <div class="edit-field"><label>Pressure inHg</label><input id="bl-pres" type="number" step="0.01" value="${b.pressureInHg}"></div>
-    <div class="edit-field"><label>Air Density Sensitivity (k)</label><input id="dens-k" type="number" step="0.05" min="0" max="2" value="${STATE.densityK}">
-      <div style="font-family:ui-monospace,monospace;font-size:.48rem;color:var(--muted);margin-top:3px;line-height:1.4">Default 0.65 ≈ 2 yd/10°F, 2%/1000 ft. Raise if your LM data shows bigger swings.</div>
-    </div>
     <div class="edit-subhead">Home Course Setup</div>
     <div class="edit-field"><label>Home Course</label><input id="pf-homecourse" value="${escapeHtml(pf.homeCourse||'')}" placeholder="seeds Game Plan"></div>
     <div class="edit-field"><label>Usual Tee</label>${sel('pf-usualtee',['','Black','Blue','White','Gold','Red'],pf.usualTee||'')}</div>
@@ -311,11 +303,7 @@ function saveProfile(){
   pf.ballFirmness=document.getElementById('ball-firmness')?.value||'';
   pf.ballSpin=document.getElementById('ball-spin')?.value||'';
   pf.ballTrajectory=document.getElementById('ball-trajectory')?.value||'';
-  STATE.baseline.tempF=parseFloat(document.getElementById('bl-temp').value)||STATE.baseline.tempF;
-  STATE.baseline.altitudeFt=parseFloat(document.getElementById('bl-alt').value)||0;
-  STATE.baseline.humidity=parseFloat(document.getElementById('bl-hum').value)||STATE.baseline.humidity;
-  STATE.baseline.pressureInHg=parseFloat(document.getElementById('bl-pres').value)||STATE.baseline.pressureInHg;
-  STATE.densityK=Math.max(0,Math.min(2,parseFloat(document.getElementById('dens-k').value)||0.65));
+  /* live weather + density K now live in the Environmental Adjustment (Stock Shots / Approach) */
   /* launch monitor profile */
   pf.lmBrand=document.getElementById('pf-lmbrand')?.value??pf.lmBrand;
   pf.lmSessionDate=document.getElementById('pf-lmdate')?.value||pf.lmSessionDate;
@@ -332,7 +320,7 @@ function saveProfile(){
   pf.bunkerSand=document.getElementById('pf-bunkersand')?.value??pf.bunkerSand;
   saveState(); refreshAll(); toast('Profile saved');
 }
-function saveCalibration(){ STATE.densityK=Math.max(0,Math.min(2,parseFloat(document.getElementById('dens-k').value)||0.65)); saveState(); buildLadder(); updateCondSummary(); toast('Calibration saved'); }
+function saveCalibration(){ const el=document.getElementById('dens-k'); if(el){ STATE.densityK=Math.max(0,Math.min(2,parseFloat(el.value)||0.65)); saveState(); buildLadder(); if(typeof updateCondSummary==='function') updateCondSummary(); toast('Calibration saved'); } }
 function generateFromSwingSpeed(){
   const target=parseFloat(document.getElementById('pf-ss')?.value);
   const base=STATE.profile.driverSwingSpeed;

@@ -5,29 +5,62 @@
 /* ============================================================
    BAG / LADDER
    ============================================================ */
-function renderConditions(){
-  const b = STATE.baseline;
-  ['temp','alt','hum','pres'].forEach((k,i)=>{
-    const ids=['c-temp','c-alt','c-hum','c-pres'];
-    const vals=[b.tempF,b.altitudeFt,b.humidity,b.pressureInHg];
-    const el=document.getElementById(ids[i]);
-    if(el && el.value==='') el.value = vals[i];
-  });
-  updateCondSummary();
+/* ---- Environmental Adjustment: one STATE-driven panel rendered into any host (Stock Shots
+   + Approach). Both panels read/write the single set of today's conditions (STATE.baseline)
+   + density K, and seed every carry across the app via carryFactor(). ---- */
+const ENV_HOSTS=['env-bag','env-approach'];
+function envPanelHTML(pfx){
+  const b=STATE.baseline;
+  const fld=(key,label,attrs,val)=>`<div class="cond-field"><label>${label}</label><input id="${pfx}-${key}" type="number" ${attrs} value="${val}" oninput="onEnvInput('${key}',this.value)"></div>`;
+  return `<div class="cond-strip">
+    <div class="cond-head">
+      <div class="cond-title">Environmental Adjustment</div>
+      <label class="cond-toggle"><input type="checkbox" id="${pfx}-adj" ${window.adjustOn?'checked':''} onchange="onEnvToggle(this.checked)"> Adjust carries</label>
+    </div>
+    <div class="cond-body">
+      ${fld('tempF','Temp °F','step="1"',b.tempF)}
+      ${fld('altitudeFt','Altitude ft','step="50"',b.altitudeFt)}
+      ${fld('humidity','Humidity %','min="0" max="100" step="1"',b.humidity)}
+      ${fld('pressureInHg','Pressure inHg','step="0.01"',b.pressureInHg)}
+      ${fld('densityK','Air Density (k)','step="0.05" min="0" max="2"',STATE.densityK)}
+    </div>
+    <div class="cond-summary" id="${pfx}-sum"></div>
+  </div>`;
 }
-function updateCondSummary(){
-  const cur = currentConditions();
-  const rhoB = airDensity(STATE.baseline), rhoC = airDensity(cur);
-  const f = window.adjustOn ? (1 + STATE.densityK*(rhoB/rhoC-1)) : 1;
-  const pct = (f-1)*100;
-  const dir = pct>0.05?'up':pct<-0.05?'down':'';
-  const sign = pct>0?'+':'';
-  const el = document.getElementById('cond-summary');
-  el.innerHTML = `
-    <span>Air density: <b>${rhoC.toFixed(3)}</b> kg/m³</span>
-    <span>Baseline: <b>${rhoB.toFixed(3)}</b> kg/m³</span>
+function buildEnvPanels(){
+  ENV_HOSTS.forEach(pfx=>{ const h=document.getElementById(pfx); if(h) h.innerHTML=envPanelHTML(pfx); });
+  envSyncSummary();
+}
+function envSyncSummary(){
+  const rhoC=airDensity(currentConditions()), rhoStd=airDensity(STD_COND);
+  const f=window.adjustOn?(1+STATE.densityK*(rhoStd/rhoC-1)):1;
+  const pct=(f-1)*100, dir=pct>0.05?'up':pct<-0.05?'down':'', sign=pct>0?'+':'';
+  const html=`<span>Air density: <b>${rhoC.toFixed(3)}</b> kg/m³</span>
+    <span>Standard: <b>${rhoStd.toFixed(3)}</b> kg/m³</span>
     <span>Plays: <b class="${dir}">${window.adjustOn?sign+pct.toFixed(1)+'%':'stock'}</b></span>`;
+  ENV_HOSTS.forEach(pfx=>{ const s=document.getElementById(pfx+'-sum'); if(s) s.innerHTML=html; });
 }
+function envRefreshDeps(){
+  buildLadder();
+  if(typeof buildPartialsTable==='function') buildPartialsTable();
+  if(typeof renderCalc==='function'){ const ys=document.getElementById('yard-slider'); renderCalc(ys?(parseInt(ys.value)||95):95); }
+}
+function onEnvInput(key,val){
+  const v=parseFloat(val);
+  if(key==='densityK'){ if(!isNaN(v)) STATE.densityK=Math.max(0,Math.min(2,v)); }
+  else if(!isNaN(v)){ STATE.baseline[key]=v; }
+  saveState();
+  ENV_HOSTS.forEach(pfx=>{ const el=document.getElementById(pfx+'-'+key); if(el && el!==document.activeElement) el.value=(key==='densityK'?STATE.densityK:STATE.baseline[key]); });
+  envSyncSummary(); envRefreshDeps();
+}
+function onEnvToggle(on){
+  window.adjustOn=on;
+  ENV_HOSTS.forEach(pfx=>{ const el=document.getElementById(pfx+'-adj'); if(el) el.checked=on; });
+  envSyncSummary(); envRefreshDeps();
+}
+/* Back-compat aliases for existing callers (nav refreshAll, saveCalibration). */
+function renderConditions(){ buildEnvPanels(); }
+function updateCondSummary(){ envSyncSummary(); }
 
 function buildLadder(){
   const wrap = document.getElementById('ladder-wrap');
@@ -312,4 +345,4 @@ function buildGearEffectPanel(c){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { buildGapping, buildGearEffectPanel, buildGearFaceSVG, buildLadder, buildMissBlock, buildSideSVG, buildTopSVG, missNote, missSelect, renderConditions, setMiss, statCell, toggleDetail, updateCondSummary });
+Object.assign(window, { buildEnvPanels, buildGapping, buildGearEffectPanel, buildGearFaceSVG, buildLadder, buildMissBlock, buildSideSVG, buildTopSVG, envPanelHTML, envSyncSummary, missNote, missSelect, onEnvInput, onEnvToggle, renderConditions, setMiss, statCell, toggleDetail, updateCondSummary });
