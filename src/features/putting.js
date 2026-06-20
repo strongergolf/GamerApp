@@ -47,7 +47,7 @@ function buildPutting(){
         </div>
         <div class="ey-term">
           <div class="ey-term-head"><span class="ey-term-label">Pace (&quot; past hole)</span><span class="ey-term-val" id="putt-pace-val">12&quot;</span></div>
-          <input type="range" id="putt-pace" min="4" max="36" step="2" value="12" oninput="document.getElementById('putt-pace-val').textContent=this.value+'&quot;';renderPutt()">
+          <input type="range" id="putt-pace" min="4" max="48" step="2" value="12" oninput="document.getElementById('putt-pace-val').textContent=this.value+'&quot;';renderPutt()">
         </div>
       </div>
     </div>
@@ -141,36 +141,14 @@ function renderPutt(){
   const edgeOffsetIn=Math.max(0,breakIn-HOLE_R);
   const cupW=edgeOffsetIn/4.25;
   const res=document.getElementById('putt-result-wrap'); if(!res) return;
-  const edgeLabel=dir==='rl'?'right':'left';
-  const dirWord=dir==='straight'?'Straight':dir==='lr'?'Left-to-Right':'Right-to-Left';
-  let aimNote;
-  if(dir==='straight'||grade<=0||breakIn<0.1){
-    aimNote='Dead straight — aim at centre';
-  } else if(breakIn<=HOLE_R){
-    aimNote=`${dirWord} — aim inside the ${edgeLabel} edge · ${breakIn.toFixed(1)}" from centre`;
-  } else {
-    aimNote=`${dirWord} · aim <strong>${edgeOffsetIn.toFixed(1)}"</strong> outside the <strong>${edgeLabel}</strong> edge`;
-  }
   const slopeWord=fmtSlopeElev(elevIn).toLowerCase();
-  /* Speed & lag (Presumed model) — 12" past is the assumed standard; firmer just straightens
-     the putt and lengthens the comeback, it doesn't meaningfully raise make %. */
-  const comebackFt=puttComeback(pace);
-  const leaveFt=puttLeave(dist);
-  const twoPutt=puttMakePct(leaveFt);
-  const isLag=dist>=18;
-  const paceNote = pace===PUTT_PACE_STD ? 'standard ~1 ft past' : pace<PUTT_PACE_STD ? 'dying it in — more break, shorter comeback' : 'firmer — less break, longer comeback';
   res.innerHTML=`
     <div class="putt-result-card">
       <h4>Required Break</h4>
-      <div class="putt-aim-note">${aimNote}</div>
       <div class="putt-stat-grid">
         <div class="putt-stat"><div class="putt-stat-val">${edgeOffsetIn.toFixed(1)}"</div><div class="putt-stat-lbl">Outside edge</div></div>
         <div class="putt-stat"><div class="putt-stat-val">${cupW.toFixed(2)}×</div><div class="putt-stat-lbl">Cup widths</div></div>
         <div class="putt-stat"><div class="putt-stat-val">${breakIn.toFixed(1)}"</div><div class="putt-stat-lbl">Break to centre</div></div>
-      </div>
-      <div class="putt-speed">
-        <div class="putt-speed-row"><span class="psr-k">Pace</span> <b>${pace}"</b> past <span class="psr-sub">· ${paceNote} · a slide-by leaves ≈ ${comebackFt} ft back</span></div>
-        ${isLag?`<div class="putt-speed-row"><span class="psr-k">Lag</span> from ${dist} ft you'll typically finish ≈ <b>${leaveFt} ft</b> away → ~<b>${twoPutt}%</b> two-putt</div>`:''}
       </div>
       <div class="putt-conditions">${dist} ft · grade ${grade} · stimp ${stimp.toFixed(1)} · ${slopeWord} · pace ${pace}"</div>
     </div>`;
@@ -268,10 +246,15 @@ function buildPuttSVG(distFt,breakIn,dir,slope,pace){
   const gradDark=(isVeryDn||isDn)?'0%':'100%';
   const gradLight=(isVeryDn||isDn)?'100%':'0%';
 
-  /* Break indicator line and label */
+  /* Break indicator line + label — shows the OUTSIDE-EDGE aim distance (break − hole radius);
+     once the aim is inside the edge it reads "Inside X"". */
+  const HOLE_R=2.125;
+  const edgeOff=breakIn-HOLE_R;
+  const isInside=edgeOff<-0.05;
+  const edgeTxt=isInside?`Inside ${Math.abs(edgeOff).toFixed(1)}"`:`${Math.max(0,edgeOff).toFixed(1)}"`;
   const breakLabel=aimPx>2?`
     <line x1="${cx}" y1="${holeY}" x2="${aimX.toFixed(1)}" y2="${holeY}" stroke="var(--gold2)" stroke-width="1.6" opacity="0.75"/>
-    <text x="${(cx+sign*10).toFixed(1)}" y="${holeY-20}" text-anchor="${dir==='lr'?'end':'start'}" font-family="Arial,sans-serif" font-size="16" font-weight="800" fill="var(--gold2)">${breakIn.toFixed(1)}"</text>`:'';
+    <text x="${(cx+sign*10).toFixed(1)}" y="${holeY-20}" text-anchor="${dir==='lr'?'end':'start'}" font-family="Arial,sans-serif" font-size="${isInside?12:16}" font-weight="800" fill="var(--gold2)">${edgeTxt}</text>`:'';
 
   const slopeLabel='';
 
