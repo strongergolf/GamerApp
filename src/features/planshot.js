@@ -1,23 +1,26 @@
 // Game Plan → Plan a Shot.
-// Effective Yardage = Static + Lie + Stance + Wind + Topography + Air + Shot Type + Adrenaline,
+// Effective Yardage = Static + Lie + Stance + Wind + Topography + Shot Type,
 // each rendered as a clickable term in a live equation; tapping a term opens its detail + inputs.
 // Carry to play = Effective − Rollout. Crosswind resolves to a lateral aim offset, not distance.
+// (Air density is handled globally by the Environmental Adjustment / conditions strip, so it's not
+//  a manual term here. Nerves/adrenaline was removed — real but too individual to model reliably.)
 //
 // Rough-estimate defaults (refine from real data):
 //   Headwind ~1%/mph · Tailwind ~0.5%/mph · Crosswind ~2 yd/mph drift
-//   Elevation ×1.2 yd per yd · knockdown dampens wind ~×0.6, high ball ~×1.2
+//   Topography is geometric: yards lost ≈ Δelev / tan(landing angle), so steeper-landing shots
+//   (wedges, high balls) lose less per foot than shallow ones (long irons, knockdowns); downhill
+//   gives back ~2/3 of the uphill cost. knockdown dampens wind ~×0.6, high ball ~×1.2.
 const PS_WIND_HEAD = 0.010, PS_WIND_TAIL = 0.005, PS_CROSS_YPM = 2.0, PS_ELEV_K = 1.2;
 
 /* transient shot state (not persisted — a shot is planned, then forgotten) */
 const psShot = { target:'', static:'', lie:'fairway', stance:'flat',
-  windspd:'', winddir:'calm', elev:'', shot:'stock', nerves:'none', rollout:'' };
+  windspd:'', winddir:'calm', elev:'', shot:'stock', rollout:'' };
 let psOpenKey = 'static';
 
 const psNum = v => { const n=parseFloat(v); return isNaN(n)?0:n; };
 const PS_LIE   = { fairway:0, lightrough:5, heavyrough:-8, bunker:-7, divot:-3, hardpan:-2, tee:2 };
 const PS_STANCE= { flat:0, above:-3, below:-2, uphill:-5, downhill:5 };
 const PS_SHOT  = { stock:0, knockdown:-8, high:0 };
-const PS_NERVES= { none:0, some:3, full:6 };
 const psWindMult = () => psShot.shot==='knockdown'?0.6 : psShot.shot==='high'?1.2 : 1.0;
 
 function psAirDelta(S){
@@ -28,6 +31,24 @@ function psAirDelta(S){
     const k=STATE.densityK||0.65;
     return -S*k*(rhoB/rhoC-1);   /* thinner air than baseline ⇒ ball flies farther ⇒ plays shorter */
   }catch(e){ return 0; }
+}
+/* Effective landing angle for the planned shot: the closest club's land angle, nudged by shot
+   type (knockdown lands shallower, high lands steeper). Drives trajectory-aware topography. */
+function psLandAngle(){
+  const S=psNum(psShot.static);
+  let best=null,bestDiff=1e9;
+  (STATE.clubs||[]).forEach(c=>{ if(c.type==='putter')return; const cc=perf(c.id).carry||0; if(cc<=0)return; const d=Math.abs(cc-S); if(d<bestDiff){bestDiff=d;best=c;} });
+  let land = best ? (perf(best.id).land||45) : 45;
+  if(psShot.shot==='knockdown') land-=7;
+  else if(psShot.shot==='high') land+=7;
+  return Math.max(22, Math.min(62, land));
+}
+/* Topography (geometric): yards lost ≈ Δelev / tan(landing angle). Steeper landings lose less
+   per foot uphill; downhill gives back ~2/3 of the uphill cost. */
+function psTopoDelta(){
+  const elev=psNum(psShot.elev); if(!elev) return 0;
+  const factor=1/Math.tan(psLandAngle()*Math.PI/180);
+  return elev>=0 ? elev*factor : elev*factor*0.67;
 }
 /* per-term yardage delta for the current shot */
 function psDelta(key){
@@ -40,10 +61,8 @@ function psDelta(key){
                      if(psShot.winddir==='head') return  S*PS_WIND_HEAD*w*psWindMult();
                      if(psShot.winddir==='tail') return -S*PS_WIND_TAIL*w*psWindMult();
                      return 0; }
-    case 'topo':   return psNum(psShot.elev)*PS_ELEV_K;
-    case 'air':    return psAirDelta(S);
+    case 'topo':   return psTopoDelta();
     case 'shot':   return PS_SHOT[psShot.shot]||0;
-    case 'nerves': return PS_NERVES[psShot.nerves]||0;
   }
   return 0;
 }
@@ -53,7 +72,7 @@ function psCrosswind(){
   if(lat<=0) return null;
   return { yd:lat, dir: psShot.winddir==='crossL'?'left':'right' };  /* wind L→R pushes ball right ⇒ aim left */
 }
-function psEffective(){ return ['static','lie','stance','wind','topo','air','shot','nerves'].reduce((s,k)=>s+psDelta(k),0); }
+function psEffective(){ return ['static','lie','stance','wind','topo','shot'].reduce((s,k)=>s+psDelta(k),0); }
 
 const PS_TERMS=[
   {key:'static',label:'Static',  base:true},
@@ -61,9 +80,7 @@ const PS_TERMS=[
   {key:'stance',label:'Stance'},
   {key:'wind',  label:'Wind'},
   {key:'topo',  label:'Topo'},
-  {key:'air',   label:'Air'},
-  {key:'shot',  label:'Shot'},
-  {key:'nerves',label:'Nerves'}
+  {key:'shot',  label:'Shot'}
 ];
 
 /* ---- render ---- */
@@ -138,25 +155,12 @@ function psDetailHTML(key){
       +psContrib('wind');
     case 'topo': return psField('Elevation to target (yd, + uphill / − downhill)',
       `<input id="ps-elev" type="number" value="${escapeHtml(psShot.elev)}" oninput="psSet('elev',this.value)" placeholder="0">`)
-      +psNote(`Plays-like shifts by elevation × <b>${PS_ELEV_K}</b> — uphill plays longer, downhill shorter. Steeper landing angles push this a touch higher.`)
+      +psNote(`Geometric model: yards lost ≈ elevation ÷ tan(landing angle). At this distance/shot the ball lands ≈ <b>${Math.round(psLandAngle())}°</b>, so a steep-landing shot (wedge or high ball) loses <b>less</b> per foot uphill than a shallow one (long iron or knockdown). Downhill gives back ~⅔ of the uphill cost — set the <b>Shot</b> type to flatten or steepen the flight.`)
       +psContrib('topo');
-    case 'air': {
-      let cond='';
-      try{ const b=STATE.baseline, cur=currentConditions();
-        cond=`<div style="font-family:ui-monospace,monospace;font-size:.64rem;color:var(--muted);line-height:1.6;margin-top:4px">
-          Now: ${cur.tempF}°F · ${cur.altitudeFt} ft · ${cur.humidity}% RH · ${cur.pressureInHg} inHg<br>
-          Baseline: ${b.tempF}°F · ${b.altitudeFt} ft · ${b.humidity}% RH · ${b.pressureInHg} inHg</div>`; }catch(e){}
-      return psNote('Air density vs your baseline — warmer, higher, lower-pressure, and (slightly) more humid air are all <b>less dense</b>, so the ball flies farther and the shot plays shorter. Edit these on the Stock Shots conditions strip.')
-        +cond+psContrib('air');
-    }
     case 'shot': return psField('Shot type / trajectory', psSel('shot',[
         ['stock','Stock — full, normal flight'],['knockdown','Knockdown / three-quarter (−, dampens wind)'],['high','High / soft (more wind effect)']]))
-      +psNote('A knockdown flies lower and shorter but is far less wind-sensitive; a high, soft shot stops fast but the wind has more time to act on it.')
+      +psNote('A knockdown flies lower and shorter but is far less wind-sensitive and gives up more on uphill shots; a high, soft shot stops fast, holds uphill better, but the wind has more time to act on it.')
       +psContrib('shot');
-    case 'nerves': return psField('Adrenaline / arousal', psSel('nerves',[
-        ['none','None — range mode'],['some','Some — competitive'],['full','Full send — first tee / clutch']]))
-      +psNote('Arousal adds clubhead speed you don\'t feel — a real, repeatable few yards under tournament pressure. Calibrate it to yourself.')
-      +psContrib('nerves');
   }
   return '';
 }
