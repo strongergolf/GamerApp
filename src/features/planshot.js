@@ -13,8 +13,8 @@
 const PS_WIND_HEAD = 0.010, PS_WIND_TAIL = 0.005, PS_CROSS_YPM = 2.0, PS_ELEV_K = 1.2;
 
 /* transient shot state (not persisted — a shot is planned, then forgotten) */
-const psShot = { target:'', static:'', lie:'fairway', stance:'flat',
-  windspd:'', winddir:'calm', elev:'', shot:'stock', rollout:'' };
+const psShot = { teeAim:'', apprLat:'', apprDepth:'', static:'', lie:'fairway', stance:'flat',
+  windspd:'', winddir:'calm', elev:'', shot:'stock', rollout:'', minCarry:'' };
 let psOpenKey = 'static';
 
 const psNum = v => { const n=parseFloat(v); return isNaN(n)?0:n; };
@@ -84,20 +84,35 @@ const PS_TERMS=[
 ];
 
 /* ---- render ---- */
+/* Tee + Approach target sections — skeleton for the strategy/optimisation work to come;
+   selections are stored now and will eventually drive dispersion overlays + shot optimisation. */
+function psTargetsHTML(){
+  const sub='font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;color:var(--muted);text-transform:none';
+  return `
+    <div class="profile-card" style="margin-top:0">
+      <h3>1 · Tee Shot Targets <span style="${sub}">evolving</span></h3>
+      <div class="edit-field" style="grid-column:1/-1"><label>Aim line</label>${psSel('teeAim',[['','—'],['left-edge','Left edge'],['left-centre','Left-centre'],['centre','Centre'],['right-centre','Right-centre'],['right-edge','Right edge']])}</div>
+      <p class="intro-note" style="margin:8px 0 0">Coming: overlay your <b>86% dispersion pattern</b> on the hole and auto-pick the aim that <b>avoids bunkers &amp; minimises rough exposure</b>, then favours the <b>shortest route to the pin</b>. Powered by the Course Map.</p>
+    </div>
+    <div class="profile-card">
+      <h3>2 · Approach Shot Targets <span style="${sub}">evolving</span></h3>
+      <div class="edit-grid">
+        <div class="edit-field"><label>Lateral (vs pin)</label>${psSel('apprLat',[['','—'],['left','Left'],['centre','Centre'],['right','Right']])}</div>
+        <div class="edit-field"><label>Depth (vs pin)</label>${psSel('apprDepth',[['','—'],['short','Short'],['pin','Pin-high'],['long','Long']])}</div>
+      </div>
+      <p class="intro-note" style="margin:8px 0 0">Coming: pick the <b>carry + expected total</b> to a lateral target that <b>minimises the chance of missing the green</b>, then the <b>shortest expected putt</b> — eventually optimising every shot to your strategy, or strictly to <b>lowest expected score</b>.</p>
+    </div>`;
+}
 function buildPlanShot(){
   const wrap=document.getElementById('planshot-wrap'); if(!wrap) return;
   wrap.innerHTML=`
-    <div class="profile-card" style="margin-top:0">
-      <h3>1 · Target <span style="font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;color:var(--muted);text-transform:none">aim point — more selection tools coming</span></h3>
-      <div class="edit-field" style="grid-column:1/-1"><label>Target / aim point</label>
-        <input id="ps-target" value="${escapeHtml(psShot.target)}" oninput="psSet('target',this.value)" placeholder="e.g. back-right pin, front edge, layup spot"></div>
-    </div>
+    ${psTargetsHTML()}
     <div class="profile-card">
-      <h3>2 · Effective Yardage <span style="font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;color:var(--muted);text-transform:none">tap a term to open its detail</span></h3>
+      <h3>3 · Effective Yardage &amp; Number to Play <span style="font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;color:var(--muted);text-transform:none">tap a term to open its detail</span></h3>
       <div id="ps-equation"></div>
       <div id="ps-detail"></div>
-    </div>
-    <div id="planshot-result"></div>`;
+      <div id="ps-result"></div>
+    </div>`;
   psRenderEquation(); psRenderDetail(); psRenderResult();
 }
 function psRenderEquation(){
@@ -173,32 +188,38 @@ function psRenderDetail(){
     </div>`;
 }
 function psRenderResult(){
-  const out=document.getElementById('planshot-result'); if(!out) return;
+  const out=document.getElementById('ps-result'); if(!out) return;
   const S=psNum(psShot.static);
-  if(S<=0){ out.innerHTML=`<p class="intro-note">Open <b>Static</b> above and enter your measured yardage to see the number to play.</p>`; return; }
-  const eff=psEffective();
-  const rollout=psNum(psShot.rollout);
-  const carry=eff-rollout;
+  if(S<=0){ out.innerHTML=`<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border);font-family:Arial,sans-serif;font-size:.78rem;color:var(--muted)">Open <b>Static</b> above and enter your measured yardage to see the number to play.</div>`; return; }
+  const eff=psEffective(), rollout=psNum(psShot.rollout), carry=eff-rollout;
+  const minCarry=psNum(psShot.minCarry);
   const cross=psCrosswind();
-  let best=null,bestDiff=1e9;
+  /* Closest club by carry-to-play, but a forced (minimum) carry rules out clubs that can't
+     clear it — a club with the right TOTAL but insufficient CARRY isn't an option. */
+  let best=null,bestDiff=1e9,anyClear=false;
   (STATE.clubs||[]).forEach(c=>{ if(c.type==='putter')return; const cc=perf(c.id).carry||0; if(cc<=0)return;
+    if(minCarry>0 && cc<minCarry) return; anyClear=true;
     const d=Math.abs(cc-carry); if(d<bestDiff){bestDiff=d;best=c;} });
-  out.innerHTML=`<div class="profile-card">
-    <h3>Number to Play</h3>
-    <div style="display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-bottom:2px solid var(--border2)">
-      <span style="font-family:Arial,sans-serif;font-weight:800;font-size:.86rem;color:var(--ink)">Effective (plays-like)</span>
-      <span style="font-family:ui-monospace,monospace;font-weight:800;font-size:1.1rem;color:var(--accent,#c4427a)">${Math.round(eff)} yd</span>
-    </div>
-    <div class="edit-field" style="grid-column:1/-1;margin-top:8px"><label>Expected rollout after landing (yd)</label>
-      <input id="ps-rollout" type="number" value="${escapeHtml(psShot.rollout)}" oninput="psSet('rollout',this.value)" placeholder="firm green/fairway = more roll"></div>
-    <div style="display:flex;justify-content:space-between;align-items:baseline;padding:9px 0 4px">
-      <span style="font-family:Arial,sans-serif;font-weight:800;font-size:.92rem;color:var(--ink)">Carry to play</span>
-      <span style="font-family:ui-monospace,monospace;font-weight:800;font-size:1.3rem;color:var(--ink)">${Math.round(carry)} yd</span>
-    </div>
-    ${best?`<div style="margin-top:8px;font-family:Arial,sans-serif;font-size:.82rem;color:var(--ink2)">Closest club: <b style="color:var(--ink)">${best.label}</b> <span style="color:var(--muted)">(${perf(best.id).carry} yd carry, ${bestDiff<1?'spot on':Math.round(bestDiff)+' yd '+(perf(best.id).carry>carry?'long':'short')})</span></div>`:''}
-    ${cross?`<div style="margin-top:6px;font-family:Arial,sans-serif;font-size:.82rem;color:var(--ink2)">Crosswind: aim <b style="color:var(--ink)">${Math.round(cross.yd)} yd ${cross.dir}</b> of target</div>`:''}
-    <div style="margin-top:8px;font-family:ui-monospace,monospace;font-size:.5rem;color:var(--muted);line-height:1.5">Rough estimates — refine each term from your own data. Air uses your baseline + Stock Shots conditions.</div>
-  </div>`;
+  const rowL='font-family:Arial,sans-serif;font-weight:800;color:var(--ink)';
+  out.innerHTML=`
+    <div style="border-top:2px solid var(--border2);margin-top:10px;padding-top:8px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;padding:3px 0">
+        <span style="${rowL};font-size:.86rem">Effective (plays-like)</span>
+        <span style="font-family:ui-monospace,monospace;font-weight:800;font-size:1.1rem;color:var(--accent,#c4427a)">${Math.round(eff)} yd</span>
+      </div>
+      <div class="edit-grid" style="margin-top:6px">
+        <div class="edit-field"><label>Expected rollout (yd)</label><input id="ps-rollout" type="number" value="${escapeHtml(psShot.rollout)}" oninput="psSet('rollout',this.value)" placeholder="firm = more roll"></div>
+        <div class="edit-field"><label>Min carry — forced carry (yd)</label><input id="ps-mincarry" type="number" value="${escapeHtml(psShot.minCarry)}" oninput="psSet('minCarry',this.value)" placeholder="carry the bunker / water"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;padding:8px 0 4px">
+        <span style="${rowL};font-size:.92rem">Carry to play</span>
+        <span style="font-family:ui-monospace,monospace;font-weight:800;font-size:1.3rem;color:var(--ink)">${Math.round(carry)} yd</span>
+      </div>
+      ${best?`<div style="margin-top:6px;font-family:Arial,sans-serif;font-size:.82rem;color:var(--ink2)">Closest club: <b style="color:var(--ink)">${best.label}</b> <span style="color:var(--muted)">(${perf(best.id).carry} yd carry, ${bestDiff<1?'spot on':Math.round(bestDiff)+' yd '+(perf(best.id).carry>carry?'long':'short')}${minCarry>0?' · clears the '+minCarry+' yd carry':''})</span></div>`
+        : (minCarry>0&&!anyClear ? `<div style="margin-top:6px;font-family:Arial,sans-serif;font-size:.82rem;color:var(--gold)">No club carries ${minCarry} yd — the forced carry isn't reachable.</div>` : '')}
+      ${cross?`<div style="margin-top:6px;font-family:Arial,sans-serif;font-size:.82rem;color:var(--ink2)">Crosswind: aim <b style="color:var(--ink)">${Math.round(cross.yd)} yd ${cross.dir}</b> of target</div>`:''}
+      <div style="margin-top:8px;font-family:ui-monospace,monospace;font-size:.5rem;color:var(--muted);line-height:1.5">Rough estimates — refine each term from your own data.</div>
+    </div>`;
 }
 
 /* ---- handlers ---- */
