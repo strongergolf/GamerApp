@@ -551,6 +551,12 @@ table.chip-matrix tr:hover td{background:var(--surface2)}
 .putt-stat{text-align:center}
 .putt-stat-val{font-family:Arial,sans-serif;font-size:1.5rem;font-weight:800;color:var(--gold2);line-height:1}
 .putt-stat-lbl{font-family:ui-monospace,monospace;font-size:.59rem;text-transform:uppercase;letter-spacing:.07em;color:#7aa899;margin-top:3px}
+.putt-speed{margin-top:11px;padding-top:9px;border-top:1px solid rgba(255,255,255,0.1)}
+.putt-speed-row{font-family:Arial,sans-serif;font-size:.78rem;line-height:1.5;color:#e8ede9}
+.putt-speed-row+.putt-speed-row{margin-top:3px}
+.putt-speed-row b{color:#f4f0e8;font-weight:800}
+.putt-speed-row .psr-k{font-family:ui-monospace,monospace;font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;color:var(--gold2);font-weight:700;margin-right:4px}
+.putt-speed-row .psr-sub{color:#7aa899;font-size:.7rem}
 .putt-conditions{font-family:ui-monospace,monospace;font-size:.84rem;letter-spacing:.06em;color:#7aa899;text-align:center;margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.1)}
 .putt-field{margin-bottom:12px}
 .putt-field label{display:block;font-family:ui-monospace,monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:4px}

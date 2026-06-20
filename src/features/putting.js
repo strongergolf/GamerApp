@@ -111,6 +111,21 @@ function onPuttGradeInput(v){
   renderPutt();
 }
 
+/* ---- Putting outcome model (typical good-player / +3, Presumed — refine from data) ---- */
+/* Make % by putt distance (feet). */
+const PUTT_MAKE_ANCHORS=[[1,99],[2,96],[3,90],[4,82],[5,74],[6,66],[8,52],[10,42],[15,28],[20,20],[25,15],[30,11],[40,7],[50,5],[60,4]];
+function puttMakePct(d){
+  d=Math.max(1,d); const A=PUTT_MAKE_ANCHORS;
+  if(d>=A[A.length-1][0]) return A[A.length-1][1];
+  for(let i=0;i<A.length-1;i++){ if(d>=A[i][0]&&d<=A[i+1][0]){ const t=(d-A[i][0])/(A[i+1][0]-A[i][0]); return Math.round(A[i][1]+t*(A[i+1][1]-A[i][1])); } }
+  return A[0][1];
+}
+/* Typical lag leave (feet from the hole) by putt distance. */
+function puttLeave(d){ return Math.round((0.3 + d*0.06)*10)/10; }
+/* How far a slide-by runs past, from the chosen pace (inches past → feet of comeback). */
+function puttComeback(paceIn){ return Math.round((paceIn/12)*10)/10; }
+const PUTT_PACE_STD=12;   /* ~1 ft past = the assumed standard pace */
+
 function renderPutt(){
   const dist=parseInt(document.getElementById('putt-dist')?.value||15);
   const grade=parseFloat(document.getElementById('putt-grade')?.value||2);
@@ -137,6 +152,13 @@ function renderPutt(){
     aimNote=`${dirWord} · aim <strong>${edgeOffsetIn.toFixed(1)}"</strong> outside the <strong>${edgeLabel}</strong> edge`;
   }
   const slopeWord=fmtSlopeElev(elevIn).toLowerCase();
+  /* Speed & lag (Presumed model) — 12" past is the assumed standard; firmer just straightens
+     the putt and lengthens the comeback, it doesn't meaningfully raise make %. */
+  const comebackFt=puttComeback(pace);
+  const leaveFt=puttLeave(dist);
+  const twoPutt=puttMakePct(leaveFt);
+  const isLag=dist>=18;
+  const paceNote = pace===PUTT_PACE_STD ? 'standard ~1 ft past' : pace<PUTT_PACE_STD ? 'dying it in — more break, shorter comeback' : 'firmer — less break, longer comeback';
   res.innerHTML=`
     <div class="putt-result-card">
       <h4>Required Break</h4>
@@ -145,6 +167,10 @@ function renderPutt(){
         <div class="putt-stat"><div class="putt-stat-val">${edgeOffsetIn.toFixed(1)}"</div><div class="putt-stat-lbl">Outside edge</div></div>
         <div class="putt-stat"><div class="putt-stat-val">${cupW.toFixed(2)}×</div><div class="putt-stat-lbl">Cup widths</div></div>
         <div class="putt-stat"><div class="putt-stat-val">${breakIn.toFixed(1)}"</div><div class="putt-stat-lbl">Break to centre</div></div>
+      </div>
+      <div class="putt-speed">
+        <div class="putt-speed-row"><span class="psr-k">Pace</span> <b>${pace}"</b> past <span class="psr-sub">· ${paceNote} · a slide-by leaves ≈ ${comebackFt} ft back</span></div>
+        ${isLag?`<div class="putt-speed-row"><span class="psr-k">Lag</span> from ${dist} ft you'll typically finish ≈ <b>${leaveFt} ft</b> away → ~<b>${twoPutt}%</b> two-putt</div>`:''}
       </div>
       <div class="putt-conditions">${dist} ft · grade ${grade} · stimp ${stimp.toFixed(1)} · ${slopeWord} · pace ${pace}"</div>
     </div>`;
@@ -203,6 +229,11 @@ function buildPuttSVG(distFt,breakIn,dir,slope,pace){
   const aimPx=Math.min(78, breakIn*(9.5/2.125));
   const sign=dir==='lr'?-1:1;
   const aimX=cx+sign*aimPx;
+  /* #4 lag finish "leave" halo around the cup (long putts) + #5 explicit aim target */
+  const isLag=distFt>=18, leaveFt=(typeof puttLeave==='function')?puttLeave(distFt):Math.round((0.3+distFt*0.06)*10)/10;
+  const fzRx=Math.min(52,10+leaveFt*9), fzRy=Math.min(26,6+leaveFt*5);
+  const finishZone = isLag ? `<ellipse cx="${cx}" cy="${holeY}" rx="${fzRx.toFixed(1)}" ry="${fzRy.toFixed(1)}" fill="rgba(120,210,150,0.12)" stroke="rgba(150,230,175,0.5)" stroke-width="1" stroke-dasharray="3,3"/><text x="${cx}" y="${(holeY+fzRy+10).toFixed(1)}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="rgba(185,235,200,0.92)">leave ≈ ${leaveFt} ft</text>` : '';
+  const aimMark = aimPx>2 ? `<circle cx="${aimX.toFixed(1)}" cy="${holeY}" r="5.5" fill="none" stroke="#f4d47a" stroke-width="2"/><text x="${aimX.toFixed(1)}" y="${(holeY-9).toFixed(1)}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" font-weight="700" fill="#f4d47a">aim</text>` : '';
 
   /* Central path bezier */
   const dxAim=aimX-cx, dyAim=holeY-ballY;
@@ -258,6 +289,7 @@ function buildPuttSVG(distFt,breakIn,dir,slope,pace){
     <rect width="${W}" height="${H}" fill="url(#gg${dir})"/>
     <rect width="${W}" height="${H}" fill="url(#sg${dir})"/>
     ${Array.from({length:10},(_,i)=>`<line x1="0" y1="${35+i*32}" x2="${W}" y2="${35+i*32}" stroke="#fff" stroke-width="0.5" opacity="0.04"/>`).join('')}
+    ${finishZone}
     <!-- cone of valid speed/line combos (shaded band) -->
     <path d="${slowPath}" fill="none" stroke="rgba(244,212,122,0.28)" stroke-width="6" stroke-linecap="round"/>
     <path d="${fastPath}" fill="none" stroke="rgba(244,212,122,0.28)" stroke-width="6" stroke-linecap="round"/>
@@ -275,6 +307,7 @@ function buildPuttSVG(distFt,breakIn,dir,slope,pace){
     <!-- flagstick + flag -->
     <line x1="${cx}" y1="${holeY}" x2="${cx}" y2="${holeY-30}" stroke="#d0c090" stroke-width="1.3"/>
     <polygon points="${cx},${holeY-30} ${cx+11},${holeY-25} ${cx},${holeY-20}" fill="var(--gold2)" opacity="0.92"/>
+    ${aimMark}
     <!-- ball -->
     <circle cx="${cx}" cy="${ballY}" r="8.5" fill="#f5f1e8" stroke="#666" stroke-width="1"/>
     <circle cx="${cx-2.5}" cy="${ballY-2.5}" r="2.5" fill="rgba(255,255,255,0.65)"/>
@@ -286,4 +319,4 @@ function buildPuttSVG(distFt,breakIn,dir,slope,pace){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { buildPuttSVG, buildPutting, renderPutt, renderPuttSG, fmtSlopeElev, slopeCategoryFromElev, PUTT_BREAKS, puttBreakId, onPuttBreakSlider, onPuttGradeInput });
+Object.assign(window, { buildPuttSVG, buildPutting, renderPutt, renderPuttSG, fmtSlopeElev, slopeCategoryFromElev, PUTT_BREAKS, puttBreakId, onPuttBreakSlider, onPuttGradeInput, puttMakePct, puttLeave, puttComeback });
