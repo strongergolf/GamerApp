@@ -250,6 +250,15 @@ function buildChipSVG(carryYd, rollYd, loftDeg){
   const carryLabel=`<text x="${landX.toFixed(1)}" y="${Math.max(7,peakY-4)}" text-anchor="middle" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="7" fill="var(--c-wedge)">${carryYd.toFixed(1)}yd carry</text>`;
   const rollLabel=rollPx>22?`<text x="${(landX+rollPx/2).toFixed(1)}" y="${groundY+14}" text-anchor="middle" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="7" fill="var(--green)">${rollYd.toFixed(1)}yd roll</text>`:'';
 
+  /* Flag standing on the final resting point — pole + flag scale with the overall shot
+     distance (a longer chip/pitch plants a bigger flag). Points left to stay in frame. */
+  const fScale=Math.max(0.7, Math.min(1.7, 0.6 + total*0.02));
+  const poleH=20*fScale, ffw=11*fScale, ffh=7.5*fScale, flagTopY=groundY-poleH;
+  const flagRed=(typeof SG_RED!=='undefined')?SG_RED:'#e0202a';
+  const flagSVG=`
+    <line x1="${stopX.toFixed(1)}" y1="${groundY}" x2="${stopX.toFixed(1)}" y2="${flagTopY.toFixed(1)}" stroke="#c9c9c9" stroke-width="${(1.4*fScale).toFixed(2)}" stroke-linecap="round"/>
+    <polygon points="${stopX.toFixed(1)},${flagTopY.toFixed(1)} ${(stopX-ffw).toFixed(1)},${(flagTopY+ffh*0.5).toFixed(1)} ${stopX.toFixed(1)},${(flagTopY+ffh).toFixed(1)}" fill="${flagRed}"/>`;
+
   return `<svg viewBox="0 0 ${W} ${H+10}" style="width:100%;display:block" xmlns="http://www.w3.org/2000/svg">
     <line x1="${PAD-3}" y1="${groundY}" x2="${W-PAD+3}" y2="${groundY}" stroke="var(--border2)" stroke-width="1"/>
     ${greenSurface}
@@ -259,7 +268,8 @@ function buildChipSVG(carryYd, rollYd, loftDeg){
     ${rollLineSVG}
     <circle cx="${ballX}" cy="${groundY}" r="3.2" fill="var(--ink)"/>
     <circle cx="${landX.toFixed(1)}" cy="${groundY}" r="2.5" fill="var(--c-wedge)" opacity="0.85"/>
-    ${(stopX-landX)>6?`<circle cx="${stopX.toFixed(1)}" cy="${groundY}" r="2.5" fill="var(--green2)" opacity="0.92"/>`:''}
+    <circle cx="${stopX.toFixed(1)}" cy="${groundY}" r="3.4" fill="var(--green2)" opacity="0.95"/>
+    ${flagSVG}
     ${carryLabel}
     ${rollLabel}
   </svg>`;
