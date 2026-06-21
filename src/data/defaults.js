@@ -18,6 +18,7 @@ const DEFAULT_DATA = {
     roughLength:'', greenGrass:'', fairwayGrass:'', roughGrass:'', bunkerSand:'' },
   baseline: { tempF:70, altitudeFt:0, humidity:50, pressureInHg:29.92 },   /* today's playing conditions (Environmental Adjustment); standard ref = STD_COND */
   densityK: 0.65,
+  lmSessions: [],   /* saved launch-monitor driver sessions (Driver Optimizer) */
   stimp: 9.5,
   /* Short Game Variables (Short Game tab) — selected option id per variable.
      Keys/options defined in physics/shortgame-vars.js; defaults net to zero change. */

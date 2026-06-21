@@ -433,6 +433,24 @@ input[type=range].yard-slider::-moz-range-thumb{width:20px;height:20px;border-ra
 .drv-zone-delta{font-family:ui-monospace,monospace;font-size:.62rem;margin-top:2px}
 .drv-traj-wrap{padding:8px 14px 10px;border-top:1px solid var(--border);background:var(--surface2)}
 .drv-traj-label{font-family:ui-monospace,monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin-bottom:4px}
+/* Launch-monitor sessions inside the Driver Optimizer */
+.drv-lm-wrap{border-top:1px solid var(--border);padding:11px 14px 13px;background:var(--bg2)}
+.lm-head{font-family:ui-monospace,monospace;font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:700;margin-bottom:8px}
+.lm-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(84px,1fr));gap:7px 8px}
+.lm-fld{display:flex;flex-direction:column;gap:2px;min-width:0}
+.lm-fld.lm-wide{grid-column:1/-1}
+.lm-fld span{font-family:ui-monospace,monospace;font-size:.52rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.lm-fld input,.lm-fld select{padding:5px 6px;font-family:Arial,sans-serif;font-size:.82rem;font-weight:600;background:var(--surface);border:1px solid var(--border2);border-radius:6px;color:var(--ink);outline:none;width:100%}
+.lm-actions{display:flex;gap:8px;align-items:center;margin-top:9px;flex-wrap:wrap}
+.lm-import{cursor:pointer;font-size:.74rem;display:inline-flex;align-items:center}
+.lm-list{margin-top:10px;display:flex;flex-direction:column;gap:5px}
+.lm-empty{font-family:Arial,sans-serif;font-size:.74rem;color:var(--muted);font-style:italic}
+.lm-row{display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:6px 9px}
+.lm-row-nums{font-family:ui-monospace,monospace;font-size:.72rem;color:var(--ink);min-width:0}
+.lm-row-nums b{font-family:Arial,sans-serif;font-weight:800}
+.lm-row-sub{display:block;font-size:.56rem;color:var(--muted);margin-top:1px}
+.lm-row-btns{display:flex;gap:5px;flex-shrink:0}
+.btn.lm-mini{padding:3px 8px;font-size:.66rem}
 /* ADD CLUB */
 .add-club-wrap{background:var(--surface);border:1px solid var(--border2);border-radius:10px;overflow:hidden;margin-bottom:20px}
 .add-club-body{padding:16px 18px}

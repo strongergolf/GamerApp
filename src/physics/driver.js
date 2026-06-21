@@ -105,6 +105,7 @@ function buildDriverOptimizerHTML(){
       </div>
       <div class="drv-opt-zones" id="drv-opt-zones"></div>
       <div class="drv-traj-wrap"><div class="drv-traj-label">Trajectory</div><div id="drv-traj-svg"></div></div>
+      <div id="drv-lm-wrap" class="drv-lm-wrap">${typeof lmSectionHTML==='function'?lmSectionHTML():''}</div>
     </div></div>`;
 }
 function updateDriverOpt(){
@@ -216,4 +217,89 @@ function buildDriverTrajSVG(bspd, launch, spin, carry, opt){
 }
 
 
-Object.assign(window, { FS_TABLE, buildDriverOptimizerHTML, buildDriverTrajSVG, driverCarryModel, driverOptimalZones, fsInterp, updateDriverOpt });
+/* ============================================================
+   LAUNCH-MONITOR DRIVER SESSIONS — manual entry, dated saved sessions, CSV/JSON import.
+   Lives inside the Driver Optimizer (Stock Shots → Driver dropdown). Persists on STATE.lmSessions.
+   ============================================================ */
+const LM_BRANDS=['','Trackman 4','Trackman iO','Foresight GCQuad','Foresight GC3','Foresight GCHawk','FlightScope Mevo+','FlightScope X3','Full Swing Kit','SkyTrak+','Bushnell Launch Pro','Garmin Approach R10','Ernest Sports ES Tour','Other'];
+function lmSessions(){ if(!Array.isArray(STATE.lmSessions)) STATE.lmSessions=[]; return STATE.lmSessions; }
+function lmSectionHTML(){
+  const ss=lmSessions(), today=new Date().toISOString().slice(0,10);
+  const fld=(id,label,attrs)=>`<label class="lm-fld"><span>${label}</span><input id="lm-${id}" ${attrs}></label>`;
+  const brandOpts=LM_BRANDS.map(b=>`<option value="${b}">${b||'Monitor'}</option>`).join('');
+  const rows = ss.length
+    ? ss.map((s,i)=>({s,i})).reverse().slice(0,8).map(({s,i})=>`<div class="lm-row">
+        <div class="lm-row-nums"><b>${s.ballSpeed||'—'}</b> mph · ${s.launch||'—'}° · ${s.spin?(+s.spin).toLocaleString():'—'} rpm
+          <span class="lm-row-sub">${[s.date,s.brand,s.smash?'smash '+s.smash:''].filter(Boolean).join(' · ')}</span></div>
+        <div class="lm-row-btns"><button class="btn lm-mini" onclick="lmLoadSession(${i})">Load</button><button class="btn lm-mini" onclick="lmDeleteSession(${i})">✕</button></div>
+      </div>`).join('')
+    : `<div class="lm-empty">No sessions yet — enter your driver numbers or import a launch-monitor export (CSV / JSON).</div>`;
+  return `<div class="lm-head">Launch Monitor — Driver Sessions</div>
+    <div class="lm-grid">
+      <label class="lm-fld"><span>Date</span><input id="lm-date" type="date" value="${today}"></label>
+      <label class="lm-fld"><span>Monitor</span><select id="lm-brand">${brandOpts}</select></label>
+      ${fld('bspd','Ball Speed','type="number" placeholder="mph"')}
+      ${fld('launch','Launch','type="number" step="0.1" placeholder="°"')}
+      ${fld('spin','Spin','type="number" placeholder="rpm"')}
+      ${fld('aoa','Attack','type="number" step="0.1" placeholder="°"')}
+      ${fld('path','Path','type="number" step="0.1" placeholder="°"')}
+      ${fld('face','Face','type="number" step="0.1" placeholder="°"')}
+      ${fld('smash','Smash','type="number" step="0.01" placeholder="1.48"')}
+      <label class="lm-fld lm-wide"><span>Notes</span><input id="lm-notes" placeholder="fitter · conditions · goals"></label>
+    </div>
+    <div class="lm-actions">
+      <button class="btn btn-accent" onclick="lmSaveSession()">Save session</button>
+      <label class="btn lm-import">Import CSV / JSON<input type="file" accept=".csv,.tsv,.txt,.json" style="display:none" onchange="lmImportFile(this)"></label>
+    </div>
+    <div class="lm-list">${rows}</div>`;
+}
+function lmRenderSection(){ const w=document.getElementById('drv-lm-wrap'); if(w) w.innerHTML=lmSectionHTML(); }
+function lmSaveSession(){
+  const g=id=>{ const el=document.getElementById('lm-'+id); return el?String(el.value).trim():''; };
+  const s={ date:g('date'), brand:g('brand'), ballSpeed:g('bspd'), launch:g('launch'), spin:g('spin'), aoa:g('aoa'), path:g('path'), face:g('face'), smash:g('smash'), notes:g('notes') };
+  if(!s.ballSpeed && !s.launch && !s.spin){ if(typeof toast==='function') toast('Enter at least ball speed, launch or spin'); return; }
+  lmSessions().push(s); saveState(); lmRenderSection();
+  if(typeof toast==='function') toast('Session saved');
+}
+function lmLoadSession(i){
+  const s=lmSessions()[i]; if(!s) return;
+  const set=(id,v,mn,mx)=>{ const el=document.getElementById(id); const n=parseFloat(v); if(el&&!isNaN(n)) el.value=Math.max(mn,Math.min(mx,n)); };
+  set('drv-bspd',s.ballSpeed,100,200); set('drv-launch',s.launch,6,20); set('drv-spin',s.spin,1500,4500);
+  if(typeof updateDriverOpt==='function') updateDriverOpt();
+  if(typeof toast==='function') toast('Loaded into optimizer');
+}
+function lmDeleteSession(i){ const ss=lmSessions(); if(i>=0&&i<ss.length){ ss.splice(i,1); saveState(); lmRenderSection(); } }
+function lmImportFile(input){
+  const file=input.files&&input.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=()=>{ try{ lmParseImport(String(reader.result||''), file.name); }catch(e){ if(typeof toast==='function') toast('Could not parse that file'); } input.value=''; };
+  reader.readAsText(file);
+}
+function lmMapFields(o){
+  const keys={}; Object.keys(o||{}).forEach(k=>{ keys[String(k).toLowerCase().replace(/[^a-z]/g,'')]=o[k]; });
+  const pick=(...names)=>{ for(const n of names){ const v=keys[n]; if(v!=null&&String(v).trim()!=='') return String(v).trim(); } return ''; };
+  const rec={ bspd:pick('ballspeed','ballspeedmph','clubballspeed','ballspd'),
+    launch:pick('launchangle','launch','verticallaunch','launchv','vla'),
+    spin:pick('spinrate','backspin','totalspin','spin'),
+    aoa:pick('attackangle','angleofattack','aoa','attack'),
+    path:pick('clubpath','path'),
+    face:pick('faceangle','face'),
+    smash:pick('smashfactor','smash') };
+  return (rec.bspd||rec.launch||rec.spin)?rec:null;
+}
+function lmParseImport(text,name){
+  let rec=null;
+  if(/\.json$/i.test(name)||/^\s*[\[{]/.test(text)){ const j=JSON.parse(text); rec=lmMapFields(Array.isArray(j)?(j[0]||{}):j); }
+  else {
+    const lines=text.split(/\r?\n/).filter(l=>l.trim()); if(lines.length<2){ if(typeof toast==='function') toast('No data rows found'); return; }
+    const delim=lines[0].indexOf('\t')>=0?'\t':',';
+    const head=lines[0].split(delim).map(h=>h.trim()), row=lines[1].split(delim), obj={};
+    head.forEach((h,i)=>obj[h]=row[i]); rec=lmMapFields(obj);
+  }
+  if(!rec){ if(typeof toast==='function') toast('No recognised launch-monitor columns'); return; }
+  ['bspd','launch','spin','aoa','path','face','smash'].forEach(k=>{ const el=document.getElementById('lm-'+k); if(el&&rec[k]) el.value=rec[k]; });
+  if(typeof toast==='function') toast('Imported — review, then Save session');
+}
+
+Object.assign(window, { FS_TABLE, LM_BRANDS, buildDriverOptimizerHTML, buildDriverTrajSVG, driverCarryModel, driverOptimalZones, fsInterp, updateDriverOpt,
+  lmSessions, lmSectionHTML, lmRenderSection, lmSaveSession, lmLoadSession, lmDeleteSession, lmImportFile, lmMapFields, lmParseImport });

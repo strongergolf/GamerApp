@@ -216,21 +216,7 @@ function buildProfile(){
   /* Handicap trend — inside same card (null-checked like lm-grid) */
   const ht=document.getElementById('hcp-trend-wrap');
   if(ht) ht.innerHTML=hcpTrendHtml();
-  /* Launch Monitor Profile */
-  const lg=document.getElementById('lm-grid');
-  if(lg) lg.innerHTML=`
-    <div class="edit-field"><label>Launch Monitor</label>${sel('pf-lmbrand',[
-      '','Trackman 4','Trackman iO','Foresight GCQuad','Foresight GC3','Foresight GCHawk',
-      'FlightScope Mevo+','FlightScope X3','Full Swing Kit','SkyTrak+','Bushnell Launch Pro',
-      'Garmin Approach R10','Ernest Sports ES Tour','Other'
-    ],pf.lmBrand||'')}</div>
-    <div class="edit-field"><label>Last Session Date</label><input id="pf-lmdate" type="date" value="${escapeHtml(pf.lmSessionDate||'')}"></div>
-    <div class="edit-subhead">Typical Driver Numbers</div>
-    <div class="edit-field"><label>Attack Angle (°)</label><input id="pf-lmaoa" type="number" step="0.1" value="${escapeHtml(pf.lmDriverAoA||'')}" placeholder="+ = up, − = down"></div>
-    <div class="edit-field"><label>Club Path (°)</label><input id="pf-lmpath" type="number" step="0.1" value="${escapeHtml(pf.lmDriverPath||'')}" placeholder="+ = in-to-out, − = out-to-in"></div>
-    <div class="edit-field"><label>Face Angle (°)</label><input id="pf-lmface" type="number" step="0.1" value="${escapeHtml(pf.lmDriverFace||'')}" placeholder="+ = open, − = closed"></div>
-    <div class="edit-field"><label>Smash Factor</label><input id="pf-lmsmash" type="number" step="0.01" value="${escapeHtml(pf.lmSmash||'')}" placeholder="e.g. 1.48"></div>
-    <div class="edit-field" style="grid-column:1/-1"><label>Notes</label><input id="pf-lmnotes" value="${escapeHtml(pf.lmNotes||'')}" placeholder="fitter, date, key observations, session goals…"></div>`;
+  /* Launch-monitor data now lives in the Driver Optimizer (Stock Shots → Driver) as dated sessions. */
   /* Home Course & Conditions — home setup + course surfaces (live weather + density K now
      live in the Environmental Adjustment on Stock Shots / Approach). */
   const _bg=document.getElementById('baseline-grid');
@@ -304,14 +290,6 @@ function saveProfile(){
   pf.ballSpin=document.getElementById('ball-spin')?.value||'';
   pf.ballTrajectory=document.getElementById('ball-trajectory')?.value||'';
   /* live weather + density K now live in the Environmental Adjustment (Stock Shots / Approach) */
-  /* launch monitor profile */
-  pf.lmBrand=document.getElementById('pf-lmbrand')?.value??pf.lmBrand;
-  pf.lmSessionDate=document.getElementById('pf-lmdate')?.value||pf.lmSessionDate;
-  pf.lmDriverAoA=document.getElementById('pf-lmaoa')?.value||pf.lmDriverAoA;
-  pf.lmDriverPath=document.getElementById('pf-lmpath')?.value||pf.lmDriverPath;
-  pf.lmDriverFace=document.getElementById('pf-lmface')?.value||pf.lmDriverFace;
-  pf.lmSmash=document.getElementById('pf-lmsmash')?.value||pf.lmSmash;
-  pf.lmNotes=document.getElementById('pf-lmnotes')?.value||pf.lmNotes;
   /* course conditions */
   pf.roughLength=document.getElementById('pf-roughlength')?.value??pf.roughLength;
   pf.greenGrass=document.getElementById('pf-greengrass')?.value??pf.greenGrass;
