@@ -250,9 +250,10 @@ function buildChipSVG(carryYd, rollYd, loftDeg){
   const carryLabel=`<text x="${landX.toFixed(1)}" y="${Math.max(7,peakY-4)}" text-anchor="middle" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="7" fill="var(--c-wedge)">${carryYd.toFixed(1)}yd carry</text>`;
   const rollLabel=rollPx>22?`<text x="${(landX+rollPx/2).toFixed(1)}" y="${groundY+14}" text-anchor="middle" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="7" fill="var(--green)">${rollYd.toFixed(1)}yd roll</text>`:'';
 
-  /* Flag standing on the final resting point — pole + flag scale with the overall shot
-     distance (a longer chip/pitch plants a bigger flag). Points left to stay in frame. */
-  const fScale=Math.max(0.7, Math.min(1.7, 0.6 + total*0.02));
+  /* Flag standing on the final resting point — pole + flag scale INVERSELY with the overall
+     shot distance: a short chip is a close-up so the flag looks big, a long pitch is zoomed
+     out so it looks smaller. Points left to stay in frame. */
+  const fScale=Math.max(0.7, Math.min(1.7, 1.8 - total*0.02));
   const poleH=20*fScale, ffw=11*fScale, ffh=7.5*fScale, flagTopY=groundY-poleH;
   const flagRed=(typeof SG_RED!=='undefined')?SG_RED:'#e0202a';
   const flagSVG=`
