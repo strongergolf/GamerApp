@@ -121,7 +121,13 @@ function toggleSpecs(c,row,group){
       <div class="btn-row"><button class="btn btn-primary" onclick="saveClub('${c.id}')">Save ${c.label}</button></div>
     </div>`;
   const effLoft=parseFloat(c.loft);
-  const loftTol = c.type==='putter' ? 1 : 2;   /* putters: ±1°, others: ±2° */
+  /* Replacement tolerance widens at the lofted end of the bag:
+     putters ±1° · P/G/S wedges ±3° · X/L (lob) wedges ±6° so cross-type swaps like a
+     65° X ↔ 61° L are allowed · everything else ±2°. */
+  const loftTol = c.type==='putter' ? 1
+    : effLoft>=57 ? 6
+    : (c.type==='wedge'||effLoft>=44) ? 3
+    : 2;
   const matches=STATE.otherClubs
     .filter(o=>{
       if(c.type==='putter') return o.type==='putter' && Math.abs(o.effLoft-effLoft)<=loftTol;
