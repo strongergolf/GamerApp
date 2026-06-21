@@ -94,6 +94,60 @@ function buildSpecs(){
     }
   });
 }
+/* Replacement-options matching for a club (tolerance widens at the lofted end of the bag).
+   Returns the loft-sorted candidate clubs from other bags within tolerance. */
+function repMatches(c){
+  const effLoft=parseFloat(c.loft);
+  const loftTol = c.type==='putter' ? 1
+    : effLoft>=57 ? 6
+    : (c.type==='wedge'||effLoft>=44) ? 3
+    : 2;
+  const matches=STATE.otherClubs
+    .filter(o=>{
+      if(c.type==='putter') return o.type==='putter' && Math.abs(o.effLoft-effLoft)<=loftTol;
+      return (!o.type||o.type!=='putter') && Math.abs(o.effLoft-effLoft)<=loftTol;
+    })
+    .sort((a,b)=>Math.abs(a.effLoft-effLoft)-Math.abs(b.effLoft-effLoft));
+  return { effLoft, loftTol, matches };
+}
+/* Estimate full-swing performance for a target loft by interpolating the rest of the bag
+   (loft → carry/launch/spin/land/…). Used when a replacement club has no measured data of its
+   own; the result is flagged Presumed so it reads as estimated in the Play tabs. */
+function estimatePerfForLoft(targetLoft, excludeId){
+  const pts=STATE.clubs.filter(c=>c.id!==excludeId && c.type!=='putter')
+    .map(c=>({loft:parseFloat(c.loft)||0, p:perf(c.id)}))
+    .filter(x=>x.loft>0 && x.p.carry>0)
+    .sort((a,b)=>a.loft-b.loft);
+  if(!pts.length) return null;
+  const L=targetLoft;
+  const interp=key=>{
+    const arr=pts.filter(x=>x.p[key]!=null && x.p[key]!=='');
+    if(!arr.length) return null;
+    let a,b;
+    if(L<=arr[0].loft){ a=arr[0]; b=arr[1]||arr[0]; }
+    else if(L>=arr[arr.length-1].loft){ a=arr[arr.length-2]||arr[arr.length-1]; b=arr[arr.length-1]; }
+    else { for(let i=0;i<arr.length-1;i++){ if(L>=arr[i].loft&&L<=arr[i+1].loft){ a=arr[i]; b=arr[i+1]; break; } } }
+    if(!a||!b) return +arr[0].p[key];
+    if(a.loft===b.loft) return +a.p[key];
+    return +a.p[key] + (L-a.loft)/(b.loft-a.loft)*(+b.p[key]-+a.p[key]);
+  };
+  const est={};
+  ['carry','total','bspd','cspd','launch','spin','ht','land'].forEach(k=>{ const v=interp(k); if(v!=null&&isFinite(v)) est[k]=(k==='launch'||k==='land')?Math.round(v*10)/10:Math.round(v); });
+  return Object.keys(est).length?est:null;
+}
+/* Swap the chosen replacement club into this bag slot and estimate its stats (flagged Presumed). */
+function selectReplacement(clubId,oIdx){
+  const c=STATE.clubs.find(x=>x.id===clubId); if(!c) return;
+  const o=repMatches(c).matches[oIdx]; if(!o) return;
+  c.label=o.label||c.label; c.make=o.make; c.model=o.model; c.shaft=o.shaft;
+  if(o.length) c.length=o.length;
+  if(o.effLoft!=null){ c.loft=o.effLoft+'°'; c.origLoft=o.effLoft+'°'; }
+  if(o.lie) c.lie=o.lie; if(o.year) c.year=o.year; if(o.swt) c.swt=o.swt; if(o.type) c.type=o.type;
+  if(o.grip) c.grip=o.grip; if(o.weightOz) c.weightOz=o.weightOz;
+  if(c.type!=='putter'){ const est=estimatePerfForLoft(o.effLoft, clubId); if(est) STATE.performance[clubId]=Object.assign({},est,{prov:'presumed'}); }
+  saveState(); refreshAll();
+  if(typeof toast==='function') toast(`${o.make} ${o.model} (${o.effLoft}°) swapped in — stats estimated`);
+}
 function toggleSpecs(c,row,group){
   const open=group.classList.contains('open');
   document.querySelectorAll('.specs-club-row').forEach(r=>r.classList.remove('selected'));
@@ -120,27 +174,14 @@ function toggleSpecs(c,row,group){
       </div>
       <div class="btn-row"><button class="btn btn-primary" onclick="saveClub('${c.id}')">Save ${c.label}</button></div>
     </div>`;
-  const effLoft=parseFloat(c.loft);
-  /* Replacement tolerance widens at the lofted end of the bag:
-     putters ±1° · P/G/S wedges ±3° · X/L (lob) wedges ±6° so cross-type swaps like a
-     65° X ↔ 61° L are allowed · everything else ±2°. */
-  const loftTol = c.type==='putter' ? 1
-    : effLoft>=57 ? 6
-    : (c.type==='wedge'||effLoft>=44) ? 3
-    : 2;
-  const matches=STATE.otherClubs
-    .filter(o=>{
-      if(c.type==='putter') return o.type==='putter' && Math.abs(o.effLoft-effLoft)<=loftTol;
-      return (!o.type||o.type!=='putter') && Math.abs(o.effLoft-effLoft)<=loftTol;
-    })
-    .sort((a,b)=>Math.abs(a.effLoft-effLoft)-Math.abs(b.effLoft-effLoft));
-  const repLabel=`<div class="specs-rep-label">Replacement Options — ±${loftTol}° Effective Loft${c.type==='putter'?' · putters only':''}</div>`;
-  const repHtml=!matches.length?`<div class="specs-no-rep">No matching clubs found in your other bags.</div>`:matches.map(o=>{
+  const {effLoft,loftTol,matches}=repMatches(c);
+  const repLabel=`<div class="specs-rep-label">Replacement Options — ±${loftTol}° Effective Loft${c.type==='putter'?' · putters only':''} · tap to swap in</div>`;
+  const repHtml=!matches.length?`<div class="specs-no-rep">No matching clubs found in your other bags.</div>`:matches.map((o,i)=>{
     const d=o.effLoft-effLoft, ds=d===0?'=':d>0?`+${d}°`:`${d}°`, dc=d===0?'exact':Math.abs(d)<=1?'close':'off';
     const extraDetail = c.type==='putter'
       ? `<div class="spec-val" style="font-size:.58rem;color:var(--muted)">${o.grip||''} · ${o.weightOz||''}oz · ${o.swt||''}</div>`
       : `<div class="rep-inline-bag">${o.bag.replace(' Bag','').replace(' Staff','')}</div>`;
-    return `<div class="specs-rep-row">
+    return `<div class="specs-rep-row" onclick="selectReplacement('${c.id}',${i})" style="cursor:pointer" title="Swap this club into your bag — stats estimated">
       <span class="spec-club ${c.type}" style="font-size:1rem">${o.label}</span>
       <div class="spec-model">${o.make} ${o.model}<small>${o.year} · ${o.shaft} · ${o.length||''}</small></div>
       <div class="spec-val">${o.length||''}</div>
@@ -174,6 +215,7 @@ function saveClub(id){
     if(kind==='spec'){ club[key]= key==='year'?(parseInt(v)||club[key]):v; }
     else{ p[key]= v===''? null : (isNaN(parseFloat(v))?v:parseFloat(v)); }
   });
+  p.prov='input';   /* user entered/confirmed these numbers → clears any Presumed (estimated) flag */
   syncPartialsForClub(id);
   saveState(); refreshAll();                              // propagate everywhere (no tab jump)
   toast(club.label+' updated');
@@ -378,4 +420,4 @@ function logHcpSnapshot(){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { buildProfile, buildSpecs, clearBallForm, exportData, generateFromSwingSpeed, hcpTrendHtml, importData, logHcpSnapshot, resetData, saveCalibration, saveClub, saveProfile, sel, toggleSpecs });
+Object.assign(window, { buildProfile, buildSpecs, clearBallForm, estimatePerfForLoft, exportData, generateFromSwingSpeed, hcpTrendHtml, importData, logHcpSnapshot, repMatches, resetData, saveCalibration, saveClub, saveProfile, sel, selectReplacement, toggleSpecs });

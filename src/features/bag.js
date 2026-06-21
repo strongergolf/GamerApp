@@ -126,6 +126,7 @@ function toggleDetail(c,row,group,inner){
     <div class="detail-header">
       <div class="detail-club-name ${c.type}">${c.label} — ${c.loft}</div>
       <div class="detail-club-spec" style="font-size:.88rem;color:var(--ink2)">${c.make} ${c.model}<br><span style="color:var(--ink2)">${c.shaft} · ${c.length}</span></div>
+      <div style="margin-left:auto;align-self:center" title="Data provenance for this club's stock numbers">${typeof sgProv==='function'?sgProv(p.prov||'input'):''}</div>
     </div>
     <div class="detail-stats">
       ${statCell('Carry',p.carry,'yd','hl-carry')}
