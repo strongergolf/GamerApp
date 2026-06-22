@@ -319,18 +319,23 @@ function buildTopSVG(c,p,opts){
      All live geometry is read from data-* attributes by initApproachAimDrag(). */
   const off=window.approachAimOffset||{dx:0,dy:0};
   return `<svg id="approach-aim-svg" viewBox="0 0 ${W} ${H}" style="width:100%;display:block;overflow:visible;touch-action:none"
-      data-cx="${cx}" data-cy="${cy}" data-gx="${gx}" data-gy="${gy}" data-scale="${scale.toFixed(4)}" data-disp="${ovW.toFixed(2)}" data-shape="${shape}"
+      data-cx="${cx}" data-cy="${cy}" data-gx="${gx}" data-gy="${gy}" data-scale="${scale.toFixed(4)}" data-disp="${ovW.toFixed(2)}" data-depth="${ovH.toFixed(2)}" data-shape="${shape}"
       xmlns="http://www.w3.org/2000/svg">
     <text x="${cx}" y="12" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9" font-weight="bold" fill="var(--ink2)">${carry} yd</text>
     ${bg}
     <text x="${cx}" y="21" text-anchor="middle" font-family="ui-monospace,monospace" font-size="5" fill="#00853F" opacity="0.7">${ctxLabel}</text>
-    <!-- live readout (shown within 8 yd of the edge) -->
+    <!-- live readout (shown within 8 yd of the edge): pin headline + L/R/long/short edges -->
     <g class="aim-ro" style="display:none">
-      <line class="aim-tick-l" stroke="#00853F" stroke-width="0.7" stroke-dasharray="2,1.5"/>
-      <line class="aim-tick-r" stroke="#00853F" stroke-width="0.7" stroke-dasharray="2,1.5"/>
+      <line class="aim-tick-l"     stroke="#00853F" stroke-width="0.7" stroke-dasharray="2,1.5"/>
+      <line class="aim-tick-r"     stroke="#00853F" stroke-width="0.7" stroke-dasharray="2,1.5"/>
+      <line class="aim-tick-long"  stroke="#00853F" stroke-width="0.7" stroke-dasharray="2,1.5"/>
+      <line class="aim-tick-short" stroke="#00853F" stroke-width="0.7" stroke-dasharray="2,1.5"/>
       <text class="aim-ro-left"  text-anchor="middle" font-family="ui-monospace,monospace" font-size="5" font-weight="bold"></text>
       <text class="aim-ro-right" text-anchor="middle" font-family="ui-monospace,monospace" font-size="5" font-weight="bold"></text>
-      <text class="aim-ro-target" text-anchor="middle" font-family="ui-monospace,monospace" font-size="5.5" font-weight="bold"></text>
+      <text class="aim-ro-long"  text-anchor="middle" font-family="ui-monospace,monospace" font-size="5" font-weight="bold"></text>
+      <text class="aim-ro-short" text-anchor="middle" font-family="ui-monospace,monospace" font-size="5" font-weight="bold"></text>
+      <text class="aim-ro-target" x="4" y="31" text-anchor="start" font-family="ui-monospace,monospace" font-size="5.5" font-weight="bold"
+            stroke="var(--card,#fff)" stroke-width="1.8" paint-order="stroke"></text>
     </g>
     <!-- draggable aim group -->
     <g class="aim-group" style="cursor:grab;touch-action:none" transform="translate(${off.dx.toFixed(1)},${off.dy.toFixed(1)})">
@@ -354,13 +359,18 @@ function initApproachAimDrag(){
   const roT=svg.querySelector('.aim-ro-target');
   const roL=svg.querySelector('.aim-ro-left');
   const roR=svg.querySelector('.aim-ro-right');
+  const roLo=svg.querySelector('.aim-ro-long');
+  const roSh=svg.querySelector('.aim-ro-short');
   const lTick=svg.querySelector('.aim-tick-l');
   const rTick=svg.querySelector('.aim-tick-r');
+  const loTick=svg.querySelector('.aim-tick-long');
+  const shTick=svg.querySelector('.aim-tick-short');
   const hint=svg.querySelector('.aim-hint');
   const cx=+svg.dataset.cx, cy=+svg.dataset.cy, gx=+svg.dataset.gx, gy=+svg.dataset.gy;
-  const scale=+svg.dataset.scale, dispPx=+svg.dataset.disp, shape=svg.dataset.shape;
+  const scale=+svg.dataset.scale, dispPx=+svg.dataset.disp, depthPx=+svg.dataset.depth, shape=svg.dataset.shape;
   const off=window.approachAimOffset||(window.approachAimOffset={dx:0,dy:0});
   const clampX=x=>Math.max(4,Math.min(116,x));
+  const clampY=y=>Math.max(27,Math.min(106,y));
   function clientToVB(e){
     const r=svg.getBoundingClientRect();
     return {x:(e.clientX-r.left)/r.width*120, y:(e.clientY-r.top)/r.height*112};
@@ -385,14 +395,26 @@ function initApproachAimDrag(){
       glx=cx-halfw; grx=cx+halfw;
     } else { glx=cx-gx; grx=cx+gx; }
     const rMarginYd=(grx-rightX)/scale, lMarginYd=(leftX-glx)/scale;   // + = inside the green
+    /* long / short dispersion extremes (depth half-height = distance-control spread).
+       In overhead view smaller y = longer/downrange, larger y = shorter/nearer. */
+    const longY=dotY-depthPx, shortY=dotY+depthPx;
+    let gty, gby;
+    if(shape==='green'){
+      const vx=(dotX-cx)/gx, halfh=Math.abs(vx)>=1?0:gy*Math.sqrt(1-vx*vx);
+      gty=cy-halfh; gby=cy+halfh;
+    } else { gty=null; gby=null; }   // a fairway corridor has no front/back edge in frame
+    const longMarginYd = gty!=null ? (longY-gty)/scale : null;   // + = inside the back edge
+    const shortMarginYd= gby!=null ? (gby-shortY)/scale : null;  // + = inside the front edge
     const show=edgeYd<=8;
     ro.style.display=show?'':'none';
     if(!show) return;
     const G='#00853F', R='#d96070';
     const fmt=v=> v>=0 ? v.toFixed(1)+' in' : Math.abs(v).toFixed(1)+' off';
-    roT.textContent = edgeYd>=0 ? edgeYd.toFixed(1)+' yd to edge' : Math.abs(edgeYd).toFixed(1)+' yd off';
+    const depthOn = longMarginYd!=null;
+    /* pin headline (top-left, with halo so it reads over the green) */
+    roT.textContent = (edgeYd>=0 ? edgeYd.toFixed(1)+' yd to edge' : Math.abs(edgeYd).toFixed(1)+' yd off');
     roT.setAttribute('fill', edgeYd>=0?'var(--ink)':R);
-    roT.setAttribute('x', clampX(dotX)); roT.setAttribute('y', (dotY-6).toFixed(1));
+    /* L / R edges on the dot row */
     roL.textContent='L '+fmt(lMarginYd); roL.setAttribute('fill', lMarginYd>=0?G:R);
     roL.setAttribute('x', clampX(leftX)); roL.setAttribute('y', (dotY+8).toFixed(1));
     roR.textContent='R '+fmt(rMarginYd); roR.setAttribute('fill', rMarginYd>=0?G:R);
@@ -403,6 +425,20 @@ function initApproachAimDrag(){
     rTick.setAttribute('x1',rightX.toFixed(1)); rTick.setAttribute('x2',grx.toFixed(1));
     rTick.setAttribute('y1',dotY.toFixed(1)); rTick.setAttribute('y2',dotY.toFixed(1));
     rTick.setAttribute('stroke', rMarginYd>=0?G:R);
+    /* long / short edges on the dot column (green only) */
+    [roLo,roSh,loTick,shTick].forEach(el=>el.style.display=depthOn?'':'none');
+    if(depthOn){
+      roLo.textContent='long '+fmt(longMarginYd); roLo.setAttribute('fill', longMarginYd>=0?G:R);
+      roLo.setAttribute('x', clampX(dotX)); roLo.setAttribute('y', clampY(longY-2).toFixed(1));
+      roSh.textContent='short '+fmt(shortMarginYd); roSh.setAttribute('fill', shortMarginYd>=0?G:R);
+      roSh.setAttribute('x', clampX(dotX)); roSh.setAttribute('y', clampY(shortY+5).toFixed(1));
+      loTick.setAttribute('x1',dotX.toFixed(1)); loTick.setAttribute('x2',dotX.toFixed(1));
+      loTick.setAttribute('y1',longY.toFixed(1)); loTick.setAttribute('y2',gty.toFixed(1));
+      loTick.setAttribute('stroke', longMarginYd>=0?G:R);
+      shTick.setAttribute('x1',dotX.toFixed(1)); shTick.setAttribute('x2',dotX.toFixed(1));
+      shTick.setAttribute('y1',shortY.toFixed(1)); shTick.setAttribute('y2',gby.toFixed(1));
+      shTick.setAttribute('stroke', shortMarginYd>=0?G:R);
+    }
   }
   let dragging=false;
   grp.addEventListener('pointerdown',e=>{
