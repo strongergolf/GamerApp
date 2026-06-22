@@ -144,7 +144,17 @@ function selectReplacement(clubId,oIdx){
   if(o.effLoft!=null){ c.loft=o.effLoft+'°'; c.origLoft=o.effLoft+'°'; }
   if(o.lie) c.lie=o.lie; if(o.year) c.year=o.year; if(o.swt) c.swt=o.swt; if(o.type) c.type=o.type;
   if(o.grip) c.grip=o.grip; if(o.weightOz) c.weightOz=o.weightOz;
-  if(c.type!=='putter'){ const est=estimatePerfForLoft(o.effLoft, clubId); if(est) STATE.performance[clubId]=Object.assign({},est,{prov:'presumed'}); }
+  if(c.type!=='putter'){
+    const est=estimatePerfForLoft(o.effLoft, clubId);
+    if(est){
+      STATE.performance[clubId]=Object.assign({},est,{prov:'presumed'});
+      /* Keep the partial-swing ladder (what Approach/Short Game read) in step with the new
+         estimate so My Bag and the Play tabs show the same numbers. Rebuild full/¾/½ from the
+         estimated total (carry≈total here, no measured rollout split for an estimated club). */
+      const base=est.total||est.carry;
+      if(base) STATE.partials[clubId]={ full:Math.round(base), tq:Math.round(base*0.92), half:Math.round(base*0.78) };
+    }
+  }
   saveState(); refreshAll();
   if(typeof toast==='function') toast(`${o.make} ${o.model} (${o.effLoft}°) swapped in — stats estimated`);
 }
