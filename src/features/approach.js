@@ -138,10 +138,14 @@ function approachRolloutYds(spin,height){
   return 7;                            // Runs out
 }
 window.approachSelectedIdx = -1;
+/* Aim offset (px, viewBox units) for the draggable overhead-dispersion view; reset when the
+   shot changes so each new club/target is re-aimed from the green centre. */
+window.approachAimOffset = {dx:0,dy:0};
 /* Green firmness offset (yards added to rollout): Very Soft=-2  Soft=-1  Average=0  Firm=+2  Very Firm=+4 */
 window.approachGreenFirmness = 0;
 function selectApproachResult(i){
   window.approachSelectedIdx=i;
+  window.approachAimOffset={dx:0,dy:0};   // re-centre the aim oval for the newly selected shot
   renderCalc(parseInt(document.getElementById('yard-slider').value));
 }
 
@@ -199,15 +203,17 @@ function renderCalc(target){
       ${selected?`<div class="flight-wrap" style="padding:13px 0 2px;margin-top:10px;background:none">
         <div class="flight-row">
           <div class="flight-col-main"><div class="flight-label">Trajectory &amp; Rollout</div><div class="flight-svg-wrap">${buildSideSVG(o.club,{carry:estCarry,total:target,launch:fl.launch,spin:fl.spin,land:Math.round((p.land||45)*(stm.landMult||1)),ht:fl.height,bspd:p.bspd||0})}</div></div>
-          <div class="flight-col-top"><div class="flight-label">Overhead — Dispersion</div><div class="flight-svg-wrap">${buildTopSVG(o.club,{carry:estCarry})}</div></div>
+          <div class="flight-col-top"><div class="flight-label">Overhead — Dispersion</div><div class="flight-svg-wrap">${buildTopSVG(o.club,{carry:estCarry},{draggable:true})}</div></div>
         </div>
       </div>`:''}
     </div>`;
   }).join('');
+  /* Wire up the draggable overhead-dispersion aim view on the selected card (no-op otherwise). */
+  if(typeof initApproachAimDrag==='function') initApproachAimDrag();
 }
 function initCalc(){
   const s=document.getElementById('yard-slider'),inp=document.getElementById('yard-input');
-  const sync=v=>{window.approachSelectedIdx=-1;const x=Math.max(37,Math.min(200,parseInt(v)||95));s.value=x;inp.value=x;renderCalc(x);renderExpectedShots('es-150',x,typeof approachLie==='function'?approachLie():'fairway');const pct=((x-37)/163)*100;s.style.background=`linear-gradient(90deg,var(--ink) ${pct}%,var(--bg2) ${pct}%)`;};
+  const sync=v=>{window.approachSelectedIdx=-1;window.approachAimOffset={dx:0,dy:0};const x=Math.max(37,Math.min(200,parseInt(v)||95));s.value=x;inp.value=x;renderCalc(x);renderExpectedShots('es-150',x,typeof approachLie==='function'?approachLie():'fairway');const pct=((x-37)/163)*100;s.style.background=`linear-gradient(90deg,var(--ink) ${pct}%,var(--bg2) ${pct}%)`;};
   s.addEventListener('input',()=>sync(s.value));
   inp.addEventListener('input',()=>sync(inp.value));
   sync(95);

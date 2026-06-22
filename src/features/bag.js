@@ -269,14 +269,16 @@ function fairwayPath(cx,top,bot,halfPx){
    for woods/hybrids. Lateral spread = disp86() (same source as the L/R badges), depth
    capped ≈ ±7 yd, slanted long-left / short-right (a typical miss tilt). */
 const DISP_SLANT = 15;   /* deg; tilts the oval long-left / short-right (mirrored) */
-function buildTopSVG(c,p){
+function buildTopSVG(c,p,opts){
+  opts=opts||{};
+  const drag=!!opts.draggable;                 // Approach tab: drag the aim oval over the green
   const W=120,H=112,cx=W/2,cy=H/2+3,tc=typeHex(c.type);
   const carry=p.carry||100;
   const dispYd=disp86(carry);             // single 86% L/R lateral half-width, yards (matches badges)
   const depthYd=Math.min(dispYd, 7);      // depth (distance control) capped at ≈ ±7 yd
   const isWood=c.type==='wood';
 
-  let bg, ctxLabel, scale;
+  let bg, ctxLabel, scale, gx, gy, shape;   // gx/gy = surface half-axes (px) used for the live readout
   if(isWood){
     /* Zoomed out so it reads as a course: the 40 yd fairway, a 10 yd intermediate cut,
        then heavy rough — woods & hybrids finish out here, not on a green. */
@@ -288,15 +290,18 @@ function buildTopSVG(c,p){
         <path d="${fairwayPath(cx,top,bot,fwHalf)}" fill="#46b56a" fill-opacity="0.26" stroke="#2f9a55" stroke-width="1" stroke-opacity="0.55"/>
         <line x1="${cx}" y1="${top+5}" x2="${cx}" y2="${bot-5}" stroke="#2f9a55" stroke-width="0.6" stroke-dasharray="5,5" opacity="0.4"/>`;
     ctxLabel='40yd FW · 10yd cut · rough';
+    gx=fwHalf; gy=(bot-top)/2; shape='fairway';
   } else {
     /* Typical green (~30 yd diameter), smooth organic outline. */
     scale=40/15;                                            // ~15yd radius → 40px
     bg=`<path d="${greenBlobPath(cx,cy,40,36)}" fill="#3aae63" fill-opacity="0.16" stroke="#00853F" stroke-width="1.1" stroke-opacity="0.55"/>`;
     ctxLabel='~30yd green';
+    gx=40; gy=36; shape='green';
   }
   const ovW=dispYd*scale, ovH=depthYd*scale;
 
-  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block;overflow:visible" xmlns="http://www.w3.org/2000/svg">
+  if(!drag){
+    return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block;overflow:visible" xmlns="http://www.w3.org/2000/svg">
     <text x="${cx}" y="12" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9" font-weight="bold" fill="var(--ink2)">${carry} yd</text>
     ${bg}
     <text x="${cx}" y="21" text-anchor="middle" font-family="ui-monospace,monospace" font-size="5" fill="#00853F" opacity="0.7">${ctxLabel}</text>
@@ -306,6 +311,116 @@ function buildTopSVG(c,p){
     <circle cx="${cx}" cy="${cy}" r="1.6" fill="var(--ink)"/>
     <text x="${cx}" y="${H-3}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="6.5" fill="${tc}">±${dispYd.toFixed(1)} yd L/R · 86%</text>
   </svg>`;
+  }
+
+  /* DRAGGABLE (Approach): the green stays put; the aim group (oval + landing dot) is dragged.
+     Within 8 yd of the green edge a live readout appears showing the pin's distance to the
+     edge and how far the dispersion's left / right extremes finish inside (or off) the green.
+     All live geometry is read from data-* attributes by initApproachAimDrag(). */
+  const off=window.approachAimOffset||{dx:0,dy:0};
+  return `<svg id="approach-aim-svg" viewBox="0 0 ${W} ${H}" style="width:100%;display:block;overflow:visible;touch-action:none"
+      data-cx="${cx}" data-cy="${cy}" data-gx="${gx}" data-gy="${gy}" data-scale="${scale.toFixed(4)}" data-disp="${ovW.toFixed(2)}" data-shape="${shape}"
+      xmlns="http://www.w3.org/2000/svg">
+    <text x="${cx}" y="12" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9" font-weight="bold" fill="var(--ink2)">${carry} yd</text>
+    ${bg}
+    <text x="${cx}" y="21" text-anchor="middle" font-family="ui-monospace,monospace" font-size="5" fill="#00853F" opacity="0.7">${ctxLabel}</text>
+    <!-- live readout (shown within 8 yd of the edge) -->
+    <g class="aim-ro" style="display:none">
+      <line class="aim-tick-l" stroke="#00853F" stroke-width="0.7" stroke-dasharray="2,1.5"/>
+      <line class="aim-tick-r" stroke="#00853F" stroke-width="0.7" stroke-dasharray="2,1.5"/>
+      <text class="aim-ro-left"  text-anchor="middle" font-family="ui-monospace,monospace" font-size="5" font-weight="bold"></text>
+      <text class="aim-ro-right" text-anchor="middle" font-family="ui-monospace,monospace" font-size="5" font-weight="bold"></text>
+      <text class="aim-ro-target" text-anchor="middle" font-family="ui-monospace,monospace" font-size="5.5" font-weight="bold"></text>
+    </g>
+    <!-- draggable aim group -->
+    <g class="aim-group" style="cursor:grab;touch-action:none" transform="translate(${off.dx.toFixed(1)},${off.dy.toFixed(1)})">
+      <g transform="rotate(${DISP_SLANT} ${cx} ${cy})">
+        <ellipse cx="${cx}" cy="${cy}" rx="${ovW.toFixed(1)}" ry="${ovH.toFixed(1)}" fill="${tc}" fill-opacity="0.28" stroke="${tc}" stroke-opacity="0.75" stroke-width="1.1"/>
+      </g>
+      <circle cx="${cx}" cy="${cy}" r="11" fill="transparent"/>
+      <circle cx="${cx}" cy="${cy}" r="1.6" fill="var(--ink)"/>
+    </g>
+    <text class="aim-hint" x="${cx}" y="${H-11}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="5" fill="var(--muted)" opacity="0.8">drag the dot to aim</text>
+    <text x="${cx}" y="${H-3}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="6.5" fill="${tc}">±${dispYd.toFixed(1)} yd L/R · 86%</text>
+  </svg>`;
+}
+/* Wire up dragging + live edge readout for the Approach overhead dispersion view.
+   Safe to call after every renderCalc — finds the (single) selected-card SVG or no-ops. */
+function initApproachAimDrag(){
+  const svg=document.getElementById('approach-aim-svg');
+  if(!svg) return;
+  const grp=svg.querySelector('.aim-group');
+  const ro=svg.querySelector('.aim-ro');
+  const roT=svg.querySelector('.aim-ro-target');
+  const roL=svg.querySelector('.aim-ro-left');
+  const roR=svg.querySelector('.aim-ro-right');
+  const lTick=svg.querySelector('.aim-tick-l');
+  const rTick=svg.querySelector('.aim-tick-r');
+  const hint=svg.querySelector('.aim-hint');
+  const cx=+svg.dataset.cx, cy=+svg.dataset.cy, gx=+svg.dataset.gx, gy=+svg.dataset.gy;
+  const scale=+svg.dataset.scale, dispPx=+svg.dataset.disp, shape=svg.dataset.shape;
+  const off=window.approachAimOffset||(window.approachAimOffset={dx:0,dy:0});
+  const clampX=x=>Math.max(4,Math.min(116,x));
+  function clientToVB(e){
+    const r=svg.getBoundingClientRect();
+    return {x:(e.clientX-r.left)/r.width*120, y:(e.clientY-r.top)/r.height*112};
+  }
+  function update(){
+    grp.setAttribute('transform',`translate(${off.dx.toFixed(1)},${off.dy.toFixed(1)})`);
+    const dotX=cx+off.dx, dotY=cy+off.dy;
+    /* pin → nearest edge (radial for the green ellipse, lateral for a fairway corridor) */
+    let edgeYd;
+    if(shape==='green'){
+      const ndx=dotX-cx, ndy=dotY-cy, h=Math.hypot(ndx,ndy);
+      if(h<0.001){ edgeYd=Math.min(gx,gy)/scale; }
+      else { const s=1/Math.sqrt((ndx/gx)**2+(ndy/gy)**2); edgeYd=(s-1)*h/scale; }
+    } else {
+      edgeYd=Math.min((cx+gx)-dotX, dotX-(cx-gx))/scale;
+    }
+    /* left / right dispersion extremes (lateral half-width = the L/R 86% number) */
+    const leftX=dotX-dispPx, rightX=dotX+dispPx;
+    let glx, grx;
+    if(shape==='green'){
+      const vy=(dotY-cy)/gy, halfw=Math.abs(vy)>=1?0:gx*Math.sqrt(1-vy*vy);
+      glx=cx-halfw; grx=cx+halfw;
+    } else { glx=cx-gx; grx=cx+gx; }
+    const rMarginYd=(grx-rightX)/scale, lMarginYd=(leftX-glx)/scale;   // + = inside the green
+    const show=edgeYd<=8;
+    ro.style.display=show?'':'none';
+    if(!show) return;
+    const G='#00853F', R='#d96070';
+    const fmt=v=> v>=0 ? v.toFixed(1)+' in' : Math.abs(v).toFixed(1)+' off';
+    roT.textContent = edgeYd>=0 ? edgeYd.toFixed(1)+' yd to edge' : Math.abs(edgeYd).toFixed(1)+' yd off';
+    roT.setAttribute('fill', edgeYd>=0?'var(--ink)':R);
+    roT.setAttribute('x', clampX(dotX)); roT.setAttribute('y', (dotY-6).toFixed(1));
+    roL.textContent='L '+fmt(lMarginYd); roL.setAttribute('fill', lMarginYd>=0?G:R);
+    roL.setAttribute('x', clampX(leftX)); roL.setAttribute('y', (dotY+8).toFixed(1));
+    roR.textContent='R '+fmt(rMarginYd); roR.setAttribute('fill', rMarginYd>=0?G:R);
+    roR.setAttribute('x', clampX(rightX)); roR.setAttribute('y', (dotY+8).toFixed(1));
+    lTick.setAttribute('x1',leftX.toFixed(1)); lTick.setAttribute('x2',glx.toFixed(1));
+    lTick.setAttribute('y1',dotY.toFixed(1)); lTick.setAttribute('y2',dotY.toFixed(1));
+    lTick.setAttribute('stroke', lMarginYd>=0?G:R);
+    rTick.setAttribute('x1',rightX.toFixed(1)); rTick.setAttribute('x2',grx.toFixed(1));
+    rTick.setAttribute('y1',dotY.toFixed(1)); rTick.setAttribute('y2',dotY.toFixed(1));
+    rTick.setAttribute('stroke', rMarginYd>=0?G:R);
+  }
+  let dragging=false;
+  grp.addEventListener('pointerdown',e=>{
+    dragging=true; grp.style.cursor='grabbing'; if(hint) hint.style.display='none';
+    try{ svg.setPointerCapture(e.pointerId); }catch(_){}
+    e.preventDefault();
+  });
+  svg.addEventListener('pointermove',e=>{
+    if(!dragging) return;
+    const p=clientToVB(e);
+    off.dx=Math.max(-cx+5, Math.min(120-cx-5, p.x-cx));
+    off.dy=Math.max(-cy+22, Math.min(112-cy-14, p.y-cy));
+    window.approachAimOffset=off; update();
+  });
+  const end=e=>{ dragging=false; grp.style.cursor='grab'; try{ svg.releasePointerCapture(e.pointerId); }catch(_){} };
+  svg.addEventListener('pointerup',end);
+  svg.addEventListener('pointercancel',end);
+  update();
 }
 
 
@@ -346,4 +461,4 @@ function buildGearEffectPanel(c){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { buildEnvPanels, buildGapping, buildGearEffectPanel, buildGearFaceSVG, buildLadder, buildMissBlock, buildSideSVG, buildTopSVG, envPanelHTML, envSyncSummary, missNote, missSelect, onEnvInput, onEnvToggle, renderConditions, setMiss, statCell, toggleDetail, updateCondSummary });
+Object.assign(window, { buildEnvPanels, buildGapping, buildGearEffectPanel, buildGearFaceSVG, buildLadder, buildMissBlock, buildSideSVG, buildTopSVG, envPanelHTML, envSyncSummary, initApproachAimDrag, missNote, missSelect, onEnvInput, onEnvToggle, renderConditions, setMiss, statCell, toggleDetail, updateCondSummary });
