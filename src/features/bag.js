@@ -336,6 +336,8 @@ function buildTopSVG(c,p,opts){
       <text class="aim-ro-short" text-anchor="middle" font-family="ui-monospace,monospace" font-size="5" font-weight="bold"></text>
       <text class="aim-ro-target" x="4" y="31" text-anchor="start" font-family="ui-monospace,monospace" font-size="5.5" font-weight="bold"
             stroke="var(--card,#fff)" stroke-width="1.8" paint-order="stroke"></text>
+      <text class="aim-ro-target2" x="4" y="38.5" text-anchor="start" font-family="ui-monospace,monospace" font-size="5.5" font-weight="bold"
+            stroke="var(--card,#fff)" stroke-width="1.8" paint-order="stroke"></text>
     </g>
     <!-- draggable aim group -->
     <g class="aim-group" style="cursor:grab;touch-action:none" transform="translate(${off.dx.toFixed(1)},${off.dy.toFixed(1)})">
@@ -357,6 +359,7 @@ function initApproachAimDrag(){
   const grp=svg.querySelector('.aim-group');
   const ro=svg.querySelector('.aim-ro');
   const roT=svg.querySelector('.aim-ro-target');
+  const roT2=svg.querySelector('.aim-ro-target2');
   const roL=svg.querySelector('.aim-ro-left');
   const roR=svg.querySelector('.aim-ro-right');
   const roLo=svg.querySelector('.aim-ro-long');
@@ -411,9 +414,16 @@ function initApproachAimDrag(){
     const G='#00853F', R='#d96070';
     const fmt=v=> v>=0 ? v.toFixed(1)+' in' : Math.abs(v).toFixed(1)+' off';
     const depthOn = longMarginYd!=null;
-    /* pin headline (top-left, with halo so it reads over the green) */
-    roT.textContent = (edgeYd>=0 ? edgeYd.toFixed(1)+' yd to edge' : Math.abs(edgeYd).toFixed(1)+' yd off');
-    roT.setAttribute('fill', edgeYd>=0?'var(--ink)':R);
+    /* PIN-SHEET headline (top-left, haloed): pin location off the nearest side edge and off
+       the nearer of front/back — the way a course pin sheet quotes the hole. */
+    const nearLeft=dotX<=cx, sideVal=(nearLeft?(dotX-glx):(grx-dotX))/scale, sideLbl=nearLeft?'left':'right';
+    roT2.textContent = sideVal>=0 ? `${sideVal.toFixed(1)} yd from ${sideLbl}` : `${Math.abs(sideVal).toFixed(1)} yd past ${sideLbl}`;
+    roT2.setAttribute('fill', sideVal>=0?'var(--ink)':R);
+    if(depthOn){
+      const nearBack=dotY<=cy, depthVal=(nearBack?(dotY-gty):(gby-dotY))/scale, depthLbl=nearBack?'back':'front';
+      roT.style.display=''; roT.textContent = depthVal>=0 ? `${depthVal.toFixed(1)} yd from ${depthLbl}` : `${Math.abs(depthVal).toFixed(1)} yd past ${depthLbl}`;
+      roT.setAttribute('fill', depthVal>=0?'var(--ink)':R);
+    } else { roT.style.display='none'; }   /* fairway corridor has no front/back to quote */
     /* L / R edges on the dot row */
     roL.textContent='L '+fmt(lMarginYd); roL.setAttribute('fill', lMarginYd>=0?G:R);
     roL.setAttribute('x', clampX(leftX)); roL.setAttribute('y', (dotY+8).toFixed(1));

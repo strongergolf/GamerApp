@@ -26,13 +26,15 @@ const SG_VARS = {
         { id:'cforward', label:'Center-Forward', eff:{ horizLean:+4.5, vertPath:-1.5 } },
         { id:'forward',  label:'Forward',        eff:{ horizLean:+3,   vertPath:0    } }
       ] },
-    { key:'handPos', label:'Hand Position', sub:'Vertical Shaft Lean', def:'neutral',
+    { key:'shaftPos', label:'Shaft Position', sub:'Horizontal Shaft Lean', def:'vertical',
+      /* effLoft = loft − horizLean×leanDeloft(1.0), so horizLean° = −effLoft°. The eff-loft /
+         vert-path values below match Mark's spec; spin falls out of SG_K (90 rpm/° fwd lean +
+         130 rpm/° steeper path): vertical 0, slightly fwd ≈ +400 rpm, well fwd ≈ +800 rpm. */
       opts:[
-        { id:'high',    label:'High Hands',    eff:{ vertLean:+4 }, prov:true },
-        { id:'shigh',   label:'Slightly High', eff:{ vertLean:+2 }, prov:true },
-        { id:'neutral', label:'Neutral Hands', eff:{ vertLean:0  } },
-        { id:'slow',    label:'Slightly Low',  eff:{ vertLean:-2 }, prov:true },
-        { id:'low',     label:'Low Hands',     eff:{ vertLean:-4 }, prov:true }
+        { id:'back',     label:'Leaned slightly back',    eff:{ horizLean:-2, vertPath:+1 } },
+        { id:'vertical', label:'Vertical',                eff:{ horizLean:0,  vertPath:0  } },
+        { id:'sfwd',     label:'Leaned slightly forward', eff:{ horizLean:+3, vertPath:-1 } },
+        { id:'wfwd',     label:'Leaned well forward',     eff:{ horizLean:+6, vertPath:-2 } }
       ] },
     { key:'face', label:'Face Orientation', sub:'Effective Loft & Bounce', def:'square',
       opts:[

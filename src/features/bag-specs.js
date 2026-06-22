@@ -43,7 +43,7 @@ function buildSpecs(){
     const row=document.createElement('div'); row.className='specs-club-row spec-card';
     row.innerHTML=
       `<span class="spec-club ${c.type}">${c.label}</span>`+
-      `<div class="sc-id"><span class="sc-name">${c.make} ${c.model}</span><span class="sc-sub">${c.year} · ${c.shaft}</span></div>`+
+      `<div class="sc-id"><span class="sc-name">${c.make} ${c.model}</span></div>`+   /* year · shaft moved into the dropdown (Physical Spec) for a tighter mobile row */
       mini('Length',c.length,'sm-w-len')+mini('Loft',c.loft,'sm-w-deg')+mini('Lie',c.lie,'sm-w-deg')+
       `<div class="sc-sep"></div>`+
       mini('Carry',hasC?carry:'—','sm-w-yd')+mini('Total',total||'—','sm-w-yd')+

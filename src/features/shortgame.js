@@ -108,7 +108,7 @@ function renderSgVars(){
         <div class="sgv-shot-cell"><span class="sgv-k">Spin</span><span class="sgv-v">${arrow(net.dSpin)} ${fmt(net.dSpin,' rpm',0)}</span></div>
         <div class="sgv-shot-cell"><span class="sgv-k">Bounce</span><span class="sgv-v">${arrow(net.dBounce)} ${fmt(net.dBounce,'°')}</span></div>
       </div>
-      <div class="sgv-readout-foot">vs. the standard chip (Middle · Neutral · Square). <button type="button" class="sgv-reset" onclick="resetSgVars()">Reset to standard</button></div>
+      <div class="sgv-readout-foot">vs. the standard chip (Middle · Vertical · Square). <button type="button" class="sgv-reset" onclick="resetSgVars()">Reset to standard</button></div>
     </div>`;
   wrap.innerHTML=`
     <div class="sgv-cat">
