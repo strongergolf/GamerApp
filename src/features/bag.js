@@ -339,6 +339,9 @@ function buildTopSVG(c,p,opts){
       <text class="aim-ro-target2" x="4" y="38.5" text-anchor="start" font-family="ui-monospace,monospace" font-size="5.5" font-weight="bold"
             stroke="var(--card,#fff)" stroke-width="1.8" paint-order="stroke"></text>
     </g>
+    <!-- green-miss probability (always shown once aimed): 2-D Gaussian over the green -->
+    <text class="aim-miss" x="${W-4}" y="31" text-anchor="end" font-family="ui-monospace,monospace" font-size="5.5" font-weight="bold"
+          stroke="var(--card,#fff)" stroke-width="1.8" paint-order="stroke"></text>
     <!-- draggable aim group -->
     <g class="aim-group" style="cursor:grab;touch-action:none" transform="translate(${off.dx.toFixed(1)},${off.dy.toFixed(1)})">
       <g transform="rotate(${DISP_SLANT} ${cx} ${cy})">
@@ -368,12 +371,42 @@ function initApproachAimDrag(){
   const rTick=svg.querySelector('.aim-tick-r');
   const loTick=svg.querySelector('.aim-tick-long');
   const shTick=svg.querySelector('.aim-tick-short');
+  const roMiss=svg.querySelector('.aim-miss');
   const hint=svg.querySelector('.aim-hint');
   const cx=+svg.dataset.cx, cy=+svg.dataset.cy, gx=+svg.dataset.gx, gy=+svg.dataset.gy;
   const scale=+svg.dataset.scale, dispPx=+svg.dataset.disp, depthPx=+svg.dataset.depth, shape=svg.dataset.shape;
   const off=window.approachAimOffset||(window.approachAimOffset={dx:0,dy:0});
   const clampX=x=>Math.max(4,Math.min(116,x));
   const clampY=y=>Math.max(27,Math.min(106,y));
+  const isGreen=shape==='green';
+  /* SLANT-EXACT geometry of the rotated oval (rx lateral, ry depth, tilted DISP_SLANT°).
+     Hx/Hy = true lateral/depth reach; the matching cross-axis offset places each extreme. */
+  const TH=DISP_SLANT*Math.PI/180, cosT=Math.cos(TH), sinT=Math.sin(TH);
+  const rx=dispPx, ry=depthPx;
+  const Hx=Math.hypot(rx*cosT, ry*sinT), Hy=Math.hypot(rx*sinT, ry*cosT);
+  const kxy=(rx*rx-ry*ry)*sinT*cosT;
+  const yLoff=-kxy/Hx, yRoff=kxy/Hx, xToff=-kxy/Hy, xBoff=kxy/Hy;
+  /* green-edge helpers: half-width at depth y, half-height at lateral x (ellipse approx) */
+  const gW=y=>{const v=(y-cy)/gy; return Math.abs(v)>=1?0:gx*Math.sqrt(1-v*v);};
+  const gHt=x=>{const v=(x-cx)/gx; return Math.abs(v)>=1?0:gy*Math.sqrt(1-v*v);};
+  /* Green-miss probability: landing point ~ 2-D Gaussian, σ = semi-axis / 1.4805
+     (the oval is the 86% per-axis contour: disp86 = 90%CI × 0.90 = 1.4805σ). A fixed,
+     seeded standard-normal sample set keeps the % stable across re-renders. */
+  const SIG=1.4805, sx=rx/SIG, sy=ry/SIG, NSAMP=600;
+  const samples=(()=>{ let s=0x9e3779b9>>>0;
+    const rnd=()=>{s=(s+0x6D2B79F5)>>>0;let t=Math.imul(s^s>>>15,1|s);t=(t+Math.imul(t^t>>>7,61|t))^t;return((t^t>>>14)>>>0)/4294967296;};
+    const a=[]; for(let i=0;i<NSAMP;i++){const u=Math.max(1e-9,rnd()),v=rnd(),m=Math.sqrt(-2*Math.log(u));a.push([m*Math.cos(2*Math.PI*v),m*Math.sin(2*Math.PI*v)]);} return a;
+  })();
+  function missPct(dotX,dotY){
+    if(!isGreen) return null;
+    let nOff=0;
+    for(let i=0;i<NSAMP;i++){
+      const a=samples[i][0]*sx, b=samples[i][1]*sy;                 // scale to per-axis σ
+      const X=dotX + a*cosT - b*sinT, Y=dotY + a*sinT + b*cosT;     // apply slant + translate
+      if(((X-cx)/gx)**2 + ((Y-cy)/gy)**2 > 1) nOff++;
+    }
+    return nOff/NSAMP*100;
+  }
   function clientToVB(e){
     const r=svg.getBoundingClientRect();
     return {x:(e.clientX-r.left)/r.width*120, y:(e.clientY-r.top)/r.height*112};
@@ -381,73 +414,58 @@ function initApproachAimDrag(){
   function update(){
     grp.setAttribute('transform',`translate(${off.dx.toFixed(1)},${off.dy.toFixed(1)})`);
     const dotX=cx+off.dx, dotY=cy+off.dy;
-    /* pin → nearest edge (radial for the green ellipse, lateral for a fairway corridor) */
+    const G='#00853F', R='#d96070';
+    /* green-miss probability — always shown once a shot is aimed */
+    const mp=missPct(dotX,dotY);
+    if(mp==null){ roMiss.style.display='none'; }
+    else { roMiss.style.display=''; roMiss.textContent=`miss green ~${Math.round(mp)}%`;
+           roMiss.setAttribute('fill', mp<25?G:mp<50?'var(--ink)':R); }
+    /* pin → nearest edge (radial green / lateral fairway) drives the 8-yd show gate */
     let edgeYd;
-    if(shape==='green'){
-      const ndx=dotX-cx, ndy=dotY-cy, h=Math.hypot(ndx,ndy);
-      if(h<0.001){ edgeYd=Math.min(gx,gy)/scale; }
-      else { const s=1/Math.sqrt((ndx/gx)**2+(ndy/gy)**2); edgeYd=(s-1)*h/scale; }
-    } else {
-      edgeYd=Math.min((cx+gx)-dotX, dotX-(cx-gx))/scale;
-    }
-    /* left / right dispersion extremes (lateral half-width = the L/R 86% number) */
-    const leftX=dotX-dispPx, rightX=dotX+dispPx;
-    let glx, grx;
-    if(shape==='green'){
-      const vy=(dotY-cy)/gy, halfw=Math.abs(vy)>=1?0:gx*Math.sqrt(1-vy*vy);
-      glx=cx-halfw; grx=cx+halfw;
-    } else { glx=cx-gx; grx=cx+gx; }
-    const rMarginYd=(grx-rightX)/scale, lMarginYd=(leftX-glx)/scale;   // + = inside the green
-    /* long / short dispersion extremes (depth half-height = distance-control spread).
-       In overhead view smaller y = longer/downrange, larger y = shorter/nearer. */
-    const longY=dotY-depthPx, shortY=dotY+depthPx;
-    let gty, gby;
-    if(shape==='green'){
-      const vx=(dotX-cx)/gx, halfh=Math.abs(vx)>=1?0:gy*Math.sqrt(1-vx*vx);
-      gty=cy-halfh; gby=cy+halfh;
-    } else { gty=null; gby=null; }   // a fairway corridor has no front/back edge in frame
-    const longMarginYd = gty!=null ? (longY-gty)/scale : null;   // + = inside the back edge
-    const shortMarginYd= gby!=null ? (gby-shortY)/scale : null;  // + = inside the front edge
+    if(isGreen){ const ndx=dotX-cx, ndy=dotY-cy, h=Math.hypot(ndx,ndy);
+      if(h<0.001){ edgeYd=Math.min(gx,gy)/scale; } else { const s=1/Math.sqrt((ndx/gx)**2+(ndy/gy)**2); edgeYd=(s-1)*h/scale; } }
+    else { edgeYd=Math.min((cx+gx)-dotX, dotX-(cx-gx))/scale; }
     const show=edgeYd<=8;
     ro.style.display=show?'':'none';
     if(!show) return;
-    const G='#00853F', R='#d96070';
     const fmt=v=> v>=0 ? v.toFixed(1)+' in' : Math.abs(v).toFixed(1)+' off';
-    const depthOn = longMarginYd!=null;
-    /* PIN-SHEET headline (top-left, haloed): pin location off the nearest side edge and off
-       the nearer of front/back — the way a course pin sheet quotes the hole. */
-    const nearLeft=dotX<=cx, sideVal=(nearLeft?(dotX-glx):(grx-dotX))/scale, sideLbl=nearLeft?'left':'right';
+    /* slant-exact extreme points of the rotated oval (px) */
+    const Pl={x:dotX-Hx, y:dotY+yLoff}, Pr={x:dotX+Hx, y:dotY+yRoff};
+    const Pt={x:dotX+xToff, y:dotY-Hy}, Pb={x:dotX+xBoff, y:dotY+Hy};
+    /* L/R margins to the green edge at each extreme's own depth (+ = inside) */
+    const glxL=isGreen?cx-gW(Pl.y):cx-gx, grxR=isGreen?cx+gW(Pr.y):cx+gx;
+    const lMarginYd=(Pl.x-glxL)/scale, rMarginYd=(grxR-Pr.x)/scale;
+    /* long/short margins to the front/back edge at each extreme's own lateral pos (green only) */
+    const gtyT=isGreen?cy-gHt(Pt.x):null, gbyB=isGreen?cy+gHt(Pb.x):null;
+    const longMarginYd=gtyT!=null?(Pt.y-gtyT)/scale:null, shortMarginYd=gbyB!=null?(gbyB-Pb.y)/scale:null;
+    const depthOn=longMarginYd!=null;
+    /* PIN-SHEET headline: pin off nearest side + nearer of front/back (green edges at the dot) */
+    const glxD=isGreen?cx-gW(dotY):cx-gx, grxD=isGreen?cx+gW(dotY):cx+gx;
+    const nearLeft=dotX<=cx, sideVal=(nearLeft?(dotX-glxD):(grxD-dotX))/scale, sideLbl=nearLeft?'left':'right';
     roT2.textContent = sideVal>=0 ? `${sideVal.toFixed(1)} yd from ${sideLbl}` : `${Math.abs(sideVal).toFixed(1)} yd past ${sideLbl}`;
     roT2.setAttribute('fill', sideVal>=0?'var(--ink)':R);
     if(depthOn){
-      const nearBack=dotY<=cy, depthVal=(nearBack?(dotY-gty):(gby-dotY))/scale, depthLbl=nearBack?'back':'front';
+      const gtyD=cy-gHt(dotX), gbyD=cy+gHt(dotX);
+      const nearBack=dotY<=cy, depthVal=(nearBack?(dotY-gtyD):(gbyD-dotY))/scale, depthLbl=nearBack?'back':'front';
       roT.style.display=''; roT.textContent = depthVal>=0 ? `${depthVal.toFixed(1)} yd from ${depthLbl}` : `${Math.abs(depthVal).toFixed(1)} yd past ${depthLbl}`;
       roT.setAttribute('fill', depthVal>=0?'var(--ink)':R);
     } else { roT.style.display='none'; }   /* fairway corridor has no front/back to quote */
-    /* L / R edges on the dot row */
+    /* L / R edge labels + ticks at the true (slanted) extremes */
     roL.textContent='L '+fmt(lMarginYd); roL.setAttribute('fill', lMarginYd>=0?G:R);
-    roL.setAttribute('x', clampX(leftX)); roL.setAttribute('y', (dotY+8).toFixed(1));
+    roL.setAttribute('x', clampX(Pl.x)); roL.setAttribute('y', clampY(Pl.y+9).toFixed(1));
     roR.textContent='R '+fmt(rMarginYd); roR.setAttribute('fill', rMarginYd>=0?G:R);
-    roR.setAttribute('x', clampX(rightX)); roR.setAttribute('y', (dotY+8).toFixed(1));
-    lTick.setAttribute('x1',leftX.toFixed(1)); lTick.setAttribute('x2',glx.toFixed(1));
-    lTick.setAttribute('y1',dotY.toFixed(1)); lTick.setAttribute('y2',dotY.toFixed(1));
-    lTick.setAttribute('stroke', lMarginYd>=0?G:R);
-    rTick.setAttribute('x1',rightX.toFixed(1)); rTick.setAttribute('x2',grx.toFixed(1));
-    rTick.setAttribute('y1',dotY.toFixed(1)); rTick.setAttribute('y2',dotY.toFixed(1));
-    rTick.setAttribute('stroke', rMarginYd>=0?G:R);
-    /* long / short edges on the dot column (green only) */
+    roR.setAttribute('x', clampX(Pr.x)); roR.setAttribute('y', clampY(Pr.y+9).toFixed(1));
+    lTick.setAttribute('x1',Pl.x.toFixed(1)); lTick.setAttribute('x2',glxL.toFixed(1)); lTick.setAttribute('y1',Pl.y.toFixed(1)); lTick.setAttribute('y2',Pl.y.toFixed(1)); lTick.setAttribute('stroke', lMarginYd>=0?G:R);
+    rTick.setAttribute('x1',Pr.x.toFixed(1)); rTick.setAttribute('x2',grxR.toFixed(1)); rTick.setAttribute('y1',Pr.y.toFixed(1)); rTick.setAttribute('y2',Pr.y.toFixed(1)); rTick.setAttribute('stroke', rMarginYd>=0?G:R);
+    /* long / short edge labels + ticks (green only) */
     [roLo,roSh,loTick,shTick].forEach(el=>el.style.display=depthOn?'':'none');
     if(depthOn){
       roLo.textContent='long '+fmt(longMarginYd); roLo.setAttribute('fill', longMarginYd>=0?G:R);
-      roLo.setAttribute('x', clampX(dotX)); roLo.setAttribute('y', clampY(longY-2).toFixed(1));
+      roLo.setAttribute('x', clampX(Pt.x)); roLo.setAttribute('y', clampY(Pt.y-2).toFixed(1));
       roSh.textContent='short '+fmt(shortMarginYd); roSh.setAttribute('fill', shortMarginYd>=0?G:R);
-      roSh.setAttribute('x', clampX(dotX)); roSh.setAttribute('y', clampY(shortY+5).toFixed(1));
-      loTick.setAttribute('x1',dotX.toFixed(1)); loTick.setAttribute('x2',dotX.toFixed(1));
-      loTick.setAttribute('y1',longY.toFixed(1)); loTick.setAttribute('y2',gty.toFixed(1));
-      loTick.setAttribute('stroke', longMarginYd>=0?G:R);
-      shTick.setAttribute('x1',dotX.toFixed(1)); shTick.setAttribute('x2',dotX.toFixed(1));
-      shTick.setAttribute('y1',shortY.toFixed(1)); shTick.setAttribute('y2',gby.toFixed(1));
-      shTick.setAttribute('stroke', shortMarginYd>=0?G:R);
+      roSh.setAttribute('x', clampX(Pb.x)); roSh.setAttribute('y', clampY(Pb.y+5).toFixed(1));
+      loTick.setAttribute('x1',Pt.x.toFixed(1)); loTick.setAttribute('x2',Pt.x.toFixed(1)); loTick.setAttribute('y1',Pt.y.toFixed(1)); loTick.setAttribute('y2',gtyT.toFixed(1)); loTick.setAttribute('stroke', longMarginYd>=0?G:R);
+      shTick.setAttribute('x1',Pb.x.toFixed(1)); shTick.setAttribute('x2',Pb.x.toFixed(1)); shTick.setAttribute('y1',Pb.y.toFixed(1)); shTick.setAttribute('y2',gbyB.toFixed(1)); shTick.setAttribute('stroke', shortMarginYd>=0?G:R);
     }
   }
   let dragging=false;
