@@ -19,13 +19,12 @@
     <div class="brand-wordmark"><span class="brand-stronger">Stronger</span><span class="brand-golf">Golf</span></div>
   </div>
   <div class="header-app-name">Gamer's App</div>
-  <div class="header-tagline">a complete golf club, shot, swing, course, and scoring resource</div>
 </div>
 
 <nav class="nav-groups">
   <div class="ngroup active" onclick="showGroup('play',this)">Play</div>
-  <div class="ngroup" onclick="showGroup('diagnose',this)">Improve</div>
-  <div class="ngroup" onclick="showGroup('plan',this)">Game Plan</div>
+  <div class="ngroup" onclick="showGroup('plan',this)">Plan</div>
+  <div class="ngroup" onclick="showGroup('diagnose',this)">Practice</div>
   <div class="ngroup" onclick="showGroup('setup',this)">Locker Room</div>
 </nav>
 <nav class="nav-sub" id="nav-sub"></nav>
@@ -271,6 +270,13 @@
   <div id="planshot-wrap"></div>
 </div>
 
+<!-- POST-SHOT ROUTINE -->
+<div id="page-postshot" class="page">
+  <div class="section-label" style="margin-top:0">Post-Shot Routine</div>
+  <p class="intro-note">After the ball stops, run a quick, honest review — in order: what happened, how you executed, whether the plan fit, and what to adjust next time. Separating result from execution from plan is how you learn from a shot instead of just reacting to it.</p>
+  <div id="postshot-wrap"></div>
+</div>
+
 <!-- PLAN A ROUND (course strategy + editor folded in) -->
 <div id="page-courses" class="page">
   <div id="course-strategy-wrap"></div>
@@ -318,7 +324,7 @@
 <!-- SETTINGS -->
 <div id="page-reference" class="page">
   <div class="section-label" style="margin-top:0">Settings</div>
-  <p class="intro-note">App-level preferences — separate from your golfer profile (that lives under <strong>Myself</strong>). The StrongerGolf vocabulary &amp; launch-monitor cross-map now live under <strong>Improve → Resources → Definitions</strong>.</p>
+  <p class="intro-note">App-level preferences — separate from your golfer profile (that lives under <strong>Myself</strong>). The StrongerGolf vocabulary &amp; launch-monitor cross-map now live under <strong>Practice → Resources → Definitions</strong>.</p>
   <div class="profile-card">
     <h3>Appearance</h3>
     <div class="set-row">

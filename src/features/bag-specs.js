@@ -280,7 +280,7 @@ function buildProfile(){
   const _bg=document.getElementById('baseline-grid');
   if(_bg) _bg.innerHTML=`
     <div class="edit-subhead">Home Course Setup</div>
-    <div class="edit-field"><label>Home Course</label><input id="pf-homecourse" value="${escapeHtml(pf.homeCourse||'')}" placeholder="seeds Game Plan"></div>
+    <div class="edit-field"><label>Home Course</label><input id="pf-homecourse" value="${escapeHtml(pf.homeCourse||'')}" placeholder="seeds Plan"></div>
     <div class="edit-field"><label>Usual Tee</label>${sel('pf-usualtee',['','Black','Blue','White','Gold','Red'],pf.usualTee||'')}</div>
     <div class="edit-field"><label>Home Green Stimp</label><input id="pf-homestimp" type="number" step="0.5" min="6" max="15" value="${escapeHtml(pf.homeStimp||'')}" placeholder="seeds Putting"></div>
     <div class="edit-subhead">Course Conditions</div>

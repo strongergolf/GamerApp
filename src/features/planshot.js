@@ -17,6 +17,26 @@ const psShot = { teeAim:'', apprLat:'', apprDepth:'', static:'', lie:'fairway', 
   windspd:'', winddir:'calm', elev:'', shot:'stock', rollout:'', minCarry:'' };
 /* PLAN → Situational Considerations (mindset framers, not part of the yardage maths). */
 const psSituation = { qualify:'', match:'', team:'', endgame:'' };
+/* PLAN box 2 — Target Selection: 5-point sliders (selection only for now; will feed the
+   course-map dispersion overlay once that lands). idx 0..4, centre 2. */
+const PS_TGT = [
+  { key:'teeAim',    label:'Tee — aim line',             tag:'tee',     opts:['Left edge','Left-centre','Centre','Right-centre','Right edge'] },
+  { key:'apprLat',   label:'Approach — lateral (vs pin)',tag:'lateral', opts:['Well left','Slightly left','At the pin','Slightly right','Well right'] },
+  { key:'apprDepth', label:'Approach — depth (vs pin)',  tag:'depth',   opts:['Well short','Slightly short','Pin-high','Slightly long','Well long'] }
+];
+const psTgtIdx = {};
+const psTgtGet = k => (psTgtIdx[k]==null ? 2 : psTgtIdx[k]);
+/* Stance side-hill lie → ball FINISH tendency (deg, RH, + = finishes right). The lie tilts the
+   swing plane, so the ball both starts and curves; aim opposite, or neutralise it in setup. */
+const PS_STANCE_DIR = { flat:0, above:-2.5, below:2.5, uphill:-1, downhill:1 };
+const PS_STANCE_TIP = {
+  above:'ball above feet tilts the plane flatter → pull/draw; grip down, play it a touch back, aim slightly right (or swing more around to cancel it).',
+  below:'ball below feet steepens the plane → push/fade; add knee flex, stay in your posture, aim slightly left.',
+  uphill:'uphill lie adds loft and a touch of pull; lean with the slope, ball forward, aim slightly right.',
+  downhill:'downhill lie delofts and pushes right; lean with the slope, ball back, aim slightly left.'
+};
+/* POST-SHOT routine — transient per-shot review. */
+const psPost = {};
 let psOpenKey = 'static';
 
 /* ============================================================
@@ -214,6 +234,17 @@ function psCrosswind(){
   return { yd:lat, dir: psShot.winddir==='crossL'?'left':'right' };  /* wind L→R pushes ball right ⇒ aim left */
 }
 function psEffective(){ return ['static','lie','stance','wind','topo','shot'].reduce((s,k)=>s+psDelta(k),0); }
+/* Lateral / start-direction picture: crosswind drift + the stance's D-plane tilt, each as an
+   AIM offset in yards at the effective distance (+ = aim right, − = aim left). */
+function psDirection(){
+  const eff = Math.max(0, psEffective());
+  const cw = psCrosswind();
+  const windYd = cw ? (cw.dir==='left' ? -cw.yd : cw.yd) : 0;            // aim offset from wind
+  const stanceDeg = PS_STANCE_DIR[psShot.stance] || 0;                    // ball finish tendency (deg, + right)
+  const stanceFinishYd = Math.tan(stanceDeg*Math.PI/180) * eff;          // + = ball finishes right
+  const stanceAimYd = -stanceFinishYd;                                   // aim opposite the finish bias
+  return { eff, windYd, stanceDeg, stanceFinishYd, stanceAimYd, netAimYd: windYd+stanceAimYd, cw };
+}
 
 const PS_TERMS=[
   {key:'static',label:'Static',  base:true},
@@ -241,19 +272,27 @@ function psSituationHTML(){
       </div>
     </div>`;
 }
-/* PLAN box 2 — Target Selection: tee aim + approach target folded together (was boxes 1 & 2). */
+/* PLAN box 2 — Target Selection: tee aim + approach target as 5-point sliders. */
+function psTgtRow(v){ const idx=psTgtGet(v.key);
+  return `<div class="sgv-row">
+      <div class="sgv-meta"><span class="sgv-label">${v.label}</span><span class="sgv-sub">${v.tag}</span></div>
+      <div class="sgv-slider-row">
+        <input type="range" class="sgv-range pstgt-range" data-key="${v.key}" min="0" max="4" step="1" value="${idx}" oninput="psTgtSetIdx('${v.key}',this.value)">
+        <span class="sgv-cur pstgt-cur" data-key="${v.key}">${v.opts[idx]}</span>
+      </div>
+    </div>`;
+}
+function psTgtSetIdx(key,val){
+  psTgtIdx[key]=Math.max(0,Math.min(4,Math.round(parseFloat(val)||0)));
+  const v=PS_TGT.find(x=>x.key===key), c=document.querySelector(`.pstgt-cur[data-key="${key}"]`);
+  if(v&&c) c.textContent=v.opts[psTgtGet(key)];
+}
 function psTargetHTML(){
   return `
     <div class="profile-card">
-      <h3>2 · Target Selection <span style="${PS_SUB}">evolving</span></h3>
-      <div class="edit-grid">
-        <div class="edit-subhead">Tee shot</div>
-        <div class="edit-field" style="grid-column:1/-1"><label>Aim line</label>${psSel('teeAim',[['','—'],['left-edge','Left edge'],['left-centre','Left-centre'],['centre','Centre'],['right-centre','Right-centre'],['right-edge','Right edge']])}</div>
-        <div class="edit-subhead">Approach</div>
-        <div class="edit-field"><label>Lateral (vs pin)</label>${psSel('apprLat',[['','—'],['left','Left'],['centre','Centre'],['right','Right']])}</div>
-        <div class="edit-field"><label>Depth (vs pin)</label>${psSel('apprDepth',[['','—'],['short','Short'],['pin','Pin-high'],['long','Long']])}</div>
-      </div>
-      <p class="intro-note" style="margin:10px 0 0">Coming: overlay your <b>86% dispersion pattern</b> on the hole to auto-pick the aim that <b>avoids trouble &amp; minimises expected score</b> — tee aim favouring the shortest route to the pin, and an approach target that <b>minimises the chance of missing the green</b>, then the shortest expected putt. Powered by the Course Map.</p>
+      <h3>2 · Target Selection <span style="${PS_SUB}">evolving · awaiting course-map overlay</span></h3>
+      ${PS_TGT.map(psTgtRow).join('')}
+      <p class="intro-note" style="margin:12px 0 0">Coming: overlay your <b>86% dispersion pattern</b> on the hole to auto-pick the aim that <b>avoids trouble &amp; minimises expected score</b> — tee aim favouring the shortest route to the pin, and an approach target that <b>minimises the chance of missing the green</b>, then the shortest expected putt. Powered by the Course Map.</p>
     </div>`;
 }
 /* EXECUTE — the physical pre-shot routine, run top to bottom. Steps 1-2 & 7-8 are action
@@ -289,14 +328,17 @@ function buildPlanShot(){
     ${psSituationHTML()}
     ${psTargetHTML()}
     <div class="profile-card">
-      <h3>3 · Effective Yardage &amp; Number to Play <span style="${PS_SUB}">tap a term to open its detail</span></h3>
+      <h3>3 · Effective Yardage &amp; Direction Adjustments <span style="${PS_SUB}">tap a term to open its detail</span></h3>
+      <div class="edit-subhead" style="margin:0 0 2px">Effects on Distance</div>
       <div id="ps-equation"></div>
       <div id="ps-detail"></div>
       <div id="ps-result"></div>
+      <div class="edit-subhead" style="margin:16px 0 2px;border-top:1px solid var(--border);padding-top:12px">Effects on Start Direction</div>
+      <div id="ps-direction"></div>
     </div>
     <div class="section-label">Execute</div>
     ${psExecuteHTML()}`;
-  psRenderEquation(); psRenderDetail(); psRenderResult();
+  psRenderEquation(); psRenderDetail(); psRenderResult(); psRenderDirection();
 }
 function psRenderEquation(){
   const el=document.getElementById('ps-equation'); if(!el) return;
@@ -305,7 +347,7 @@ function psRenderEquation(){
     const open = t.key===psOpenKey;
     let txt, col;
     if(t.base){ txt = (psNum(psShot.static)? Math.round(d) : '—'); col='var(--ink)'; }
-    else { const r=Math.round(d); txt = (r>0?'+':r<0?'−':'')+Math.abs(r); col = r>0?'#d96070':r<0?'#1a5aaa':'var(--muted)'; }
+    else { const r=Math.round(d); txt = (r>0?'+':r<0?'−':'')+Math.abs(r); col = r>0?'var(--gold)':r<0?'var(--sky)':'var(--muted)'; }
     return `<button onclick="psOpenTerm('${t.key}')" style="display:inline-flex;flex-direction:column;align-items:center;gap:1px;cursor:pointer;
         background:${open?'var(--bg2)':'transparent'};border:1px solid ${open?'var(--border2)':'transparent'};border-radius:8px;padding:3px 7px;margin:1px">
       <span style="font-family:ui-monospace,monospace;font-size:.84rem;font-weight:800;color:${col}">${txt}</span>
@@ -329,7 +371,7 @@ function psSetSit(key,val){ psSituation[key]=val; }
 const psSelSit=(key,opts)=>`<select onchange="psSetSit('${key}',this.value)">`+
   opts.map(o=>`<option value="${o[0]}"${psSituation[key]===o[0]?' selected':''}>${o[1]}</option>`).join('')+`</select>`;
 const psNote=(t)=>`<div style="font-family:Arial,sans-serif;font-size:.74rem;color:var(--ink2);line-height:1.5;margin-top:6px">${t}</div>`;
-const psContrib=(key)=>{ const d=Math.round(psDelta(key)); const c=d>0?'#d96070':d<0?'#1a5aaa':'var(--muted)';
+const psContrib=(key)=>{ const d=Math.round(psDelta(key)); const c=d>0?'var(--gold)':d<0?'var(--sky)':'var(--muted)';
   return `<div style="font-family:ui-monospace,monospace;font-size:.7rem;font-weight:700;color:${c};margin-top:6px">contribution: ${d>0?'+':d<0?'−':''}${Math.abs(d)} yd</div>`; };
 
 function psDetailHTML(key){
@@ -380,7 +422,6 @@ function psRenderResult(){
   if(S<=0){ out.innerHTML=`<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border);font-family:Arial,sans-serif;font-size:.78rem;color:var(--muted)">Open <b>Static</b> above and enter your measured yardage to see the number to play.</div>`; return; }
   const eff=psEffective(), rollout=psNum(psShot.rollout), carry=eff-rollout;
   const minCarry=psNum(psShot.minCarry);
-  const cross=psCrosswind();
   /* Closest club by carry-to-play, but a forced (minimum) carry rules out clubs that can't
      clear it — a club with the right TOTAL but insufficient CARRY isn't an option. */
   let best=null,bestDiff=1e9,anyClear=false;
@@ -404,18 +445,49 @@ function psRenderResult(){
       </div>
       ${best?`<div style="margin-top:6px;font-family:Arial,sans-serif;font-size:.82rem;color:var(--ink2)">Closest club: <b style="color:var(--ink)">${best.label}</b> <span style="color:var(--muted)">(${perf(best.id).carry} yd carry, ${bestDiff<1?'spot on':Math.round(bestDiff)+' yd '+(perf(best.id).carry>carry?'long':'short')}${minCarry>0?' · clears the '+minCarry+' yd carry':''})</span></div>`
         : (minCarry>0&&!anyClear ? `<div style="margin-top:6px;font-family:Arial,sans-serif;font-size:.82rem;color:var(--gold)">No club carries ${minCarry} yd — the forced carry isn't reachable.</div>` : '')}
-      ${cross?`<div style="margin-top:6px;font-family:Arial,sans-serif;font-size:.82rem;color:var(--ink2)">Crosswind: aim <b style="color:var(--ink)">${Math.round(cross.yd)} yd ${cross.dir}</b> of target</div>`:''}
       <div style="margin-top:8px;font-family:ui-monospace,monospace;font-size:.5rem;color:var(--muted);line-height:1.5">Rough estimates — refine each term from your own data.</div>
     </div>`;
+}
+/* Second equation — Effects on Start Direction: crosswind + the stance's D-plane tilt resolve
+   to a single lateral aim adjustment, with the option to neutralise the stance in setup instead. */
+function psRenderDirection(){
+  const el=document.getElementById('ps-direction'); if(!el) return;
+  if(psNum(psShot.static)<=0){ el.innerHTML=`<div style="font-family:Arial,sans-serif;font-size:.78rem;color:var(--muted);padding:4px 0">Enter your measured yardage (open <b>Static</b> above) to resolve the lateral picture.</div>`; return; }
+  const d=psDirection();
+  const lat=y=>{ const a=Math.abs(y); return a<0.5?'on line':`${a.toFixed(0)} yd ${y>0?'R':'L'}`; };
+  const chip=(key,label,val)=>{
+    const open=key===psOpenKey, a=Math.abs(val);
+    const col=a<0.5?'var(--muted)':val>0?'var(--gold)':'var(--sky)';
+    return `<button onclick="psOpenTerm('${key}')" style="display:inline-flex;flex-direction:column;align-items:center;gap:1px;cursor:pointer;
+        background:${open?'var(--bg2)':'transparent'};border:1px solid ${open?'var(--border2)':'transparent'};border-radius:8px;padding:3px 7px;margin:1px">
+      <span style="font-family:ui-monospace,monospace;font-size:.82rem;font-weight:800;color:${col}">${lat(val)}</span>
+      <span style="font-family:Arial,sans-serif;font-size:.54rem;font-weight:700;letter-spacing:.03em;color:var(--muted);text-transform:uppercase">${label}</span>
+    </button>`;
+  };
+  const plus=`<span style="font-family:ui-monospace,monospace;font-size:.9rem;color:var(--muted);align-self:flex-start;margin-top:4px">+</span>`;
+  const stanceActive = psShot.stance && psShot.stance!=='flat';
+  const tip = stanceActive ? PS_STANCE_TIP[psShot.stance] : '';
+  const guidance = Math.abs(d.netAimYd)<0.5
+    ? `<div style="font-family:Arial,sans-serif;font-size:.82rem;color:var(--ink2);margin-top:8px">No lateral adjustment — wind and lie are neutral. Aim straight at your target line.</div>`
+    : `<div style="font-family:Arial,sans-serif;font-size:.82rem;color:var(--ink2);margin-top:8px;line-height:1.5">Set your start line <b style="color:var(--ink)">${lat(d.netAimYd)}</b> of the target${stanceActive?` — or hold your aim and <b>neutralise the lie</b>: ${tip}`:'.'}</div>`;
+  el.innerHTML=`
+    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:2px;padding:4px 0 6px">
+      <span style="font-family:Arial,sans-serif;font-size:.7rem;font-weight:800;color:var(--ink2);margin-right:4px">Aim =</span>
+      ${chip('wind','Wind',d.windYd)}${plus}${chip('stance','Lie tilt',d.stanceAimYd)}
+      <span style="font-family:ui-monospace,monospace;font-size:.9rem;color:var(--muted);align-self:flex-start;margin-top:4px">=</span>
+      <span style="font-family:ui-monospace,monospace;font-size:1.05rem;font-weight:800;color:var(--accent,#c4427a);align-self:flex-start;margin-top:1px">${lat(d.netAimYd)}</span>
+    </div>
+    ${guidance}
+    <div style="margin-top:8px;font-family:ui-monospace,monospace;font-size:.5rem;color:var(--muted);line-height:1.5">Crosswind drifts the ball laterally; a side-hill lie tilts the swing plane so the ball starts &amp; curves off-line. Tap <b>Wind</b> or <b>Lie tilt</b> to set the inputs (shared with the distance terms). Rough estimates — refine from your own data.</div>`;
 }
 
 /* ---- handlers ---- */
 function psSet(key,val,reRenderDetail){
   psShot[key]=val;
-  psRenderEquation(); psRenderResult();
+  psRenderEquation(); psRenderResult(); psRenderDirection();
   if(reRenderDetail) psRenderDetail();
 }
-function psOpenTerm(key){ psOpenKey=key; psRenderEquation(); psRenderDetail(); }
+function psOpenTerm(key){ psOpenKey=key; psRenderEquation(); psRenderDetail(); psRenderDirection(); }
 
 /* Long Term Plans — season arc from the profile (goal handicap, volume). */
 function buildLongTerm(){
@@ -438,7 +510,55 @@ function buildLongTerm(){
   </div>`;
 }
 
+/* ============================================================
+   POST-SHOT ROUTINE — a quick, ordered review: result → execution → plan → adjustment.
+   Transient per-shot (like the rest of Game Plan). Separating result from execution from plan
+   is what turns a shot into a lesson instead of a reaction.
+   ============================================================ */
+function psPostSet(key,val){ psPost[key]=val; }
+const psPostSel=(key,opts)=>`<select onchange="psPostSet('${key}',this.value)">`+
+  opts.map(o=>`<option value="${o}"${psPost[key]===o?' selected':''}>${o}</option>`).join('')+`</select>`;
+function buildPostShot(){
+  const wrap=document.getElementById('postshot-wrap'); if(!wrap) return;
+  const f=(label,key,opts)=>`<div class="edit-field"><label>${label}</label>${psPostSel(key,['—',...opts])}</div>`;
+  wrap.innerHTML=`
+    <div class="profile-card" style="margin-top:0">
+      <h3>1 · The Result <span style="${PS_SUB}">what actually happened</span></h3>
+      <div class="edit-grid">
+        ${f('Outcome vs target','result',['As planned / great','Good','Acceptable','Poor','Bad'])}
+        ${f('Start direction','startDir',['Left','Slightly left','On line','Slightly right','Right'])}
+        ${f('Curve / shape','shape',['Hook','Draw','Straight','Fade','Slice'])}
+        ${f('Distance','dist',['Short','Slightly short','Right number','Slightly long','Long'])}
+        ${f('Finished','finish',['Hole / green / fairway','Fringe / light rough','Rough','Sand','Penalty / lost'])}
+      </div>
+    </div>
+    <div class="profile-card">
+      <h3>2 · Your Execution <span style="${PS_SUB}">how you swung it — separate from result</span></h3>
+      <div class="edit-grid">
+        ${f('Strike','strike',['Flush / centre','Slightly off-centre','Thin','Fat / heavy','Toe / heel'])}
+        ${f('Tempo','tempo',['Smooth','Slightly quick','Rushed','Slow / tentative'])}
+        ${f('Commitment','commit',['Fully committed','Mostly','Hesitant','Steered it'])}
+        ${f('Hit your intended shot?','intended',['Yes','Mostly','No'])}
+      </div>
+      <p class="gen-note" style="margin-top:8px">A good result from a poor swing is still a poor swing; a good swing with a bad bounce is still a good swing. Grade the <b>process</b>, not just the outcome.</p>
+    </div>
+    <div class="profile-card">
+      <h3>3 · Was the Plan Appropriate? <span style="${PS_SUB}">target · club · shot choice</span></h3>
+      <div class="edit-grid">
+        ${f('Verdict','planVerdict',['Spot on','Slightly off','Wrong target / aim','Wrong club','Wrong shot / trajectory','Too aggressive','Too conservative'])}
+        ${f('If you replayed it…','planRepeat',['Repeat exactly','Minor tweak','Different plan'])}
+      </div>
+    </div>
+    <div class="profile-card">
+      <h3>4 · Adjustments for Next Time <span style="${PS_SUB}">one clear takeaway</span></h3>
+      <div class="edit-field" style="grid-column:1/-1"><label>Note</label>
+        <textarea oninput="psPostSet('note',this.value)" rows="2" placeholder="One specific, actionable cue — e.g. ‘aim a touch right on ball-above-feet lies’, or ‘commit to the number, stop steering’." style="width:100%;padding:7px 9px;font-family:Arial,sans-serif;font-size:.82rem;color:var(--ink);background:var(--bg2);border:1px solid var(--border);border-radius:6px;outline:none;resize:vertical;line-height:1.5">${escapeHtml(psPost.note||'')}</textarea>
+      </div>
+      <p class="gen-note" style="margin-top:8px">Keep it to one thing you can carry to the next shot or the range — then let this one go.</p>
+    </div>`;
+}
+
 // Expose for inline handlers and the renderAll orchestrator.
-Object.assign(window, { buildPlanShot, psSet, psSetSit, psOpenTerm, buildLongTerm,
-  pseSetIdx, pseResetSetup,
+Object.assign(window, { buildPlanShot, buildPostShot, psSet, psSetSit, psPostSet, psOpenTerm, buildLongTerm,
+  pseSetIdx, pseResetSetup, psTgtSetIdx, psRenderDirection,
   PS_WIND_HEAD, PS_WIND_TAIL, PS_CROSS_YPM, PS_ELEV_K });

@@ -294,7 +294,7 @@ function buildTopSVG(c,p,opts){
   } else {
     /* Typical green (~30 yd diameter), smooth organic outline. */
     scale=40/15;                                            // ~15yd radius → 40px
-    bg=`<path d="${greenBlobPath(cx,cy,40,36)}" fill="#3aae63" fill-opacity="0.16" stroke="#00853F" stroke-width="1.1" stroke-opacity="0.55"/>`;
+    bg=`<path d="${greenBlobPath(cx,cy,40,36)}" fill="var(--green2)" fill-opacity="0.16" stroke="var(--green)" stroke-width="1.1" stroke-opacity="0.6"/>`;
     ctxLabel='~30yd green';
     gx=40; gy=36; shape='green';
   }
@@ -304,7 +304,7 @@ function buildTopSVG(c,p,opts){
     return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block;overflow:visible" xmlns="http://www.w3.org/2000/svg">
     <text x="${cx}" y="12" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9" font-weight="bold" fill="var(--ink2)">${carry} yd</text>
     ${bg}
-    <text x="${cx}" y="21" text-anchor="middle" font-family="ui-monospace,monospace" font-size="5" fill="#00853F" opacity="0.7">${ctxLabel}</text>
+    <text x="${cx}" y="21" text-anchor="middle" font-family="ui-monospace,monospace" font-size="5" fill="var(--green)" opacity="0.8">${ctxLabel}</text>
     <g transform="rotate(${DISP_SLANT} ${cx} ${cy})">
       <ellipse cx="${cx}" cy="${cy}" rx="${ovW.toFixed(1)}" ry="${ovH.toFixed(1)}" fill="${tc}" fill-opacity="0.28" stroke="${tc}" stroke-opacity="0.75" stroke-width="1.1"/>
     </g>
@@ -323,25 +323,25 @@ function buildTopSVG(c,p,opts){
       xmlns="http://www.w3.org/2000/svg">
     <text x="${cx}" y="12" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9" font-weight="bold" fill="var(--ink2)">${carry} yd</text>
     ${bg}
-    <text x="${cx}" y="21" text-anchor="middle" font-family="ui-monospace,monospace" font-size="5" fill="#00853F" opacity="0.7">${ctxLabel}</text>
+    <text x="${cx}" y="21" text-anchor="middle" font-family="ui-monospace,monospace" font-size="5" fill="var(--green)" opacity="0.8">${ctxLabel}</text>
     <!-- live readout (shown within 8 yd of the edge): pin headline + L/R/long/short edges -->
     <g class="aim-ro" style="display:none">
-      <line class="aim-tick-l"     stroke="#00853F" stroke-width="0.7" stroke-dasharray="2,1.5"/>
-      <line class="aim-tick-r"     stroke="#00853F" stroke-width="0.7" stroke-dasharray="2,1.5"/>
-      <line class="aim-tick-long"  stroke="#00853F" stroke-width="0.7" stroke-dasharray="2,1.5"/>
-      <line class="aim-tick-short" stroke="#00853F" stroke-width="0.7" stroke-dasharray="2,1.5"/>
+      <line class="aim-tick-l"     stroke="var(--green)" stroke-width="0.7" stroke-dasharray="2,1.5"/>
+      <line class="aim-tick-r"     stroke="var(--green)" stroke-width="0.7" stroke-dasharray="2,1.5"/>
+      <line class="aim-tick-long"  stroke="var(--green)" stroke-width="0.7" stroke-dasharray="2,1.5"/>
+      <line class="aim-tick-short" stroke="var(--green)" stroke-width="0.7" stroke-dasharray="2,1.5"/>
       <text class="aim-ro-left"  text-anchor="middle" font-family="ui-monospace,monospace" font-size="5" font-weight="bold"></text>
       <text class="aim-ro-right" text-anchor="middle" font-family="ui-monospace,monospace" font-size="5" font-weight="bold"></text>
       <text class="aim-ro-long"  text-anchor="middle" font-family="ui-monospace,monospace" font-size="5" font-weight="bold"></text>
       <text class="aim-ro-short" text-anchor="middle" font-family="ui-monospace,monospace" font-size="5" font-weight="bold"></text>
       <text class="aim-ro-target" x="4" y="31" text-anchor="start" font-family="ui-monospace,monospace" font-size="5.5" font-weight="bold"
-            stroke="var(--card,#fff)" stroke-width="1.8" paint-order="stroke"></text>
+            stroke="var(--surface)" stroke-width="1.8" paint-order="stroke"></text>
       <text class="aim-ro-target2" x="4" y="38.5" text-anchor="start" font-family="ui-monospace,monospace" font-size="5.5" font-weight="bold"
-            stroke="var(--card,#fff)" stroke-width="1.8" paint-order="stroke"></text>
+            stroke="var(--surface)" stroke-width="1.8" paint-order="stroke"></text>
     </g>
     <!-- green-miss probability (always shown once aimed): 2-D Gaussian over the green -->
     <text class="aim-miss" x="${W-4}" y="31" text-anchor="end" font-family="ui-monospace,monospace" font-size="5.5" font-weight="bold"
-          stroke="var(--card,#fff)" stroke-width="1.8" paint-order="stroke"></text>
+          stroke="var(--surface)" stroke-width="1.8" paint-order="stroke"></text>
     <!-- draggable aim group -->
     <g class="aim-group" style="cursor:grab;touch-action:none" transform="translate(${off.dx.toFixed(1)},${off.dy.toFixed(1)})">
       <g transform="rotate(${DISP_SLANT} ${cx} ${cy})">
@@ -414,7 +414,7 @@ function initApproachAimDrag(){
   function update(){
     grp.setAttribute('transform',`translate(${off.dx.toFixed(1)},${off.dy.toFixed(1)})`);
     const dotX=cx+off.dx, dotY=cy+off.dy;
-    const G='#00853F', R='#d96070';
+    const G='var(--green)', R='var(--gold)';
     /* green-miss probability — always shown once a shot is aimed */
     const mp=missPct(dotX,dotY);
     if(mp==null){ roMiss.style.display='none'; }
