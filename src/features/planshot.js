@@ -17,10 +17,146 @@ const psShot = { teeAim:'', apprLat:'', apprDepth:'', static:'', lie:'fairway', 
   windspd:'', winddir:'calm', elev:'', shot:'stock', rollout:'', minCarry:'' };
 /* PLAN → Situational Considerations (mindset framers, not part of the yardage maths). */
 const psSituation = { qualify:'', match:'', team:'', endgame:'' };
-/* EXECUTE → physical pre-shot routine selections (transient, like the rest of the page). */
-const psExec = { lean:'vertical', topStr:'neutral', topPlace:'fingers', botStr:'neutral', botPlace:'fingers',
-  upPos:'centered', upAlign:'square', upTilt:'neutral', loPos:'centered', loAlign:'square', loTilt:'neutral' };
 let psOpenKey = 'static';
+
+/* ============================================================
+   EXECUTE — setup → impact-condition model (prototype, provisional magnitudes).
+   Each physical-routine variable is a 5-point slider (idx 0..4, centre 2 = neutral). Per-notch
+   deltas accumulate into impact conditions (face / path / attack / dynamic loft / strike / speed),
+   then run through the app's D-plane engine (dpSolve) so the panel shows the expected change in
+   start line, shape, launch and compression. Directions + rough scale come from the ball-flight
+   (D-plane) laws used app-wide and standard launch-monitor findings; magnitudes are PRESUMED
+   until calibrated to the player's own captured data.
+   ============================================================ */
+const PSE_BASE = { face:0, path:0, dynLoft:30, aoa:-4, carry:160 };   // reference mid-iron
+const pseIdx = {};                                                    // key -> 0..4 (default 2)
+const pseGet = k => (pseIdx[k]==null ? 2 : pseIdx[k]);
+const PSE_SEC = ['Set club in place','Grip the club','Set upper body','Set lower body'];
+const PSE_SEC_NUM = { 'Set club in place':3, 'Grip the club':4, 'Set upper body':5, 'Set lower body':6 };
+const PSE_VARS = [
+  { key:'lean', sec:'Set club in place', label:'Shaft lean', tag:'dyn loft',
+    opts:['Well back','Slightly back','Vertical','Slightly forward','Well forward'],
+    per:{ dynLoft:-3, aoa:-1 },
+    desc:'Forward shaft lean removes dynamic loft (~1° per ° of lean) for a lower, more compressed strike and a slightly steeper attack; leaning back adds loft and height.' },
+  { key:'topStr', sec:'Grip the club', label:'Top hand — strength', tag:'face',
+    opts:['Weak','Slightly weak','Neutral','Slightly strong','Strong'],
+    per:{ face:-2.5, dynLoft:-0.4 },
+    desc:'The lead hand is the main face controller: a stronger grip (rotated away from target) presents a more closed face at impact — a draw/hook bias; weaker opens it for a fade/slice.' },
+  { key:'topPlace', sec:'Grip the club', label:'Top hand — placement', tag:'release',
+    opts:['Deep in palm','Slightly palm','Neutral','Slightly fingers','In the fingers'],
+    per:{ speed:1.0, face:-0.8 },
+    desc:'Holding the lead hand more in the fingers frees wrist hinge — more clubhead speed and more face rotation (release, a touch of close); deeper in the palm holds the face and trims speed.' },
+  { key:'botStr', sec:'Grip the club', label:'Bottom hand — strength', tag:'face',
+    opts:['Weak','Slightly weak','Neutral','Slightly strong','Strong'],
+    per:{ face:-1.5 },
+    desc:'The trail hand rotates the face closed through impact when stronger (draw bias) and holds it open when weaker (fade bias) — a secondary face influence to the lead hand.' },
+  { key:'botPlace', sec:'Grip the club', label:'Bottom hand — placement', tag:'release',
+    opts:['Deep in palm','Slightly palm','Neutral','Slightly fingers','In the fingers'],
+    per:{ speed:0.7, face:-0.6 },
+    desc:'Trail hand in the fingers adds hinge and snap (speed + release); in the palm it steadies the face and slows the release.' },
+  { key:'upPos', sec:'Set upper body', label:'Position', tag:'low point',
+    opts:['Well back','Slightly back','Centered','Slightly ahead','Well ahead'],
+    per:{ lowPt:0.75, aoa:-1.0, dynLoft:-1.0 },
+    desc:'Sternum ahead of the ball moves low point forward → ball-first contact, a steeper attack and a delofted, lower flight; behind the ball raises launch but risks thin/fat strikes.' },
+  { key:'upAlign', sec:'Set upper body', label:'Alignment', tag:'path',
+    opts:['Closed','Slightly closed','Square','Slightly open','Open'],
+    per:{ path:-2.0 },
+    desc:'Shoulder alignment sets swing direction: open swings the club out-to-in (pull / fade path), closed in-to-out (push / draw path). Path drives most of the curve direction in the D-plane.' },
+  { key:'upTilt', sec:'Set upper body', label:'Tilt', tag:'attack',
+    opts:['Toward target','Slightly toward','Level','Slightly away','Away from target'],
+    per:{ aoa:1.0, path:0.8, dynLoft:0.5 },
+    desc:'Secondary (side) tilt away from target shallows the attack upward, tilts the path in-to-out and adds launch — the classic hit-up driver setup; tilting toward steepens and lowers it.' },
+  { key:'loPos', sec:'Set lower body', label:'Position (weight)', tag:'low point',
+    opts:['Well back','Slightly back','Centered','Slightly forward','Well forward'],
+    per:{ lowPt:0.6, aoa:-0.6, dynLoft:-0.5 },
+    desc:'Lead-side weight pulls low point forward for ball-first compression and a lower flight; trail-side weight hangs back, launching higher with less compression.' },
+  { key:'loAlign', sec:'Set lower body', label:'Alignment', tag:'path',
+    opts:['Closed','Slightly closed','Square','Slightly open','Open'],
+    per:{ path:-1.2 },
+    desc:'Open hips and feet pre-set an out-to-in path and quicker lead-side clearance; closed promotes an in-to-out path. A weaker path influence than the shoulders.' },
+  { key:'loTilt', sec:'Set lower body', label:'Tilt', tag:'attack',
+    opts:['Toward target','Slightly toward','Level','Slightly away','Away from target'],
+    per:{ aoa:0.5, path:0.4 },
+    desc:'Trail-side pelvic tilt supports an upward strike and in-to-out path; tilt toward the target steepens the attack.' }
+];
+/* accumulate per-notch deltas, then solve ball flight vs the neutral baseline */
+function pseNet(){
+  const acc={face:0,path:0,aoa:0,dynLoft:0,speed:0,lowPt:0};
+  PSE_VARS.forEach(v=>{ const n=pseGet(v.key)-2; for(const k in v.per) acc[k]+=v.per[k]*n; });
+  const cur=dpSolve(PSE_BASE.face+acc.face, PSE_BASE.path+acc.path, PSE_BASE.dynLoft+acc.dynLoft, PSE_BASE.aoa+acc.aoa, PSE_BASE.carry);
+  const base=dpSolve(PSE_BASE.face, PSE_BASE.path, PSE_BASE.dynLoft, PSE_BASE.aoa, PSE_BASE.carry);
+  return { acc, shape:cur.shape, spinAxis:cur.spinAxis,
+    dStart: cur.hLaunch-base.hLaunch, dLaunch: cur.vLaunch-base.vLaunch,
+    dSpinLoft: cur.spinLoft-base.spinLoft, dCurve: cur.curveYds-base.curveYds };
+}
+/* per-slider live contribution text */
+function pseEffText(v){
+  const n=pseGet(v.key)-2;
+  if(n===0) return '<span style="opacity:.7">neutral — no change</span>';
+  const nm={face:'face',path:'path',aoa:'AoA',dynLoft:'loft',speed:'speed',lowPt:'low-pt'};
+  const unit={face:'°',path:'°',aoa:'°',dynLoft:'°',speed:' mph',lowPt:'″'};
+  const word={ face:f=>f<0?'closes':'opens', path:p=>p<0?'out-to-in':'in-to-out', aoa:a=>a<0?'steeper':'shallower',
+    dynLoft:d=>d<0?'delofts':'adds loft', speed:s=>s>0?'faster':'slower', lowPt:l=>l>0?'fwd':'back' };
+  const parts=[]; let primary=null;
+  for(const k in v.per){ const val=v.per[k]*n; if(primary===null) primary=k;
+    const s=(val>0?'+':'−')+Math.abs(val).toFixed(Math.abs(val)<1?1:0)+unit[k];
+    parts.push(`${s} ${nm[k]}`); }
+  return `${parts.join(' · ')} <span style="opacity:.7">— ${word[primary](v.per[primary]*n)}</span>`;
+}
+function pseReadoutInner(){
+  const net=pseNet(), a=net.acc;
+  const sg=(x,d,u)=>`${x>0?'+':x<0?'−':''}${Math.abs(x).toFixed(d)}${u||''}`;
+  const startTxt = Math.abs(net.dStart)<0.15 ? 'on line' : `${Math.abs(net.dStart).toFixed(1)}° ${net.dStart>0?'right':'left'}`;
+  const shapeTxt = net.shape==='Straight' ? 'straight' : `${net.shape.toLowerCase()} ${Math.abs(net.dCurve).toFixed(0)} yd`;
+  const compTxt = a.lowPt>0.3 ? `ball-first (low pt +${a.lowPt.toFixed(1)}″)` : a.lowPt<-0.3 ? `low pt ${a.lowPt.toFixed(1)}″ back` : 'neutral strike';
+  const bits=[`Starts <b>${startTxt}</b>`];
+  if(net.shape!=='Straight') bits.push(`<b>${shapeTxt}</b>`);
+  bits.push(`launch <b>${sg(net.dLaunch,1,'°')}</b>`, `<b>${compTxt}</b>`);
+  return `
+    <div class="sgv-readout-head">Expected Effect on Swing &amp; Ball Flight <span class="sgv-prov">prototype · presumed</span></div>
+    <div class="sgv-impact">
+      <span>Face <b>${sg(a.face,1,'°')}</b></span>
+      <span>Path <b>${sg(a.path,1,'°')}</b></span>
+      <span>Face-to-path <b>${sg(a.face-a.path,1,'°')}</b></span>
+      <span>Attack <b>${sg(a.aoa,1,'°')}</b></span>
+      <span>Dyn loft <b>${sg(a.dynLoft,1,'°')}</b></span>
+      <span>Low point <b>${sg(a.lowPt,1,'″')}</b></span>
+      <span>Speed <b>${sg(a.speed,1,' mph')}</b></span>
+    </div>
+    <div class="sgv-shot">
+      <div class="sgv-shot-cell"><span class="sgv-k">Start line</span><span class="sgv-v">${startTxt}</span></div>
+      <div class="sgv-shot-cell"><span class="sgv-k">Shape</span><span class="sgv-v">${shapeTxt}</span></div>
+      <div class="sgv-shot-cell"><span class="sgv-k">Launch Δ</span><span class="sgv-v">${sg(net.dLaunch,1,'°')}</span></div>
+      <div class="sgv-shot-cell"><span class="sgv-k">Spin loft Δ</span><span class="sgv-v">${sg(net.dSpinLoft,1,'°')}</span></div>
+    </div>
+    <div style="font-family:Arial,sans-serif;font-size:.76rem;color:var(--ink2);line-height:1.5;margin-top:10px">${bits.join(' · ')}.</div>
+    <div class="sgv-readout-foot">vs. a neutral setup on a reference mid-iron (30° dyn loft, −4° attack, 160 yd). <button type="button" class="sgv-reset" onclick="pseResetSetup()">Reset to neutral</button></div>`;
+}
+function pseRow(v){ const idx=pseGet(v.key);
+  return `<div class="sgv-row">
+      <div class="sgv-meta"><span class="sgv-label">${v.label}</span><span class="sgv-sub">${v.tag}</span></div>
+      <div class="sgv-slider-row">
+        <input type="range" class="sgv-range pse-range" data-key="${v.key}" min="0" max="4" step="1" value="${idx}" oninput="pseSetIdx('${v.key}',this.value)">
+        <span class="sgv-cur pse-cur" data-key="${v.key}">${v.opts[idx]}</span>
+      </div>
+      <div class="sgv-eff pse-eff" data-key="${v.key}">${pseEffText(v)}</div>
+    </div>`;
+}
+function pseHowHTML(){
+  const rows=PSE_VARS.map(v=>`<div style="margin:7px 0"><b style="color:var(--ink);font-family:Arial,sans-serif;font-size:.8rem">${v.label}</b> <span style="color:var(--muted);font-family:ui-monospace,monospace;font-size:.56rem;text-transform:uppercase;letter-spacing:.04em">${v.sec}</span><br><span style="color:var(--ink2);font-size:.78rem;line-height:1.5">${v.desc}</span></div>`).join('');
+  return `<details class="defs-dropdown" style="margin-top:12px"><summary>How these work — theory &amp; sources</summary>
+    <div>
+      <p class="gen-note" style="margin:0 0 8px">Each control maps to impact conditions, then through the app's <b>D-plane ball-flight engine</b> (the same laws used across StrongerGolf) to a start line, shape, launch and strike. Magnitudes are <b>provisional / Presumed</b> — they encode the correct directions and rough scale from ball-flight theory and standard launch-monitor findings, and should be refined against your own captured data.</p>
+      ${rows}
+    </div></details>`;
+}
+function pseSetIdx(key,val){ pseIdx[key]=Math.max(0,Math.min(4,Math.round(parseFloat(val)||0))); pseRefresh(); }
+function pseRefresh(){
+  PSE_VARS.forEach(v=>{ const c=document.querySelector(`.pse-cur[data-key="${v.key}"]`), e=document.querySelector(`.pse-eff[data-key="${v.key}"]`);
+    if(c) c.textContent=v.opts[pseGet(v.key)]; if(e) e.innerHTML=pseEffText(v); });
+  const ro=document.getElementById('pse-readout'); if(ro) ro.innerHTML=pseReadoutInner();
+}
+function pseResetSetup(){ PSE_VARS.forEach(v=>{ pseIdx[v.key]=2; const r=document.querySelector(`.pse-range[data-key="${v.key}"]`); if(r) r.value=2; }); pseRefresh(); }
 
 const psNum = v => { const n=parseFloat(v); return isNaN(n)?0:n; };
 const PS_LIE   = { fairway:0, lightrough:5, heavyrough:-8, bunker:-7, divot:-3, hardpan:-2, tee:2 };
@@ -98,10 +234,10 @@ function psSituationHTML(){
       <h3>1 · Situational Considerations</h3>
       <p class="intro-note" style="margin:0 0 10px">Frame the shot before you build the number — the stakes shape your target and how much risk is worth it.</p>
       <div class="edit-grid">
-        <div class="edit-field"><label>Qualifying — score / position</label>${psSelG('sit','qualify',[['','—'],['none','Not qualifying — free roll'],['score','Need a score'],['position','Need a position'],['cut','Making the cut']])}</div>
-        <div class="edit-field"><label>Match play</label>${psSelG('sit','match',[['','—'],['na','Not match play'],['square','All square'],['up','Up in the match'],['down','Down in the match'],['dormie','Dormie'],['mustwin','Must win this hole'],['safe','Can play safe / concede']])}</div>
-        <div class="edit-field"><label>Team format</label>${psSelG('sit','team',[['','—'],['individual','Individual'],['fourball','Fourball — best ball'],['foursomes','Foursomes — alternate shot'],['scramble','Scramble'],['shamble','Shamble']])}</div>
-        <div class="edit-field"><label>End-game scenario</label>${psSelG('sit','endgame',[['','—'],['regular','Regular — mid-round'],['protect','Closing holes — protect lead'],['chase','Closing holes — must attack'],['back9final','Back 9, final round']])}</div>
+        <div class="edit-field"><label>Qualifying — score / position</label>${psSelSit('qualify',[['','—'],['none','Not qualifying — free roll'],['score','Need a score'],['position','Need a position'],['cut','Making the cut']])}</div>
+        <div class="edit-field"><label>Match play</label>${psSelSit('match',[['','—'],['na','Not match play'],['square','All square'],['up','Up in the match'],['down','Down in the match'],['dormie','Dormie'],['mustwin','Must win this hole'],['safe','Can play safe / concede']])}</div>
+        <div class="edit-field"><label>Team format</label>${psSelSit('team',[['','—'],['individual','Individual'],['fourball','Fourball — best ball'],['foursomes','Foursomes — alternate shot'],['scramble','Scramble'],['shamble','Shamble']])}</div>
+        <div class="edit-field"><label>End-game scenario</label>${psSelSit('endgame',[['','—'],['regular','Regular — mid-round'],['protect','Closing holes — protect lead'],['chase','Closing holes — must attack'],['back9final','Back 9, final round']])}</div>
       </div>
     </div>`;
 }
@@ -120,39 +256,30 @@ function psTargetHTML(){
       <p class="intro-note" style="margin:10px 0 0">Coming: overlay your <b>86% dispersion pattern</b> on the hole to auto-pick the aim that <b>avoids trouble &amp; minimises expected score</b> — tee aim favouring the shortest route to the pin, and an approach target that <b>minimises the chance of missing the green</b>, then the shortest expected putt. Powered by the Course Map.</p>
     </div>`;
 }
-/* EXECUTE — the physical pre-shot routine, run top to bottom. */
+/* EXECUTE — the physical pre-shot routine, run top to bottom. Steps 1-2 & 7-8 are action
+   reminders; steps 3-6 are 5-point sliders whose live effect on swing & ball flight is
+   quantified in the panel below. */
 function psExecuteHTML(){
-  const step=(n,t)=>`<div class="edit-subhead">${n}</div><p class="gen-note" style="grid-column:1/-1;margin:0 0 2px">${t}</p>`;
-  const STR=[['neutral','Neutral'],['strong','Strong'],['weak','Weak']];
-  const PLACE=[['fingers','In the fingers'],['palm','In the palm']];
-  const POS=[['centered','Centered'],['ahead','Ahead of ball'],['behind','Behind ball']];
-  const ALIGN=[['square','Square'],['open','Open'],['closed','Closed']];
-  const TILT=[['neutral','Neutral'],['away','Tilted away from target'],['toward','Tilted toward target']];
+  const head=t=>`<div class="edit-subhead">${t}</div>`;
+  const note=t=>`<p class="gen-note" style="margin:0 0 4px">${t}</p>`;
+  const sliders=sec=>PSE_VARS.filter(v=>v.sec===sec).map(pseRow).join('');
   return `
     <div class="profile-card" style="margin-top:0">
-      <h3>Physical Pre-Shot Routine <span style="${PS_SUB}">run in order</span></h3>
-      <div class="edit-grid">
-        ${step('1 · Practice swing / bump','Rehearse the feel, tempo and low-point of the exact shot you just planned.')}
-        ${step('2 · Intermediate target','Pick a spot a few feet in front of the ball, on the line to your distant TARGET — you aim to this, not the target itself.')}
-        <div class="edit-subhead">3 · Set club in place</div>
-        <p class="gen-note" style="grid-column:1/-1;margin:0 0 2px">Sole the club and <b>aim the FACE at the intermediate target</b>, then set your hands for the intended shaft lean.</p>
-        <div class="edit-field" style="grid-column:1/-1"><label>Shaft lean</label>${psSelG('exec','lean',[['back','Leaned slightly back'],['vertical','Vertical'],['sfwd','Leaned slightly forward'],['wfwd','Leaned well forward']])}</div>
-        <div class="edit-subhead">4 · Grip the club</div>
-        <div class="edit-field"><label>Top hand — strength</label>${psSelG('exec','topStr',STR)}</div>
-        <div class="edit-field"><label>Top hand — placement</label>${psSelG('exec','topPlace',PLACE)}</div>
-        <div class="edit-field"><label>Bottom hand — strength</label>${psSelG('exec','botStr',STR)}</div>
-        <div class="edit-field"><label>Bottom hand — placement</label>${psSelG('exec','botPlace',PLACE)}</div>
-        <div class="edit-subhead">5 · Set upper body</div>
-        <div class="edit-field"><label>Position</label>${psSelG('exec','upPos',POS)}</div>
-        <div class="edit-field"><label>Alignment</label>${psSelG('exec','upAlign',ALIGN)}</div>
-        <div class="edit-field"><label>Tilt</label>${psSelG('exec','upTilt',TILT)}</div>
-        <div class="edit-subhead">6 · Set lower body</div>
-        <div class="edit-field"><label>Position</label>${psSelG('exec','loPos',POS)}</div>
-        <div class="edit-field"><label>Alignment</label>${psSelG('exec','loAlign',ALIGN)}</div>
-        <div class="edit-field"><label>Tilt</label>${psSelG('exec','loTilt',TILT)}</div>
-        ${step('7 · Waggle &amp; look','Waggle to stay athletic and free of tension; take one last look down the line at the TARGET in the distance.')}
-        ${step('8 · Trigger','Use your TRIGGER (forward press, kick-in, breath) to start the takeaway — then commit, no second-guessing.')}
-      </div>
+      <h3>Physical Pre-Shot Routine <span style="${PS_SUB}">run in order · live setup effects</span></h3>
+      ${head('1 · Practice swing / bump')}${note('Rehearse the feel, tempo and low-point of the exact shot you just planned.')}
+      ${head('2 · Intermediate target')}${note('Pick a spot a few feet in front of the ball, on the line to your distant TARGET — you aim to this, not the target itself.')}
+      ${head('3 · Set club in place')}${note('Sole the club and <b>aim the FACE at the intermediate target</b>, then set your hands for the intended shaft lean.')}
+      ${sliders('Set club in place')}
+      ${head('4 · Grip the club')}
+      ${sliders('Grip the club')}
+      ${head('5 · Set upper body')}
+      ${sliders('Set upper body')}
+      ${head('6 · Set lower body')}
+      ${sliders('Set lower body')}
+      ${head('7 · Waggle &amp; look')}${note('Waggle to stay athletic and free of tension; take one last look down the line at the TARGET in the distance.')}
+      ${head('8 · Trigger')}${note('Use your TRIGGER (forward press, kick-in, breath) to start the takeaway — then commit, no second-guessing.')}
+      <div id="pse-readout" class="sgv-readout" style="margin-top:14px">${pseReadoutInner()}</div>
+      ${pseHowHTML()}
     </div>`;
 }
 function buildPlanShot(){
@@ -197,12 +324,10 @@ function psRenderEquation(){
 const psField=(label,inner)=>`<div class="edit-field" style="grid-column:1/-1"><label>${label}</label>${inner}</div>`;
 const psSel=(key,opts)=>`<select onchange="psSet('${key}',this.value,true)">`+
   opts.map(o=>`<option value="${o[0]}"${psShot[key]===o[0]?' selected':''}>${o[1]}</option>`).join('')+`</select>`;
-/* Generic select for the Situational ('sit') / Execute ('exec') scopes — stored only
-   (these don't feed the yardage equation), so no re-render needed on change. */
-function psSetField(scope,key,val){ (scope==='sit'?psSituation:psExec)[key]=val; }
-const psSelG=(scope,key,opts)=>{ const cur=(scope==='sit'?psSituation:psExec)[key];
-  return `<select onchange="psSetField('${scope}','${key}',this.value)">`+
-    opts.map(o=>`<option value="${o[0]}"${cur===o[0]?' selected':''}>${o[1]}</option>`).join('')+`</select>`; };
+/* Situational-considerations selects — stored only (not part of the yardage maths). */
+function psSetSit(key,val){ psSituation[key]=val; }
+const psSelSit=(key,opts)=>`<select onchange="psSetSit('${key}',this.value)">`+
+  opts.map(o=>`<option value="${o[0]}"${psSituation[key]===o[0]?' selected':''}>${o[1]}</option>`).join('')+`</select>`;
 const psNote=(t)=>`<div style="font-family:Arial,sans-serif;font-size:.74rem;color:var(--ink2);line-height:1.5;margin-top:6px">${t}</div>`;
 const psContrib=(key)=>{ const d=Math.round(psDelta(key)); const c=d>0?'#d96070':d<0?'#1a5aaa':'var(--muted)';
   return `<div style="font-family:ui-monospace,monospace;font-size:.7rem;font-weight:700;color:${c};margin-top:6px">contribution: ${d>0?'+':d<0?'−':''}${Math.abs(d)} yd</div>`; };
@@ -314,5 +439,6 @@ function buildLongTerm(){
 }
 
 // Expose for inline handlers and the renderAll orchestrator.
-Object.assign(window, { buildPlanShot, psSet, psSetField, psOpenTerm, buildLongTerm,
+Object.assign(window, { buildPlanShot, psSet, psSetSit, psOpenTerm, buildLongTerm,
+  pseSetIdx, pseResetSetup,
   PS_WIND_HEAD, PS_WIND_TAIL, PS_CROSS_YPM, PS_ELEV_K });
