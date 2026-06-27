@@ -12,9 +12,11 @@
 //   gives back ~2/3 of the uphill cost. knockdown dampens wind ~×0.6, high ball ~×1.2.
 const PS_WIND_HEAD = 0.010, PS_WIND_TAIL = 0.005, PS_CROSS_YPM = 2.0, PS_ELEV_K = 1.2;
 
-/* transient shot state (not persisted — a shot is planned, then forgotten) */
-const psShot = { teeAim:'', apprLat:'', apprDepth:'', static:'', lie:'fairway', stance:'flat',
-  windspd:'', winddir:'calm', elev:'', shot:'stock', rollout:'', minCarry:'' };
+/* transient shot state (not persisted — a shot is planned, then forgotten).
+   windAngle: deg the wind comes FROM, 0 = straight into you, clockwise (90 = off the right).
+   stanceX/stanceY: overhead lie dial, −1..1 each. +X = ball below feet, +Y = uphill. */
+const psShot = { teeAim:'', apprLat:'', apprDepth:'', static:'', lie:'fairway',
+  stanceX:0, stanceY:0, windspd:'', windAngle:0, elev:'', shot:'stock', rollout:'', minCarry:'' };
 /* PLAN → Situational Considerations (mindset framers, not part of the yardage maths). */
 const psSituation = { qualify:'', match:'', team:'', endgame:'' };
 /* PLAN box 2 — Target Selection: 5-point sliders (selection only for now; will feed the
@@ -26,15 +28,6 @@ const PS_TGT = [
 ];
 const psTgtIdx = {};
 const psTgtGet = k => (psTgtIdx[k]==null ? 2 : psTgtIdx[k]);
-/* Stance side-hill lie → ball FINISH tendency (deg, RH, + = finishes right). The lie tilts the
-   swing plane, so the ball both starts and curves; aim opposite, or neutralise it in setup. */
-const PS_STANCE_DIR = { flat:0, above:-2.5, below:2.5, uphill:-1, downhill:1 };
-const PS_STANCE_TIP = {
-  above:'ball above feet tilts the plane flatter → pull/draw; grip down, play it a touch back, aim slightly right (or swing more around to cancel it).',
-  below:'ball below feet steepens the plane → push/fade; add knee flex, stay in your posture, aim slightly left.',
-  uphill:'uphill lie adds loft and a touch of pull; lean with the slope, ball forward, aim slightly right.',
-  downhill:'downhill lie delofts and pushes right; lean with the slope, ball back, aim slightly left.'
-};
 /* POST-SHOT routine — transient per-shot review. */
 const psPost = {};
 let psOpenKey = 'static';
@@ -180,9 +173,29 @@ function pseResetSetup(){ PSE_VARS.forEach(v=>{ pseIdx[v.key]=2; const r=documen
 
 const psNum = v => { const n=parseFloat(v); return isNaN(n)?0:n; };
 const PS_LIE   = { fairway:0, lightrough:5, heavyrough:-8, bunker:-7, divot:-3, hardpan:-2, tee:2 };
-const PS_STANCE= { flat:0, above:-3, below:-2, uphill:-5, downhill:5 };
-const PS_SHOT  = { stock:0, knockdown:-8, high:0 };
-const psWindMult = () => psShot.shot==='knockdown'?0.6 : psShot.shot==='high'?1.2 : 1.0;
+/* Stance is a 2-D overhead dial (stanceX +=ball below feet, stanceY +=uphill, each −1..1).
+   Effects are ASYMMETRIC: ball ABOVE feet (RH) hooks far more than the same slope BELOW feet —
+   above the ball golfers grip down (raising the shaft, pointing the 3-D face left, and shaving a
+   little speed), but below it they can't lengthen the club, so the mirror effect is weaker. */
+const PS_STANCE_K = {
+  distAlong:6,   // downhill +6 / uphill −6 yd at full slope
+  distAbove:4,   // ball above feet: grip-down speed loss → a touch shorter
+  distBelow:2,   // ball below feet: minor distance loss
+  dirAbove:3.6,  // ball-above-feet finish-LEFT degrees (RH) — the big one
+  dirBelow:1.8,  // ball-below-feet finish-RIGHT degrees — ~half (the asymmetry)
+  dirAlong:1.0   // downhill push-right / uphill pull-left degrees
+};
+/* Shot-type trajectory. d = plays-like yards, w = wind-sensitivity multiplier, land = ° added to
+   the landing angle (steeper = stops faster), note = description for the detail panel. */
+const PS_SHOT = {
+  stinger:  { d:-3,  w:0.45, land:-10, label:'Stinger — knifes through wind, lots of release',           note:'Stinger / driving shot: minimal height, knifes through wind, releases a lot on landing.' },
+  knockdown:{ d:-8,  w:0.60, land:-7,  label:'Knockdown / ¾ — lower & shorter, wind-cheating',           note:'Knockdown / three-quarter: lower and shorter, far less wind-sensitive, gives up more on uphills.' },
+  stock:    { d:0,   w:1.00, land:0,   label:'Stock — your normal full flight',                          note:'Stock: your normal full-flight trajectory.' },
+  high:     { d:-2,  w:1.25, land:7,   label:'High / soft — stops fast, holds uphill',                   note:'High / soft: extra height stops it fast and holds uphill, but the wind has more time to act.' },
+  flop:     { d:-10, w:1.40, land:14,  label:'Flop — max height, lands almost vertically',               note:'Flop / max height: very high and short, lands almost vertically; the most wind-affected.' }
+};
+const psShotDef = () => PS_SHOT[psShot.shot] || PS_SHOT.stock;
+const psWindMult = () => psShotDef().w;
 
 function psAirDelta(S){
   try{
@@ -200,9 +213,8 @@ function psLandAngle(){
   let best=null,bestDiff=1e9;
   (STATE.clubs||[]).forEach(c=>{ if(c.type==='putter')return; const cc=perf(c.id).carry||0; if(cc<=0)return; const d=Math.abs(cc-S); if(d<bestDiff){bestDiff=d;best=c;} });
   let land = best ? (perf(best.id).land||45) : 45;
-  if(psShot.shot==='knockdown') land-=7;
-  else if(psShot.shot==='high') land+=7;
-  return Math.max(22, Math.min(62, land));
+  land += psShotDef().land;
+  return Math.max(22, Math.min(72, land));
 }
 /* Topography (geometric): yards lost ≈ Δelev / tan(landing angle). Steeper landings lose less
    per foot uphill; downhill gives back ~2/3 of the uphill cost. */
@@ -211,39 +223,58 @@ function psTopoDelta(){
   const factor=1/Math.tan(psLandAngle()*Math.PI/180);
   return elev>=0 ? elev*factor : elev*factor*0.67;
 }
+/* Wind resolved into head/tail (cos) + crosswind (sin) from a single speed + direction dial.
+   head + = into you (plays longer); cross + = wind from the right (pushes ball left ⇒ aim right). */
+function psWindComp(){
+  const s=psNum(psShot.windspd), a=psNum(psShot.windAngle)*Math.PI/180;
+  return { head:s*Math.cos(a), cross:s*Math.sin(a) };
+}
+function psWindAimYd(){ return PS_CROSS_YPM*psWindComp().cross*psWindMult(); }   // + = aim right
+/* Stance (overhead dial) → distance + ball-finish tendency, with the above/below asymmetry. */
+function psStance(){
+  const hx=psShot.stanceX||0, hy=psShot.stanceY||0, K=PS_STANCE_K;
+  const distAlong  = -K.distAlong*hy;                                              // uphill(+) plays shorter
+  const distAcross = hx<0 ? -K.distAbove*Math.abs(hx) : -K.distBelow*Math.abs(hx); // above feet loses more
+  const finishAcross = hx<0 ? -K.dirAbove*Math.abs(hx) : K.dirBelow*Math.abs(hx);  // above → finish LEFT(−)
+  const finishAlong  = -K.dirAlong*hy;                                             // uphill → pull left(−)
+  return { hx, hy, dist:distAlong+distAcross, finishDeg:finishAcross+finishAlong };
+}
 /* per-term yardage delta for the current shot */
 function psDelta(key){
   const S=psNum(psShot.static);
   switch(key){
     case 'static': return S;
     case 'lie':    return PS_LIE[psShot.lie]||0;
-    case 'stance': return PS_STANCE[psShot.stance]||0;
-    case 'wind':   { const w=psNum(psShot.windspd);
-                     if(psShot.winddir==='head') return  S*PS_WIND_HEAD*w*psWindMult();
-                     if(psShot.winddir==='tail') return -S*PS_WIND_TAIL*w*psWindMult();
-                     return 0; }
+    case 'stance': return psStance().dist;
+    case 'wind':   { const head=psWindComp().head;
+                     const d = head>=0 ? S*PS_WIND_HEAD*head : S*PS_WIND_TAIL*head;  // into +, down −
+                     return d*psWindMult(); }
     case 'topo':   return psTopoDelta();
-    case 'shot':   return PS_SHOT[psShot.shot]||0;
+    case 'shot':   return psShotDef().d;
   }
   return 0;
-}
-function psCrosswind(){
-  if(psShot.winddir!=='crossL'&&psShot.winddir!=='crossR') return null;
-  const lat=PS_CROSS_YPM*psNum(psShot.windspd)*psWindMult();
-  if(lat<=0) return null;
-  return { yd:lat, dir: psShot.winddir==='crossL'?'left':'right' };  /* wind L→R pushes ball right ⇒ aim left */
 }
 function psEffective(){ return ['static','lie','stance','wind','topo','shot'].reduce((s,k)=>s+psDelta(k),0); }
 /* Lateral / start-direction picture: crosswind drift + the stance's D-plane tilt, each as an
    AIM offset in yards at the effective distance (+ = aim right, − = aim left). */
 function psDirection(){
   const eff = Math.max(0, psEffective());
-  const cw = psCrosswind();
-  const windYd = cw ? (cw.dir==='left' ? -cw.yd : cw.yd) : 0;            // aim offset from wind
-  const stanceDeg = PS_STANCE_DIR[psShot.stance] || 0;                    // ball finish tendency (deg, + right)
-  const stanceFinishYd = Math.tan(stanceDeg*Math.PI/180) * eff;          // + = ball finishes right
+  const windYd = psWindAimYd();                                          // aim offset from crosswind
+  const st = psStance();
+  const stanceFinishYd = Math.tan(st.finishDeg*Math.PI/180) * eff;       // + = ball finishes right
   const stanceAimYd = -stanceFinishYd;                                   // aim opposite the finish bias
-  return { eff, windYd, stanceDeg, stanceFinishYd, stanceAimYd, netAimYd: windYd+stanceAimYd, cw };
+  return { eff, windYd, st, stanceFinishYd, stanceAimYd, netAimYd: windYd+stanceAimYd };
+}
+/* Setup tip to neutralise the lie, built from whichever dial component dominates. */
+function psStanceTip(){
+  const hx=psShot.stanceX||0, hy=psShot.stanceY||0;
+  if(Math.abs(hx)<0.1 && Math.abs(hy)<0.1) return '';
+  const parts=[];
+  if(hx<=-0.1) parts.push('ball above feet → it hooks hard left; grip down, play it a touch back and aim right (or swing more around it)');
+  else if(hx>=0.1) parts.push('ball below feet → it leaks right; add knee flex, stay in your posture and aim a little left');
+  if(hy>=0.1) parts.push('uphill adds loft (higher, shorter) and a slight pull; lean with the slope, ball forward');
+  else if(hy<=-0.1) parts.push('downhill delofts (lower, longer) and pushes right; lean with the slope, ball back');
+  return parts.join('; ') + '.';
 }
 
 const PS_TERMS=[
@@ -378,32 +409,43 @@ function psDetailHTML(key){
   switch(key){
     case 'static': return psField('Measured yardage to target (yd)',
       `<input id="ps-static" type="number" value="${escapeHtml(psShot.static)}" oninput="psSet('static',this.value)" placeholder="e.g. 155">`)
-      +psNote('The base, dead-flat, no-wind, baseline-air number to your aim point.');
+      +psNote('The base, dead-flat, no-wind, baseline-air number to your target.');
     case 'lie': return psField('Ball lie', psSel('lie',[
         ['fairway','Fairway / tee box — clean'],['lightrough','Light or wet rough — flyer risk (+, less spin, more release)'],
         ['heavyrough','Heavy rough — can\'t compress (−, comes up short)'],['bunker','Fairway bunker (−, pick it clean)'],
         ['divot','Divot / tight (−, ball-first, flighted)'],['hardpan','Hardpan (−, lower, less spin)'],['tee','Off a tee (+, optimal launch)']]))
       +psNote('Flyers from light/wet rough or down-grain lose backspin — they fly and release <b>longer</b>. Heavy rough steals clubhead speed and comes up short.')
       +psContrib('lie');
-    case 'stance': return psField('Side Slope at Point of Influence', psSel('stance',[
-        ['flat','Flat / level'],['above','Ball above feet (RH: flatter, pulls left)'],['below','Ball below feet (RH: upright, pushes right)'],
-        ['uphill','Uphill lie (adds loft — higher, shorter)'],['downhill','Downhill lie (delofts — lower, longer)']]))
-      +psNote('Uphill lies add dynamic loft (higher, shorter); downhill lies deloft (lower, longer). Ball above/below the feet bends start line and shaves a touch of distance.')
-      +psContrib('stance');
-    case 'wind': return `<div class="edit-grid">
-        <div class="edit-field"><label>Wind speed (mph)</label><input id="ps-windspd" type="number" value="${escapeHtml(psShot.windspd)}" oninput="psSet('windspd',this.value)" placeholder="0"></div>
-        <div class="edit-field"><label>Direction</label>${psSel('winddir',[
-          ['calm','Calm'],['head','Into (headwind)'],['tail','Down (tailwind)'],['crossL','Cross — L-to-R'],['crossR','Cross — R-to-L']])}</div>
-      </div>`
-      +psNote(`Headwind costs ~<b>1%/mph</b>, tailwind helps only ~<b>0.5%/mph</b> — wind hurts about twice as much as it helps. Crosswind is ~<b>${PS_CROSS_YPM} yd/mph</b> of drift (aim, not distance). A knockdown roughly halves these effects.`)
-      +psContrib('wind');
-    case 'topo': return psField('Elevation to target (yd, + uphill / − downhill)',
-      `<input id="ps-elev" type="number" value="${escapeHtml(psShot.elev)}" oninput="psSet('elev',this.value)" placeholder="0">`)
-      +psNote(`Geometric model: yards lost ≈ elevation ÷ tan(landing angle). At this distance/shot the ball lands ≈ <b>${Math.round(psLandAngle())}°</b>, so a steep-landing shot (wedge or high ball) loses <b>less</b> per foot uphill than a shallow one (long iron or knockdown). Downhill gives back ~⅔ of the uphill cost — set the <b>Shot</b> type to flatten or steepen the flight.`)
-      +psContrib('topo');
+    case 'stance': return `<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap">
+        ${psStanceDialSVG()}
+        <div style="flex:1;min-width:150px">
+          <div id="ps-stance-ro" class="ps-dial-ro">${psStanceRO()}</div>
+          ${psNote('Drag the dot to your lie, <b>seen from above</b>: up/down = up-/downhill, left/right = ball above / below your feet, further out = steeper. Ball <b>above</b> the feet hooks markedly more than the same slope below — you grip down (raising the shaft so the 3-D face points left) and lose a touch of speed; below the feet you can\'t lengthen the club, so the effect is weaker.')}
+        </div>
+      </div>`;
+    case 'wind': return `<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap">
+        ${psWindDialSVG()}
+        <div style="flex:1;min-width:150px">
+          <div class="edit-field" style="grid-column:auto"><label>Wind speed (mph)</label><input id="ps-windspd" type="number" value="${escapeHtml(psShot.windspd)}" oninput="psSet('windspd',this.value)" placeholder="0"></div>
+          <div id="ps-wind-ro" class="ps-dial-ro" style="margin-top:7px">${psWindRO()}</div>
+          ${psNote(`Spin the dial to where the wind is <b>coming from</b> (top = straight into you). Headwind ~<b>1%/mph</b>, tailwind ~<b>0.5%/mph</b>; crosswind ~<b>${PS_CROSS_YPM} yd/mph</b> of drift — head/tail and cross both fall out of one direction.`)}
+        </div>
+      </div>`;
+    case 'topo': return `<div style="display:flex;gap:16px;align-items:stretch">
+        <div class="ps-vert-wrap">
+          <span class="ps-vert-cap">+35 up</span>
+          <input id="ps-elev" type="range" class="ps-vert" min="-35" max="35" step="1" value="${psNum(psShot.elev)}" oninput="psSet('elev',this.value)">
+          <span class="ps-vert-cap">−35 down</span>
+        </div>
+        <div style="flex:1;min-width:140px">
+          <div style="font-family:Arial,sans-serif;font-weight:800;font-size:1.2rem;color:var(--ink)"><span id="ps-elev-val">${psNum(psShot.elev)>0?'+':''}${psNum(psShot.elev)} yd</span> <span style="font-size:.6rem;font-weight:400;color:var(--muted)">elevation</span></div>
+          ${psNote(`Geometric model: yards lost ≈ elevation ÷ tan(landing angle). At this distance/shot the ball lands ≈ <b>${Math.round(psLandAngle())}°</b>, so a steep-landing shot (wedge or high ball) loses <b>less</b> per foot uphill than a shallow one (long iron or stinger). Downhill gives back ~⅔ of the uphill cost.`)}
+          <div id="ps-topo-contrib" style="font-family:ui-monospace,monospace;font-size:.7rem;font-weight:700;margin-top:6px;color:${(()=>{const d=Math.round(psDelta('topo'));return d>0?'var(--gold)':d<0?'var(--sky)':'var(--muted)';})()}">contribution: ${(()=>{const d=Math.round(psDelta('topo'));return (d>0?'+':d<0?'−':'')+Math.abs(d);})()} yd</div>
+        </div>
+      </div>`;
     case 'shot': return psField('Shot type / trajectory', psSel('shot',[
-        ['stock','Stock — full, normal flight'],['knockdown','Knockdown / three-quarter (−, dampens wind)'],['high','High / soft (more wind effect)']]))
-      +psNote('A knockdown flies lower and shorter but is far less wind-sensitive and gives up more on uphill shots; a high, soft shot stops fast, holds uphill better, but the wind has more time to act on it.')
+        ['stinger','Stinger / driving'],['knockdown','Knockdown / ¾'],['stock','Stock'],['high','High / soft'],['flop','Flop / max height']]))
+      +psNote(`${psShotDef().note} Wind sensitivity ×<b>${psShotDef().w}</b>; landing angle <b>${psShotDef().land>0?'+':''}${psShotDef().land}°</b>.`)
       +psContrib('shot');
   }
   return '';
@@ -415,6 +457,86 @@ function psRenderDetail(){
       <div style="font-family:Arial,sans-serif;font-weight:800;font-size:.82rem;color:var(--ink);margin-bottom:7px">${t.label}${t.base?'':' adjustment'}</div>
       ${psDetailHTML(t.key)}
     </div>`;
+  psInitDials();
+}
+/* ---- Wind & Stance dials (draggable circular selectors) ---- */
+function psWindDialSVG(){
+  const a=psNum(psShot.windAngle)*Math.PI/180, R=34, C=50;
+  const hx=C+R*Math.sin(a), hy=C-R*Math.cos(a);
+  return `<svg id="ps-wind-dial" class="ps-dial" viewBox="0 0 100 100" data-r="${R}" data-c="${C}" data-kind="wind" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="${C}" cy="${C}" r="${R}" fill="var(--surface)" stroke="var(--border2)" stroke-width="1.5"/>
+    <line x1="${C}" y1="${C-R}" x2="${C}" y2="${C+R}" stroke="var(--border)" stroke-width="0.6"/>
+    <line x1="${C-R}" y1="${C}" x2="${C+R}" y2="${C}" stroke="var(--border)" stroke-width="0.6"/>
+    <text x="${C}" y="${C-R+8}" text-anchor="middle" class="ps-dial-lbl">INTO</text>
+    <text x="${C}" y="${C+R-3}" text-anchor="middle" class="ps-dial-lbl">DOWN</text>
+    <text x="${C-R+4}" y="${C+2.5}" text-anchor="middle" class="ps-dial-lbl">L</text>
+    <text x="${C+R-4}" y="${C+2.5}" text-anchor="middle" class="ps-dial-lbl">R</text>
+    <line class="ps-dial-arm" x1="${C}" y1="${C}" x2="${hx.toFixed(1)}" y2="${hy.toFixed(1)}" stroke="var(--accent,#c4427a)" stroke-width="2"/>
+    <circle cx="${C}" cy="${C}" r="2.2" fill="var(--ink2)"/>
+    <circle class="ps-dial-knob" cx="${hx.toFixed(1)}" cy="${hy.toFixed(1)}" r="5.5" fill="var(--accent,#c4427a)"/>
+  </svg>`;
+}
+function psStanceDialSVG(){
+  const R=34, C=50, hx=C+(psShot.stanceX||0)*R, hy=C-(psShot.stanceY||0)*R;
+  return `<svg id="ps-stance-dial" class="ps-dial" viewBox="0 0 100 100" data-r="${R}" data-c="${C}" data-kind="stance" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="${C}" cy="${C}" r="${R}" fill="var(--surface)" stroke="var(--border2)" stroke-width="1.5"/>
+    <line x1="${C}" y1="${C-R}" x2="${C}" y2="${C+R}" stroke="var(--border)" stroke-width="0.6"/>
+    <line x1="${C-R}" y1="${C}" x2="${C+R}" y2="${C}" stroke="var(--border)" stroke-width="0.6"/>
+    <text x="${C}" y="${C-R+8}" text-anchor="middle" class="ps-dial-lbl">UPHILL</text>
+    <text x="${C}" y="${C+R-3}" text-anchor="middle" class="ps-dial-lbl">DOWNHILL</text>
+    <text x="${C-R+9}" y="${C+2.5}" text-anchor="middle" class="ps-dial-lbl">ABOVE</text>
+    <text x="${C+R-9}" y="${C+2.5}" text-anchor="middle" class="ps-dial-lbl">BELOW</text>
+    <line class="ps-dial-arm" x1="${C}" y1="${C}" x2="${hx.toFixed(1)}" y2="${hy.toFixed(1)}" stroke="var(--accent,#c4427a)" stroke-width="2"/>
+    <circle cx="${C}" cy="${C}" r="2.2" fill="var(--ink2)"/>
+    <circle class="ps-dial-knob" cx="${hx.toFixed(1)}" cy="${hy.toFixed(1)}" r="5.5" fill="var(--accent,#c4427a)"/>
+  </svg>`;
+}
+function psWindRO(){
+  const w=psWindComp(), head=w.head, cross=w.cross, dist=Math.round(psDelta('wind')), aim=psWindAimYd();
+  const hT=Math.abs(head)<0.5?'no head/tail':`${Math.abs(head).toFixed(0)} mph ${head>0?'into':'down'}`;
+  const cT=Math.abs(cross)<0.5?'no cross':`${Math.abs(cross).toFixed(0)} mph from ${cross>0?'right':'left'}`;
+  const aT=Math.abs(aim)<0.5?'straight':`${Math.abs(aim).toFixed(0)} yd ${aim>0?'R':'L'}`;
+  return `${hT} · ${cT}<br>→ <b>${dist>0?'+':dist<0?'−':''}${Math.abs(dist)} yd</b> distance · aim <b>${aT}</b>`;
+}
+function psStanceRO(){
+  const st=psStance(), dist=Math.round(st.dist), finishYd=Math.tan(st.finishDeg*Math.PI/180)*Math.max(0,psEffective());
+  const fT=Math.abs(finishYd)<0.5?'straight':`${Math.abs(finishYd).toFixed(0)} yd ${finishYd>0?'R':'L'}`;
+  return `<b>${dist>0?'+':dist<0?'−':''}${Math.abs(dist)} yd</b> distance<br>ball finishes <b>${fT}</b> → aim opposite`;
+}
+function psInitDials(){
+  ['ps-wind-dial','ps-stance-dial'].forEach(id=>{ const svg=document.getElementById(id); if(svg) psDialDrag(svg); });
+}
+function psDialDrag(svg){
+  const R=+svg.dataset.r, C=+svg.dataset.c, kind=svg.dataset.kind;
+  const toVB=e=>{ const r=svg.getBoundingClientRect(); return {x:(e.clientX-r.left)/r.width*100, y:(e.clientY-r.top)/r.height*100}; };
+  const apply=p=>{
+    let dx=p.x-C, dy=p.y-C;
+    if(kind==='wind'){ psShot.windAngle=Math.round((Math.atan2(dx,-dy)*180/Math.PI+360)%360); }
+    else { const m=Math.hypot(dx,dy); if(m>R){dx*=R/m;dy*=R/m;} psShot.stanceX=+(dx/R).toFixed(3); psShot.stanceY=+(-dy/R).toFixed(3); }
+    psUpdateDial(svg); psRenderEquation(); psRenderResult(); psRenderDirection();
+  };
+  let drag=false;
+  svg.addEventListener('pointerdown',e=>{drag=true; try{svg.setPointerCapture(e.pointerId);}catch(_){} apply(toVB(e)); e.preventDefault();});
+  svg.addEventListener('pointermove',e=>{ if(drag) apply(toVB(e)); });
+  const end=e=>{drag=false; try{svg.releasePointerCapture(e.pointerId);}catch(_){}};
+  svg.addEventListener('pointerup',end); svg.addEventListener('pointercancel',end);
+}
+function psUpdateDial(svg){
+  const R=+svg.dataset.r, C=+svg.dataset.c, kind=svg.dataset.kind; let hx,hy;
+  if(kind==='wind'){ const a=psNum(psShot.windAngle)*Math.PI/180; hx=C+R*Math.sin(a); hy=C-R*Math.cos(a); }
+  else { hx=C+(psShot.stanceX||0)*R; hy=C-(psShot.stanceY||0)*R; }
+  const arm=svg.querySelector('.ps-dial-arm'), knob=svg.querySelector('.ps-dial-knob');
+  arm.setAttribute('x2',hx.toFixed(1)); arm.setAttribute('y2',hy.toFixed(1));
+  knob.setAttribute('cx',hx.toFixed(1)); knob.setAttribute('cy',hy.toFixed(1));
+  const ro=document.getElementById(kind==='wind'?'ps-wind-ro':'ps-stance-ro');
+  if(ro) ro.innerHTML = kind==='wind'?psWindRO():psStanceRO();
+}
+/* live-update the in-place readouts (no rebuild → keeps slider/dial drag + input focus) */
+function psRefreshLive(){
+  const ev=document.getElementById('ps-elev-val'); if(ev){ const e=psNum(psShot.elev); ev.textContent=(e>0?'+':'')+e+' yd'; }
+  const tc=document.getElementById('ps-topo-contrib'); if(tc){ const d=Math.round(psDelta('topo')); tc.textContent=`contribution: ${d>0?'+':d<0?'−':''}${Math.abs(d)} yd`; tc.style.color=d>0?'var(--gold)':d<0?'var(--sky)':'var(--muted)'; }
+  const w=document.getElementById('ps-wind-dial'); if(w) psUpdateDial(w);
+  const s=document.getElementById('ps-stance-dial'); if(s) psUpdateDial(s);
 }
 function psRenderResult(){
   const out=document.getElementById('ps-result'); if(!out) return;
@@ -465,8 +587,8 @@ function psRenderDirection(){
     </button>`;
   };
   const plus=`<span style="font-family:ui-monospace,monospace;font-size:.9rem;color:var(--muted);align-self:flex-start;margin-top:4px">+</span>`;
-  const stanceActive = psShot.stance && psShot.stance!=='flat';
-  const tip = stanceActive ? PS_STANCE_TIP[psShot.stance] : '';
+  const tip = psStanceTip();
+  const stanceActive = !!tip;
   const guidance = Math.abs(d.netAimYd)<0.5
     ? `<div style="font-family:Arial,sans-serif;font-size:.82rem;color:var(--ink2);margin-top:8px">No lateral adjustment — wind and lie are neutral. Aim straight at your target line.</div>`
     : `<div style="font-family:Arial,sans-serif;font-size:.82rem;color:var(--ink2);margin-top:8px;line-height:1.5">Set your start line <b style="color:var(--ink)">${lat(d.netAimYd)}</b> of the target${stanceActive?` — or hold your aim and <b>neutralise the lie</b>: ${tip}`:'.'}</div>`;
@@ -484,7 +606,7 @@ function psRenderDirection(){
 /* ---- handlers ---- */
 function psSet(key,val,reRenderDetail){
   psShot[key]=val;
-  psRenderEquation(); psRenderResult(); psRenderDirection();
+  psRenderEquation(); psRenderResult(); psRenderDirection(); psRefreshLive();
   if(reRenderDetail) psRenderDetail();
 }
 function psOpenTerm(key){ psOpenKey=key; psRenderEquation(); psRenderDetail(); psRenderDirection(); }
