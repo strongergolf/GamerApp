@@ -15,6 +15,11 @@ const PS_WIND_HEAD = 0.010, PS_WIND_TAIL = 0.005, PS_CROSS_YPM = 2.0, PS_ELEV_K 
 /* transient shot state (not persisted — a shot is planned, then forgotten) */
 const psShot = { teeAim:'', apprLat:'', apprDepth:'', static:'', lie:'fairway', stance:'flat',
   windspd:'', winddir:'calm', elev:'', shot:'stock', rollout:'', minCarry:'' };
+/* PLAN → Situational Considerations (mindset framers, not part of the yardage maths). */
+const psSituation = { qualify:'', match:'', team:'', endgame:'' };
+/* EXECUTE → physical pre-shot routine selections (transient, like the rest of the page). */
+const psExec = { lean:'vertical', topStr:'neutral', topPlace:'fingers', botStr:'neutral', botPlace:'fingers',
+  upPos:'centered', upAlign:'square', upTilt:'neutral', loPos:'centered', loAlign:'square', loTilt:'neutral' };
 let psOpenKey = 'static';
 
 const psNum = v => { const n=parseFloat(v); return isNaN(n)?0:n; };
@@ -84,35 +89,86 @@ const PS_TERMS=[
 ];
 
 /* ---- render ---- */
-/* Tee + Approach target sections — skeleton for the strategy/optimisation work to come;
-   selections are stored now and will eventually drive dispersion overlays + shot optimisation. */
-function psTargetsHTML(){
-  const sub='font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;color:var(--muted);text-transform:none';
+const PS_SUB='font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;color:var(--muted);text-transform:none';
+
+/* PLAN box 1 — Situational Considerations: frame the stakes before building the number. */
+function psSituationHTML(){
   return `
     <div class="profile-card" style="margin-top:0">
-      <h3>1 · Tee Shot Targets <span style="${sub}">evolving</span></h3>
-      <div class="edit-field" style="grid-column:1/-1"><label>Aim line</label>${psSel('teeAim',[['','—'],['left-edge','Left edge'],['left-centre','Left-centre'],['centre','Centre'],['right-centre','Right-centre'],['right-edge','Right edge']])}</div>
-      <p class="intro-note" style="margin:8px 0 0">Coming: overlay your <b>86% dispersion pattern</b> on the hole and auto-pick the aim that <b>avoids bunkers &amp; minimises rough exposure</b>, then favours the <b>shortest route to the pin</b>. Powered by the Course Map.</p>
-    </div>
-    <div class="profile-card">
-      <h3>2 · Approach Shot Targets <span style="${sub}">evolving</span></h3>
+      <h3>1 · Situational Considerations</h3>
+      <p class="intro-note" style="margin:0 0 10px">Frame the shot before you build the number — the stakes shape your target and how much risk is worth it.</p>
       <div class="edit-grid">
+        <div class="edit-field"><label>Qualifying — score / position</label>${psSelG('sit','qualify',[['','—'],['none','Not qualifying — free roll'],['score','Need a score'],['position','Need a position'],['cut','Making the cut']])}</div>
+        <div class="edit-field"><label>Match play</label>${psSelG('sit','match',[['','—'],['na','Not match play'],['square','All square'],['up','Up in the match'],['down','Down in the match'],['dormie','Dormie'],['mustwin','Must win this hole'],['safe','Can play safe / concede']])}</div>
+        <div class="edit-field"><label>Team format</label>${psSelG('sit','team',[['','—'],['individual','Individual'],['fourball','Fourball — best ball'],['foursomes','Foursomes — alternate shot'],['scramble','Scramble'],['shamble','Shamble']])}</div>
+        <div class="edit-field"><label>End-game scenario</label>${psSelG('sit','endgame',[['','—'],['regular','Regular — mid-round'],['protect','Closing holes — protect lead'],['chase','Closing holes — must attack'],['back9final','Back 9, final round']])}</div>
+      </div>
+    </div>`;
+}
+/* PLAN box 2 — Target Selection: tee aim + approach target folded together (was boxes 1 & 2). */
+function psTargetHTML(){
+  return `
+    <div class="profile-card">
+      <h3>2 · Target Selection <span style="${PS_SUB}">evolving</span></h3>
+      <div class="edit-grid">
+        <div class="edit-subhead">Tee shot</div>
+        <div class="edit-field" style="grid-column:1/-1"><label>Aim line</label>${psSel('teeAim',[['','—'],['left-edge','Left edge'],['left-centre','Left-centre'],['centre','Centre'],['right-centre','Right-centre'],['right-edge','Right edge']])}</div>
+        <div class="edit-subhead">Approach</div>
         <div class="edit-field"><label>Lateral (vs pin)</label>${psSel('apprLat',[['','—'],['left','Left'],['centre','Centre'],['right','Right']])}</div>
         <div class="edit-field"><label>Depth (vs pin)</label>${psSel('apprDepth',[['','—'],['short','Short'],['pin','Pin-high'],['long','Long']])}</div>
       </div>
-      <p class="intro-note" style="margin:8px 0 0">Coming: pick the <b>carry + expected total</b> to a lateral target that <b>minimises the chance of missing the green</b>, then the <b>shortest expected putt</b> — eventually optimising every shot to your strategy, or strictly to <b>lowest expected score</b>.</p>
+      <p class="intro-note" style="margin:10px 0 0">Coming: overlay your <b>86% dispersion pattern</b> on the hole to auto-pick the aim that <b>avoids trouble &amp; minimises expected score</b> — tee aim favouring the shortest route to the pin, and an approach target that <b>minimises the chance of missing the green</b>, then the shortest expected putt. Powered by the Course Map.</p>
+    </div>`;
+}
+/* EXECUTE — the physical pre-shot routine, run top to bottom. */
+function psExecuteHTML(){
+  const step=(n,t)=>`<div class="edit-subhead">${n}</div><p class="gen-note" style="grid-column:1/-1;margin:0 0 2px">${t}</p>`;
+  const STR=[['neutral','Neutral'],['strong','Strong'],['weak','Weak']];
+  const PLACE=[['fingers','In the fingers'],['palm','In the palm']];
+  const POS=[['centered','Centered'],['ahead','Ahead of ball'],['behind','Behind ball']];
+  const ALIGN=[['square','Square'],['open','Open'],['closed','Closed']];
+  const TILT=[['neutral','Neutral'],['away','Tilted away from target'],['toward','Tilted toward target']];
+  return `
+    <div class="profile-card" style="margin-top:0">
+      <h3>Physical Pre-Shot Routine <span style="${PS_SUB}">run in order</span></h3>
+      <div class="edit-grid">
+        ${step('1 · Practice swing / bump','Rehearse the feel, tempo and low-point of the exact shot you just planned.')}
+        ${step('2 · Intermediate target','Pick a spot a few feet in front of the ball, on the line to your distant TARGET — you aim to this, not the target itself.')}
+        <div class="edit-subhead">3 · Set club in place</div>
+        <p class="gen-note" style="grid-column:1/-1;margin:0 0 2px">Sole the club and <b>aim the FACE at the intermediate target</b>, then set your hands for the intended shaft lean.</p>
+        <div class="edit-field" style="grid-column:1/-1"><label>Shaft lean</label>${psSelG('exec','lean',[['back','Leaned slightly back'],['vertical','Vertical'],['sfwd','Leaned slightly forward'],['wfwd','Leaned well forward']])}</div>
+        <div class="edit-subhead">4 · Grip the club</div>
+        <div class="edit-field"><label>Top hand — strength</label>${psSelG('exec','topStr',STR)}</div>
+        <div class="edit-field"><label>Top hand — placement</label>${psSelG('exec','topPlace',PLACE)}</div>
+        <div class="edit-field"><label>Bottom hand — strength</label>${psSelG('exec','botStr',STR)}</div>
+        <div class="edit-field"><label>Bottom hand — placement</label>${psSelG('exec','botPlace',PLACE)}</div>
+        <div class="edit-subhead">5 · Set upper body</div>
+        <div class="edit-field"><label>Position</label>${psSelG('exec','upPos',POS)}</div>
+        <div class="edit-field"><label>Alignment</label>${psSelG('exec','upAlign',ALIGN)}</div>
+        <div class="edit-field"><label>Tilt</label>${psSelG('exec','upTilt',TILT)}</div>
+        <div class="edit-subhead">6 · Set lower body</div>
+        <div class="edit-field"><label>Position</label>${psSelG('exec','loPos',POS)}</div>
+        <div class="edit-field"><label>Alignment</label>${psSelG('exec','loAlign',ALIGN)}</div>
+        <div class="edit-field"><label>Tilt</label>${psSelG('exec','loTilt',TILT)}</div>
+        ${step('7 · Waggle &amp; look','Waggle to stay athletic and free of tension; take one last look down the line at the TARGET in the distance.')}
+        ${step('8 · Trigger','Use your TRIGGER (forward press, kick-in, breath) to start the takeaway — then commit, no second-guessing.')}
+      </div>
     </div>`;
 }
 function buildPlanShot(){
   const wrap=document.getElementById('planshot-wrap'); if(!wrap) return;
   wrap.innerHTML=`
-    ${psTargetsHTML()}
+    <div class="section-label" style="margin-top:6px">Plan</div>
+    ${psSituationHTML()}
+    ${psTargetHTML()}
     <div class="profile-card">
-      <h3>3 · Effective Yardage &amp; Number to Play <span style="font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;color:var(--muted);text-transform:none">tap a term to open its detail</span></h3>
+      <h3>3 · Effective Yardage &amp; Number to Play <span style="${PS_SUB}">tap a term to open its detail</span></h3>
       <div id="ps-equation"></div>
       <div id="ps-detail"></div>
       <div id="ps-result"></div>
-    </div>`;
+    </div>
+    <div class="section-label">Execute</div>
+    ${psExecuteHTML()}`;
   psRenderEquation(); psRenderDetail(); psRenderResult();
 }
 function psRenderEquation(){
@@ -141,6 +197,12 @@ function psRenderEquation(){
 const psField=(label,inner)=>`<div class="edit-field" style="grid-column:1/-1"><label>${label}</label>${inner}</div>`;
 const psSel=(key,opts)=>`<select onchange="psSet('${key}',this.value,true)">`+
   opts.map(o=>`<option value="${o[0]}"${psShot[key]===o[0]?' selected':''}>${o[1]}</option>`).join('')+`</select>`;
+/* Generic select for the Situational ('sit') / Execute ('exec') scopes — stored only
+   (these don't feed the yardage equation), so no re-render needed on change. */
+function psSetField(scope,key,val){ (scope==='sit'?psSituation:psExec)[key]=val; }
+const psSelG=(scope,key,opts)=>{ const cur=(scope==='sit'?psSituation:psExec)[key];
+  return `<select onchange="psSetField('${scope}','${key}',this.value)">`+
+    opts.map(o=>`<option value="${o[0]}"${cur===o[0]?' selected':''}>${o[1]}</option>`).join('')+`</select>`; };
 const psNote=(t)=>`<div style="font-family:Arial,sans-serif;font-size:.74rem;color:var(--ink2);line-height:1.5;margin-top:6px">${t}</div>`;
 const psContrib=(key)=>{ const d=Math.round(psDelta(key)); const c=d>0?'#d96070':d<0?'#1a5aaa':'var(--muted)';
   return `<div style="font-family:ui-monospace,monospace;font-size:.7rem;font-weight:700;color:${c};margin-top:6px">contribution: ${d>0?'+':d<0?'−':''}${Math.abs(d)} yd</div>`; };
@@ -252,5 +314,5 @@ function buildLongTerm(){
 }
 
 // Expose for inline handlers and the renderAll orchestrator.
-Object.assign(window, { buildPlanShot, psSet, psOpenTerm, buildLongTerm,
+Object.assign(window, { buildPlanShot, psSet, psSetField, psOpenTerm, buildLongTerm,
   PS_WIND_HEAD, PS_WIND_TAIL, PS_CROSS_YPM, PS_ELEV_K });

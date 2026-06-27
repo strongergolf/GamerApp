@@ -353,7 +353,7 @@ function buildRoundTracker(){
   wrap.innerHTML=`
     <div class="profile-card" style="margin-top:0">
       <h3>Course Strategy — Shot by Shot <span class="proto-badge">coming</span></h3>
-      <p class="intro-note" style="margin-top:6px">Overlay your <b>86% dispersion</b> on each mapped hole to pick tee aim &amp; approach targets that minimise expected score (or follow your chosen strategy). Needs a mapped hole plus your bag distances &amp; dispersion — the Tee/Approach target selectors in <b>Plan a Shot</b> feed this.</p>
+      <p class="intro-note" style="margin-top:6px">Overlay your <b>86% dispersion</b> on each mapped hole to pick tee aim &amp; approach targets that minimise expected score (or follow your chosen strategy). Needs a mapped hole plus your bag distances &amp; dispersion — the Target Selection box in <b>Pre-Shot Routine</b> feeds this.</p>
     </div>
     <div class="profile-card">
       <h3>Live Round Tracking <span class="proto-badge">skeleton</span></h3>
