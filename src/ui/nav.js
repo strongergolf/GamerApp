@@ -12,8 +12,8 @@ const GROUPS={
     {id:'putting',  label:'Putting'}
   ],
   diagnose:[{id:'assess',label:'Assess'},{id:'improve',label:'Practice'},{id:'tests',label:'Tests'},{id:'resources',label:'Resources'}],
-  plan:[{id:'planshot',label:'Pre-Shot Routine'},{id:'postshot',label:'Post-Shot Routine'},{id:'courses',label:'Plan a Round'},{id:'longterm',label:'Long Term Plans'}],
-  setup:[{id:'specs',label:'My Bag'},{id:'profile',label:'Myself'},{id:'community',label:'My Community'},{id:'reference',label:'Settings'}]
+  plan:[{id:'planshot',label:'Pre-Shot'},{id:'postshot',label:'Post-Shot'},{id:'courses',label:'Pre-Round'},{id:'postround',label:'Post-Round'}],
+  setup:[{id:'specs',label:'My Bag'},{id:'profile',label:'Myself'},{id:'community',label:'My Community'},{id:'reference',label:'My App'}]
 };
 let currentGroup='play';
 
@@ -66,6 +66,7 @@ function refreshAll(){
   buildLongTerm();
   buildPlanShot();
   buildPostShot();
+  buildPostRound();
   buildSpecs();
   buildGapping();
   buildProfile();

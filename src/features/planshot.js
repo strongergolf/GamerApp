@@ -611,7 +611,7 @@ function psSet(key,val,reRenderDetail){
 }
 function psOpenTerm(key){ psOpenKey=key; psRenderEquation(); psRenderDetail(); psRenderDirection(); }
 
-/* Long Term Plans — season arc from the profile (goal handicap, volume). */
+/* Goals — season arc from the profile (goal handicap, volume). Lives under Locker Room → Myself. */
 function buildLongTerm(){
   const wrap=document.getElementById('longterm-wrap'); if(!wrap) return;
   const pf=STATE.profile||{};
@@ -624,12 +624,87 @@ function buildLongTerm(){
       ${cell('Rounds / yr', pf.roundsPerYear)}
       ${cell('Practice / yr', pf.practicePerYear)}
     </div>
-    <p class="gen-note" style="margin-top:10px">Edit these in Locker Room → Myself. Your goal handicap drives the SG diamond goal ring.</p>
+    <p class="gen-note" style="margin-top:10px">Set these in the Golfer Profile above. Your goal handicap drives the SG diamond goal ring.</p>
   </div>
   <div class="profile-card">
     <h3>Milestones <span style="font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;color:var(--muted);text-transform:none">preview</span></h3>
     <p class="gen-note">Season targets and dated milestones — tie each to a link in the causal chain and track the trend. Coming soon.</p>
   </div>`;
+}
+
+/* ============================================================
+   POST-ROUND — close-the-loop debrief: capture the strokes-gained-driving numbers, then a short
+   structured review while the round is fresh. Transient; the snapshot can be pushed to the Locker
+   Room baselines that feed the SG diamond + expected-shots.
+   ============================================================ */
+const psRound = {};
+function psRoundSet(key,val){ psRound[key]=val; }
+const psRoundSel=(key,opts)=>`<select onchange="psRoundSet('${key}',this.value)">`+
+  opts.map(o=>`<option value="${o}"${psRound[key]===o?' selected':''}>${o}</option>`).join('')+`</select>`;
+const psRoundNum=(label,key,ph)=>`<div class="edit-field"><label>${label}</label><input type="number" value="${escapeHtml(psRound[key]==null?'':psRound[key])}" oninput="psRoundSet('${key}',this.value)" placeholder="${ph||''}"></div>`;
+/* Push the captured round onto the typical-round baselines in STATE.profile (GIR%, fairways%,
+   putts/round, up&down%, scoring avg). A simple set for now — a rolling SG-round log is the next step. */
+function psApplyRoundBaselines(){
+  const pf=STATE.profile=STATE.profile||{};
+  const n=v=>{const x=parseFloat(v);return isNaN(x)?null:x;};
+  const gir=n(psRound.gir), fir=n(psRound.fir), putts=n(psRound.putts), udM=n(psRound.udMade), udA=n(psRound.udAtt), toPar=n(psRound.score);
+  if(gir!=null)   pf.girPct=Math.round(Math.max(0,Math.min(18,gir))/18*100);
+  if(fir!=null)   pf.firPct=Math.round(Math.max(0,Math.min(14,fir))/14*100);
+  if(putts!=null) pf.puttsRound=putts;
+  if(udM!=null&&udA!=null&&udA>0) pf.upDownPct=Math.round(udM/udA*100);
+  if(toPar!=null) pf.scoringAvg=72+toPar;
+  saveState();
+  if(typeof buildProfile==='function') buildProfile();
+  if(typeof refreshAll==='function'){ /* light touch: SG surfaces read profile live on next render */ }
+  if(typeof toast==='function') toast('Round stats saved to your baselines');
+}
+function buildPostRound(){
+  const wrap=document.getElementById('postround-wrap'); if(!wrap) return;
+  const f=(label,key,opts)=>`<div class="edit-field"><label>${label}</label>${psRoundSel(key,['—',...opts])}</div>`;
+  wrap.innerHTML=`
+    <div class="profile-card" style="margin-top:0">
+      <h3>1 · Round Snapshot <span style="${PS_SUB}">the numbers that drive strokes-gained</span></h3>
+      <div class="edit-grid">
+        ${psRoundNum('Score (to par)','score','e.g. +6')}
+        ${psRoundNum('Fairways hit (/14)','fir','/14')}
+        ${psRoundNum('Greens in reg (/18)','gir','/18')}
+        ${psRoundNum('Total putts','putts','e.g. 32')}
+        ${psRoundNum('3-putts','threePutt','#')}
+        ${psRoundNum('Up & downs made','udMade','#')}
+        ${psRoundNum('Up & downs tried','udAtt','#')}
+        ${psRoundNum('Penalty strokes','pen','#')}
+      </div>
+      <div class="btn-row"><button class="btn btn-primary" onclick="psApplyRoundBaselines()">Save round stats to my baselines</button></div>
+      <p class="gen-note" style="margin-top:8px">These map onto your Locker Room → Myself <b>Typical-Round Baselines</b> (GIR %, fairways %, putts/round, up&amp;down %) which feed the <b>Strokes-Gained diamond</b> and expected-shots. Next step: a full round-by-round SG log with trend lines and a per-category breakdown.</p>
+    </div>
+    <div class="profile-card">
+      <h3>2 · Where the Strokes Went <span style="${PS_SUB}">tie it to the SG categories</span></h3>
+      <div class="edit-grid">
+        ${f('Strongest today','best',['Driving','Approach','Short game','Putting','Mental / strategy'])}
+        ${f('Cost you the most','worst',['Driving','Approach','Short game','Putting','Penalties','Mental / strategy'])}
+        ${f('Tee-to-green vs putting','t2gVsPutt',['Ball-striking carried me','Balanced','Putter carried me','Both struggled'])}
+      </div>
+      <p class="gen-note" style="margin-top:8px">Cross-check against the <b>SG diamond</b> (OTT / APP / ATG / PUTT) — your felt sense and the numbers should agree; when they don't, trust the numbers.</p>
+    </div>
+    <div class="profile-card">
+      <h3>3 · Process &amp; Mind <span style="${PS_SUB}">how you managed the round</span></h3>
+      <div class="edit-grid">
+        ${f('Course management / decisions','mgmt',['Sharp','Mostly sound','A few errors','Cost me shots'])}
+        ${f('Pre-shot routine commitment','routine',['Every shot','Most shots','Slipped under pressure','Rarely'])}
+        ${f('Emotional control','emotion',['Calm & present','Mostly steady','Rattled at times','Lost it'])}
+        ${f('Energy / focus','energy',['Strong all 18','Faded late','Slow start','Up & down'])}
+      </div>
+    </div>
+    <div class="profile-card">
+      <h3>4 · Takeaways <span style="${PS_SUB}">turn the round into practice</span></h3>
+      <div class="edit-field" style="grid-column:1/-1"><label>What went well — keep doing it</label>
+        <textarea oninput="psRoundSet('keep',this.value)" rows="2" placeholder="The one or two things worth protecting." style="width:100%;padding:7px 9px;font-family:Arial,sans-serif;font-size:.82rem;color:var(--ink);background:var(--bg2);border:1px solid var(--border);border-radius:6px;outline:none;resize:vertical;line-height:1.5">${escapeHtml(psRound.keep||'')}</textarea>
+      </div>
+      <div class="edit-field" style="grid-column:1/-1;margin-top:8px"><label>One practice priority → take it to Practice</label>
+        <textarea oninput="psRoundSet('priority',this.value)" rows="2" placeholder="The single biggest needle-mover for your next session — tie it to a link in the causal chain." style="width:100%;padding:7px 9px;font-family:Arial,sans-serif;font-size:.82rem;color:var(--ink);background:var(--bg2);border:1px solid var(--border);border-radius:6px;outline:none;resize:vertical;line-height:1.5">${escapeHtml(psRound.priority||'')}</textarea>
+      </div>
+      <p class="gen-note" style="margin-top:8px">Pick <b>one</b> priority — log it under Practice → Assess and build your next block around it.</p>
+    </div>`;
 }
 
 /* ============================================================
@@ -681,6 +756,6 @@ function buildPostShot(){
 }
 
 // Expose for inline handlers and the renderAll orchestrator.
-Object.assign(window, { buildPlanShot, buildPostShot, psSet, psSetSit, psPostSet, psOpenTerm, buildLongTerm,
+Object.assign(window, { buildPlanShot, buildPostShot, buildPostRound, psSet, psSetSit, psPostSet, psRoundSet, psApplyRoundBaselines, psOpenTerm, buildLongTerm,
   pseSetIdx, pseResetSetup, psTgtSetIdx, psRenderDirection,
   PS_WIND_HEAD, PS_WIND_TAIL, PS_CROSS_YPM, PS_ELEV_K });

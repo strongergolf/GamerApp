@@ -121,6 +121,7 @@ function toggleDetail(c,row,group,inner){
   document.querySelectorAll('.ladder-detail-group').forEach(g=>g.classList.remove('open'));
   if(open) return;
   row.classList.add('selected');
+  window.aimOffsets=window.aimOffsets||{}; window.aimOffsets['stock-'+c.id]={dx:0,dy:0};  // re-centre the aim oval on open
   const p=perf(c.id);
   inner.innerHTML=`
     <div class="detail-header">
@@ -142,12 +143,13 @@ function toggleDetail(c,row,group,inner){
     <div class="flight-wrap">
       <div class="flight-row">
         <div class="flight-col-main"><div class="flight-label">Trajectory &amp; Rollout</div><div class="flight-svg-wrap">${buildSideSVG(c,p)}</div></div>
-        <div class="flight-col-top"><div class="flight-label">Overhead — Dispersion</div><div class="flight-svg-wrap">${buildTopSVG(c,p)}</div></div>
+        <div class="flight-col-top"><div class="flight-label">Overhead — Dispersion</div><div class="flight-svg-wrap">${buildTopSVG(c,p,{draggable:true,uid:'stock-'+c.id})}</div></div>
       </div>
     </div>
     ${c.id==='D'?buildDriverOptimizerHTML():''}`;
   renderExpectedShots(`es-bag-${c.id}`, p.total||p.carry, 'fairway');
   if(c.id==='D' && typeof updateDriverOpt==='function') updateDriverOpt();
+  if(typeof initApproachAimDrag==='function') initApproachAimDrag();   // wire the draggable dispersion oval
   group.classList.add('open');
   setTimeout(()=>group.scrollIntoView({behavior:'smooth',block:'nearest'}),50);
 }
@@ -317,9 +319,11 @@ function buildTopSVG(c,p,opts){
      Within 8 yd of the green edge a live readout appears showing the pin's distance to the
      edge and how far the dispersion's left / right extremes finish inside (or off) the green.
      All live geometry is read from data-* attributes by initApproachAimDrag(). */
-  const off=window.approachAimOffset||{dx:0,dy:0};
-  return `<svg id="approach-aim-svg" viewBox="0 0 ${W} ${H}" style="width:100%;display:block;overflow:visible;touch-action:none"
-      data-cx="${cx}" data-cy="${cy}" data-gx="${gx}" data-gy="${gy}" data-scale="${scale.toFixed(4)}" data-disp="${ovW.toFixed(2)}" data-depth="${ovH.toFixed(2)}" data-shape="${shape}"
+  const uid=opts.uid||'appr';
+  window.aimOffsets=window.aimOffsets||{};
+  const off=window.aimOffsets[uid]||(window.aimOffsets[uid]={dx:0,dy:0});
+  return `<svg id="aim-svg-${uid}" class="aim-svg" viewBox="0 0 ${W} ${H}" style="width:100%;display:block;overflow:visible;touch-action:none"
+      data-uid="${uid}" data-cx="${cx}" data-cy="${cy}" data-gx="${gx}" data-gy="${gy}" data-scale="${scale.toFixed(4)}" data-disp="${ovW.toFixed(2)}" data-depth="${ovH.toFixed(2)}" data-shape="${shape}"
       xmlns="http://www.w3.org/2000/svg">
     <text x="${cx}" y="12" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9" font-weight="bold" fill="var(--ink2)">${carry} yd</text>
     ${bg}
@@ -354,11 +358,13 @@ function buildTopSVG(c,p,opts){
     <text x="${cx}" y="${H-3}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="6.5" fill="${tc}">±${dispYd.toFixed(1)} yd L/R · 86%</text>
   </svg>`;
 }
-/* Wire up dragging + live edge readout for the Approach overhead dispersion view.
-   Safe to call after every renderCalc — finds the (single) selected-card SVG or no-ops. */
+/* Wire up dragging + live edge readout for every draggable overhead-dispersion view in the DOM
+   (Approach selected card + the open Stock Shots club). Each instance is keyed by data-uid so its
+   aim offset is independent; already-wired SVGs are skipped. Safe to call after any render. */
 function initApproachAimDrag(){
-  const svg=document.getElementById('approach-aim-svg');
-  if(!svg) return;
+  document.querySelectorAll('.aim-svg:not([data-wired])').forEach(svg=>{ svg.dataset.wired='1'; wireAimDrag(svg); });
+}
+function wireAimDrag(svg){
   const grp=svg.querySelector('.aim-group');
   const ro=svg.querySelector('.aim-ro');
   const roT=svg.querySelector('.aim-ro-target');
@@ -375,7 +381,9 @@ function initApproachAimDrag(){
   const hint=svg.querySelector('.aim-hint');
   const cx=+svg.dataset.cx, cy=+svg.dataset.cy, gx=+svg.dataset.gx, gy=+svg.dataset.gy;
   const scale=+svg.dataset.scale, dispPx=+svg.dataset.disp, depthPx=+svg.dataset.depth, shape=svg.dataset.shape;
-  const off=window.approachAimOffset||(window.approachAimOffset={dx:0,dy:0});
+  const uid=svg.dataset.uid||'appr';
+  window.aimOffsets=window.aimOffsets||{};
+  const off=window.aimOffsets[uid]||(window.aimOffsets[uid]={dx:0,dy:0});
   const clampX=x=>Math.max(4,Math.min(116,x));
   const clampY=y=>Math.max(27,Math.min(106,y));
   const isGreen=shape==='green';
@@ -479,7 +487,7 @@ function initApproachAimDrag(){
     const p=clientToVB(e);
     off.dx=Math.max(-cx+5, Math.min(120-cx-5, p.x-cx));
     off.dy=Math.max(-cy+22, Math.min(112-cy-14, p.y-cy));
-    window.approachAimOffset=off; update();
+    update();
   });
   const end=e=>{ dragging=false; grp.style.cursor='grab'; try{ svg.releasePointerCapture(e.pointerId); }catch(_){} };
   svg.addEventListener('pointerup',end);
