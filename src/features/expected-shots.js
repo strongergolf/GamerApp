@@ -8,11 +8,15 @@
 
 /* Selectable comparison benchmark (maps to an effective handicap for srForPlayer). */
 const ES_COMPARE = {
-  tour:    { label:'Tour pro', short:'tour',   hcp:-5 },
-  scratch: { label:'Scratch',  short:'scratch',hcp:0  },
-  '9':     { label:'9 hcp',    short:'9 hcp',  hcp:9  },
-  '18':    { label:'18 hcp',   short:'18 hcp', hcp:18 }
+  tour:    { label:'Tour pro (+6)', short:'tour pro', hcp:-6 },   // +6 = 6 strokes better than scratch
+  scratch: { label:'Scratch',       short:'scratch',  hcp:0  },
+  '6':     { label:'6 hcp',         short:'6 hcp',    hcp:6  },
+  '12':    { label:'12 hcp',        short:'12 hcp',   hcp:12 },
+  '18':    { label:'18 hcp',        short:'18 hcp',   hcp:18 },
+  '24':    { label:'24 hcp',        short:'24 hcp',   hcp:24 }
 };
+/* explicit display order (object keys reorder numeric-like keys, so don't rely on Object.keys) */
+const ES_COMPARE_ORDER = ['tour','scratch','6','12','18','24'];
 function esCmp(){ return ES_COMPARE[window.esCompare] || ES_COMPARE.scratch; }
 function esSetCompare(val){
   window.esCompare = ES_COMPARE[val] ? val : 'scratch';
@@ -90,7 +94,7 @@ function renderExpectedShots(id, dist, lie){
   const sgStr=(sg>=0?'+':'')+sg.toFixed(2);
   const sgColor=sg>=0?'#5fcf8f':'#e3b25a';
   const cmpSel=`<select class="es-cmp-sel" onchange="esSetCompare(this.value)">`+
-    Object.keys(ES_COMPARE).map(k=>`<option value="${k}"${window.esCompare===k?' selected':''}>${ES_COMPARE[k].label} avg</option>`).join('')+`</select>`;
+    ES_COMPARE_ORDER.map(k=>`<option value="${k}"${window.esCompare===k?' selected':''}>${ES_COMPARE[k].label} avg</option>`).join('')+`</select>`;
 
   el.innerHTML=`<div class="es-strip${embedded?' es-embedded':''}">
     ${embedded?'':`<div class="es-strip-label">${lieLabel}</div>`}
