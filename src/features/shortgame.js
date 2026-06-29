@@ -32,13 +32,12 @@ function buildShortGame(){
         <input type="range" id="sg-stimp" min="7" max="14" step="0.5" value="${STATE.stimp}" style="width:100%"
           oninput="STATE.stimp=parseFloat(this.value);document.getElementById('sg-stimp-val').textContent=parseFloat(this.value).toFixed(1);const _pu=document.getElementById('putt-stimp');if(_pu){_pu.value=this.value;const _pv=document.getElementById('putt-stimp-val');if(_pv)_pv.textContent=parseFloat(this.value).toFixed(1);}renderChipDial();buildChipMatrix();saveState()">
       </div>
+      <!-- Expected shots + strokes gained, folded into the distance box -->
+      <div id="es-short" class="expected-shots-strip"></div>
     </div>
 
     <!-- 1b. Plays-like adjusters -->
     <div id="ey-shortgame" class="ey-host"></div>
-
-    <!-- 2. Expected shots -->
-    <div id="es-short" class="expected-shots-strip"></div>
 
     <!-- 3. Shot options (selected shot opens its trajectory drop below it) -->
     <div id="chip-results"></div>

@@ -50,13 +50,12 @@
     </div>
     <div class="calc-manual-col"><label for="yard-input">Yards</label><input type="number" id="yard-input" min="37" max="200" value="95"
       oninput="const v=Math.max(37,Math.min(200,parseInt(this.value)||95));document.getElementById('yard-slider').value=v;document.getElementById('calc-display').textContent=v;renderCalc(v);renderExpectedShots('es-150',v,approachLie())"></div>
+    <!-- Expected shots + strokes gained, folded into the distance box -->
+    <div id="es-150" class="expected-shots-strip"></div>
   </div>
 
   <!-- 1b. Plays-like adjusters -->
   <div id="ey-approach" class="ey-host"></div>
-
-  <!-- 2. Expected shots -->
-  <div id="es-150" class="expected-shots-strip"></div>
 
   <!-- 3. Shot options (each expands a Side view + Overhead dispersion dropdown) -->
   <div class="calc-results" id="calc-results"></div>
