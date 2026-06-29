@@ -13,7 +13,7 @@ const GROUPS={
   ],
   diagnose:[{id:'assess',label:'Assess'},{id:'improve',label:'Practice'},{id:'tests',label:'Tests'},{id:'resources',label:'Resources'}],
   plan:[{id:'planshot',label:'Pre-Shot'},{id:'postshot',label:'Post-Shot'},{id:'courses',label:'Pre-Round'},{id:'postround',label:'Post-Round'}],
-  setup:[{id:'specs',label:'My Bag'},{id:'profile',label:'Myself'},{id:'community',label:'My Community'},{id:'reference',label:'My App'}]
+  setup:[{id:'specs',label:'My Bag'},{id:'profile',label:'Myself'},{id:'reference',label:'My App'}]
 };
 let currentGroup='play';
 
