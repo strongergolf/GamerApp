@@ -26,6 +26,12 @@ function showGroup(group,el){
   /* single-surface groups don't need a sub-strip */
   if(tabs.length<=1){ sub.innerHTML=''; showPage(tabs[0].id); }
   else { sub.innerHTML=tabs.map((t,i)=>`<div class="nav-tab${i===0?' active':''}" onclick="showPage('${t.id}',this)">${t.label}</div>`).join(''); showPage(tabs[0].id); }
+  updateSubScrollCue();
+}
+/* Show the right-edge fade only when the sub-tab strip actually overflows (cue that it scrolls). */
+function updateSubScrollCue(){
+  const sub=document.getElementById('nav-sub'); if(!sub) return;
+  requestAnimationFrame(()=>sub.classList.toggle('is-scroll', sub.scrollWidth>sub.clientWidth+2));
 }
 function showPage(id,tab){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
@@ -83,6 +89,15 @@ loadState();
 renderAll();
 initConditions();
 initCalc();
+
+/* Mobile keyboards: give every numeric input the decimal keypad (spec/yardage entry). A
+   debounced observer re-applies after the app's frequent dynamic re-renders. */
+function applyInputmode(){ document.querySelectorAll('input[type=number]:not([inputmode])').forEach(i=>i.setAttribute('inputmode','decimal')); }
+let _imScheduled=false;
+function scheduleInputmode(){ if(_imScheduled) return; _imScheduled=true; requestAnimationFrame(()=>{ _imScheduled=false; applyInputmode(); }); }
+try{ new MutationObserver(scheduleInputmode).observe(document.body,{childList:true,subtree:true}); }catch(e){}
+applyInputmode();
+window.addEventListener('resize', updateSubScrollCue);
 
 
 // Expose top-level declarations on window so inline handlers and
