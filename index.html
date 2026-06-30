@@ -214,13 +214,11 @@
 
 <!-- SPECS -->
 <div id="page-specs" class="page">
-  <div class="section-label" style="margin-top:0">Backup &amp; Transfer</div>
-  <div class="profile-card" style="margin-top:0">
-    <p class="gen-note" style="margin-top:0">Your bag, specs, stats and baselines are saved <b>in this browser only</b>. To move them to another device — say PC&nbsp;→&nbsp;phone — <b>Export</b> a file here, send it to yourself (email / AirDrop / cloud), then open the app on the other device and <b>Import</b> it.</p>
-    <div class="btn-row">
-      <button class="btn btn-primary" onclick="exportData()">⬇&nbsp; Export bag &amp; data</button>
-      <button class="btn" onclick="triggerImportFile()">⬆&nbsp; Import from file</button>
-    </div>
+  <div class="section-label" style="margin-top:0;display:flex;align-items:center;justify-content:space-between;gap:10px">Backup &amp; Transfer
+    <span style="display:flex;gap:8px;flex-shrink:0">
+      <button class="print-btn" onclick="exportData()">⬇ Export</button>
+      <button class="print-btn" onclick="triggerImportFile()">⬆ Import</button>
+    </span>
   </div>
 
   <div class="section-label" style="margin-top:22px">Golf Ball</div>
