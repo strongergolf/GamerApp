@@ -641,7 +641,23 @@ const psRound = {};
 function psRoundSet(key,val){ psRound[key]=val; }
 const psRoundSel=(key,opts)=>`<select onchange="psRoundSet('${key}',this.value)">`+
   opts.map(o=>`<option value="${o}"${psRound[key]===o?' selected':''}>${o}</option>`).join('')+`</select>`;
-const psRoundNum=(label,key,ph)=>`<div class="edit-field"><label>${label}</label><input type="number" value="${escapeHtml(psRound[key]==null?'':psRound[key])}" oninput="psRoundSet('${key}',this.value)" placeholder="${ph||''}"></div>`;
+const psRoundNum=(label,key,ph)=>`<div class="edit-field"><label>${label}</label><input type="number" inputmode="decimal" value="${escapeHtml(psRound[key]==null?'':psRound[key])}" oninput="psRoundSet('${key}',this.value)" placeholder="${ph||''}"></div>`;
+/* +/- stepper for values that can go negative (e.g. an under-par score) — iOS's decimal
+   keypad has no minus key, so a number input alone can't take a negative on a phone. */
+const psRoundFmtToPar=v=>{ if(v==null||v==='') return '—'; const n=parseFloat(v); if(isNaN(n)) return '—'; return n===0?'E':(n>0?'+':'−')+Math.abs(n); };
+function psRoundStep(key,delta){
+  const cur=(psRound[key]==null||psRound[key]==='')?0:(parseFloat(psRound[key])||0);
+  psRound[key]=cur+delta;
+  const el=document.getElementById('ps-round-'+key+'-val'); if(el) el.textContent=psRoundFmtToPar(psRound[key]);
+}
+const psRoundStepper=(label,key)=>`<div class="edit-field">
+    <label>${label}</label>
+    <div class="ps-stepper">
+      <button type="button" class="ps-stepper-btn" onclick="psRoundStep('${key}',-1)" aria-label="Decrease">−</button>
+      <span class="ps-stepper-val" id="ps-round-${key}-val">${psRoundFmtToPar(psRound[key])}</span>
+      <button type="button" class="ps-stepper-btn" onclick="psRoundStep('${key}',1)" aria-label="Increase">+</button>
+    </div>
+  </div>`;
 /* Push the captured round onto the typical-round baselines in STATE.profile (GIR%, fairways%,
    putts/round, up&down%, scoring avg). A simple set for now — a rolling SG-round log is the next step. */
 function psApplyRoundBaselines(){
@@ -665,7 +681,7 @@ function buildPostRound(){
     <div class="profile-card" style="margin-top:0">
       <h3>1 · Round Snapshot <span style="${PS_SUB}">the numbers that drive strokes-gained</span></h3>
       <div class="edit-grid">
-        ${psRoundNum('Score (to par)','score','e.g. +6')}
+        ${psRoundStepper('Score (to par)','score')}
         ${psRoundNum('Fairways hit (/14)','fir','/14')}
         ${psRoundNum('Greens in reg (/18)','gir','/18')}
         ${psRoundNum('Total putts','putts','e.g. 32')}
@@ -756,6 +772,6 @@ function buildPostShot(){
 }
 
 // Expose for inline handlers and the renderAll orchestrator.
-Object.assign(window, { buildPlanShot, buildPostShot, buildPostRound, psSet, psSetSit, psPostSet, psRoundSet, psApplyRoundBaselines, psOpenTerm, buildLongTerm,
+Object.assign(window, { buildPlanShot, buildPostShot, buildPostRound, psSet, psSetSit, psPostSet, psRoundSet, psRoundStep, psApplyRoundBaselines, psOpenTerm, buildLongTerm,
   pseSetIdx, pseResetSetup, psTgtSetIdx, psRenderDirection,
   PS_WIND_HEAD, PS_WIND_TAIL, PS_CROSS_YPM, PS_ELEV_K });
