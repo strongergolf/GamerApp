@@ -47,15 +47,88 @@ function buildShortGame(){
     <div class="section-label" style="margin-top:22px">Short Game Setup Adjustment Options</div>
     <div id="sg-vars-wrap"></div>
 
+    <!-- 5. Calibrate to your own launch-monitor short-game data -->
+    <details class="defs-dropdown" style="margin-top:16px"><summary>Calibrate to My Data</summary>
+      <div id="sg-cal-wrap"></div>
+    </details>
+
     <!-- 6. Chip Matrix — at-a-glance, very bottom of the tab -->
     <div class="section-label" style="margin-top:22px;display:flex;align-items:center;justify-content:space-between;gap:10px">Chip Reference Matrix — Total Distance by Club &amp; Carry <button class="print-btn" onclick="printMatrix('chip')">⎙ Print</button></div>
     <div class="chip-matrix-wrap"><table class="chip-matrix" id="chip-matrix-table"></table></div>`;
 
   buildChipMatrix();
   renderSgVars();
+  renderSgCal();
   /* Start on auto-select so the dial defers to the G / gap wedge standard chip (see renderChipDial). */
   window.chipSelectedIdx=-1;
   renderChipDial();
+}
+
+/* ---- Calibrate to My Data: fit per-user launch / spin / rollout from measured short-game shots.
+   Rollout captures release-style tendencies the app deliberately does not model from setup. ---- */
+function sgCalClubLabel(id){ const c=(STATE.clubs||[]).find(x=>x.id===id); return c?`${c.label} (${c.loft})`:id; }
+function sgCalRecompute(){
+  const cal=STATE.sgCal||(STATE.sgCal={shots:[],launchOff:0,spinMult:1,rollMult:1});
+  let loSum=0,loN=0, spSum=0,spN=0, roSum=0,roN=0;
+  (cal.shots||[]).forEach(s=>{
+    const loft=parseFloat(s.loft)||50, carry=parseFloat(s.carry)||0, stimp=parseFloat(s.stimp)||9.5;
+    if(s.launch!==''&&s.launch!=null){ loSum += parseFloat(s.launch)-chipLaunchRaw(loft); loN++; }
+    if(s.spin!==''&&s.spin!=null&&carry>0){ const m=chipSpinRaw(carry,loft); if(m>0){ spSum += parseFloat(s.spin)/m; spN++; } }
+    if(s.total!==''&&s.total!=null&&carry>0){ const roll=parseFloat(s.total)-carry, model=carry*chipRollFactor(loft,stimp,0);
+      if(model>0&&roll>=0){ roSum += roll/model; roN++; } }
+  });
+  cal.launchOff = loN? Math.round(loSum/loN*10)/10 : 0;
+  cal.spinMult  = spN? Math.max(0.5,Math.min(2.0, Math.round(spSum/spN*1000)/1000)) : 1;
+  cal.rollMult  = roN? Math.max(0.4,Math.min(2.5, Math.round(roSum/roN*1000)/1000)) : 1;
+}
+function renderSgCal(){
+  const wrap=document.getElementById('sg-cal-wrap'); if(!wrap) return;
+  const cal=STATE.sgCal||(STATE.sgCal={shots:[],launchOff:0,spinMult:1,rollMult:1});
+  const opts=chipClubs().map(c=>`<option value="${c.id}">${c.label} (${c.loft})</option>`).join('');
+  const active=(typeof chipCalibrated==='function'&&chipCalibrated());
+  const prov=(typeof sgProv==='function')?sgProv(active?'captured':'presumed'):'';
+  const rows=(cal.shots||[]).map(s=>`<tr><td>${sgCalClubLabel(s.club)}</td><td>${s.carry}</td><td>${s.launch||'—'}</td><td>${s.spin||'—'}</td><td>${s.total||'—'}</td><td>${s.stimp||'—'}</td><td><button class="sgcal-del" title="Remove" onclick="sgCalRemove('${s.id}')">✕</button></td></tr>`).join('');
+  wrap.innerHTML=`
+    <p class="gen-note" style="margin-top:0">Enter a few measured short-game shots from your launch monitor. The app fits your own <b>launch</b>, <b>spin</b> and <b>rollout</b> — capturing your release style and any manual adjustments the model doesn't account for — and applies them to every number on this tab. Measure on a flat lie at a known green speed; fill in whichever of launch / spin / total you have.</p>
+    <div class="edit-grid">
+      <div class="edit-field"><label>Club</label><select id="sgcal-club">${opts}</select></div>
+      <div class="edit-field"><label>Carry (yd)</label><input id="sgcal-carry" type="number" inputmode="decimal" placeholder="req'd"></div>
+      <div class="edit-field"><label>Launch (°)</label><input id="sgcal-launch" type="number" inputmode="decimal"></div>
+      <div class="edit-field"><label>Spin (rpm)</label><input id="sgcal-spin" type="number" inputmode="decimal"></div>
+      <div class="edit-field"><label>Total (yd)</label><input id="sgcal-total" type="number" inputmode="decimal"></div>
+      <div class="edit-field"><label>Stimp</label><input id="sgcal-stimp" type="number" inputmode="decimal" value="${(STATE.stimp||9.5).toFixed(1)}"></div>
+    </div>
+    <div class="btn-row"><button class="btn btn-primary" onclick="sgCalAddShot()">Add measured shot</button>${(cal.shots||[]).length?`<button class="btn" onclick="sgCalReset()">Reset calibration</button>`:''}</div>
+    <div class="sgcal-factors">Your fit: <span>launch <b>${cal.launchOff>0?'+':''}${cal.launchOff||0}°</b></span><span>spin <b>×${(cal.spinMult||1).toFixed(2)}</b></span><span>rollout <b>×${(cal.rollMult||1).toFixed(2)}</b></span> ${prov}</div>
+    ${(cal.shots||[]).length?`<table class="sgcal-table"><thead><tr><th>Club</th><th>Carry</th><th>Launch</th><th>Spin</th><th>Total</th><th>Stimp</th><th></th></tr></thead><tbody>${rows}</tbody></table>`:''}`;
+}
+function sgCalAddShot(){
+  const g=id=>document.getElementById(id);
+  const club=g('sgcal-club')?.value, carry=parseFloat(g('sgcal-carry')?.value);
+  const launch=g('sgcal-launch')?.value.trim(), spin=g('sgcal-spin')?.value.trim(), total=g('sgcal-total')?.value.trim();
+  const stimp=parseFloat(g('sgcal-stimp')?.value)||STATE.stimp||9.5;
+  if(!club||!(carry>0)){ if(typeof toast==='function') toast('Enter a club and carry'); return; }
+  if(!launch&&!spin&&!total){ if(typeof toast==='function') toast('Enter at least one of launch / spin / total'); return; }
+  const cl=(STATE.clubs||[]).find(x=>x.id===club), loft=cl?parseFloat(cl.loft):50;
+  STATE.sgCal=STATE.sgCal||{shots:[],launchOff:0,spinMult:1,rollMult:1}; STATE.sgCal.shots=STATE.sgCal.shots||[];
+  STATE.sgCal.shots.push({id:'sc'+Date.now(), club, loft, carry, launch, spin, total, stimp});
+  sgCalRecompute(); saveState(); renderSgCal();
+  if(typeof buildChipMatrix==='function') buildChipMatrix();
+  window.chipSelectedIdx=-1; renderChipDial();
+  if(typeof toast==='function') toast('Calibration updated');
+}
+function sgCalRemove(id){
+  if(!STATE.sgCal) return;
+  STATE.sgCal.shots=(STATE.sgCal.shots||[]).filter(s=>s.id!==id);
+  sgCalRecompute(); saveState(); renderSgCal();
+  if(typeof buildChipMatrix==='function') buildChipMatrix();
+  window.chipSelectedIdx=-1; renderChipDial();
+}
+function sgCalReset(){
+  STATE.sgCal={shots:[],launchOff:0,spinMult:1,rollMult:1}; saveState(); renderSgCal();
+  if(typeof buildChipMatrix==='function') buildChipMatrix();
+  window.chipSelectedIdx=-1; renderChipDial();
+  if(typeof toast==='function') toast('Calibration reset');
 }
 
 /* ---- Short Game Variables panel: grouped selectable options + net shot-effect readout ---- */
@@ -309,4 +382,4 @@ function buildChipMatrix(){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { buildChipMatrix, buildChipSVG, buildShortGame, fmtChipSlope, renderChipDial, renderSgVars });
+Object.assign(window, { buildChipMatrix, buildChipSVG, buildShortGame, fmtChipSlope, renderChipDial, renderSgVars, renderSgCal, sgCalAddShot, sgCalRemove, sgCalReset });

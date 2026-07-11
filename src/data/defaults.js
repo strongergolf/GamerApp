@@ -23,6 +23,9 @@ const DEFAULT_DATA = {
   /* Short Game Variables (Short Game tab) — selected option id per variable.
      Keys/options defined in physics/shortgame-vars.js; defaults net to zero change. */
   sgVars: {},
+  /* Short-game calibration — captured launch-monitor shots + the per-user launch/spin/roll
+     factors derived from them (Short Game → Calibrate to My Data). Neutral until imported. */
+  sgCal: { shots:[], launchOff:0, spinMult:1, rollMult:1 },
   scoring: {
     rounds: []
     /* each round: {id, date, course, ott, app, atg, putt, gross, notes} */

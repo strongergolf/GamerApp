@@ -53,21 +53,32 @@ function chipArchetype(loftDeg){
    (clamped 0.60–0.74 so low-loft runners stay near their dynamic loft and lobs hold a
    floor). Anchored to Andrew Rice / Trackman "Chip Shot Code" / Molinari data — e.g. a
    56° pitches ~36°. Presumed — refine from the player's own LM data. */
-function chipLaunch(loftDeg){
+/* ---- Per-user short-game calibration (STATE.sgCal) — captured launch-monitor data shifts the
+   PRESUMED model to the player's actual game (including release-style tendencies the app doesn't
+   model). Factors default to neutral (0 / 1 / 1) until the user imports data. ---- */
+function sgCal(){ return (typeof STATE!=='undefined'&&STATE&&STATE.sgCal)?STATE.sgCal:{}; }
+function chipUserLaunchOff(){ const v=sgCal().launchOff; return (typeof v==='number'&&isFinite(v))?v:0; }   // ° added to launch
+function chipUserSpinMult(){  const v=sgCal().spinMult;  return (typeof v==='number'&&v>0)?v:1; }            // × model spin
+function chipUserRollMult(){  const v=sgCal().rollMult;  return (typeof v==='number'&&v>0)?v:1; }            // × rollout (release style)
+function chipCalibrated(){ return chipUserLaunchOff()!==0 || chipUserSpinMult()!==1 || chipUserRollMult()!==1; }
+
+function chipLaunchRaw(loftDeg){
   const L=parseFloat(loftDeg)||50;
   const frac=Math.max(0.60, Math.min(0.74, 0.70 - 0.0057*(L-46)));
   return L*frac;
 }
+function chipLaunch(loftDeg){ return chipLaunchRaw(loftDeg) + chipUserLaunchOff(); }
 /* Short-game / partial-pitch backspin estimate (rpm). Anchored to current LM data for
    urethane balls and clean contact at men's speeds: ~1,500 rpm on a 5 yd chip rising to
    ~6,000–6,500 on a 50 yd pitch (Trackman "Chip Shot Code" / Andrew Rice wedge study).
    Backspin tracks ball speed (≈ carry) far more than loft across this range — higher-lofted
    wedges add only a little. Presumed — refine from the player's own LM session. */
-function chipSpin(carryYd, loftDeg){
+function chipSpinRaw(carryYd, loftDeg){
   const base = 1200 + 105*Math.max(0, carryYd);            // distance (ball speed) is the main driver
   const loftAdj = ((parseFloat(loftDeg)||52) - 52) * 25;   // mild: ~+25 rpm per ° vs a 52° reference
   return Math.round(Math.max(800, base + loftAdj)/50)*50;  // nearest 50 rpm
 }
+function chipSpin(carryYd, loftDeg){ return Math.round(chipSpinRaw(carryYd,loftDeg)*chipUserSpinMult()/50)*50; }
 /* Green-slope → rollout multiplier, CALIBRATED AT STIMP 9.5. deg = slope of the run-out,
    + = uphill (less roll), − = downhill (more roll). Piecewise-linear anchors preserve the old
    categorical values: +6→0.38 (very up), +3→0.62 (up), 0→1.0, −3→1.50, −6→2.20. */
@@ -128,17 +139,18 @@ function chipStance(key){ return CHIP_STANCE_MODEL[key] || CHIP_STANCE_MODEL.lev
 function chipFirm(){ return (typeof window!=='undefined'&&window.chipFirmFactor)?window.chipFirmFactor:1; }
 function chipLie(){ return (typeof window!=='undefined'&&window.chipLieRollMult)?window.chipLieRollMult:1; }
 function chipStanceRoll(){ return (typeof window!=='undefined'&&window.chipStanceRollMult)?window.chipStanceRollMult:1; }
+/* Pure model roll-per-unit-carry (no per-shot conditions, no user calibration) — the calibration
+   maths compares measured roll against this. */
+function chipRollFactor(loftDeg, stimp, slope){
+  return chipRollRatio(loftDeg) * Math.pow(stimp/9.5, 1.3) * chipSlopeFactor(slope, stimp);
+}
 function chipRollout(carry, loftDeg, stimp, slope, baseline){
-  const R=chipRollRatio(loftDeg);
-  const sa=Math.pow(stimp/9.5, 1.3);
   const m = baseline ? 1 : chipFirm()*chipLie()*chipStanceRoll();
-  return carry * R * sa * chipSlopeFactor(slope, stimp) * m;
+  return carry * chipRollFactor(loftDeg,stimp,slope) * m * chipUserRollMult();   // release style always applies
 }
 function chipCarryForTotal(total, loftDeg, stimp, slope, baseline){
-  const R=chipRollRatio(loftDeg);
-  const sa=Math.pow(stimp/9.5, 1.3);
   const m = baseline ? 1 : chipFirm()*chipLie()*chipStanceRoll();
-  return total / (1 + R * sa * chipSlopeFactor(slope, stimp) * m);
+  return total / (1 + chipRollFactor(loftDeg,stimp,slope) * m * chipUserRollMult());
 }
 function chipClubs(){
   return STATE.clubs
@@ -156,4 +168,4 @@ function selectChipClub(i){ window.chipSelectedIdx=i; renderChipDial(); }
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { CHIP_ROLL_ANCHORS, CHIP_SLOPE_ANCHORS, CHIP_FIRM_MODEL, CHIP_STANCE_MODEL, chipArchetype, chipCarryForTotal, chipClubs, chipFirm, chipFirmModel, chipLaunch, chipLie, chipRollRatio, chipRollout, chipSlopeDeg, chipSlopeFactor, chipSlopeMult, chipSlopeVal, chipSpin, chipStance, chipStanceRoll, selectChipClub });
+Object.assign(window, { CHIP_ROLL_ANCHORS, CHIP_SLOPE_ANCHORS, CHIP_FIRM_MODEL, CHIP_STANCE_MODEL, chipArchetype, chipCarryForTotal, chipCalibrated, chipClubs, chipFirm, chipFirmModel, chipLaunch, chipLaunchRaw, chipLie, chipRollFactor, chipRollRatio, chipRollout, chipSlopeDeg, chipSlopeFactor, chipSlopeMult, chipSlopeVal, chipSpin, chipSpinRaw, chipStance, chipStanceRoll, chipUserLaunchOff, chipUserRollMult, chipUserSpinMult, selectChipClub });

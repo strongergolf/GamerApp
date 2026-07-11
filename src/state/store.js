@@ -49,6 +49,8 @@ function mergeDefaults(saved){
   const strategy = Object.assign({}, base.strategy, sv.strategy||{});
   /* Short Game Variables: merge so new variables get defaults while keeping the user's picks. */
   const sgVars = Object.assign({}, base.sgVars, sv.sgVars||{});
+  /* Short-game calibration: keep saved factors + shots, backfill any new fields. */
+  const sgCal = Object.assign({}, base.sgCal, sv.sgCal||{});
   /* New STATE slices — keep saved if present, else default. */
   const missTendency = Object.assign({}, base.missTendency, sv.missTendency||{});
   const skillsTests = Array.isArray(sv.skillsTests) ? sv.skillsTests : base.skillsTests;
@@ -60,6 +62,7 @@ function mergeDefaults(saved){
     courses,
     strategy,
     sgVars,
+    sgCal,
     missTendency,
     skillsTests,
     hcpHistory,

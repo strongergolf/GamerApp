@@ -34,7 +34,10 @@ function aimBreakIn(distFt, grade, stimp, slope, paceIn){
      Faster pace = narrower effective break (ball less influenced by slope)
      Slower pace = more break (ball reads slope longer) */
   const paceFactor = Math.pow(12 / Math.max(4, paceIn||12), 0.4);
-  const sf=Math.pow(stimp/9.5, 1.2);
+  /* Green speed amplifies break steeply: break ∝ time-on-slope², and time ∝ green speed, so
+     break ≈ stimp². Matches Penner/AimPoint data (≈6" at stimp 8 → ≈14" at stimp 12). Anchored
+     at 9.5 (=1.0). Was 1.2 — raised on research review. */
+  const sf=Math.pow(stimp/9.5, 2.0);
   /* slope may be a numeric elevation (inches, continuous) or a legacy category string */
   const sl = typeof slope==='number'
            ? slopeFactorFromElev(slope)
