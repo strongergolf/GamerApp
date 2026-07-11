@@ -68,8 +68,8 @@ function chipSpin(carryYd, loftDeg){
   const loftAdj = ((parseFloat(loftDeg)||52) - 52) * 25;   // mild: ~+25 rpm per ° vs a 52° reference
   return Math.round(Math.max(800, base + loftAdj)/50)*50;  // nearest 50 rpm
 }
-/* Continuous green-slope → rollout multiplier. deg = slope of the run-out, + = uphill
-   (less roll), − = downhill (more roll). Piecewise-linear anchors preserve the old
+/* Green-slope → rollout multiplier, CALIBRATED AT STIMP 9.5. deg = slope of the run-out,
+   + = uphill (less roll), − = downhill (more roll). Piecewise-linear anchors preserve the old
    categorical values: +6→0.38 (very up), +3→0.62 (up), 0→1.0, −3→1.50, −6→2.20. */
 const CHIP_SLOPE_ANCHORS=[[-6,2.20],[-3,1.50],[0,1.0],[3,0.62],[6,0.38]];
 function chipSlopeMult(deg){
@@ -79,26 +79,66 @@ function chipSlopeMult(deg){
   for(let i=0;i<A.length-1;i++){ if(e>=A[i][0]&&e<=A[i+1][0]){ const t=(e-A[i][0])/(A[i+1][0]-A[i][0]); return A[i][1]+t*(A[i+1][1]-A[i][1]); } }
   return 1.0;
 }
-function chipSlopeFactor(slope){
-  return typeof slope==='number' ? chipSlopeMult(slope)
-    : slope==='very-uphill'?0.38 : slope==='uphill'?0.62 : slope==='downhill'?1.50 : slope==='very-downhill'?2.20 : 1.0;
+function chipSlopeDeg(slope){
+  return typeof slope==='number' ? slope
+    : slope==='very-uphill'?6 : slope==='uphill'?3 : slope==='downhill'?-3 : slope==='very-downhill'?-6 : 0;
 }
-/* Per-shot roll-out multipliers from Short Game Situational Info: firmness (softer → less
-   roll, firmer → more) and the situation+lie roll-out (rough/bunker run more). Default 1.0.
-   The reference matrix / print card pass baseline=true to ignore these per-shot conditions. */
+/* Slope × green-speed coupling. A slope bites harder on faster greens: friction ∝ 1/stimp, so the
+   gravity term g·sinθ is a larger share of the ball's deceleration as the green quickens. We scale
+   the slope's DEVIATION-from-flat linearly with stimp — which exactly reproduces the calibrated
+   9.5 anchors above, amplifies the effect on fast greens and damps it on slow ones. Clamped so a
+   fast downhill can't produce an unphysical runaway. */
+function chipSlopeFactor(slope, stimp){
+  const base=chipSlopeMult(chipSlopeDeg(slope));
+  if(stimp==null) return base;                 /* no green speed given → use the 9.5-calibrated shape */
+  const f = 1 + (base - 1) * (stimp/9.5);
+  return Math.max(0.12, Math.min(3.2, f));
+}
+/* ---- Firmness model (check / first bounce / rollout) — research-anchored ----
+   Firmness is the green's vertical response, distinct from stimp (its rolling speed): a green can
+   be soft & fast or firm & slow. On a SOFT/receptive green the ball lands into the turf — low
+   restitution, spin grabs, it checks and sits (short rollout). On a FIRM green it lands hot —
+   high restitution, the ball skids before spin can bite, it hops forward and releases (long
+   rollout). `roll` is the net rollout multiplier (unchanged calibration); restitution / bounceH /
+   bounces / check drive the trajectory drawing + readout. Ball-on-turf COR ≈ 0.15 (plush) to
+   ≈ 0.7 (baked) — Presumed, refine from the player's own bounce/roll observations. */
+const CHIP_FIRM_MODEL = {
+  vsoft:{ roll:0.70, restitution:0.16, bounceH:0.40, bounces:1, check:'grabs & checks' },
+  soft: { roll:0.85, restitution:0.27, bounceH:0.70, bounces:2, check:'soft hop, sits' },
+  avg:  { roll:1.00, restitution:0.40, bounceH:1.00, bounces:3, check:'lands & releases' },   /* = current drawing */
+  firm: { roll:1.30, restitution:0.55, bounceH:1.30, bounces:3, check:'hops on, runs' },
+  vfirm:{ roll:1.60, restitution:0.70, bounceH:1.60, bounces:3, check:'skids & runs out' }
+};
+function chipFirmModel(key){ return CHIP_FIRM_MODEL[key] || CHIP_FIRM_MODEL.avg; }
+/* ---- Stance model: the LIE ANGLE you're standing on (NOT the target's elevation, which is its
+   own term). Standing on an upslope adds effective loft → higher, softer, less release; a
+   downslope delofts → lower, hotter, more release. Effects: launch (°), a rollout multiplier
+   (the carry/roll split) and a small plays-like distance. Presumed — refine from LM data. */
+const CHIP_STANCE_MODEL = {
+  welldownhill:{ launch:-7, roll:1.32, plays:-3 },
+  downhill:    { launch:-4, roll:1.15, plays:-1.5 },
+  level:       { launch:0,  roll:1.00, plays:0 },
+  uphill:      { launch:+4, roll:0.89, plays:+1.5 },
+  welluphill:  { launch:+7, roll:0.78, plays:+3 }
+};
+function chipStance(key){ return CHIP_STANCE_MODEL[key] || CHIP_STANCE_MODEL.level; }
+/* Per-shot roll-out multipliers from Short Game Situational Info: firmness (softer → less roll,
+   firmer → more), the situation+lie roll-out (rough/bunker run more), and the stance lie. Default
+   1.0. The reference matrix / print card pass baseline=true to ignore these per-shot conditions. */
 function chipFirm(){ return (typeof window!=='undefined'&&window.chipFirmFactor)?window.chipFirmFactor:1; }
 function chipLie(){ return (typeof window!=='undefined'&&window.chipLieRollMult)?window.chipLieRollMult:1; }
+function chipStanceRoll(){ return (typeof window!=='undefined'&&window.chipStanceRollMult)?window.chipStanceRollMult:1; }
 function chipRollout(carry, loftDeg, stimp, slope, baseline){
   const R=chipRollRatio(loftDeg);
   const sa=Math.pow(stimp/9.5, 1.3);
-  const m = baseline ? 1 : chipFirm()*chipLie();
-  return carry * R * sa * chipSlopeFactor(slope) * m;
+  const m = baseline ? 1 : chipFirm()*chipLie()*chipStanceRoll();
+  return carry * R * sa * chipSlopeFactor(slope, stimp) * m;
 }
 function chipCarryForTotal(total, loftDeg, stimp, slope, baseline){
   const R=chipRollRatio(loftDeg);
   const sa=Math.pow(stimp/9.5, 1.3);
-  const m = baseline ? 1 : chipFirm()*chipLie();
-  return total / (1 + R * sa * chipSlopeFactor(slope) * m);
+  const m = baseline ? 1 : chipFirm()*chipLie()*chipStanceRoll();
+  return total / (1 + R * sa * chipSlopeFactor(slope, stimp) * m);
 }
 function chipClubs(){
   return STATE.clubs
@@ -116,4 +156,4 @@ function selectChipClub(i){ window.chipSelectedIdx=i; renderChipDial(); }
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { CHIP_ROLL_ANCHORS, CHIP_SLOPE_ANCHORS, chipArchetype, chipCarryForTotal, chipClubs, chipFirm, chipLaunch, chipLie, chipRollRatio, chipRollout, chipSlopeFactor, chipSlopeMult, chipSlopeVal, chipSpin, selectChipClub });
+Object.assign(window, { CHIP_ROLL_ANCHORS, CHIP_SLOPE_ANCHORS, CHIP_FIRM_MODEL, CHIP_STANCE_MODEL, chipArchetype, chipCarryForTotal, chipClubs, chipFirm, chipFirmModel, chipLaunch, chipLie, chipRollRatio, chipRollout, chipSlopeDeg, chipSlopeFactor, chipSlopeMult, chipSlopeVal, chipSpin, chipStance, chipStanceRoll, selectChipClub });

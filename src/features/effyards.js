@@ -7,9 +7,23 @@
 // approach vs short-game shots — all default to 1.0 for now.
 
 const EY = {
-  approach:  { situation:'fairway', lieq:'standard', stance:'level', elev:0, firmness:'avg' },
-  shortgame: { situation:'fairway', lieq:'standard', stance:'level', level:0, firmness:'avg' }
+  approach:  { situation:'fairway', lieq:'standard', stance:'level', elev:0, elevUnit:'yd', firmness:'avg' },
+  shortgame: { situation:'fairway', lieq:'standard', stance:'level', elev:0, elevUnit:'ft', level:0, firmness:'avg' }
 };
+/* Elevation can be entered as an absolute rise (base unit: yd for approach, ft for short game) OR
+   as an incline in degrees — cross-calculated through the shot length. Base unit ↔ degrees:
+     run = horizontal distance in the base unit (yards for approach; yards×3 = feet for short game)
+     rise_base = run · tan(deg)     deg = atan(rise_base / run). */
+function elevBaseUnit(ctx){ return ctx==='shortgame'?'ft':'yd'; }
+function elevRun(ctx,S){ return ctx==='shortgame' ? (S||0)*3 : (S||0); }   // horizontal dist in the base unit
+function elevBaseVal(ctx,S){
+  const u=EY[ctx].elevUnit||elevBaseUnit(ctx), v=EY[ctx].elev||0;
+  return u==='deg' ? elevRun(ctx,S)*Math.tan(v*Math.PI/180) : v;           // rise in the base unit
+}
+/* Short-game target elevation: plays-like yards per FOOT the green sits above/below you (a chip
+   up to a raised green plays longer). Downhill gives back ~2/3 of the uphill cost, matching the
+   app's topography convention. Separate from Stance (the lie angle under your feet). */
+const CHIP_ELEV_K = 0.30;
 const EY_DEFAULTS = { situation:'fairway', lieq:'standard', stance:'level', elev:0, level:0, firmness:'avg' };
 /* All Situational-Info terms use the EFFECTIVE-YARDAGE convention: + = the shot plays
    LONGER (club up), − = plays shorter (club down). So a condition that costs ball
@@ -61,7 +75,7 @@ function approachLie(){
 /* Lie effects are halved for short game; everything else 1.0 (refine later). */
 const EY_WEIGHT = {
   approach:  { situation:1, lieq:1,   stance:1, elev:1, firmness:1, air:1 },
-  shortgame: { situation:1, lieq:0.5, stance:1, level:1, firmness:1, air:1 }
+  shortgame: { situation:1, lieq:0.5, stance:1, elev:1, level:1, firmness:1, air:1 }
 };
 
 /* ---- Shot-type (trajectory) model — researched estimates, refine from LM data ----
@@ -88,20 +102,33 @@ const EY_TERM_STANCE = { key:'stance', label:'Stance', type:'step', opts:[
       ['welldownhill','Well downhill'],['downhill','Downhill'],['level','Level'],['uphill','Uphill'],['welluphill','Well uphill']] };
 const EY_TERM_ELEV = { key:'elev', label:'Elevation', type:'range', min:-30, max:30, step:1, noContrib:false,
       fmt:v=> v>0?`+${v} yd up`:v<0?`${v} yd down`:'level' };
+/* Short game: the target GREEN's elevation above/below you, in feet (distinct from Stance = the
+   lie angle you stand on, and from Level = the green's run-out slope). */
+const EY_TERM_SG_ELEV = { key:'elev', label:'Target elevation', type:'range', min:-30, max:30, step:1, noContrib:false,
+      fmt:v=> v>0?`+${v} ft up`:v<0?`${v} ft down`:'level' };
 const EY_TERM_LEVEL = { key:'level', label:'Level', type:'range', min:-6, max:6, step:0.5, noContrib:true,
       fmt:v=>{ const n=Math.round((parseFloat(v)||0)*2)/2; return n===0?'Level':`${Math.abs(n)}° ${n>0?'up':'down'}`; } };
 const EY_TERM_FIRM = { key:'firmness', label:'Firmness', type:'step', noContrib:true, opts:[
       ['vsoft','Very soft'],['soft','Soft'],['avg','Average'],['firm','Firm'],['vfirm','Very firm']] };
+/* Elevation term built for the context's current unit (base rise or degrees). */
+function elevTerm(ctx){
+  const deg = (EY[ctx].elevUnit||elevBaseUnit(ctx))==='deg';
+  const label = ctx==='shortgame'?'Target elevation':'Elevation';
+  const base = elevBaseUnit(ctx);
+  return deg
+    ? { key:'elev', label, type:'range', min:-15, max:15, step:0.5, unitToggle:ctx, fmt:v=> v>0?`+${v}° up`:v<0?`${v}° down`:'level' }
+    : { key:'elev', label, type:'range', min:-30, max:30, step:1, unitToggle:ctx, fmt:v=> v>0?`+${v} ${base} up`:v<0?`${v} ${base} down`:'level' };
+}
 function eyTerms(ctx){
   if(ctx==='shortgame'){
     const set=SG_SITUATION_LIES[EY.shortgame.situation]||SG_SITUATION_LIES.fairway;
     return [
       { key:'situation', label:'Situation', type:'step', noContrib:true, opts:[['fairway','Fairway'],['rough','Rough'],['bunker','Bunker']] },
       { key:'lieq', label:'Lie', type:'step', opts:set.lies },   /* options depend on Situation; effect = roll-out split + plays-longer difficulty */
-      EY_TERM_STANCE, EY_TERM_LEVEL, EY_TERM_FIRM
+      EY_TERM_STANCE, elevTerm('shortgame'), EY_TERM_LEVEL, EY_TERM_FIRM
     ];
   }
-  return [EY_TERM_SITUATION, EY_TERM_LIE, EY_TERM_STANCE, EY_TERM_ELEV, EY_TERM_FIRM];
+  return [EY_TERM_SITUATION, EY_TERM_LIE, EY_TERM_STANCE, elevTerm('approach'), EY_TERM_FIRM];
 }
 
 function eyBase(ctx){
@@ -116,8 +143,12 @@ function eyDelta(ctx,key,S){
   switch(key){
     case 'situation': d=ctx==='shortgame'?0:(EY_SITUATION[st.situation]||0); break;
     case 'lieq':      d=ctx==='shortgame'?0:(EY_LIE[st.lieq]||0); break;   /* short game lie = roll-out, not yardage */
-    case 'stance':    d=EY_STANCE[st.stance]||0; break;
-    case 'elev':      d=(st.elev||0)*(typeof PS_ELEV_K!=='undefined'?PS_ELEV_K:1.2); break;
+    case 'stance':    d=ctx==='shortgame'
+                        ? (typeof chipStance==='function'?chipStance(st.stance).plays:0)   /* lie angle → small distance; trajectory/roll go via globals */
+                        : (EY_STANCE[st.stance]||0); break;
+    case 'elev':      { const base=elevBaseVal(ctx,S);   /* rise in base unit (ft short game / yd approach) */
+                        if(ctx==='shortgame') d = (base>=0?base:base*0.67)*CHIP_ELEV_K;   /* target-green elevation, ft → plays-like yd */
+                        else d = base*(typeof PS_ELEV_K!=='undefined'?PS_ELEV_K:1.2); } break;   /* approach: yards */
     case 'level':     d=0; break;   /* short-game green slope → chip roll-out (chipSlopeVal), not yardage */
     case 'firmness':  d=0; break;   /* roll-out split / chip firmness, not club selection */
     case 'air':       d=(typeof psAirDelta==='function'?psAirDelta(S):0)||0; break;
@@ -162,9 +193,11 @@ function buildEyPanel(ctx){
     } else {
       control=`<input type="range" min="${term.min}" max="${term.max}" step="${term.step}" value="${EY[ctx][term.key]}" oninput="eySet('${ctx}','${term.key}',this.value)">`;
     }
+    const toggle = term.unitToggle
+      ? `<button type="button" class="ey-unit-toggle" title="Switch feet/yards ↔ degrees" onclick="eyToggleElevUnit('${ctx}')">${(EY[ctx].elevUnit==='deg')?'°':elevBaseUnit(ctx)}</button>` : '';
     return `<div class="ey-term">
       <div class="ey-term-head">
-        <span class="ey-term-label">${term.label}</span>
+        <span class="ey-term-label">${term.label}${toggle}</span>
         <span class="ey-term-val"><span id="ey-${ctx}-${term.key}-v">${eyTermValLabel(ctx,term)}</span>${term.noContrib?'':` <b id="ey-${ctx}-${term.key}-c" style="color:${eyColor(d)}">${eyFmt(d)}</b>`}</span>
       </div>
       ${control}
@@ -203,7 +236,16 @@ function eyHostRender(ctx){
 /* keep the short-game roll globals in sync with the panel state */
 function eySyncFirmness(ctx){
   if(ctx==='approach') window.approachGreenFirmness = EY_FIRMNESS[EY.approach.firmness]||0;
-  else if(ctx==='shortgame'){ window.chipFirmFactor = EY_CHIP_FIRM[EY.shortgame.firmness]||1; window.chipLieRollMult = sgLieRollMult(); }
+  else if(ctx==='shortgame'){
+    const fk=EY.shortgame.firmness;
+    window.chipFirmFactor = (typeof chipFirmModel==='function'?chipFirmModel(fk).roll:(EY_CHIP_FIRM[fk]||1));
+    window.chipFirmKey = fk;
+    window.chipLieRollMult = sgLieRollMult();
+    const sm=(typeof chipStance==='function')?chipStance(EY.shortgame.stance):{roll:1,launch:0};
+    window.chipStanceRollMult = sm.roll;
+    window.chipStanceLaunchAdj = sm.launch;
+    window.chipStanceKey = EY.shortgame.stance;
+  }
 }
 function eySet(ctx,key,raw){
   const term=eyTerms(ctx).find(t=>t.key===key); if(!term) return;
@@ -217,16 +259,32 @@ function eySet(ctx,key,raw){
     buildEyPanel('shortgame'); eyHostRender('shortgame');
     return;
   }
-  if(key==='firmness' || (ctx==='shortgame'&&key==='lieq')) eySyncFirmness(ctx);
+  if(key==='firmness' || (ctx==='shortgame'&&(key==='lieq'||key==='stance'))) eySyncFirmness(ctx);
   eyRefreshSummary(ctx);
   eyHostRender(ctx);
 }
+/* Flip the elevation control between its base unit (ft/yd) and degrees, converting the current
+   value through the shot length so the physical elevation is unchanged. */
+function eyToggleElevUnit(ctx){
+  const S=eyBase(ctx), base=elevBaseUnit(ctx), run=elevRun(ctx,S);
+  if((EY[ctx].elevUnit||base)==='deg'){
+    const rise = run*Math.tan((EY[ctx].elev||0)*Math.PI/180);          // deg → base rise
+    EY[ctx].elev = Math.max(-30, Math.min(30, Math.round(rise)));
+    EY[ctx].elevUnit = base;
+  } else {
+    const deg = run>0 ? Math.atan((EY[ctx].elev||0)/run)*180/Math.PI : 0;  // base → deg
+    EY[ctx].elev = Math.max(-15, Math.min(15, Math.round(deg*2)/2));
+    EY[ctx].elevUnit = 'deg';
+  }
+  buildEyPanel(ctx); eyHostRender(ctx);
+}
 function eyReset(ctx){
   Object.assign(EY[ctx], EY_DEFAULTS);
+  EY[ctx].elevUnit = elevBaseUnit(ctx);   /* EY_DEFAULTS has no unit — restore the context base */
   eySyncFirmness(ctx);
   buildEyPanel(ctx); eyHostRender(ctx);
 }
 
 // Expose for inline handlers and the renderAll orchestrator.
 Object.assign(window, { EY, eyTerms, EY_WEIGHT, EY_SHOT, EY_STANCE, EY_SITUATION, EY_LIE, EY_FIRMNESS, EY_CHIP_FIRM, SG_SITUATION_LIES, sgLieRollMult, approachLie, eyDelta, eyTotal, eyEffective, eyBase,
-  buildEyPanel, eyRefreshSummary, eyHostRender, eySet, eyReset, eySyncFirmness });
+  buildEyPanel, eyRefreshSummary, eyHostRender, eySet, eyReset, eySyncFirmness, eyToggleElevUnit, elevBaseVal });

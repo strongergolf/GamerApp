@@ -53,10 +53,8 @@ function buildShortGame(){
 
   buildChipMatrix();
   renderSgVars();
-  /* Default selection: P wedge */
-  const _clubs=chipClubs();
-  const _pIdx=_clubs.findIndex(c=>c.id==='P');
-  window.chipSelectedIdx=_pIdx>=0?_pIdx:-1;
+  /* Start on auto-select so the dial defers to the G / gap wedge standard chip (see renderChipDial). */
+  window.chipSelectedIdx=-1;
   renderChipDial();
 }
 
@@ -145,8 +143,12 @@ function renderChipDial(){
     return {c,loft,carry,roll,total,practical};
   });
 
+  /* Default (no manual pick) defers to the G / gap wedge standard chip when it's a practical
+     option for this distance — the go-to short-game shot — otherwise the closest-total match. */
+  const gwIdx = rows.findIndex(r=>r.practical && (r.c.label==='G' || (r.c.type==='wedge' && Math.abs(parseFloat(r.c.loft)-51)<=2)));
+  const defaultIdx = gwIdx>=0 ? gwIdx : bestIdx;
   /* which club to highlight + show SVG for (guard a stale index when the list changes) */
-  const displayIdx = (window.chipSelectedIdx>=0 && window.chipSelectedIdx<rows.length) ? window.chipSelectedIdx : bestIdx;
+  const displayIdx = (window.chipSelectedIdx>=0 && window.chipSelectedIdx<rows.length) ? window.chipSelectedIdx : defaultIdx;
 
   const typeColor=c=>c.type==='wedge'?'var(--c-wedge)':c.type==='iron'?'var(--c-iron)':c.type==='putter'?'var(--c-putter)':'var(--c-wood)';
   const cards=rows.map(({c,loft,carry,roll,total,practical},i)=>{
@@ -158,12 +160,19 @@ function renderChipDial(){
     let drop='';
     if(selected){
       const effNote = Math.abs(sgDelta)>=0.5 ? ` <span style="color:var(--gold);font-weight:700">plays ${loft.toFixed(0)}° eff</span>` : '';
-      const launch = typeof chipLaunch==='function' ? chipLaunch(loft) : loft*0.68;
+      const stanceAdj = window.chipStanceLaunchAdj||0;
+      const launch = (typeof chipLaunch==='function' ? chipLaunch(loft) : loft*0.68) + stanceAdj;
       const spin = typeof chipSpin==='function' ? chipSpin(carry,loft) : 0;
+      const fk = window.chipFirmKey || 'avg';
+      const fm = typeof chipFirmModel==='function' ? chipFirmModel(fk) : {check:''};
+      const firmName = {vsoft:'very soft',soft:'soft',avg:'average',firm:'firm',vfirm:'very firm'}[fk]||fk;
+      const slopeTxt = slope>0.1?`${slope}° uphill`:slope<-0.1?`${Math.abs(slope)}° downhill`:'level';
+      const ctxLine = `${fm.check} · ${firmName} green · ${slopeTxt} @ stimp ${stimp.toFixed(1)}${stanceAdj?` · stance ${stanceAdj>0?'+':''}${stanceAdj}° launch`:''}`;
       drop=`<div class="calc-traj-drop" style="grid-template-columns:1fr">
         <div class="traj-panel traj-main">
           <div class="traj-panel-title">${c.label} (${c.loft})${effNote} — carry ${carry.toFixed(1)} → roll ${roll.toFixed(1)} yd · launch ${launch.toFixed(0)}° · ~${spin.toLocaleString()} rpm · ${chipArchetype(loft)}</div>
-          ${buildChipSVG(carry,roll,loft)}
+          <div style="font-family:ui-monospace,monospace;font-size:.6rem;color:var(--muted);margin:1px 0 3px">${ctxLine}</div>
+          ${buildChipSVG(carry,roll,loft,{launch,slopeDeg:slope,firmKey:fk})}
         </div>
       </div>`;
     }
@@ -185,60 +194,62 @@ function renderChipDial(){
   renderExpectedShots('es-short', measuredYd, 'atg');
 }
 
-function buildChipSVG(carryYd, rollYd, loftDeg){
+function buildChipSVG(carryYd, rollYd, loftDeg, opts){
+  opts=opts||{};
   const W=320, H=64, PAD=10, groundY=52;
   const total=Math.max(carryYd+rollYd, 0.5);
   const scale=(W-PAD*2)/total;
   const carryPx=carryYd*scale, rollPx=rollYd*scale;
   const ballX=PAD, landX=PAD+carryPx, stopX=PAD+carryPx+rollPx;
 
-  /* Launch angle from the research-based display rule (~0.68×loft) so the drawn arc
-     matches the launch number shown in the readout. */
-  const launchDeg= typeof chipLaunch==='function' ? chipLaunch(loftDeg) : loftDeg*0.68;
+  /* Launch angle — stance-adjusted (opts.launch) so the drawn arc matches the readout;
+     falls back to the research display rule (~0.68×loft). */
+  const launchDeg = opts.launch!=null ? opts.launch : (typeof chipLaunch==='function'?chipLaunch(loftDeg):loftDeg*0.68);
   const launchRad=launchDeg*Math.PI/180;
+  const slopeDeg = opts.slopeDeg||0;
+  const fm = (typeof chipFirmModel==='function') ? chipFirmModel(opts.firmKey||'avg') : {bounceH:1,bounces:3};
 
-  /* Peak height from projectile: H = carry × tan(α)/4
-     In pixels (using same scale), with min/max for readability */
-  const peakH_calc=carryPx*Math.tan(launchRad)/4;
-  const peakH=Math.max(6, Math.min(38, peakH_calc));
+  /* Run-out ground tilt for the green slope (+ = uphill run-out climbs). Visual exaggeration,
+     capped so the drawing stays in frame. groundAt(x) gives the surface height over the run-out. */
+  let tanG = Math.tan(slopeDeg*Math.PI/180) * 1.5;
+  const maxRise = 16;
+  if(rollPx>0 && Math.abs(tanG)*rollPx > maxRise) tanG = Math.sign(tanG)*maxRise/rollPx;
+  const groundAt = x => groundY - (x - landX) * tanG;
+  const stopY = groundAt(stopX);
 
-  /* Cubic bezier with correct tangent angles at launch and landing.
-     Tangent at P0 → launch direction (right+up).
-     Tangent at P3 → landing direction (right+down at same angle for flat ground).
-     Handle length h chosen so the bezier closely matches the projectile peak. */
+  /* Carry arc — asymmetric bezier, lands at (landX, groundY) (the front of the green). */
+  const peakH=Math.max(6, Math.min(38, carryPx*Math.tan(launchRad)/4));
   const h=carryPx/3.2;
-  const p1x=ballX + h*Math.cos(launchRad);
-  const p1y=groundY - h*Math.sin(launchRad);
-  const p2x=landX  - h*Math.cos(launchRad);
-  const p2y=groundY - h*Math.sin(launchRad);
+  const p1x=ballX + h*Math.cos(launchRad), p1y=groundY - h*Math.sin(launchRad);
+  const p2x=landX  - h*Math.cos(launchRad), p2y=groundY - h*Math.sin(launchRad);
   const arcPath=`M ${ballX},${groundY} C ${p1x.toFixed(1)},${p1y.toFixed(1)} ${p2x.toFixed(1)},${p2y.toFixed(1)} ${landX.toFixed(1)},${groundY}`;
 
-  /* Bounces — higher loft = steeper landing = more vertical energy = higher/shorter bounce
-     Lower loft = shallower = lower/longer skipping bounces */
-  const bFactor=0.04+(launchDeg-26)/23*0.22;   /* 0.04 at 26° (7i) → ~0.26 at 49° (X) */
-  const bounce1H=peakH*Math.max(0.06, bFactor);
+  /* Bounces walk along the tilted ground; firmness scales the hop height + count
+     (soft = plops & sits, firm = hops on and runs). Loft still caps the count. */
+  const bFactor=0.04+(launchDeg-26)/23*0.22;
+  const bounce1H=peakH*Math.max(0.06,bFactor)*fm.bounceH;
   const bounce1W=Math.min(rollPx*0.20, 22);
-  const nBounces=loftDeg>=62?1:loftDeg>=50?2:3;
-  let bx=landX;
-  let bouncesSVG='';
+  const nBounces=Math.max(1, Math.min(fm.bounces, loftDeg>=62?1:loftDeg>=50?2:3));
+  let bx=landX, bouncesSVG='';
   for(let b=0;b<nBounces;b++){
     const bH=bounce1H*Math.pow(0.40, b);
     const bW=bounce1W*Math.pow(0.62, b);
-    if(bH<1.8||bx+bW>stopX-3) break;
+    if(bH<1.5||bx+bW>stopX-3) break;
     const bEndX=bx+bW, bMidX=bx+bW/2;
-    bouncesSVG+=`<path d="M ${bx.toFixed(1)},${groundY} Q ${bMidX.toFixed(1)},${(groundY-bH).toFixed(1)} ${bEndX.toFixed(1)},${groundY}" fill="none" stroke="var(--c-wedge)" stroke-width="${(1.4-b*0.2).toFixed(1)}" opacity="${(0.72-b*0.18).toFixed(2)}"/>`;
+    const gy0=groundAt(bx), gyE=groundAt(bEndX), gyM=groundAt(bMidX);
+    bouncesSVG+=`<path d="M ${bx.toFixed(1)},${gy0.toFixed(1)} Q ${bMidX.toFixed(1)},${(gyM-bH).toFixed(1)} ${bEndX.toFixed(1)},${gyE.toFixed(1)}" fill="none" stroke="var(--c-wedge)" stroke-width="${(1.4-b*0.2).toFixed(1)}" opacity="${(0.72-b*0.18).toFixed(2)}"/>`;
     bx=bEndX;
   }
 
-  /* Rollout — dashed line from last bounce to stop */
+  /* Rollout — dashed line along the tilt from last bounce to the resting point */
   const rollLineSVG=(stopX-bx)>4
-    ?`<line x1="${bx.toFixed(1)}" y1="${groundY}" x2="${stopX.toFixed(1)}" y2="${groundY}" stroke="var(--green2)" stroke-width="2" stroke-dasharray="3,2.5" opacity="0.88"/>`:'';
+    ?`<line x1="${bx.toFixed(1)}" y1="${groundAt(bx).toFixed(1)}" x2="${stopX.toFixed(1)}" y2="${stopY.toFixed(1)}" stroke="var(--green2)" stroke-width="2" stroke-dasharray="3,2.5" opacity="0.88"/>`:'';
 
-  /* Green surface tint behind rollout */
+  /* Green surface — a tilted band from the landing point to the stop */
   const greenSurface=rollPx>3
-    ?`<rect x="${landX.toFixed(1)}" y="${groundY}" width="${rollPx.toFixed(1)}" height="3" rx="1.5" fill="var(--green-pale)" opacity="0.75"/>`:'';
+    ?`<line x1="${landX.toFixed(1)}" y1="${groundY}" x2="${stopX.toFixed(1)}" y2="${stopY.toFixed(1)}" stroke="var(--green-pale)" stroke-width="3" stroke-linecap="round" opacity="0.8"/>`:'';
 
-  /* Launch angle indicator at ball */
+  /* Launch angle indicator at ball (uses the stance-adjusted launch) */
   const lineLen=Math.min(22, carryPx*0.28);
   const launchIndicator=carryPx>12?`
     <line x1="${ballX}" y1="${groundY}" x2="${(ballX+lineLen*Math.cos(launchRad)).toFixed(1)}" y2="${(groundY-lineLen*Math.sin(launchRad)).toFixed(1)}" stroke="var(--sky)" stroke-width="1.2" opacity="0.6"/>
@@ -247,20 +258,19 @@ function buildChipSVG(carryYd, rollYd, loftDeg){
   /* Labels */
   const peakY=groundY-peakH;
   const carryLabel=`<text x="${landX.toFixed(1)}" y="${Math.max(7,peakY-4)}" text-anchor="middle" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="7" fill="var(--c-wedge)">${carryYd.toFixed(1)}yd carry</text>`;
-  const rollLabel=rollPx>22?`<text x="${(landX+rollPx/2).toFixed(1)}" y="${groundY+14}" text-anchor="middle" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="7" fill="var(--green)">${rollYd.toFixed(1)}yd roll</text>`:'';
+  const rollMidY=Math.min(H+10, groundAt(landX+rollPx/2)+14);
+  const rollLabel=rollPx>22?`<text x="${(landX+rollPx/2).toFixed(1)}" y="${rollMidY.toFixed(1)}" text-anchor="middle" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="7" fill="var(--green)">${rollYd.toFixed(1)}yd roll</text>`:'';
 
-  /* Flag standing on the final resting point — pole + flag scale INVERSELY with the overall
-     shot distance: a short chip is a close-up so the flag looks big, a long pitch is zoomed
-     out so it looks smaller. Points left to stay in frame. */
+  /* Flag at the (tilted) resting point */
   const fScale=Math.max(0.7, Math.min(1.7, 1.8 - total*0.02));
-  const poleH=20*fScale, ffw=11*fScale, ffh=7.5*fScale, flagTopY=groundY-poleH;
+  const poleH=20*fScale, ffw=11*fScale, ffh=7.5*fScale, flagTopY=Math.max(3, stopY-poleH);
   const flagRed=(typeof SG_RED!=='undefined')?SG_RED:'#e0202a';
   const flagSVG=`
-    <line x1="${stopX.toFixed(1)}" y1="${groundY}" x2="${stopX.toFixed(1)}" y2="${flagTopY.toFixed(1)}" stroke="#c9c9c9" stroke-width="${(1.4*fScale).toFixed(2)}" stroke-linecap="round"/>
+    <line x1="${stopX.toFixed(1)}" y1="${stopY.toFixed(1)}" x2="${stopX.toFixed(1)}" y2="${flagTopY.toFixed(1)}" stroke="#c9c9c9" stroke-width="${(1.4*fScale).toFixed(2)}" stroke-linecap="round"/>
     <polygon points="${stopX.toFixed(1)},${flagTopY.toFixed(1)} ${(stopX-ffw).toFixed(1)},${(flagTopY+ffh*0.5).toFixed(1)} ${stopX.toFixed(1)},${(flagTopY+ffh).toFixed(1)}" fill="${flagRed}"/>`;
 
-  return `<svg viewBox="0 0 ${W} ${H+10}" style="width:100%;display:block" xmlns="http://www.w3.org/2000/svg">
-    <line x1="${PAD-3}" y1="${groundY}" x2="${W-PAD+3}" y2="${groundY}" stroke="var(--border2)" stroke-width="1"/>
+  return `<svg viewBox="0 0 ${W} ${H+12}" style="width:100%;display:block" xmlns="http://www.w3.org/2000/svg">
+    <line x1="${PAD-3}" y1="${groundY}" x2="${landX.toFixed(1)}" y2="${groundY}" stroke="var(--border2)" stroke-width="1"/>
     ${greenSurface}
     ${launchIndicator}
     <path d="${arcPath}" fill="none" stroke="var(--c-wedge)" stroke-width="1.9" opacity="0.92"/>
@@ -268,7 +278,7 @@ function buildChipSVG(carryYd, rollYd, loftDeg){
     ${rollLineSVG}
     <circle cx="${ballX}" cy="${groundY}" r="3.2" fill="var(--ink)"/>
     <circle cx="${landX.toFixed(1)}" cy="${groundY}" r="2.5" fill="var(--c-wedge)" opacity="0.85"/>
-    <circle cx="${stopX.toFixed(1)}" cy="${groundY}" r="3.4" fill="var(--green2)" opacity="0.95"/>
+    <circle cx="${stopX.toFixed(1)}" cy="${stopY.toFixed(1)}" r="3.4" fill="var(--green2)" opacity="0.95"/>
     ${flagSVG}
     ${carryLabel}
     ${rollLabel}
