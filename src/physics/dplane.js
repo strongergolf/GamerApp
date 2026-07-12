@@ -54,6 +54,14 @@ function dpGearAxisShift(strikeDimples, clubType){
 /* high(+) on face → less spin; low(−) → more spin (rough deg-of-axis-V proxy / qualitative) */
 function dpGearSpinSign(highLowDimples){ return -Math.sign(highLowDimples); }
 
+/* ---- Vertical swing-plane (impact plane) estimate from loft, deg from horizontal.
+   Presumed fit to TrackMan norms (driver ≈45°, 6i ≈56°, PW ≈63°); enter a captured
+   value in the D-plane grid to override. ---- */
+function dpEstVPlane(loft){
+  loft = parseFloat(loft) || 30;
+  return Math.round(Math.max(42, Math.min(66, 45 + (loft - 10) * 0.5)) * 10) / 10;
+}
+
 /* ---- Lateral curve estimate (yds) from spin axis + carry. CALIBRATABLE knob k. ---- */
 function dpCurveYds(spinAxis, carryYds, k){
   k = (k == null) ? 0.62 : k;
@@ -82,5 +90,5 @@ function dpSolve(hFace, hPath, vFace, vPath, carry){
 Object.assign(window, {
   DPLANE_DEG, dpHPath, dpHPlane, dpVPath, dpVPlane, dpVDiff, dpHDiff, dp3DSpinLoft,
   dpSpinAxis, dpFaceFraction, dpHLaunch, dpVLaunch, dpGearAxisShift, dpGearSpinSign,
-  dpCurveYds, dpSolve
+  dpEstVPlane, dpCurveYds, dpSolve
 });

@@ -126,7 +126,7 @@ const PRACTICE_AREAS=[
        ${ballRefHtml()}
 
        <div class="lvl-subhead" style="margin-top:14px">Club Behaviour at Impact — D-Plane Tendencies</div>
-       <div class="chain-caption" style="margin-top:4px">Each club's <strong>stock-shot</strong> D-plane: horizontal face, horizontal path, dynamic loft and attack angle (degrees, left −/right +). The 3D render shows the <span style="color:#c43c9e;font-weight:700">path</span> &amp; <span style="color:#2a6fc4;font-weight:700">face</span> vectors, the <span style="color:#b8860b;font-weight:700">D-plane</span> wedge and the perpendicular <span style="color:#cc2a2a;font-weight:700">spin axis</span>; <strong>stock shape &amp; 3D spin loft read out live</strong>. Tap a club to load it; edits save automatically. <span class="placeholder-flag">prototype</span></div>
+       <div class="chain-caption" style="margin-top:4px">Each club's <strong>stock-shot</strong> impact geometry: horizontal face, horizontal path, dynamic loft, attack angle and vertical swing plane (degrees, left −/right +; blank plane = estimated from loft). The rotatable 3D render — <strong>drag to orbit</strong>, snap views below — shows the <span style="color:#4a7aaa;font-weight:700">impact plane</span>, the <span style="color:#c43c9e;font-weight:700">path</span> &amp; <span style="color:#2a6fc4;font-weight:700">face</span> vectors, the <span style="color:#b8860b;font-weight:700">D-plane</span> wedge, the perpendicular <span style="color:#cc2a2a;font-weight:700">spin axis</span>, and the <strong>expected ball flight</strong> scaled to the club's Bag carry, apex and rollout. Tap a club to load it; edits save automatically. <span class="placeholder-flag">prototype</span></div>
        <div class="dpl-layout">
          <div class="dpl-grid-col">${buildDplaneGrid()}</div>
          <div class="dpl-vis-col"><div id="dplane-visual"></div></div>
@@ -739,18 +739,20 @@ function buildDplaneGrid(){
   let html=`<div style="overflow-x:auto"><table class="dpl-table"><thead><tr>
     <th style="${th};text-align:left;padding-left:8px">Club</th>
     <th style="${th2}">Horiz.<br>Face°</th><th style="${th2}">Horiz.<br>Path°</th>
-    <th style="${th2}">Vert. Face°<br>(Dyn Loft)</th><th style="${th2}">Vert. Path°<br>(AoA)</th></tr></thead><tbody>`;
+    <th style="${th2}">Vert. Face°<br>(Dyn Loft)</th><th style="${th2}">Vert. Path°<br>(AoA)</th>
+    <th style="${th2}">Vert. Plane°<br>(Swing Pln)</th></tr></thead><tbody>`;
   clubs.forEach(c=>{
     const d=(STATE.dplane&&STATE.dplane[c.id])||{};
     const vFace=d.vFace!=null?d.vFace:parseFloat(c.loft)||30;   // fallback to static loft
     const sel=c.id===window.dpVisClub?' style="background:var(--bg2)"':'';
-    const inp=(field,val)=>`<input class="dpl-input" value="${escapeHtml(val==null?'':val)}" inputmode="decimal" oninput="setDplaneCell('${c.id}','${field}',this.value)">`;
+    const inp=(field,val,ph)=>`<input class="dpl-input" value="${escapeHtml(val==null?'':val)}"${ph?` placeholder="${ph}"`:''} inputmode="decimal" oninput="setDplaneCell('${c.id}','${field}',this.value)">`;
     html+=`<tr${sel}>
       <td onclick="setDpVisClub('${c.id}')" title="Show this club in the 3D render" style="padding:5px 8px;white-space:nowrap;cursor:pointer"><span style="font-family:Arial,sans-serif;font-weight:800;font-size:.85rem;color:var(--ink)">${c.label}</span> <span style="font-family:ui-monospace,monospace;font-size:.56rem;color:var(--muted)">${c.loft}</span></td>
       <td>${inp('hFace',d.hFace)}</td>
       <td>${inp('hPath',d.hPath)}</td>
       <td>${inp('vFace',vFace)}</td>
       <td>${inp('aoa',d.aoa)}</td>
+      <td>${inp('vPlane',d.vPlane,'~'+dpEstVPlane(c.loft))}</td>
     </tr>`;
   });
   return html+'</tbody></table></div>';
@@ -758,7 +760,10 @@ function buildDplaneGrid(){
 function setDplaneCell(id,field,value){
   if(!STATE.dplane) STATE.dplane={};
   if(!STATE.dplane[id]) STATE.dplane[id]={hFace:0,hPath:0,aoa:0};
-  STATE.dplane[id][field]=parseFloat(value)||0;
+  /* cleared cell → drop the override so the estimate/static fallback applies
+     (previously a cleared Dyn Loft was stored as 0°, breaking the wedge) */
+  if(String(value).trim()==='') delete STATE.dplane[id][field];
+  else STATE.dplane[id][field]=parseFloat(value)||0;
   if(typeof buildCourseStrategy==='function') buildCourseStrategy();
   if(typeof renderDPlaneVisual==='function') renderDPlaneVisual();
   saveState();
@@ -832,41 +837,21 @@ function buildCourseStrategy(){
     <div class="lvl-soon-note">Coming: each hole's layout with your dispersion cone and stock shape overlaid, plus the expected-value aim point that keeps your predominant curve working away from hazards. Feeds from the per-club tendencies above and your Stock Shots dispersion data.</div>`;
 }
 
-/* ---- D-Plane visual generator (Practice L2) — styled after the SketchUp models ---- */
-function setDpVisClub(id){ window.dpVisClub=id; renderDPlaneVisual(); }
-/* World-space D-plane vectors (x=lateral right, y=up, z=toward target). */
+/* ---- D-Plane 3D visual (Practice L2) — rotatable orbit render of the Impact Plane,
+   the D-plane, and the expected ball flight (scaled to the club's captured Bag data). ---- */
+function setDpVisClub(id){ window.dpVisClub=id; window.dpStrike={th:0,hl:0}; renderDPlaneVisual(); }
+/* World-space D-plane vectors (x=lateral right, y=up, z=toward target).
+   Launch uses the engine's spin-loft-keyed face fraction, matching the readout. */
 function dpWorldVectors(hFace,hPath,vFace,vPath){
   const DR=Math.PI/180, L=2.5;
   const vec=(h,v,len)=>({x:Math.sin(h*DR)*len, y:Math.sin(v*DR)*len, z:Math.cos(v*DR)*Math.cos(h*DR)*len});
   const path=vec(hPath,vPath,L), face=vec(hFace,vFace,L), tgt=vec(0,0,L);
-  const launch={x:path.x+0.75*(face.x-path.x),y:path.y+0.75*(face.y-path.y),z:path.z+0.75*(face.z-path.z)};
+  const f=dpFaceFraction(dp3DSpinLoft(dpVDiff(vFace,vPath), dpHDiff(hFace,hPath)));
+  const launch={x:path.x+f*(face.x-path.x),y:path.y+f*(face.y-path.y),z:path.z+f*(face.z-path.z)};
   let nx=path.y*face.z-path.z*face.y, ny=path.z*face.x-path.x*face.z, nz=path.x*face.y-path.y*face.x;
   const nl=Math.hypot(nx,ny,nz)||1;
   return {O:{x:0,y:0,z:0}, path, face, tgt, launch, axis:{x:nx/nl,y:ny/nl,z:nz/nl}};
 }
-/* Approximate curved ball flight: launches along the launch direction, arcs up/down, and
-   curves laterally toward the draw/fade side by an amount scaled to the spin axis. */
-function dpFlightPath(wv, spinAxis){
-  const l=wv.launch, llen=Math.hypot(l.x,l.y,l.z)||1;
-  const lu={x:l.x/llen, y:l.y/llen, z:l.z/llen};
-  const S=6.4, N=24, arc=1.25;                                 // longer = zoomed out, gentler curve
-  const sign = spinAxis<-0.05?-1 : spinAxis>0.05?1 : 0;        // draw → left(−x), fade → right(+x)
-  const latMax = sign*Math.min(1.5, Math.abs(spinAxis)/12*1.5);
-  const pts=[];
-  for(let i=0;i<=N;i++){ const f=i/N, s=f*S;
-    pts.push({ x: lu.x*s + latMax*f*f, y: lu.y*s*(1-f)*arc, z: lu.z*s }); }
-  return pts;
-}
-/* Three camera bases (screen-right R, screen-up U as world weights), each slightly
-   offset from its main axis so the D-plane reads in 3D rather than flat. */
-const DP_VIEWS=[
-  {key:'dtl', name:'Down the Line', R:[1,0,0.34],  U:[0,1,0.20]},
-  {key:'over',name:'Overhead',      R:[1,0.04,0],  U:[0,0.16,1], ground:true},
-  {key:'face',name:'Face-On',       R:[0,0.04,1],  U:[0.22,1,0]}
-];
-/* Single 3/4 perspective camera for the D-plane shaper render (behind-right, above). */
-const DP_VIEW_3D={key:'iso', name:'D-Plane — 3D', R:[1,0,0.5], U:[0.22,1,0.32]};
-function dpDot(p,b){ return p.x*b[0]+p.y*b[1]+p.z*b[2]; }
 /* Spin axis (− = left/draw, + = right/fade) → 7-bucket ball-flight category. */
 function dpBallFlight(axis){
   const a=Math.abs(axis);
@@ -874,61 +859,188 @@ function dpBallFlight(axis){
   if(axis<0) return a<3?'Slight Draw':a<8?'Draw':'Hook';
   return a<3?'Slight Fade':a<8?'Fade':'Slice';
 }
-function buildDPlaneView(v,wv){
-  const VW=210, VH=200, PAD=28;
-  const A={x:wv.launch.x+wv.axis.x,y:wv.launch.y+wv.axis.y,z:wv.launch.z+wv.axis.z};
-  const B={x:wv.launch.x-wv.axis.x,y:wv.launch.y-wv.axis.y,z:wv.launch.z-wv.axis.z};
-  const flight=wv.flight||[];                                            // curved ball-flight (draw/fade)
-  const pts=[wv.O,wv.path,wv.face,wv.tgt,wv.launch,A,B].concat(flight);
-  if(wv.flag) pts.push(wv.flag);
-  const xs=pts.map(p=>dpDot(p,v.R)), ys=pts.map(p=>dpDot(p,v.U));
-  const mnx=Math.min(...xs),mxx=Math.max(...xs),mny=Math.min(...ys),mxy=Math.max(...ys);
-  const sc=Math.min((VW-2*PAD)/Math.max(0.5,mxx-mnx),(VH-2*PAD)/Math.max(0.5,mxy-mny));
-  const cX=(mnx+mxx)/2, cY=(mny+mxy)/2;
-  const P=p=>({x:VW/2+(dpDot(p,v.R)-cX)*sc, y:VH/2-(dpDot(p,v.U)-cY)*sc});
-  const O=P(wv.O),pe=P(wv.path),fe=P(wv.face),te=P(wv.tgt),aA=P(A),aB=P(B);
-  const fpts=flight.map(P);
-  const flightPoly=fpts.length?`<polyline points="${fpts.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ')}" fill="none" stroke="#111" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${fpts[fpts.length-1].x.toFixed(1)}" cy="${fpts[fpts.length-1].y.toFixed(1)}" r="2.4" fill="#111"/>`:'';
-  const fg=wv.flag?P(wv.flag):null;
-  const flagSVG=fg?`<line x1="${fg.x.toFixed(1)}" y1="${fg.y.toFixed(1)}" x2="${fg.x.toFixed(1)}" y2="${(fg.y-26).toFixed(1)}" stroke="#9a9a9a" stroke-width="1.3"/><polygon points="${fg.x.toFixed(1)},${(fg.y-26).toFixed(1)} ${(fg.x+13).toFixed(1)},${(fg.y-21).toFixed(1)} ${fg.x.toFixed(1)},${(fg.y-16).toFixed(1)}" fill="#d33"/><circle cx="${fg.x.toFixed(1)}" cy="${fg.y.toFixed(1)}" r="2" fill="#333"/>`:'';
-  const ln=(a,b,c,w)=>`<line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}" stroke="${c}" stroke-width="${w}"/>`;
-  const hz=VH*0.5;
-  /* Overhead = looking straight down, all ground (no horizon); DTL & Face-On get sky+ground. */
-  const bg = v.ground
-    ? `<rect width="${VW}" height="${VH}" fill="#8cbb6e"/>`
-    : `<defs><linearGradient id="dps-${v.key}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#cfe6f6"/><stop offset="100%" stop-color="#eef6fc"/></linearGradient></defs>
-      <rect width="${VW}" height="${VH}" fill="url(#dps-${v.key})"/>
-      <rect x="0" y="${hz}" width="${VW}" height="${VH-hz}" fill="#8cbb6e"/>
-      <line x1="0" y1="${hz}" x2="${VW}" y2="${hz}" stroke="#7aa860" stroke-width="1"/>`;
-  return `<div class="dpv-panel"><div class="dpv-title">${v.name}</div>
-    <svg viewBox="0 0 ${VW} ${VH}" style="width:100%;display:block" xmlns="http://www.w3.org/2000/svg">
-      ${bg}
-      <line x1="${O.x.toFixed(1)}" y1="${O.y.toFixed(1)}" x2="${te.x.toFixed(1)}" y2="${te.y.toFixed(1)}" stroke="#555" stroke-width="1.2" stroke-dasharray="5,4" opacity="0.5"/>
-      <polygon points="${O.x.toFixed(1)},${O.y.toFixed(1)} ${pe.x.toFixed(1)},${pe.y.toFixed(1)} ${fe.x.toFixed(1)},${fe.y.toFixed(1)}" fill="#efc81e" fill-opacity="0.55" stroke="#b8860b" stroke-width="1"/>
-      ${flagSVG}${ln(O,pe,'#c43c9e',2.4)}${ln(O,fe,'#2a6fc4',2.4)}${ln(aB,aA,'#cc2a2a',1.9)}${flightPoly}
-      <circle cx="${O.x.toFixed(1)}" cy="${O.y.toFixed(1)}" r="4" fill="#fff" stroke="#333" stroke-width="1.4"/>
-    </svg></div>`;
+/* Orbit-camera presets (azimuth° around vertical, elevation° above the ground);
+   the old fixed DTL / Face-On / Overhead views live on as snap positions. */
+const DP_CAMS={
+  iso: {az:34, el:22, name:'¾ View'},
+  dtl: {az:0,  el:9,  name:'Down the Line'},
+  face:{az:88, el:9,  name:'Face-On'},
+  top: {az:0,  el:86, name:'Overhead'}
+};
+window.dpCam={az:DP_CAMS.iso.az, el:DP_CAMS.iso.el};
+function dpSetCam(key){ const v=DP_CAMS[key]; if(!v) return; window.dpCam={az:v.az,el:v.el}; dpRenderScene(); }
+/* Screen-right R, screen-up U and toward-camera D bases from azimuth/elevation. */
+function dpCamBasis(azDeg,elDeg){
+  const az=azDeg*DPLANE_DEG, el=elDeg*DPLANE_DEG;
+  return {
+    R:{x:Math.cos(az), y:0, z:Math.sin(az)},
+    U:{x:-Math.sin(el)*Math.sin(az), y:Math.cos(el), z:Math.sin(el)*Math.cos(az)},
+    D:{x:Math.sin(az)*Math.cos(el), y:Math.sin(el), z:-Math.cos(az)*Math.cos(el)}
+  };
+}
+/* Off-centre strike (dimples toward toe + / heel −, high + / low −) for gear-effect
+   preview. Ephemeral by design — full-shot intent is the centre of percussion. */
+function dpStrikeLabel(){
+  const st=window.dpStrike||{th:0,hl:0};
+  if(!st.th&&!st.hl) return 'centre';
+  const parts=[];
+  if(st.th) parts.push(Math.abs(st.th)+(st.th>0?' toe':' heel'));
+  if(st.hl) parts.push(Math.abs(st.hl)+(st.hl>0?' high':' low'));
+  return parts.join(' · ');
+}
+function dpSetStrike(field,val){
+  window.dpStrike=window.dpStrike||{th:0,hl:0};
+  window.dpStrike[field]=parseInt(val)||0;
+  const lb=document.getElementById('dpv-strike-lbl'); if(lb) lb.textContent=dpStrikeLabel();
+  dpRenderScene();
+}
+/* Project the scene through the current orbit camera and redraw the SVG. Painter's
+   algorithm: ground+grid always first (nothing goes below it, camera stays above),
+   then every other primitive depth-sorted by centroid distance toward the camera. */
+function dpRenderScene(){
+  const sceneEl=document.getElementById('dpv-scene'); if(!sceneEl) return;
+  const DR=DPLANE_DEG, id=window.dpVisClub;
+  const c=STATE.clubs.find(x=>x.id===id)||{}, d=(STATE.dplane&&STATE.dplane[id])||{};
+  const hFace=+d.hFace||0, hPath=+d.hPath||0, aoa=+d.aoa||0;
+  const vFace=d.vFace!=null?+d.vFace:parseFloat(c.loft)||30;
+  const vPlane=d.vPlane!=null?+d.vPlane:dpEstVPlane(c.loft);
+  const hPlane=dpHPlane(aoa,vPlane,hPath);
+  const p=perf(id)||{};
+  const carry=p.carry||150, apexFt=p.ht||80, total=p.total||carry;
+  const r=dpSolve(hFace,hPath,vFace,aoa,carry);
+  /* Gear effect from the strike preview (centre → zero shift). Low strike → more
+     spin → more curve; high → less. Woods gear far more than irons. */
+  const st=window.dpStrike||{th:0,hl:0};
+  const gearAxis=dpGearAxisShift(st.th, c.type==='wood'?'wood':'iron');
+  const axisEff=r.spinAxis+gearAxis;
+  const curveYd=dpCurveYds(axisEff,carry)*(1-0.10*st.hl);
+  const apexEff=apexFt*(1+0.05*st.hl);
+
+  const wv=dpWorldVectors(hFace,hPath,vFace,aoa);
+  const cam=dpCamBasis(window.dpCam.az, window.dpCam.el);
+  const VW=340, VH=250, CEN={x:0,y:0.85,z:3.0}, SC=31;
+  const P=pt=>({x:VW/2+((pt.x-CEN.x)*cam.R.x+(pt.y-CEN.y)*cam.R.y+(pt.z-CEN.z)*cam.R.z)*SC,
+                y:VH/2-((pt.x-CEN.x)*cam.U.x+(pt.y-CEN.y)*cam.U.y+(pt.z-CEN.z)*cam.U.z)*SC});
+  const dep=pt=>pt.x*cam.D.x+pt.y*cam.D.y+pt.z*cam.D.z;
+  const XY=pt=>{const q=P(pt);return q.x.toFixed(1)+','+q.y.toFixed(1);};
+  const line=(a,b,col,w,op,dash)=>{const qa=P(a),qb=P(b);
+    return `<line x1="${qa.x.toFixed(1)}" y1="${qa.y.toFixed(1)}" x2="${qb.x.toFixed(1)}" y2="${qb.y.toFixed(1)}" stroke="${col}" stroke-width="${w}" stroke-linecap="round" opacity="${op!=null?op:1}"${dash?` stroke-dasharray="${dash}"`:''}/>`;};
+
+  /* far layer: ground, grid, target line */
+  const GX=3.0, GZ0=-1.0, GZ1=7.8, zc=6.0;
+  let far=`<polygon points="${XY({x:-GX,y:0,z:GZ0})} ${XY({x:GX,y:0,z:GZ0})} ${XY({x:GX,y:0,z:GZ1})} ${XY({x:-GX,y:0,z:GZ1})}" fill="#8cbb6e"/>`;
+  for(let gx=-3;gx<=3;gx++) far+=line({x:gx,y:0,z:GZ0},{x:gx,y:0,z:GZ1},'#7aa860',0.5,0.55);
+  for(let gz=0;gz<=7;gz++)  far+=line({x:-GX,y:0,z:gz},{x:GX,y:0,z:gz},'#7aa860',0.5,0.55);
+  far+=line(wv.O,{x:0,y:0,z:zc+1.2},'#3f5f3f',1.2,0.55,'5,4');
+
+  const prims=[];
+  const add=(pts,svg,bias)=>{let s=0;pts.forEach(q=>{s+=dep(q);});prims.push({d:s/pts.length+(bias||0),svg});};
+
+  /* Impact plane: base line on the ground at the hPlane azimuth, tilted vPlane° up
+     toward the golfer's side (−x for RH). Contains the path vector by Law 1. */
+  const hp=hPlane*DR, vp=vPlane*DR;
+  const b={x:Math.sin(hp), y:0, z:Math.cos(hp)};
+  const s={x:-Math.cos(vp)*Math.cos(hp), y:Math.sin(vp), z:Math.cos(vp)*Math.sin(hp)};
+  const A1={x:-1.3*b.x, y:0, z:-1.3*b.z}, A2={x:2.1*b.x, y:0, z:2.1*b.z};
+  const A3={x:A2.x+2.6*s.x, y:2.6*s.y, z:A2.z+2.6*s.z}, A4={x:A1.x+2.6*s.x, y:2.6*s.y, z:A1.z+2.6*s.z};
+  add([A1,A2,A3,A4],
+    `<polygon points="${XY(A1)} ${XY(A2)} ${XY(A3)} ${XY(A4)}" fill="#6f93b8" fill-opacity="0.17" stroke="#4a7aaa" stroke-width="1" stroke-opacity="0.75"/>`
+    +line(A1,A2,'#4a7aaa',1.6,0.85));
+
+  /* D-plane wedge + path / face vectors + spin axis */
+  add([wv.O,wv.path,wv.face],
+    `<polygon points="${XY(wv.O)} ${XY(wv.path)} ${XY(wv.face)}" fill="#efc81e" fill-opacity="0.55" stroke="#b8860b" stroke-width="1"/>`);
+  add([wv.O,wv.path], line(wv.O,wv.path,'#c43c9e',2.4), 0.02);
+  add([wv.O,wv.face], line(wv.O,wv.face,'#2a6fc4',2.4), 0.02);
+  const axA={x:wv.launch.x+wv.axis.x, y:wv.launch.y+wv.axis.y, z:wv.launch.z+wv.axis.z};
+  const axB={x:wv.launch.x-wv.axis.x, y:wv.launch.y-wv.axis.y, z:wv.launch.z-wv.axis.z};
+  add([axA,axB], line(axB,axA,'#cc2a2a',1.9), 0.02);
+
+  /* Ball flight — scaled to Bag data: carry → zc scene units, apex from Max Height,
+     lateral curve from the engine (accelerates late as the ball slows). */
+  const hlT=Math.tan(r.hLaunch*DR)*zc;
+  const xLand=curveYd/Math.max(50,carry)*zc;
+  const apexY=(apexEff/3)/Math.max(50,carry)*zc;
+  const N=26, fpts=[];
+  for(let i=0;i<=N;i++){const f=i/N;
+    fpts.push({x:hlT*f+(xLand-hlT)*f*f, y:apexY*Math.sin(Math.PI*Math.pow(f,1.35)), z:zc*f});}
+  for(let i=0;i<N;i++) add([fpts[i],fpts[i+1]], line(fpts[i],fpts[i+1],'#111',2.4), 0.03);
+  /* rollout along the landing direction, then the resting ball */
+  const la=fpts[N], lb=fpts[N-1];
+  let dx=la.x-lb.x, dz=la.z-lb.z; const dl=Math.hypot(dx,dz)||1; dx/=dl; dz/=dl;
+  const rollLen=Math.max(0,total-carry)/Math.max(50,carry)*zc;
+  const rend={x:la.x+dx*rollLen, y:0, z:la.z+dz*rollLen};
+  if(rollLen>0.02) add([la,rend], line({x:la.x,y:0,z:la.z},rend,'#111',1.4,0.7,'3,2.5'), 0.03);
+  const rq=P(rend);
+  add([rend], `<circle cx="${rq.x.toFixed(1)}" cy="${rq.y.toFixed(1)}" r="2.6" fill="#111"/>`, 0.03);
+
+  /* flag on the target line at carry distance; strike ball at the origin */
+  const fq=P({x:0,y:0,z:zc});
+  add([{x:0,y:0.5,z:zc}],
+    `<line x1="${fq.x.toFixed(1)}" y1="${fq.y.toFixed(1)}" x2="${fq.x.toFixed(1)}" y2="${(fq.y-30).toFixed(1)}" stroke="#9a9a9a" stroke-width="1.4"/>`
+    +`<polygon points="${fq.x.toFixed(1)},${(fq.y-30).toFixed(1)} ${(fq.x+14).toFixed(1)},${(fq.y-24.5).toFixed(1)} ${fq.x.toFixed(1)},${(fq.y-19).toFixed(1)}" fill="#d33"/>`
+    +`<circle cx="${fq.x.toFixed(1)}" cy="${fq.y.toFixed(1)}" r="2" fill="#333"/>`);
+  const oq=P(wv.O);
+  add([wv.O], `<circle cx="${oq.x.toFixed(1)}" cy="${oq.y.toFixed(1)}" r="4" fill="#fff" stroke="#333" stroke-width="1.4"/>`, 0.3);
+
+  /* labels on top, white-haloed for readability at any camera angle */
+  const lab=(pt,txt,col,ddx,ddy)=>{const q=P(pt);
+    return `<text x="${(q.x+(ddx!=null?ddx:4)).toFixed(1)}" y="${(q.y+(ddy!=null?ddy:-4)).toFixed(1)}" font-family="ui-monospace,monospace" font-size="7.5" font-weight="700" fill="${col}" stroke="#fff" stroke-width="2.4" paint-order="stroke" opacity="0.95">${txt}</text>`;};
+  let top=lab(wv.path,'path','#c43c9e')+lab(wv.face,'face','#2a6fc4')
+    +lab(axA,'spin axis','#cc2a2a')+lab(A4,'impact plane','#4a7aaa',6,10);
+
+  prims.sort((x,y)=>x.d-y.d);
+  sceneEl.innerHTML=`<svg viewBox="0 0 ${VW} ${VH}" style="width:100%;display:block" xmlns="http://www.w3.org/2000/svg">
+    <defs><linearGradient id="dpv-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#cfe6f6"/><stop offset="100%" stop-color="#eef6fc"/></linearGradient></defs>
+    <rect width="${VW}" height="${VH}" fill="url(#dpv-sky)"/>
+    ${far}${prims.map(q=>q.svg).join('')}${top}
+  </svg>`;
+
+  /* live readout */
+  const fl=dpBallFlight(axisEff);
+  const side=axisEff<-0.05?'L':axisEff>0.05?'R':'';
+  const ro=document.getElementById('dpv-readout');
+  if(ro) ro.innerHTML=`Stock Shape <b style="color:#111">${fl}</b><span class="dpv-sep">·</span>3D Spin Loft <b style="color:#b8860b">${r.spinLoft.toFixed(1)}°</b><span class="dpv-sep">·</span>Spin Axis <b style="color:#cc2a2a">${Math.abs(axisEff).toFixed(1)}°${side}</b><span class="dpv-sep">·</span>Curve <b>${Math.abs(Math.round(curveYd))} yd${curveYd<-0.5?' L':curveYd>0.5?' R':''}</b><br>Impact Plane <b style="color:#4a7aaa">${vPlane.toFixed(1)}°${d.vPlane!=null?'':' (est)'}</b><span class="dpv-sep">·</span>Plane Base <b style="color:#4a7aaa">${dplFmt(hPlane)}°</b>${(st.th||st.hl)?`<span class="dpv-sep">·</span>Gear <b style="color:#cc2a2a">${dplFmt(gearAxis)}° axis</b>`:''}`;
+}
+/* Pointer-drag orbit on the scene container (re-bound after each host rebuild). */
+function dpSceneDragInit(){
+  const el=document.getElementById('dpv-scene'); if(!el||el._dpDrag) return; el._dpDrag=true;
+  let px=0,py=0,drag=false;
+  el.addEventListener('pointerdown',e=>{drag=true;px=e.clientX;py=e.clientY;el.setPointerCapture(e.pointerId);e.preventDefault();});
+  el.addEventListener('pointermove',e=>{if(!drag)return;
+    window.dpCam.az=((window.dpCam.az-(e.clientX-px)*0.45)+540)%360-180;
+    window.dpCam.el=Math.max(3,Math.min(88,window.dpCam.el+(e.clientY-py)*0.45));
+    px=e.clientX;py=e.clientY;dpRenderScene();});
+  el.addEventListener('pointerup',()=>{drag=false;});
+  el.addEventListener('pointercancel',()=>{drag=false;});
+  el.addEventListener('dblclick',()=>{window.dpCam={az:DP_CAMS.iso.az,el:DP_CAMS.iso.el};dpRenderScene();});
 }
 function renderDPlaneVisual(){
   const host=document.getElementById('dplane-visual'); if(!host) return;
   const clubs=STATE.clubs.filter(c=>c.type!=='putter');
   let id=window.dpVisClub; if(!clubs.find(c=>c.id===id)) id=(clubs.find(c=>c.id==='7i')||clubs[0]||{}).id;
   window.dpVisClub=id;
-  const c=STATE.clubs.find(x=>x.id===id)||{}, d=(STATE.dplane&&STATE.dplane[id])||{};
-  const vFace=d.vFace!=null?d.vFace:parseFloat(c.loft)||30, p=perf(id)||{};
-  const sh=dplaneShape(d.hFace,d.hPath,vFace,d.aoa,p.carry||150);
-  const wv=dpWorldVectors(+d.hFace||0,+d.hPath||0,+vFace||0,+d.aoa||0);
-  wv.flight=dpFlightPath(wv, sh.spinAxis);
-  wv.flag={x:0,y:0,z:6.8};   // target flag down the line (~300 yd, not to scale)
+  const st=window.dpStrike=window.dpStrike||{th:0,hl:0};
   const opts=clubs.map(x=>`<option value="${x.id}"${x.id===id?' selected':''}>${x.label} — ${x.loft}</option>`).join('');
-  const fl=dpBallFlight(sh.spinAxis);
-  const side = sh.spinAxis<-0.05?'L':sh.spinAxis>0.05?'R':'';
+  const camBtns=Object.keys(DP_CAMS).map(k=>`<button type="button" class="dpv-cam-btn" onclick="dpSetCam('${k}')">${DP_CAMS[k].name}</button>`).join('');
   host.innerHTML=`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
       <label style="font-family:ui-monospace,monospace;font-size:.56rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)">Club</label>
       <select class="strat-select" style="max-width:150px" onchange="setDpVisClub(this.value)">${opts}</select>
     </div>
-    <div class="dpv-readout">Stock Shape <b style="color:#111">${fl}</b><span class="dpv-sep">·</span>3D Spin Loft <b style="color:#b8860b">${sh.spinLoft.toFixed(1)}°</b><span class="dpv-sep">·</span>Spin Axis <b style="color:#cc2a2a">${Math.abs(sh.spinAxis).toFixed(1)}°${side}</b></div>
-    <div class="dpv-single">${buildDPlaneView(DP_VIEW_3D,wv)}</div>`;
+    <div class="dpv-readout" id="dpv-readout"></div>
+    <div class="dpv-panel"><div class="dpv-title">Impact Plane · D-Plane · Ball Flight — drag to rotate</div>
+      <div id="dpv-scene"></div></div>
+    <div class="dpv-cam-row">${camBtns}</div>
+    <div class="dpv-strike">
+      <div class="dpv-strike-head">Strike — gear effect preview <span class="dpv-strike-cur" id="dpv-strike-lbl">${dpStrikeLabel()}</span></div>
+      <div class="dpv-strike-sliders">
+        <label>heel ↔ toe<input type="range" min="-3" max="3" step="1" value="${st.th}" oninput="dpSetStrike('th',this.value)"></label>
+        <label>low ↔ high<input type="range" min="-3" max="3" step="1" value="${st.hl}" oninput="dpSetStrike('hl',this.value)"></label>
+      </div>
+      <div class="dpv-strike-note">Full-shot intent is the centre of percussion — leave at centre for stock planning; slide to preview how an off-centre hit gears the flight.</div>
+    </div>`;
+  dpRenderScene();
+  dpSceneDragInit();
 }
 function buildGearEffectL2(){
   const dToe=dpGearAxisShift(3,'wood'), iToe=dpGearAxisShift(3,'iron');
@@ -945,4 +1057,4 @@ function buildGearEffectL2(){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { STRAT_OPTS, ballRefHtml, buildAssess, buildImprove, buildResources, buildCourseStrategy, buildDPlaneView, buildDplaneGrid, buildForceProfileSVG, buildGearEffectL2, buildKinematicSequenceSVG, buildStrategyPrefs, dpBallFlight, dpWorldVectors, dplFmt, dplaneShape, escapeHtml, forceRow, getPath, metricBox, renderDPlaneVisual, saveSwing, setDpVisClub, setDplaneCell, setStrategy, setPath, stratLabel, stratSelect, stratSummary, toggleLevel });
+Object.assign(window, { STRAT_OPTS, ballRefHtml, buildAssess, buildImprove, buildResources, buildCourseStrategy, buildDplaneGrid, buildForceProfileSVG, buildGearEffectL2, buildKinematicSequenceSVG, buildStrategyPrefs, dpBallFlight, dpRenderScene, dpSceneDragInit, dpSetCam, dpSetStrike, dpStrikeLabel, dpWorldVectors, dplFmt, dplaneShape, escapeHtml, forceRow, getPath, metricBox, renderDPlaneVisual, saveSwing, setDpVisClub, setDplaneCell, setStrategy, setPath, stratLabel, stratSelect, stratSummary, toggleLevel });
