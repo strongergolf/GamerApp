@@ -745,7 +745,7 @@ function buildDplaneGrid(){
     const d=(STATE.dplane&&STATE.dplane[c.id])||{};
     const vFace=d.vFace!=null?d.vFace:parseFloat(c.loft)||30;   // fallback to static loft
     const sel=c.id===window.dpVisClub?' style="background:var(--bg2)"':'';
-    const inp=(field,val,ph)=>`<input class="dpl-input" value="${escapeHtml(val==null?'':val)}"${ph?` placeholder="${ph}"`:''} inputmode="decimal" oninput="setDplaneCell('${c.id}','${field}',this.value)">`;
+    const inp=(field,val,ph)=>`<input class="dpl-input" id="dpl-in-${c.id}-${field}" value="${escapeHtml(val==null?'':val)}"${ph?` placeholder="${ph}"`:''} inputmode="decimal" oninput="setDplaneCell('${c.id}','${field}',this.value)">`;
     html+=`<tr${sel}>
       <td onclick="setDpVisClub('${c.id}')" title="Show this club in the 3D render" style="padding:5px 8px;white-space:nowrap;cursor:pointer"><span style="font-family:Arial,sans-serif;font-weight:800;font-size:.85rem;color:var(--ink)">${c.label}</span> <span style="font-family:ui-monospace,monospace;font-size:.56rem;color:var(--muted)">${c.loft}</span></td>
       <td>${inp('hFace',d.hFace)}</td>
@@ -1004,6 +1004,30 @@ function dpRenderScene(){
   const ro=document.getElementById('dpv-readout');
   if(ro) ro.innerHTML=`Stock Shape <b style="color:#111">${fl}</b><span class="dpv-sep">·</span>3D Spin Loft <b style="color:#b8860b">${r.spinLoft.toFixed(1)}°</b><span class="dpv-sep">·</span>Spin Axis <b style="color:#cc2a2a">${Math.abs(axisEff).toFixed(1)}°${side}</b><span class="dpv-sep">·</span>Curve <b>${Math.abs(Math.round(curveYd))} yd${curveYd<-0.5?' L':curveYd>0.5?' R':''}</b><br>Impact Plane <b style="color:#4a7aaa">${vPlane.toFixed(1)}°${d.vPlane!=null?'':' (est)'}</b><span class="dpv-sep">·</span>Plane Base <b style="color:#4a7aaa">${dplFmt(hPlane)}°</b>${(st.th||st.hl)?`<span class="dpv-sep">·</span>Gear <b style="color:#cc2a2a">${dplFmt(gearAxis)}° axis</b>`:''}`;
 }
+/* ---- Shape Sandbox: live impact-variable sliders under the 3D render. Writes the
+   same STATE.dplane the grid edits, so slider and typed capture stay one dataset;
+   scene + readout + the club's grid cells update live, save lands on release. ---- */
+function dpSandFmt(field,v){ v=parseFloat(v)||0; return field==='vFace'?v.toFixed(1)+'°':dplFmt(v)+'°'; }
+function dpSetSand(field,val){
+  const id=window.dpVisClub; if(!id) return;
+  if(!STATE.dplane) STATE.dplane={};
+  if(!STATE.dplane[id]) STATE.dplane[id]={hFace:0,hPath:0,aoa:0};
+  STATE.dplane[id][field]=parseFloat(val)||0;
+  const sv=document.getElementById(`dpv-sand-${field}-v`); if(sv) sv.textContent=dpSandFmt(field,val);
+  const gi=document.getElementById(`dpl-in-${id}-${field}`); if(gi) gi.value=val;
+  dpRenderScene();
+  if(typeof buildCourseStrategy==='function') buildCourseStrategy();
+}
+/* clear this club's sandbox overrides → back to neutral (0/0/static loft/0) */
+function dpSandReset(){
+  const id=window.dpVisClub; if(!id||!STATE.dplane||!STATE.dplane[id]){ renderDPlaneVisual(); return; }
+  ['hFace','hPath','vFace','aoa'].forEach(f=>delete STATE.dplane[id][f]);
+  saveState();
+  const col=document.querySelector('.dpl-grid-col'); if(col) col.innerHTML=buildDplaneGrid();
+  if(typeof buildCourseStrategy==='function') buildCourseStrategy();
+  renderDPlaneVisual();
+}
+
 /* Pointer navigation on the scene container (re-bound after each host rebuild).
    Control plan (shared with the 2-D visuals via ui/panzoom.js, plus rotation):
      left-drag / one finger      → pan
@@ -1057,6 +1081,24 @@ function renderDPlaneVisual(){
   const st=window.dpStrike=window.dpStrike||{th:0,hl:0};
   const opts=clubs.map(x=>`<option value="${x.id}"${x.id===id?' selected':''}>${x.label} — ${x.loft}</option>`).join('');
   const camBtns=Object.keys(DP_CAMS).map(k=>`<button type="button" class="dpv-cam-btn" onclick="dpSetCam('${k}')">${DP_CAMS[k].name}</button>`).join('');
+  /* Shape Sandbox rows — current values (override or fallback) + per-club ranges.
+     Face terms in face blue, path terms in path magenta, matching the render. */
+  const c=clubs.find(x=>x.id===id)||{}, d=(STATE.dplane&&STATE.dplane[id])||{};
+  const loft=parseFloat(c.loft)||30;
+  const sandVals={hFace:+d.hFace||0, hPath:+d.hPath||0, vFace:d.vFace!=null?+d.vFace:loft, aoa:+d.aoa||0};
+  const sandRow=(field,label,col,min,max,step)=>`<div class="dpv-sand-row">
+      <span class="dpv-sand-lbl" style="color:${col}">${label}</span>
+      <span class="dpv-sand-val" id="dpv-sand-${field}-v">${dpSandFmt(field,sandVals[field])}</span>
+      <input type="range" min="${min}" max="${max}" step="${step}" value="${sandVals[field]}" oninput="dpSetSand('${field}',this.value)" onchange="saveState()">
+    </div>`;
+  const sandbox=`<div class="dpv-sand">
+      <div class="dpv-strike-head">Shape Sandbox — drag the impact numbers, watch the flight <button type="button" class="dpv-sand-reset" onclick="dpSandReset()">reset club</button></div>
+      ${sandRow('hFace','Horiz. Face','#2a6fc4',-8,8,0.1)}
+      ${sandRow('hPath','Horiz. Path','#c43c9e',-8,8,0.1)}
+      ${sandRow('vFace','Dyn Loft','#2a6fc4',Math.max(0,loft-15),loft+10,0.5)}
+      ${sandRow('aoa','Attack Angle','#c43c9e',-6,6,0.1)}
+      <div class="dpv-strike-note">− left / + right (RH) · attack − down / + up. Live in the render and the grid; saved as this club's stock tendency.</div>
+    </div>`;
   host.innerHTML=`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
       <label style="font-family:ui-monospace,monospace;font-size:.56rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)">Club</label>
       <select class="strat-select" style="max-width:150px" onchange="setDpVisClub(this.value)">${opts}</select>
@@ -1065,6 +1107,7 @@ function renderDPlaneVisual(){
     <div class="dpv-panel"><div class="dpv-title">Impact Plane · D-Plane · Ball Flight — drag pan · middle-drag / 2-finger rotate · scroll / pinch zoom</div>
       <div id="dpv-scene"></div></div>
     <div class="dpv-cam-row">${camBtns}</div>
+    ${sandbox}
     <div class="dpv-strike">
       <div class="dpv-strike-head">Strike — gear effect preview <span class="dpv-strike-cur" id="dpv-strike-lbl">${dpStrikeLabel()}</span></div>
       <div class="dpv-strike-sliders">
@@ -1091,4 +1134,4 @@ function buildGearEffectL2(){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { STRAT_OPTS, ballRefHtml, buildAssess, buildImprove, buildResources, buildCourseStrategy, buildDplaneGrid, buildForceProfileSVG, buildGearEffectL2, buildKinematicSequenceSVG, buildStrategyPrefs, dpBallFlight, dpRenderScene, dpSceneDragInit, dpSetCam, dpSetStrike, dpStrikeLabel, dpWorldVectors, dplFmt, dplaneShape, escapeHtml, forceRow, getPath, metricBox, renderDPlaneVisual, saveSwing, setDpVisClub, setDplaneCell, setStrategy, setPath, stratLabel, stratSelect, stratSummary, toggleLevel });
+Object.assign(window, { STRAT_OPTS, ballRefHtml, buildAssess, buildImprove, buildResources, buildCourseStrategy, buildDplaneGrid, buildForceProfileSVG, buildGearEffectL2, buildKinematicSequenceSVG, buildStrategyPrefs, dpBallFlight, dpRenderScene, dpSandFmt, dpSandReset, dpSceneDragInit, dpSetCam, dpSetSand, dpSetStrike, dpStrikeLabel, dpWorldVectors, dplFmt, dplaneShape, escapeHtml, forceRow, getPath, metricBox, renderDPlaneVisual, saveSwing, setDpVisClub, setDplaneCell, setStrategy, setPath, stratLabel, stratSelect, stratSummary, toggleLevel });

@@ -737,6 +737,13 @@ table.chip-matrix tr:hover td{background:var(--surface2)}
 .dpv-cam-row{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px}
 .dpv-cam-btn{font-family:ui-monospace,monospace;font-size:.56rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink2);background:var(--bg2);border:1px solid var(--border2);border-radius:6px;padding:4px 9px;cursor:pointer}
 .dpv-cam-btn:hover{border-color:var(--green);color:var(--ink)}
+.dpv-sand{margin-top:10px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:9px 12px}
+.dpv-sand-row{display:flex;align-items:center;gap:8px;margin-top:7px}
+.dpv-sand-lbl{font-family:ui-monospace,monospace;font-size:.56rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;flex:0 0 86px}
+.dpv-sand-val{font-family:ui-monospace,monospace;font-size:.68rem;font-weight:700;color:var(--ink);flex:0 0 46px;text-align:right}
+.dpv-sand-row input[type=range]{flex:1;min-width:0}
+.dpv-sand-reset{float:right;font-family:ui-monospace,monospace;font-size:.54rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink2);background:var(--surface);border:1px solid var(--border2);border-radius:5px;padding:2px 7px;cursor:pointer}
+.dpv-sand-reset:hover{border-color:var(--green);color:var(--ink)}
 .dpv-strike{margin-top:10px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:9px 12px}
 .dpv-strike-head{font-family:ui-monospace,monospace;font-size:.56rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
 .dpv-strike-cur{color:var(--ink);font-size:.62rem;margin-left:6px;text-transform:none;letter-spacing:.02em}
