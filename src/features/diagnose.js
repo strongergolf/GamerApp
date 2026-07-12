@@ -126,7 +126,7 @@ const PRACTICE_AREAS=[
        ${ballRefHtml()}
 
        <div class="lvl-subhead" style="margin-top:14px">Club Behaviour at Impact — D-Plane Tendencies</div>
-       <div class="chain-caption" style="margin-top:4px">Each club's <strong>stock-shot</strong> impact geometry: horizontal face, horizontal path, dynamic loft, attack angle and vertical swing plane (degrees, left −/right +; blank plane = estimated from loft). The rotatable 3D render — <strong>drag to pan, middle-drag or two fingers to orbit, scroll or pinch to zoom</strong>, snap views below, double-tap to reset — shows the <span style="color:#4a7aaa;font-weight:700">impact plane</span>, the <span style="color:#c43c9e;font-weight:700">path</span> &amp; <span style="color:#2a6fc4;font-weight:700">face</span> vectors, the <span style="color:#b8860b;font-weight:700">D-plane</span> wedge, the perpendicular <span style="color:#cc2a2a;font-weight:700">spin axis</span>, and the <strong>expected ball flight</strong> scaled to the club's Bag carry, apex and rollout. Tap a club to load it; edits save automatically. <span class="placeholder-flag">prototype</span></div>
+       <div class="chain-caption" style="margin-top:4px">Each club's <strong>stock-shot</strong> impact geometry: horizontal face, horizontal path, vertical face (dyn loft), vertical path (attack angle) and vertical swing plane (degrees, left −/right +; blank plane = estimated from loft). The rotatable 3D render — <strong>drag to pan, middle-drag or two fingers to orbit, scroll or pinch to zoom</strong>, snap views below, double-tap to reset — shows the <span style="color:#4a7aaa;font-weight:700">impact plane</span>, the <span style="color:#c43c9e;font-weight:700">path</span> &amp; <span style="color:#2a6fc4;font-weight:700">face</span> vectors, the <span style="color:#b8860b;font-weight:700">D-plane</span> wedge, the perpendicular <span style="color:#cc2a2a;font-weight:700">spin axis</span>, and the <strong>expected ball flight</strong> scaled to the club's Bag carry, apex and rollout. Tap a club to load it; edits save automatically. <span class="placeholder-flag">prototype</span></div>
        <div class="dpl-layout">
          <div class="dpl-grid-col">${buildDplaneGrid()}</div>
          <div class="dpl-vis-col"><div id="dplane-visual"></div></div>
@@ -1102,9 +1102,9 @@ function renderDPlaneVisual(){
       <div class="dpv-strike-head">Shape Sandbox — drag the impact numbers, watch the flight <button type="button" class="dpv-sand-reset" onclick="dpSandReset()">reset club</button></div>
       ${sandRow('hFace','Horiz. Face','#2a6fc4',-8,8,0.1)}
       ${sandRow('hPath','Horiz. Path','#c43c9e',-8,8,0.1)}
-      ${sandRow('vFace','Dyn Loft','#2a6fc4',Math.max(0,loft-15),loft+10,0.5)}
-      ${sandRow('aoa','Attack Angle','#c43c9e',-6,6,0.1)}
-      <div class="dpv-strike-note">− left / + right (RH) · attack − down / + up. Live in the render and the grid; saved as this club's stock tendency.</div>
+      ${sandRow('vFace','Vert. Face','#2a6fc4',Math.max(0,loft-15),loft+10,0.5)}
+      ${sandRow('aoa','Vert. Path','#c43c9e',-6,6,0.1)}
+      <div class="dpv-strike-note">− left / + right (RH) · vert. path − down / + up. Live in the render and the grid; saved as this club's stock tendency.</div>
       <div class="dpv-sand-sub">
         <div class="dpv-strike-head">Strike — Gear Effect <span class="dpv-strike-cur">layered on the D-plane, not part of it</span></div>
         ${strikeRow('th','Heel ↔ Toe')}
