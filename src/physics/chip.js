@@ -139,17 +139,21 @@ function chipStance(key){ return CHIP_STANCE_MODEL[key] || CHIP_STANCE_MODEL.lev
 function chipFirm(){ return (typeof window!=='undefined'&&window.chipFirmFactor)?window.chipFirmFactor:1; }
 function chipLie(){ return (typeof window!=='undefined'&&window.chipLieRollMult)?window.chipLieRollMult:1; }
 function chipStanceRoll(){ return (typeof window!=='undefined'&&window.chipStanceRollMult)?window.chipStanceRollMult:1; }
+/* Target-elevation roll multiplier: a chip must reach the hole, so elevation shifts the carry/roll
+   SPLIT (it does not shorten the total). A green BELOW you plays shorter → carry less, release more
+   (>1); a green ABOVE plays longer → carry more, release less (<1). Set by renderChipDial. */
+function chipElevRoll(){ const v=(typeof window!=='undefined')?window.chipElevRollMult:1; return (typeof v==='number'&&v>0)?v:1; }
 /* Pure model roll-per-unit-carry (no per-shot conditions, no user calibration) — the calibration
    maths compares measured roll against this. */
 function chipRollFactor(loftDeg, stimp, slope){
   return chipRollRatio(loftDeg) * Math.pow(stimp/9.5, 1.3) * chipSlopeFactor(slope, stimp);
 }
 function chipRollout(carry, loftDeg, stimp, slope, baseline){
-  const m = baseline ? 1 : chipFirm()*chipLie()*chipStanceRoll();
+  const m = baseline ? 1 : chipFirm()*chipLie()*chipStanceRoll()*chipElevRoll();
   return carry * chipRollFactor(loftDeg,stimp,slope) * m * chipUserRollMult();   // release style always applies
 }
 function chipCarryForTotal(total, loftDeg, stimp, slope, baseline){
-  const m = baseline ? 1 : chipFirm()*chipLie()*chipStanceRoll();
+  const m = baseline ? 1 : chipFirm()*chipLie()*chipStanceRoll()*chipElevRoll();
   return total / (1 + chipRollFactor(loftDeg,stimp,slope) * m * chipUserRollMult());
 }
 function chipClubs(){
@@ -168,4 +172,4 @@ function selectChipClub(i){ window.chipSelectedIdx=i; renderChipDial(); }
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { CHIP_ROLL_ANCHORS, CHIP_SLOPE_ANCHORS, CHIP_FIRM_MODEL, CHIP_STANCE_MODEL, chipArchetype, chipCarryForTotal, chipCalibrated, chipClubs, chipFirm, chipFirmModel, chipLaunch, chipLaunchRaw, chipLie, chipRollFactor, chipRollRatio, chipRollout, chipSlopeDeg, chipSlopeFactor, chipSlopeMult, chipSlopeVal, chipSpin, chipSpinRaw, chipStance, chipStanceRoll, chipUserLaunchOff, chipUserRollMult, chipUserSpinMult, selectChipClub });
+Object.assign(window, { CHIP_ROLL_ANCHORS, CHIP_SLOPE_ANCHORS, CHIP_FIRM_MODEL, CHIP_STANCE_MODEL, chipArchetype, chipCarryForTotal, chipCalibrated, chipClubs, chipElevRoll, chipFirm, chipFirmModel, chipLaunch, chipLaunchRaw, chipLie, chipRollFactor, chipRollRatio, chipRollout, chipSlopeDeg, chipSlopeFactor, chipSlopeMult, chipSlopeVal, chipSpin, chipSpinRaw, chipStance, chipStanceRoll, chipUserLaunchOff, chipUserRollMult, chipUserSpinMult, selectChipClub });

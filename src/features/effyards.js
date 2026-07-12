@@ -110,14 +110,15 @@ const EY_TERM_LEVEL = { key:'level', label:'Level', type:'range', min:-6, max:6,
       fmt:v=>{ const n=Math.round((parseFloat(v)||0)*2)/2; return n===0?'Level':`${Math.abs(n)}° ${n>0?'up':'down'}`; } };
 const EY_TERM_FIRM = { key:'firmness', label:'Firmness', type:'step', noContrib:true, opts:[
       ['vsoft','Very soft'],['soft','Soft'],['avg','Average'],['firm','Firm'],['vfirm','Very firm']] };
-/* Elevation term built for the context's current unit (base rise or degrees). */
+/* Elevation term built for the context's current unit (base rise or degrees). Short game: the
+   effect is a carry/roll SPLIT (no distance badge), so noContrib. Approach: a distance change. */
 function elevTerm(ctx){
   const deg = (EY[ctx].elevUnit||elevBaseUnit(ctx))==='deg';
   const label = ctx==='shortgame'?'Target elevation':'Elevation';
-  const base = elevBaseUnit(ctx);
+  const base = elevBaseUnit(ctx), nc = ctx==='shortgame';
   return deg
-    ? { key:'elev', label, type:'range', min:-15, max:15, step:0.5, unitToggle:ctx, fmt:v=> v>0?`+${v}° up`:v<0?`${v}° down`:'level' }
-    : { key:'elev', label, type:'range', min:-30, max:30, step:1, unitToggle:ctx, fmt:v=> v>0?`+${v} ${base} up`:v<0?`${v} ${base} down`:'level' };
+    ? { key:'elev', label, type:'range', min:-15, max:15, step:0.5, unitToggle:ctx, noContrib:nc, fmt:v=> v>0?`+${v}° up`:v<0?`${v}° down`:'level' }
+    : { key:'elev', label, type:'range', min:-30, max:30, step:1, unitToggle:ctx, noContrib:nc, fmt:v=> v>0?`+${v} ${base} up`:v<0?`${v} ${base} down`:'level' };
 }
 function eyTerms(ctx){
   if(ctx==='shortgame'){
@@ -125,7 +126,8 @@ function eyTerms(ctx){
     return [
       { key:'situation', label:'Situation', type:'step', noContrib:true, opts:[['fairway','Fairway'],['rough','Rough'],['bunker','Bunker']] },
       { key:'lieq', label:'Lie', type:'step', opts:set.lies },   /* options depend on Situation; effect = roll-out split + plays-longer difficulty */
-      EY_TERM_STANCE, elevTerm('shortgame'), EY_TERM_LEVEL, EY_TERM_FIRM
+      Object.assign({}, EY_TERM_STANCE, {noContrib:true}),       /* lie angle → launch + roll split, not distance */
+      elevTerm('shortgame'), EY_TERM_LEVEL, EY_TERM_FIRM
     ];
   }
   return [EY_TERM_SITUATION, EY_TERM_LIE, EY_TERM_STANCE, elevTerm('approach'), EY_TERM_FIRM];
@@ -143,12 +145,10 @@ function eyDelta(ctx,key,S){
   switch(key){
     case 'situation': d=ctx==='shortgame'?0:(EY_SITUATION[st.situation]||0); break;
     case 'lieq':      d=ctx==='shortgame'?0:(EY_LIE[st.lieq]||0); break;   /* short game lie = roll-out, not yardage */
-    case 'stance':    d=ctx==='shortgame'
-                        ? (typeof chipStance==='function'?chipStance(st.stance).plays:0)   /* lie angle → small distance; trajectory/roll go via globals */
+    case 'stance':    d=ctx==='shortgame' ? 0                     /* chip must reach the hole → stance shifts the roll split (globals), not the total */
                         : (EY_STANCE[st.stance]||0); break;
-    case 'elev':      { const base=elevBaseVal(ctx,S);   /* rise in base unit (ft short game / yd approach) */
-                        if(ctx==='shortgame') d = (base>=0?base:base*0.67)*CHIP_ELEV_K;   /* target-green elevation, ft → plays-like yd */
-                        else d = base*(typeof PS_ELEV_K!=='undefined'?PS_ELEV_K:1.2); } break;   /* approach: yards */
+    case 'elev':      if(ctx==='shortgame') d=0;                  /* chip elevation shifts the roll split (chipElevRollMult), not the total */
+                      else d=elevBaseVal(ctx,S)*(typeof PS_ELEV_K!=='undefined'?PS_ELEV_K:1.2); break;   /* approach: yards */
     case 'level':     d=0; break;   /* short-game green slope → chip roll-out (chipSlopeVal), not yardage */
     case 'firmness':  d=0; break;   /* roll-out split / chip firmness, not club selection */
     case 'air':       d=(typeof psAirDelta==='function'?psAirDelta(S):0)||0; break;

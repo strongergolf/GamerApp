@@ -189,11 +189,16 @@ function renderSgVars(){
 
 function renderChipDial(){
   const measuredYd=parseInt(document.getElementById('chip-slider')?.value||20);
-  /* Plays-like adjusters shift the effective total the dial solves for; expected-shots
-     stays on the measured distance (strokes-remaining is positional). */
+  /* A chip must reach the hole, so carry + roll always sums to the distance to the hole. The
+     conditions (firmness, lie, stance, elevation, green slope) shift the carry/roll SPLIT, not the
+     total. Only air density can nudge the flown distance a hair (≈0 for chips). */
   const eyAdj = typeof eyTotal==='function' ? eyTotal('shortgame',measuredYd) : 0;
   const totalYd=Math.max(3, Math.round(measuredYd+eyAdj));
   if(typeof eyRefreshSummary==='function') eyRefreshSummary('shortgame');
+  /* Target elevation → roll multiplier: green BELOW you plays shorter (carry less, release more);
+     ABOVE plays longer (carry more, release less). ~3% roll per foot; clamped. */
+  const elevFt = (typeof elevBaseVal==='function' && typeof EY!=='undefined') ? elevBaseVal('shortgame', measuredYd) : 0;
+  window.chipElevRollMult = Math.max(0.5, Math.min(2, 1 - elevFt*0.03));
   const stimp=STATE.stimp, slope=chipSlopeVal();
   const clubs=chipClubs();
   const results=document.getElementById('chip-results'); if(!results) return;
@@ -240,7 +245,9 @@ function renderChipDial(){
       const fm = typeof chipFirmModel==='function' ? chipFirmModel(fk) : {check:''};
       const firmName = {vsoft:'very soft',soft:'soft',avg:'average',firm:'firm',vfirm:'very firm'}[fk]||fk;
       const slopeTxt = slope>0.1?`${slope}° uphill`:slope<-0.1?`${Math.abs(slope)}° downhill`:'level';
-      const ctxLine = `${fm.check} · ${firmName} green · ${slopeTxt} @ stimp ${stimp.toFixed(1)}${stanceAdj?` · stance ${stanceAdj>0?'+':''}${stanceAdj}° launch`:''}`;
+      const elevFt2 = (typeof elevBaseVal==='function'&&typeof EY!=='undefined') ? elevBaseVal('shortgame',measuredYd) : 0;
+      const elevTxt = Math.abs(elevFt2)>=0.5 ? ` · target ${Math.abs(elevFt2).toFixed(0)} ft ${elevFt2>0?'up':'down'}` : '';
+      const ctxLine = `${fm.check} · ${firmName} green · ${slopeTxt} @ stimp ${stimp.toFixed(1)}${elevTxt}${stanceAdj?` · stance ${stanceAdj>0?'+':''}${stanceAdj}° launch`:''}`;
       drop=`<div class="calc-traj-drop" style="grid-template-columns:1fr">
         <div class="traj-panel traj-main">
           <div class="traj-panel-title">${c.label} (${c.loft})${effNote} — carry ${carry.toFixed(1)} → roll ${roll.toFixed(1)} yd · launch ${launch.toFixed(0)}° · ~${spin.toLocaleString()} rpm · ${chipArchetype(loft)}</div>
