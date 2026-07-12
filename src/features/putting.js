@@ -296,7 +296,7 @@ function buildPuttSVG(distFt,breakIn,dir,slope,pace){
 
   const slopeLabel='';
 
-  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block;border-radius:14px;overflow:hidden" xmlns="http://www.w3.org/2000/svg">
+  return `<svg data-pz viewBox="0 0 ${W} ${H}" style="width:100%;display:block;border-radius:14px;overflow:hidden" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <radialGradient id="gg${dir}" cx="50%" cy="45%" r="65%">
         <stop offset="0%" stop-color="#1a6a3a"/>
@@ -362,7 +362,7 @@ function buildPuttProfileSVG(distFt, elevIn, pace, stimp){
   const slopeLabel=`<text x="${W-6}" y="12" text-anchor="end" font-family="ui-monospace,monospace" font-size="8" font-weight="700" fill="${elevIn>0.5?'#5fcf8f':elevIn<-0.5?'#e88494':'var(--muted)'}">${riseTxt}</text>`;
   const cue=elevIn>2?'firmer — it climbs':elevIn<-2?'softer — let it release':'';
   const cueLabel=cue?`<text x="8" y="12" font-family="ui-monospace,monospace" font-size="7.5" fill="var(--muted)">${cue}</text>`:'';
-  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block" xmlns="http://www.w3.org/2000/svg">
+  return `<svg data-pz viewBox="0 0 ${W} ${H}" style="width:100%;display:block" xmlns="http://www.w3.org/2000/svg">
     <rect width="${W}" height="${H}" fill="var(--surface2)" rx="10"/>
     ${surface}${rollLine}${overrun}${cup}${flag}${ball}
     ${distLabel}${slopeLabel}${cueLabel}

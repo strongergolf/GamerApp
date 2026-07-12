@@ -126,7 +126,7 @@ const PRACTICE_AREAS=[
        ${ballRefHtml()}
 
        <div class="lvl-subhead" style="margin-top:14px">Club Behaviour at Impact — D-Plane Tendencies</div>
-       <div class="chain-caption" style="margin-top:4px">Each club's <strong>stock-shot</strong> impact geometry: horizontal face, horizontal path, dynamic loft, attack angle and vertical swing plane (degrees, left −/right +; blank plane = estimated from loft). The rotatable 3D render — <strong>drag to orbit</strong>, snap views below — shows the <span style="color:#4a7aaa;font-weight:700">impact plane</span>, the <span style="color:#c43c9e;font-weight:700">path</span> &amp; <span style="color:#2a6fc4;font-weight:700">face</span> vectors, the <span style="color:#b8860b;font-weight:700">D-plane</span> wedge, the perpendicular <span style="color:#cc2a2a;font-weight:700">spin axis</span>, and the <strong>expected ball flight</strong> scaled to the club's Bag carry, apex and rollout. Tap a club to load it; edits save automatically. <span class="placeholder-flag">prototype</span></div>
+       <div class="chain-caption" style="margin-top:4px">Each club's <strong>stock-shot</strong> impact geometry: horizontal face, horizontal path, dynamic loft, attack angle and vertical swing plane (degrees, left −/right +; blank plane = estimated from loft). The rotatable 3D render — <strong>drag to pan, middle-drag or two fingers to orbit, scroll or pinch to zoom</strong>, snap views below, double-tap to reset — shows the <span style="color:#4a7aaa;font-weight:700">impact plane</span>, the <span style="color:#c43c9e;font-weight:700">path</span> &amp; <span style="color:#2a6fc4;font-weight:700">face</span> vectors, the <span style="color:#b8860b;font-weight:700">D-plane</span> wedge, the perpendicular <span style="color:#cc2a2a;font-weight:700">spin axis</span>, and the <strong>expected ball flight</strong> scaled to the club's Bag carry, apex and rollout. Tap a club to load it; edits save automatically. <span class="placeholder-flag">prototype</span></div>
        <div class="dpl-layout">
          <div class="dpl-grid-col">${buildDplaneGrid()}</div>
          <div class="dpl-vis-col"><div id="dplane-visual"></div></div>
@@ -867,8 +867,9 @@ const DP_CAMS={
   face:{az:88, el:9,  name:'Face-On'},
   top: {az:0,  el:86, name:'Overhead'}
 };
-window.dpCam={az:DP_CAMS.iso.az, el:DP_CAMS.iso.el, zoom:1};
-function dpSetCam(key){ const v=DP_CAMS[key]; if(!v) return; window.dpCam={az:v.az,el:v.el,zoom:window.dpCam.zoom||1}; dpRenderScene(); }
+window.dpCam={az:DP_CAMS.iso.az, el:DP_CAMS.iso.el, zoom:1, pan:{x:0,y:0,z:0}};
+/* presets re-frame the scene: rotation + pan reset, zoom kept */
+function dpSetCam(key){ const v=DP_CAMS[key]; if(!v) return; window.dpCam={az:v.az,el:v.el,zoom:window.dpCam.zoom||1,pan:{x:0,y:0,z:0}}; dpRenderScene(); }
 /* Screen-right R, screen-up U and toward-camera D bases from azimuth/elevation. */
 function dpCamBasis(azDeg,elDeg){
   const az=azDeg*DPLANE_DEG, el=elDeg*DPLANE_DEG;
@@ -918,7 +919,8 @@ function dpRenderScene(){
 
   const wv=dpWorldVectors(hFace,hPath,vFace,aoa);
   const cam=dpCamBasis(window.dpCam.az, window.dpCam.el);
-  const VW=340, VH=250, CEN={x:0,y:0.85,z:3.0}, SC=31*(window.dpCam.zoom||1);
+  const pan=window.dpCam.pan||{x:0,y:0,z:0};
+  const VW=340, VH=250, CEN={x:0+pan.x,y:0.85+pan.y,z:3.0+pan.z}, SC=31*(window.dpCam.zoom||1);
   const P=pt=>({x:VW/2+((pt.x-CEN.x)*cam.R.x+(pt.y-CEN.y)*cam.R.y+(pt.z-CEN.z)*cam.R.z)*SC,
                 y:VH/2-((pt.x-CEN.x)*cam.U.x+(pt.y-CEN.y)*cam.U.y+(pt.z-CEN.z)*cam.U.z)*SC});
   const dep=pt=>pt.x*cam.D.x+pt.y*cam.D.y+pt.z*cam.D.z;
@@ -1002,34 +1004,50 @@ function dpRenderScene(){
   const ro=document.getElementById('dpv-readout');
   if(ro) ro.innerHTML=`Stock Shape <b style="color:#111">${fl}</b><span class="dpv-sep">·</span>3D Spin Loft <b style="color:#b8860b">${r.spinLoft.toFixed(1)}°</b><span class="dpv-sep">·</span>Spin Axis <b style="color:#cc2a2a">${Math.abs(axisEff).toFixed(1)}°${side}</b><span class="dpv-sep">·</span>Curve <b>${Math.abs(Math.round(curveYd))} yd${curveYd<-0.5?' L':curveYd>0.5?' R':''}</b><br>Impact Plane <b style="color:#4a7aaa">${vPlane.toFixed(1)}°${d.vPlane!=null?'':' (est)'}</b><span class="dpv-sep">·</span>Plane Base <b style="color:#4a7aaa">${dplFmt(hPlane)}°</b>${(st.th||st.hl)?`<span class="dpv-sep">·</span>Gear <b style="color:#cc2a2a">${dplFmt(gearAxis)}° axis</b>`:''}`;
 }
-/* Pointer orbit + zoom on the scene container (re-bound after each host rebuild).
-   One pointer drags to rotate; two pointers pinch to zoom (pointer events cover
-   touch, so no separate touch handlers); the mouse wheel zooms while hovering. */
+/* Pointer navigation on the scene container (re-bound after each host rebuild).
+   Control plan (shared with the 2-D visuals via ui/panzoom.js, plus rotation):
+     left-drag / one finger      → pan
+     middle-drag / two fingers   → rotate (two-finger centroid; spread also zooms)
+     scroll wheel / pinch        → zoom
+     double-click / double-tap   → reset view */
 function dpSceneDragInit(){
   const el=document.getElementById('dpv-scene'); if(!el||el._dpDrag) return; el._dpDrag=true;
-  const ptrs=new Map(); let px=0,py=0,pinchD=0;
+  const ptrs=new Map(); let px=0,py=0,pinchD=0,mode='pan';
   const zoomBy=f=>{window.dpCam.zoom=Math.max(0.5,Math.min(4,(window.dpCam.zoom||1)*f));dpRenderScene();};
+  const rotate=(dx,dy)=>{
+    window.dpCam.az=((window.dpCam.az-dx*0.45)+540)%360-180;
+    window.dpCam.el=Math.max(3,Math.min(88,window.dpCam.el+dy*0.45));};
+  const panBy=(dx,dy)=>{                                 // screen px → world offset via camera basis
+    const cam=dpCamBasis(window.dpCam.az,window.dpCam.el), SC=31*(window.dpCam.zoom||1);
+    const pan=window.dpCam.pan=window.dpCam.pan||{x:0,y:0,z:0};
+    const cl=v=>Math.max(-6,Math.min(6,v));
+    pan.x=cl(pan.x-dx/SC*cam.R.x+dy/SC*cam.U.x);
+    pan.y=cl(pan.y-dx/SC*cam.R.y+dy/SC*cam.U.y);
+    pan.z=cl(pan.z-dx/SC*cam.R.z+dy/SC*cam.U.z);};
   el.addEventListener('pointerdown',e=>{
     ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
-    if(ptrs.size===1){px=e.clientX;py=e.clientY;}
-    else if(ptrs.size===2){const a=[...ptrs.values()];pinchD=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y);}
+    if(ptrs.size===1){px=e.clientX;py=e.clientY; mode=(e.pointerType==='mouse'&&e.button===1)?'rot':'pan';}
+    else if(ptrs.size===2){const a=[...ptrs.values()];pinchD=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y);
+      px=(a[0].x+a[1].x)/2;py=(a[0].y+a[1].y)/2;}       // centroid drives two-finger rotate
     el.setPointerCapture(e.pointerId);e.preventDefault();});
   el.addEventListener('pointermove',e=>{
     if(!ptrs.has(e.pointerId))return;
     ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
-    if(ptrs.size>=2){                                   // pinch: zoom by the spread ratio
+    if(ptrs.size>=2){                                    // two fingers: rotate + pinch-zoom together
       const a=[...ptrs.values()], d2=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y);
-      if(pinchD>0&&d2>0) zoomBy(d2/pinchD);
-      pinchD=d2; return;}
-    window.dpCam.az=((window.dpCam.az-(e.clientX-px)*0.45)+540)%360-180;
-    window.dpCam.el=Math.max(3,Math.min(88,window.dpCam.el+(e.clientY-py)*0.45));
+      const mx=(a[0].x+a[1].x)/2, my=(a[0].y+a[1].y)/2;
+      rotate(mx-px,my-py); px=mx; py=my;
+      if(pinchD>0&&d2>0&&Math.abs(d2-pinchD)>0.5) zoomBy(d2/pinchD);
+      pinchD=d2; dpRenderScene(); return;}
+    if(mode==='rot') rotate(e.clientX-px,e.clientY-py);
+    else panBy(e.clientX-px,e.clientY-py);
     px=e.clientX;py=e.clientY;dpRenderScene();});
   const end=e=>{ptrs.delete(e.pointerId);pinchD=0;
-    if(ptrs.size===1){const a=[...ptrs.values()][0];px=a.x;py=a.y;}};  // hand back to rotate w/o a jump
+    if(ptrs.size===1){const a=[...ptrs.values()][0];px=a.x;py=a.y;mode='pan';}};  // remaining finger pans w/o a jump
   el.addEventListener('pointerup',end);
   el.addEventListener('pointercancel',end);
   el.addEventListener('wheel',e=>{e.preventDefault();zoomBy(Math.exp(-e.deltaY*0.0012));},{passive:false});
-  el.addEventListener('dblclick',()=>{window.dpCam={az:DP_CAMS.iso.az,el:DP_CAMS.iso.el,zoom:1};dpRenderScene();});
+  el.addEventListener('dblclick',()=>{window.dpCam={az:DP_CAMS.iso.az,el:DP_CAMS.iso.el,zoom:1,pan:{x:0,y:0,z:0}};dpRenderScene();});
 }
 function renderDPlaneVisual(){
   const host=document.getElementById('dplane-visual'); if(!host) return;
@@ -1044,7 +1062,7 @@ function renderDPlaneVisual(){
       <select class="strat-select" style="max-width:150px" onchange="setDpVisClub(this.value)">${opts}</select>
     </div>
     <div class="dpv-readout" id="dpv-readout"></div>
-    <div class="dpv-panel"><div class="dpv-title">Impact Plane · D-Plane · Ball Flight — drag to rotate · scroll / pinch to zoom</div>
+    <div class="dpv-panel"><div class="dpv-title">Impact Plane · D-Plane · Ball Flight — drag pan · middle-drag / 2-finger rotate · scroll / pinch zoom</div>
       <div id="dpv-scene"></div></div>
     <div class="dpv-cam-row">${camBtns}</div>
     <div class="dpv-strike">

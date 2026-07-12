@@ -229,7 +229,7 @@ function buildSideSVG(c,p){
   const lx2=x0+24*Math.cos(launchRad),ly2=y0-24*Math.sin(launchRad);
   const rx2=carryX-24*Math.cos(landRad),ry2=y3-24*Math.sin(landRad);
   const htLX=Math.min(pk.x+3,W-26),htLY=Math.max(pk.y-3,PAD_T+5);
-  return `<svg viewBox="0 0 ${W} ${H+4}" style="width:100%;display:block" xmlns="http://www.w3.org/2000/svg">
+  return `<svg data-pz viewBox="0 0 ${W} ${H+4}" style="width:100%;display:block" xmlns="http://www.w3.org/2000/svg">
     <line x1="4" y1="${groundY}" x2="${W-4}" y2="${groundY}" stroke="#c0d8cf" stroke-width="0.8"/>
     <line x1="${pk.x.toFixed(1)}" y1="${(pk.y+2).toFixed(1)}" x2="${pk.x.toFixed(1)}" y2="${groundY}" stroke="#c0d8cf" stroke-width="0.6" stroke-dasharray="3,2"/>
     <text x="${htLX.toFixed(1)}" y="${htLY.toFixed(1)}" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="6.5" fill="#3a5a7a">${p.ht||'—'}ft</text>
@@ -307,7 +307,7 @@ function buildTopSVG(c,p,opts){
   const ovW=dispYd*scale, ovH=depthYd*scale;
 
   if(!drag){
-    return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block;overflow:visible" xmlns="http://www.w3.org/2000/svg">
+    return `<svg data-pz viewBox="0 0 ${W} ${H}" style="width:100%;display:block;overflow:visible" xmlns="http://www.w3.org/2000/svg">
     <text x="${cx}" y="12" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9" font-weight="bold" fill="var(--ink2)">${carry} yd</text>
     ${bg}
     <text x="${cx}" y="21" text-anchor="middle" font-family="ui-monospace,monospace" font-size="5" fill="var(--green)" opacity="0.8">${ctxLabel}</text>
@@ -326,7 +326,7 @@ function buildTopSVG(c,p,opts){
   const uid=opts.uid||'appr';
   window.aimOffsets=window.aimOffsets||{};
   const off=window.aimOffsets[uid]||(window.aimOffsets[uid]={dx:0,dy:0});
-  return `<svg id="aim-svg-${uid}" class="aim-svg" viewBox="0 0 ${W} ${H}" style="width:100%;display:block;overflow:visible;touch-action:none"
+  return `<svg id="aim-svg-${uid}" class="aim-svg" data-pz viewBox="0 0 ${W} ${H}" style="width:100%;display:block;overflow:visible;touch-action:pan-y"
       data-uid="${uid}" data-cx="${cx}" data-cy="${cy}" data-gx="${gx}" data-gy="${gy}" data-scale="${scale.toFixed(4)}" data-disp="${ovW.toFixed(2)}" data-depth="${ovH.toFixed(2)}" data-shape="${shape}"
       xmlns="http://www.w3.org/2000/svg">
     <text x="${cx}" y="12" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9" font-weight="bold" fill="var(--ink2)">${carry} yd</text>
@@ -420,8 +420,9 @@ function wireAimDrag(svg){
     return nOff/NSAMP*100;
   }
   function clientToVB(e){
-    const r=svg.getBoundingClientRect();
-    return {x:(e.clientX-r.left)/r.width*120, y:(e.clientY-r.top)/r.height*112};
+    /* read the live viewBox (pan/zoom may have changed it) so the dot tracks the finger */
+    const r=svg.getBoundingClientRect(), vb=svg.viewBox.baseVal;
+    return {x:vb.x+(e.clientX-r.left)/r.width*vb.width, y:vb.y+(e.clientY-r.top)/r.height*vb.height};
   }
   function update(){
     grp.setAttribute('transform',`translate(${off.dx.toFixed(1)},${off.dy.toFixed(1)})`);

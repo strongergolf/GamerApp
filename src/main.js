@@ -20,6 +20,7 @@ import './data/defaults.js';
 import './state/store.js';
 
 import './ui/brand.js';
+import './ui/panzoom.js';
 
 import './physics/conditions.js';
 import './physics/dplane.js';
