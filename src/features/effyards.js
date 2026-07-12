@@ -104,7 +104,7 @@ const EY_TERM_ELEV = { key:'elev', label:'Elevation', type:'range', min:-30, max
       fmt:v=> v>0?`+${v} yd up`:v<0?`${v} yd down`:'level' };
 /* Short game: the target GREEN's elevation above/below you, in feet (distinct from Stance = the
    lie angle you stand on, and from Level = the green's run-out slope). */
-const EY_TERM_SG_ELEV = { key:'elev', label:'Target elevation', type:'range', min:-30, max:30, step:1, noContrib:false,
+const EY_TERM_SG_ELEV = { key:'elev', label:'Elevation', type:'range', min:-30, max:30, step:1, noContrib:false,
       fmt:v=> v>0?`+${v} ft up`:v<0?`${v} ft down`:'level' };
 const EY_TERM_LEVEL = { key:'level', label:'Level', type:'range', min:-6, max:6, step:0.5, noContrib:true,
       fmt:v=>{ const n=Math.round((parseFloat(v)||0)*2)/2; return n===0?'Level':`${Math.abs(n)}° ${n>0?'up':'down'}`; } };
@@ -114,7 +114,7 @@ const EY_TERM_FIRM = { key:'firmness', label:'Firmness', type:'step', noContrib:
    effect is a carry/roll SPLIT (no distance badge), so noContrib. Approach: a distance change. */
 function elevTerm(ctx){
   const deg = (EY[ctx].elevUnit||elevBaseUnit(ctx))==='deg';
-  const label = ctx==='shortgame'?'Target elevation':'Elevation';
+  const label = 'Elevation';
   const base = elevBaseUnit(ctx), nc = ctx==='shortgame';
   return deg
     ? { key:'elev', label, type:'range', min:-15, max:15, step:0.5, unitToggle:ctx, noContrib:nc, fmt:v=> v>0?`+${v}° up`:v<0?`${v}° down`:'level' }

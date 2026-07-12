@@ -39,7 +39,10 @@ function buildShortGame(){
     <!-- 1b. Plays-like adjusters -->
     <div id="ey-shortgame" class="ey-host"></div>
 
-    <!-- 3. Shot options (selected shot opens its trajectory drop below it) -->
+    <!-- 2. Trajectory profile for the selected shot option -->
+    <div id="chip-flight-wrap"></div>
+
+    <!-- 3. Shot options -->
     <div id="chip-results"></div>
 
 
@@ -229,13 +232,13 @@ function renderChipDial(){
   const displayIdx = (window.chipSelectedIdx>=0 && window.chipSelectedIdx<rows.length) ? window.chipSelectedIdx : defaultIdx;
 
   const typeColor=c=>c.type==='wedge'?'var(--c-wedge)':c.type==='iron'?'var(--c-iron)':c.type==='putter'?'var(--c-putter)':'var(--c-wood)';
+  let flightHTML='';
   const cards=rows.map(({c,loft,carry,roll,total,practical},i)=>{
     const selected = i===displayIdx;
     const tc=typeColor(c);
     const note = carry<0.5 ? 'carry too short' : carry>25 ? 'pitch / full shot territory' : '';
     const noteStr = note ? ` <span style="color:var(--gold);font-size:.68rem">· ${note}</span>` : '';
-    /* Selected shot opens its trajectory drop directly below the card (as on Approach). */
-    let drop='';
+    /* Selected shot's trajectory renders into the flight wrap above the shot options. */
     if(selected){
       const effNote = Math.abs(sgDelta)>=0.5 ? ` <span style="color:var(--gold);font-weight:700">plays ${loft.toFixed(0)}° eff</span>` : '';
       const stanceAdj = window.chipStanceLaunchAdj||0;
@@ -248,7 +251,7 @@ function renderChipDial(){
       const elevFt2 = (typeof elevBaseVal==='function'&&typeof EY!=='undefined') ? elevBaseVal('shortgame',measuredYd) : 0;
       const elevTxt = Math.abs(elevFt2)>=0.5 ? ` · target ${Math.abs(elevFt2).toFixed(0)} ft ${elevFt2>0?'up':'down'}` : '';
       const ctxLine = `${fm.check} · ${firmName} green · ${slopeTxt} @ stimp ${stimp.toFixed(1)}${elevTxt}${stanceAdj?` · stance ${stanceAdj>0?'+':''}${stanceAdj}° launch`:''}`;
-      drop=`<div class="calc-traj-drop" style="grid-template-columns:1fr">
+      flightHTML=`<div class="calc-traj-drop" style="grid-template-columns:1fr">
         <div class="traj-panel traj-main">
           <div class="traj-panel-title">${c.label} (${c.loft})${effNote} — carry ${carry.toFixed(1)} → roll ${roll.toFixed(1)} yd · launch ${launch.toFixed(0)}° · ~${spin.toLocaleString()} rpm · ${chipArchetype(loft)}</div>
           <div style="font-family:ui-monospace,monospace;font-size:.6rem;color:var(--muted);margin:1px 0 3px">${ctxLine}</div>
@@ -266,9 +269,10 @@ function renderChipDial(){
           <div class="calc-swing-label" style="color:${tc}">${chipArchetype(loft)}<span style="${muted}"> — </span><span style="font-family:Arial,sans-serif;font-size:1.15rem;font-weight:800;color:${bigCol}">${carry.toFixed(1)}</span><span style="${muted}"> carry · </span><span style="font-family:Arial,sans-serif;font-size:.92rem;font-weight:700;color:${bigCol}">${roll.toFixed(1)}</span><span style="${muted}"> roll · ${total.toFixed(1)} total</span>${noteStr}</div>
         </div>
       </div>
-      ${drop}
     </div>`;
   }).join('');
+  const flightWrapEl=document.getElementById('chip-flight-wrap');
+  if(flightWrapEl) flightWrapEl.innerHTML=flightHTML;
 
   results.innerHTML=cards;
   renderExpectedShots('es-short', measuredYd, 'atg');

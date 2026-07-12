@@ -125,6 +125,14 @@ body::after{content:'';position:fixed;inset:0;background-image:url("data:image/s
 .flight-col-main{flex:2;min-width:0} .flight-col-top{flex:1;min-width:0}
 .flight-svg-wrap{width:100%;overflow:hidden}
 
+/* Standalone trajectory/dispersion card on Approach + Short Game (sits between the Situational
+   Info box and the club/shot options — see #approach-flight-wrap / #chip-flight-wrap in their
+   templates). Reuses .flight-wrap / .calc-traj-drop but as its own bordered card, not a card footer. */
+#approach-flight-wrap:not(:empty),#chip-flight-wrap:not(:empty){border:1px solid var(--border2);border-radius:10px;background:var(--surface2);overflow:hidden;margin:8px 0 2px}
+#approach-flight-wrap .flight-wrap{border-top:none}
+#chip-flight-wrap:not(:empty){padding:15px 18px}
+#chip-flight-wrap .calc-traj-drop{border-top:none;margin-top:0;padding-top:0}
+
 /* LEGEND */
 .legend{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:8px}
 .legend-item{display:flex;align-items:center;gap:5px;font-family:ui-monospace,monospace;font-size:.6rem;color:var(--muted)}

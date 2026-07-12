@@ -167,6 +167,7 @@ function renderCalc(target){
      playTarget (via the adjuster); here it reshapes launch / spin / height / rollout per club. */
   const shotType=(typeof EY!=='undefined'&&EY.approach)?EY.approach.shot:'stock';
   const stm=(typeof EY_SHOT!=='undefined'&&EY_SHOT[shotType])?EY_SHOT[shotType]:{launchMult:1,spinMult:1,heightMult:1,rollMult:1};
+  let flightHTML='';
   box.innerHTML=sug.map((o,i)=>{
     const selected=i===selIdx, color=effortColor(o.effort);
     const swingDesc=o.sw.key==='full'?'Full swing':o.sw.key==='tq'?'¾ swing':'½ swing';
@@ -183,6 +184,14 @@ function renderCalc(target){
     /* Anchor mini-stat */
     const clockPos=o.sw.key==='full'?'11:00':o.sw.key==='tq'?'10:00':'9:00';
     const diffStr=o.delta===0?'on anchor':`${o.delta>0?'+':''}${o.delta}yd`;
+    if(selected){
+      flightHTML=`<div class="flight-wrap">
+        <div class="flight-row">
+          <div class="flight-col-main"><div class="flight-label">Trajectory &amp; Rollout</div><div class="flight-svg-wrap">${buildSideSVG(o.club,{carry:estCarry,total:target,launch:fl.launch,spin:fl.spin,land:Math.round((p.land||45)*(stm.landMult||1)),ht:fl.height,bspd:p.bspd||0})}</div></div>
+          <div class="flight-col-top"><div class="flight-label">Overhead — Dispersion</div><div class="flight-svg-wrap">${buildTopSVG(o.club,{carry:estCarry},{draggable:true,uid:'appr'})}</div></div>
+        </div>
+      </div>`;
+    }
     return `<div class="calc-result-card ${selected?'best':''}" onclick="selectApproachResult(${i})" style="cursor:pointer">
       <div class="calc-card-header">
         <div class="calc-club-badge">${o.club.label}<small>${o.club.loft}</small></div>
@@ -200,14 +209,10 @@ function renderCalc(target){
         <div class="calc-mini-stat"><div class="calc-mini-label">Height / Check</div><div class="calc-mini-val">${fl.height}ft · ${checkDesc}</div></div>
         <div class="calc-mini-stat"><div class="calc-mini-label">Anchor / Diff</div><div class="calc-mini-val">${clockPos} · ${diffStr}</div></div>
       </div>
-      ${selected?`<div class="flight-wrap" style="padding:13px 0 2px;margin-top:10px;background:none">
-        <div class="flight-row">
-          <div class="flight-col-main"><div class="flight-label">Trajectory &amp; Rollout</div><div class="flight-svg-wrap">${buildSideSVG(o.club,{carry:estCarry,total:target,launch:fl.launch,spin:fl.spin,land:Math.round((p.land||45)*(stm.landMult||1)),ht:fl.height,bspd:p.bspd||0})}</div></div>
-          <div class="flight-col-top"><div class="flight-label">Overhead — Dispersion</div><div class="flight-svg-wrap">${buildTopSVG(o.club,{carry:estCarry},{draggable:true,uid:'appr'})}</div></div>
-        </div>
-      </div>`:''}
     </div>`;
   }).join('');
+  const flightWrapEl=document.getElementById('approach-flight-wrap');
+  if(flightWrapEl) flightWrapEl.innerHTML=flightHTML;
   /* Wire up the draggable overhead-dispersion aim view on the selected card (no-op otherwise). */
   if(typeof initApproachAimDrag==='function') initApproachAimDrag();
 }
