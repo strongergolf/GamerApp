@@ -269,7 +269,9 @@ function fairwayPath(cx,top,bot,halfPx){
 /* OVERHEAD DISPERSION — single 86% shot oval over the surface you're actually landing on:
    a typical ~30 yd green (organic outline) for irons & wedges, or a 40 yd-wide fairway
    for woods/hybrids. Lateral spread = disp86() (same source as the L/R badges), depth
-   capped ≈ ±7 yd, slanted long-left / short-right (a typical miss tilt). */
+   capped ≈ ±8 yd, slanted long-left / short-right (a typical miss tilt). Below the cap
+   (wedges) the oval reads as a vertical/near-circular shape; once lateral spread exceeds
+   it (irons, fairway woods/hybrids), the oval slants wider than deep. */
 const DISP_SLANT = 15;   /* deg; tilts the oval long-left / short-right (mirrored) */
 function buildTopSVG(c,p,opts){
   opts=opts||{};
@@ -277,7 +279,7 @@ function buildTopSVG(c,p,opts){
   const W=120,H=112,cx=W/2,cy=H/2+3,tc=typeHex(c.type);
   const carry=p.carry||100;
   const dispYd=disp86(carry);             // single 86% L/R lateral half-width, yards (matches badges)
-  const depthYd=Math.min(dispYd, 7);      // depth (distance control) capped at ≈ ±7 yd
+  const depthYd=Math.min(dispYd, 8);      // depth (distance control) capped at ≈ ±8 yd
   const isWood=c.type==='wood';
 
   let bg, ctxLabel, scale, gx, gy, shape;   // gx/gy = surface half-axes (px) used for the live readout
