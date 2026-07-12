@@ -881,18 +881,15 @@ function dpCamBasis(azDeg,elDeg){
 }
 /* Off-centre strike (dimples toward toe + / heel −, high + / low −) for gear-effect
    preview. Ephemeral by design — full-shot intent is the centre of percussion. */
-function dpStrikeLabel(){
-  const st=window.dpStrike||{th:0,hl:0};
-  if(!st.th&&!st.hl) return 'centre';
-  const parts=[];
-  if(st.th) parts.push(Math.abs(st.th)+(st.th>0?' toe':' heel'));
-  if(st.hl) parts.push(Math.abs(st.hl)+(st.hl>0?' high':' low'));
-  return parts.join(' · ');
+function dpStrikeTxt(field,v){
+  v=parseInt(v)||0;
+  if(!v) return 'centre';
+  return field==='th' ? Math.abs(v)+(v>0?' toe':' heel') : Math.abs(v)+(v>0?' high':' low');
 }
 function dpSetStrike(field,val){
   window.dpStrike=window.dpStrike||{th:0,hl:0};
   window.dpStrike[field]=parseInt(val)||0;
-  const lb=document.getElementById('dpv-strike-lbl'); if(lb) lb.textContent=dpStrikeLabel();
+  const sp=document.getElementById(`dpv-strike-${field}-v`); if(sp) sp.textContent=dpStrikeTxt(field,val);
   dpRenderScene();
 }
 /* Project the scene through the current orbit camera and redraw the SVG. Painter's
@@ -985,11 +982,16 @@ function dpRenderScene(){
   const oq=P(wv.O);
   add([wv.O], `<circle cx="${oq.x.toFixed(1)}" cy="${oq.y.toFixed(1)}" r="4" fill="#fff" stroke="#333" stroke-width="1.4"/>`, 0.3);
 
-  /* labels on top, white-haloed for readability at any camera angle */
-  const lab=(pt,txt,col,ddx,ddy)=>{const q=P(pt);
-    return `<text x="${(q.x+(ddx!=null?ddx:4)).toFixed(1)}" y="${(q.y+(ddy!=null?ddy:-4)).toFixed(1)}" font-family="ui-monospace,monospace" font-size="7.5" font-weight="700" fill="${col}" stroke="#fff" stroke-width="2.4" paint-order="stroke" opacity="0.95">${txt}</text>`;};
+  /* labels on top, white-haloed for readability at any camera angle; the D-plane
+     wedge and spin axis carry their live numbers so slider drags read on the render */
+  const lab=(pt,txt,col,ddx,ddy,anchor)=>{const q=P(pt);
+    return `<text x="${(q.x+(ddx!=null?ddx:4)).toFixed(1)}" y="${(q.y+(ddy!=null?ddy:-4)).toFixed(1)}"${anchor?` text-anchor="${anchor}"`:''} font-family="ui-monospace,monospace" font-size="7.5" font-weight="700" fill="${col}" stroke="#fff" stroke-width="2.4" paint-order="stroke" opacity="0.95">${txt}</text>`;};
+  const axSide=axisEff<-0.05?'L':axisEff>0.05?'R':'';
+  const wedgeC={x:(wv.O.x+wv.path.x+wv.face.x)/3, y:(wv.O.y+wv.path.y+wv.face.y)/3, z:(wv.O.z+wv.path.z+wv.face.z)/3};
   let top=lab(wv.path,'path','#c43c9e')+lab(wv.face,'face','#2a6fc4')
-    +lab(axA,'spin axis','#cc2a2a')+lab(A4,'impact plane','#4a7aaa',6,10);
+    +lab(axA,`spin axis ${Math.abs(axisEff).toFixed(1)}°${axSide}`,'#cc2a2a')
+    +lab(wedgeC,`spin loft ${r.spinLoft.toFixed(1)}°`,'#b8860b',0,2,'middle')
+    +lab(A4,'impact plane','#4a7aaa',6,10);
 
   prims.sort((x,y)=>x.d-y.d);
   sceneEl.innerHTML=`<svg viewBox="0 0 ${VW} ${VH}" style="width:100%;display:block" xmlns="http://www.w3.org/2000/svg">
@@ -1091,6 +1093,11 @@ function renderDPlaneVisual(){
       <span class="dpv-sand-val" id="dpv-sand-${field}-v">${dpSandFmt(field,sandVals[field])}</span>
       <input type="range" min="${min}" max="${max}" step="${step}" value="${sandVals[field]}" oninput="dpSetSand('${field}',this.value)" onchange="saveState()">
     </div>`;
+  const strikeRow=(field,label)=>`<div class="dpv-sand-row">
+      <span class="dpv-sand-lbl" style="color:#cc2a2a">${label}</span>
+      <span class="dpv-sand-val" id="dpv-strike-${field}-v">${dpStrikeTxt(field,st[field])}</span>
+      <input type="range" min="-3" max="3" step="1" value="${st[field]}" oninput="dpSetStrike('${field}',this.value)">
+    </div>`;
   const sandbox=`<div class="dpv-sand">
       <div class="dpv-strike-head">Shape Sandbox — drag the impact numbers, watch the flight <button type="button" class="dpv-sand-reset" onclick="dpSandReset()">reset club</button></div>
       ${sandRow('hFace','Horiz. Face','#2a6fc4',-8,8,0.1)}
@@ -1098,6 +1105,12 @@ function renderDPlaneVisual(){
       ${sandRow('vFace','Dyn Loft','#2a6fc4',Math.max(0,loft-15),loft+10,0.5)}
       ${sandRow('aoa','Attack Angle','#c43c9e',-6,6,0.1)}
       <div class="dpv-strike-note">− left / + right (RH) · attack − down / + up. Live in the render and the grid; saved as this club's stock tendency.</div>
+      <div class="dpv-sand-sub">
+        <div class="dpv-strike-head">Strike — Gear Effect <span class="dpv-strike-cur">layered on the D-plane, not part of it</span></div>
+        ${strikeRow('th','Heel ↔ Toe')}
+        ${strikeRow('hl','Low ↔ High')}
+        <div class="dpv-strike-note">Off-centre contact tilts the spin axis on top of the D-plane above (woods gear far more than irons). Full-shot intent is the centre of percussion — preview only; resets when you switch clubs.</div>
+      </div>
     </div>`;
   host.innerHTML=`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
       <label style="font-family:ui-monospace,monospace;font-size:.56rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)">Club</label>
@@ -1107,15 +1120,7 @@ function renderDPlaneVisual(){
     <div class="dpv-panel"><div class="dpv-title">Impact Plane · D-Plane · Ball Flight — drag pan · middle-drag / 2-finger rotate · scroll / pinch zoom</div>
       <div id="dpv-scene"></div></div>
     <div class="dpv-cam-row">${camBtns}</div>
-    ${sandbox}
-    <div class="dpv-strike">
-      <div class="dpv-strike-head">Strike — gear effect preview <span class="dpv-strike-cur" id="dpv-strike-lbl">${dpStrikeLabel()}</span></div>
-      <div class="dpv-strike-sliders">
-        <label>heel ↔ toe<input type="range" min="-3" max="3" step="1" value="${st.th}" oninput="dpSetStrike('th',this.value)"></label>
-        <label>low ↔ high<input type="range" min="-3" max="3" step="1" value="${st.hl}" oninput="dpSetStrike('hl',this.value)"></label>
-      </div>
-      <div class="dpv-strike-note">Full-shot intent is the centre of percussion — leave at centre for stock planning; slide to preview how an off-centre hit gears the flight.</div>
-    </div>`;
+    ${sandbox}`;
   dpRenderScene();
   dpSceneDragInit();
 }
@@ -1134,4 +1139,4 @@ function buildGearEffectL2(){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { STRAT_OPTS, ballRefHtml, buildAssess, buildImprove, buildResources, buildCourseStrategy, buildDplaneGrid, buildForceProfileSVG, buildGearEffectL2, buildKinematicSequenceSVG, buildStrategyPrefs, dpBallFlight, dpRenderScene, dpSandFmt, dpSandReset, dpSceneDragInit, dpSetCam, dpSetSand, dpSetStrike, dpStrikeLabel, dpWorldVectors, dplFmt, dplaneShape, escapeHtml, forceRow, getPath, metricBox, renderDPlaneVisual, saveSwing, setDpVisClub, setDplaneCell, setStrategy, setPath, stratLabel, stratSelect, stratSummary, toggleLevel });
+Object.assign(window, { STRAT_OPTS, ballRefHtml, buildAssess, buildImprove, buildResources, buildCourseStrategy, buildDplaneGrid, buildForceProfileSVG, buildGearEffectL2, buildKinematicSequenceSVG, buildStrategyPrefs, dpBallFlight, dpRenderScene, dpSandFmt, dpSandReset, dpSceneDragInit, dpSetCam, dpSetSand, dpSetStrike, dpStrikeTxt, dpWorldVectors, dplFmt, dplaneShape, escapeHtml, forceRow, getPath, metricBox, renderDPlaneVisual, saveSwing, setDpVisClub, setDplaneCell, setStrategy, setPath, stratLabel, stratSelect, stratSummary, toggleLevel });
