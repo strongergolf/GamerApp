@@ -867,8 +867,8 @@ const DP_CAMS={
   face:{az:88, el:9,  name:'Face-On'},
   top: {az:0,  el:86, name:'Overhead'}
 };
-window.dpCam={az:DP_CAMS.iso.az, el:DP_CAMS.iso.el};
-function dpSetCam(key){ const v=DP_CAMS[key]; if(!v) return; window.dpCam={az:v.az,el:v.el}; dpRenderScene(); }
+window.dpCam={az:DP_CAMS.iso.az, el:DP_CAMS.iso.el, zoom:1};
+function dpSetCam(key){ const v=DP_CAMS[key]; if(!v) return; window.dpCam={az:v.az,el:v.el,zoom:window.dpCam.zoom||1}; dpRenderScene(); }
 /* Screen-right R, screen-up U and toward-camera D bases from azimuth/elevation. */
 function dpCamBasis(azDeg,elDeg){
   const az=azDeg*DPLANE_DEG, el=elDeg*DPLANE_DEG;
@@ -918,7 +918,7 @@ function dpRenderScene(){
 
   const wv=dpWorldVectors(hFace,hPath,vFace,aoa);
   const cam=dpCamBasis(window.dpCam.az, window.dpCam.el);
-  const VW=340, VH=250, CEN={x:0,y:0.85,z:3.0}, SC=31;
+  const VW=340, VH=250, CEN={x:0,y:0.85,z:3.0}, SC=31*(window.dpCam.zoom||1);
   const P=pt=>({x:VW/2+((pt.x-CEN.x)*cam.R.x+(pt.y-CEN.y)*cam.R.y+(pt.z-CEN.z)*cam.R.z)*SC,
                 y:VH/2-((pt.x-CEN.x)*cam.U.x+(pt.y-CEN.y)*cam.U.y+(pt.z-CEN.z)*cam.U.z)*SC});
   const dep=pt=>pt.x*cam.D.x+pt.y*cam.D.y+pt.z*cam.D.z;
@@ -1002,18 +1002,34 @@ function dpRenderScene(){
   const ro=document.getElementById('dpv-readout');
   if(ro) ro.innerHTML=`Stock Shape <b style="color:#111">${fl}</b><span class="dpv-sep">·</span>3D Spin Loft <b style="color:#b8860b">${r.spinLoft.toFixed(1)}°</b><span class="dpv-sep">·</span>Spin Axis <b style="color:#cc2a2a">${Math.abs(axisEff).toFixed(1)}°${side}</b><span class="dpv-sep">·</span>Curve <b>${Math.abs(Math.round(curveYd))} yd${curveYd<-0.5?' L':curveYd>0.5?' R':''}</b><br>Impact Plane <b style="color:#4a7aaa">${vPlane.toFixed(1)}°${d.vPlane!=null?'':' (est)'}</b><span class="dpv-sep">·</span>Plane Base <b style="color:#4a7aaa">${dplFmt(hPlane)}°</b>${(st.th||st.hl)?`<span class="dpv-sep">·</span>Gear <b style="color:#cc2a2a">${dplFmt(gearAxis)}° axis</b>`:''}`;
 }
-/* Pointer-drag orbit on the scene container (re-bound after each host rebuild). */
+/* Pointer orbit + zoom on the scene container (re-bound after each host rebuild).
+   One pointer drags to rotate; two pointers pinch to zoom (pointer events cover
+   touch, so no separate touch handlers); the mouse wheel zooms while hovering. */
 function dpSceneDragInit(){
   const el=document.getElementById('dpv-scene'); if(!el||el._dpDrag) return; el._dpDrag=true;
-  let px=0,py=0,drag=false;
-  el.addEventListener('pointerdown',e=>{drag=true;px=e.clientX;py=e.clientY;el.setPointerCapture(e.pointerId);e.preventDefault();});
-  el.addEventListener('pointermove',e=>{if(!drag)return;
+  const ptrs=new Map(); let px=0,py=0,pinchD=0;
+  const zoomBy=f=>{window.dpCam.zoom=Math.max(0.5,Math.min(4,(window.dpCam.zoom||1)*f));dpRenderScene();};
+  el.addEventListener('pointerdown',e=>{
+    ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(ptrs.size===1){px=e.clientX;py=e.clientY;}
+    else if(ptrs.size===2){const a=[...ptrs.values()];pinchD=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y);}
+    el.setPointerCapture(e.pointerId);e.preventDefault();});
+  el.addEventListener('pointermove',e=>{
+    if(!ptrs.has(e.pointerId))return;
+    ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(ptrs.size>=2){                                   // pinch: zoom by the spread ratio
+      const a=[...ptrs.values()], d2=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y);
+      if(pinchD>0&&d2>0) zoomBy(d2/pinchD);
+      pinchD=d2; return;}
     window.dpCam.az=((window.dpCam.az-(e.clientX-px)*0.45)+540)%360-180;
     window.dpCam.el=Math.max(3,Math.min(88,window.dpCam.el+(e.clientY-py)*0.45));
     px=e.clientX;py=e.clientY;dpRenderScene();});
-  el.addEventListener('pointerup',()=>{drag=false;});
-  el.addEventListener('pointercancel',()=>{drag=false;});
-  el.addEventListener('dblclick',()=>{window.dpCam={az:DP_CAMS.iso.az,el:DP_CAMS.iso.el};dpRenderScene();});
+  const end=e=>{ptrs.delete(e.pointerId);pinchD=0;
+    if(ptrs.size===1){const a=[...ptrs.values()][0];px=a.x;py=a.y;}};  // hand back to rotate w/o a jump
+  el.addEventListener('pointerup',end);
+  el.addEventListener('pointercancel',end);
+  el.addEventListener('wheel',e=>{e.preventDefault();zoomBy(Math.exp(-e.deltaY*0.0012));},{passive:false});
+  el.addEventListener('dblclick',()=>{window.dpCam={az:DP_CAMS.iso.az,el:DP_CAMS.iso.el,zoom:1};dpRenderScene();});
 }
 function renderDPlaneVisual(){
   const host=document.getElementById('dplane-visual'); if(!host) return;
@@ -1028,7 +1044,7 @@ function renderDPlaneVisual(){
       <select class="strat-select" style="max-width:150px" onchange="setDpVisClub(this.value)">${opts}</select>
     </div>
     <div class="dpv-readout" id="dpv-readout"></div>
-    <div class="dpv-panel"><div class="dpv-title">Impact Plane · D-Plane · Ball Flight — drag to rotate</div>
+    <div class="dpv-panel"><div class="dpv-title">Impact Plane · D-Plane · Ball Flight — drag to rotate · scroll / pinch to zoom</div>
       <div id="dpv-scene"></div></div>
     <div class="dpv-cam-row">${camBtns}</div>
     <div class="dpv-strike">
