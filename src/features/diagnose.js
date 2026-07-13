@@ -912,7 +912,13 @@ function dpRenderScene(){
   const gearAxis=dpGearAxisShift(st.th, c.type==='wood'?'wood':'iron');
   const axisEff=r.spinAxis+gearAxis;
   const curveYd=dpCurveYds(axisEff,carry)*(1-0.10*st.hl);
-  const apexEff=apexFt*(1+0.05*st.hl);
+  /* Vertical launch drives the height profile: the captured Bag apex is the anchor at the
+     club's captured launch angle, and scales with tan(vLaunch) as Vert. Face / Vert. Path
+     move — so delofting visibly flattens the flight and adding loft balloons it. */
+  const staticLoft=parseFloat(c.loft)||30;
+  const baseLaunch=(p.launch!=null&&+p.launch>2)?+p.launch:Math.max(4,0.75*staticLoft);
+  const launchRatio=Math.max(0.08,Math.min(2.6,Math.tan(Math.max(0.5,r.vLaunch)*DPLANE_DEG)/Math.tan(baseLaunch*DPLANE_DEG)));
+  const apexEff=apexFt*launchRatio*(1+0.05*st.hl);
 
   const wv=dpWorldVectors(hFace,hPath,vFace,aoa);
   const cam=dpCamBasis(window.dpCam.az, window.dpCam.el);
@@ -1004,7 +1010,7 @@ function dpRenderScene(){
   const fl=dpBallFlight(axisEff);
   const side=axisEff<-0.05?'L':axisEff>0.05?'R':'';
   const ro=document.getElementById('dpv-readout');
-  if(ro) ro.innerHTML=`Stock Shape <b style="color:#111">${fl}</b><span class="dpv-sep">·</span>3D Spin Loft <b style="color:#b8860b">${r.spinLoft.toFixed(1)}°</b><span class="dpv-sep">·</span>Spin Axis <b style="color:#cc2a2a">${Math.abs(axisEff).toFixed(1)}°${side}</b><span class="dpv-sep">·</span>Curve <b>${Math.abs(Math.round(curveYd))} yd${curveYd<-0.5?' L':curveYd>0.5?' R':''}</b><br>Impact Plane <b style="color:#4a7aaa">${vPlane.toFixed(1)}°${d.vPlane!=null?'':' (est)'}</b><span class="dpv-sep">·</span>Plane Base <b style="color:#4a7aaa">${dplFmt(hPlane)}°</b>${(st.th||st.hl)?`<span class="dpv-sep">·</span>Gear <b style="color:#cc2a2a">${dplFmt(gearAxis)}° axis</b>`:''}`;
+  if(ro) ro.innerHTML=`Stock Shape <b style="color:#111">${fl}</b><span class="dpv-sep">·</span>3D Spin Loft <b style="color:#b8860b">${r.spinLoft.toFixed(1)}°</b><span class="dpv-sep">·</span>Spin Axis <b style="color:#cc2a2a">${Math.abs(axisEff).toFixed(1)}°${side}</b><span class="dpv-sep">·</span>Curve <b>${Math.abs(Math.round(curveYd))} yd${curveYd<-0.5?' L':curveYd>0.5?' R':''}</b><br>Launch <b>${r.vLaunch.toFixed(1)}°</b><span class="dpv-sep">·</span>Apex <b>${Math.round(apexEff)} ft</b><span class="dpv-sep">·</span>Impact Plane <b style="color:#4a7aaa">${vPlane.toFixed(1)}°${d.vPlane!=null?'':' (est)'}</b><span class="dpv-sep">·</span>Plane Base <b style="color:#4a7aaa">${dplFmt(hPlane)}°</b>${(st.th||st.hl)?`<span class="dpv-sep">·</span>Gear <b style="color:#cc2a2a">${dplFmt(gearAxis)}° axis</b>`:''}`;
 }
 /* ---- Shape Sandbox: live impact-variable sliders under the 3D render. Writes the
    same STATE.dplane the grid edits, so slider and typed capture stay one dataset;
