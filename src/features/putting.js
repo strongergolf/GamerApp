@@ -39,7 +39,7 @@ function buildPutting(){
         </div>
         <div class="ey-term" id="putt-slope-term">${puttSlopeTermHTML()}</div>
         <div class="ey-term">
-          <div class="ey-term-head"><span class="ey-term-label">Side Slope at Point of Influence</span><span class="ey-term-val" id="putt-grade-display">2</span></div>
+          <div class="ey-term-head"><span class="ey-term-label">Side Slope at Point of Influence</span><span class="ey-term-val" id="putt-grade-display">2%</span></div>
           <input type="range" id="putt-grade" min="0" max="5" step="0.5" value="2" oninput="onPuttGradeInput(this.value)">
         </div>
         <div class="ey-term">
@@ -52,19 +52,21 @@ function buildPutting(){
     <!-- 3. Expected shots strip (below Situational Info, matching Approach / Short Game) -->
     <div id="es-putting" class="expected-shots-strip"></div>
 
-    <!-- 4. Required Break card (left) · Putt SVG (right) -->
+    <!-- 3b. Make % by distance — slim sparkline (outcome model, Presumed) -->
+    <div id="putt-make-spark"></div>
+
+    <!-- 4. Required Break + Side Profile (left column) · overhead break view (right) —
+         the profile slots into the dead space beside the tall overhead SVG -->
     <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:start;margin-top:14px">
-      <div style="flex:1;min-width:220px">
+      <div style="flex:1;min-width:250px">
         <div id="putt-result-wrap"></div>
+        <div class="putt-profile-label" style="margin-top:12px">Side Profile</div>
+        <div id="putt-profile-wrap" style="width:100%"></div>
       </div>
       <div style="flex:0 0 260px">
         <div id="putt-svg-wrap" style="width:100%"></div>
       </div>
-    </div>
-
-    <!-- 5. Side profile of the putt (slope / distance / pace) -->
-    <div class="putt-profile-label">Side Profile</div>
-    <div id="putt-profile-wrap" style="width:100%"></div>`;
+    </div>`;
   renderPutt();
   renderExpectedShots('es-putting', 15, 'green');
 }
@@ -132,13 +134,13 @@ function onPuttBreakSlider(idx){
   const lbl=document.getElementById('putt-dir-v'); if(lbl) lbl.textContent=PUTT_BREAKS[i][1];
   const g=document.getElementById('putt-grade'), gd=document.getElementById('putt-grade-display');
   /* Straight zeroes the side slope, and vice-versa */
-  if(PUTT_BREAKS[i][0]==='straight'){ if(g){ g.value=0; if(gd) gd.textContent='0'; } }
-  else if(g && parseFloat(g.value)===0){ g.value=2; if(gd) gd.textContent='2'; }
+  if(PUTT_BREAKS[i][0]==='straight'){ if(g){ g.value=0; if(gd) gd.textContent='0%'; } }
+  else if(g && parseFloat(g.value)===0){ g.value=2; if(gd) gd.textContent='2%'; }
   renderPutt();
 }
 function onPuttGradeInput(v){
   const g=parseFloat(v)||0;
-  const gd=document.getElementById('putt-grade-display'); if(gd) gd.textContent=v;
+  const gd=document.getElementById('putt-grade-display'); if(gd) gd.textContent=v+'%';
   const dir=document.getElementById('putt-dir'), dv=document.getElementById('putt-dir-v');
   if(dir){
     const curId=PUTT_BREAKS[_puttBreakIdx()][0];
@@ -179,6 +181,9 @@ function renderPutt(){
   const cupW=edgeOffsetIn/4.25;
   const res=document.getElementById('putt-result-wrap'); if(!res) return;
   const slopeWord=fmtSlopeElev(elevIn).toLowerCase();
+  /* Outcome model (Presumed): make %, typical lag leave, and the comeback length the
+     chosen pace buys if it misses — the speed-vs-line tradeoff behind the cone. */
+  const makePct=puttMakePct(dist), leaveFt=puttLeave(dist), comebackFt=puttComeback(pace);
   res.innerHTML=`
     <div class="putt-result-card">
       <h4>Required Break</h4>
@@ -187,11 +192,43 @@ function renderPutt(){
         <div class="putt-stat"><div class="putt-stat-val">${cupW.toFixed(2)}×</div><div class="putt-stat-lbl">Cup widths</div></div>
         <div class="putt-stat"><div class="putt-stat-val">${breakIn.toFixed(1)}"</div><div class="putt-stat-lbl">Break to centre</div></div>
       </div>
-      <div class="putt-conditions">${dist} ft · grade ${grade} · stimp ${stimp.toFixed(1)} · ${slopeWord} · pace ${pace}"</div>
+      <div class="putt-stat-grid" style="margin-top:6px">
+        <div class="putt-stat"><div class="putt-stat-val">${makePct}%</div><div class="putt-stat-lbl">Make (typ.)</div></div>
+        <div class="putt-stat"><div class="putt-stat-val">${leaveFt} ft</div><div class="putt-stat-lbl">Typical leave</div></div>
+        <div class="putt-stat"><div class="putt-stat-val">${comebackFt} ft</div><div class="putt-stat-lbl">Comeback @ pace</div></div>
+      </div>
+      <div class="putt-conditions">${dist} ft · grade ${grade}% · stimp ${stimp.toFixed(1)} · ${slopeWord} · pace ${pace}"</div>
     </div>`;
+  const spark=document.getElementById('putt-make-spark'); if(spark) spark.innerHTML=buildPuttMakeSpark(dist);
   const svgWrap=document.getElementById('putt-svg-wrap'); if(!svgWrap) return;
   svgWrap.innerHTML=buildPuttSVG(dist,breakIn,dir==='straight'?'lr':dir,slopeCategoryFromElev(elevIn),pace);
   const profWrap=document.getElementById('putt-profile-wrap'); if(profWrap) profWrap.innerHTML=buildPuttProfileSVG(dist,elevIn,pace,stimp);
+}
+
+/* Slim make%-by-distance sparkline: the outcome curve with the current putt marked.
+   Anchored to PUTT_MAKE_ANCHORS (typical good player, Presumed — refine from data). */
+function buildPuttMakeSpark(dist){
+  const W=320, H=44, PADL=8, PADR=10, PADT=8, PADB=10;
+  const X=d=>PADL+(d-2)/(60-2)*(W-PADL-PADR);
+  const Y=p=>PADT+(1-p/100)*(H-PADT-PADB);
+  const ptArr=[];
+  for(let d=2; d<=60; d+=2) ptArr.push(`${X(d).toFixed(1)},${Y(puttMakePct(d)).toFixed(1)}`);
+  const pts=ptArr.join(' ');
+  const area=`M ${ptArr[0]} L ${ptArr.join(' L ')} L ${X(60).toFixed(1)},${H-PADB} L ${X(2).toFixed(1)},${H-PADB} Z`;
+  const mx=X(Math.max(2,Math.min(60,dist))), my=Y(puttMakePct(dist));
+  const ticks=[5,10,20,30,40,50,60].map(d=>`<text x="${X(d).toFixed(1)}" y="${H-1.5}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="5.5" fill="var(--muted)">${d}</text>`).join('');
+  const prov=(typeof sgProv==='function')?sgProv('presumed'):'';
+  return `<div class="putt-spark">
+    <div class="putt-spark-head"><span>Make % by distance — typical good player</span>${prov}</div>
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block" xmlns="http://www.w3.org/2000/svg">
+      <path d="${area}" fill="var(--green2)" fill-opacity="0.14"/>
+      <polyline points="${pts.trim()}" fill="none" stroke="var(--green)" stroke-width="1.4" opacity="0.85"/>
+      <line x1="${mx.toFixed(1)}" y1="${my.toFixed(1)}" x2="${mx.toFixed(1)}" y2="${H-PADB}" stroke="var(--gold2)" stroke-width="1" stroke-dasharray="2,2" opacity="0.8"/>
+      <circle cx="${mx.toFixed(1)}" cy="${my.toFixed(1)}" r="2.6" fill="var(--gold2)"/>
+      <text x="${(mx+5).toFixed(1)}" y="${Math.max(7,my-3).toFixed(1)}" font-family="ui-monospace,monospace" font-size="7" font-weight="700" fill="var(--gold)">${puttMakePct(dist)}%</text>
+      ${ticks}
+    </svg>
+  </div>`;
 }
 
 function renderPuttSG(){
@@ -373,4 +410,4 @@ function buildPuttProfileSVG(distFt, elevIn, pace, stimp){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { buildPuttSVG, buildPuttProfileSVG, buildPutting, renderPutt, renderPuttSG, fmtSlopeElev, fmtPuttSlopeDeg, slopeCategoryFromElev, PUTT_BREAKS, puttBreakId, onPuttBreakSlider, onPuttGradeInput, puttSlopeTermHTML, onPuttSlopeInput, togglePuttSlopeUnit, puttElevIn, puttMakePct, puttLeave, puttComeback });
+Object.assign(window, { buildPuttSVG, buildPuttProfileSVG, buildPuttMakeSpark, buildPutting, renderPutt, renderPuttSG, fmtSlopeElev, fmtPuttSlopeDeg, slopeCategoryFromElev, PUTT_BREAKS, puttBreakId, onPuttBreakSlider, onPuttGradeInput, puttSlopeTermHTML, onPuttSlopeInput, togglePuttSlopeUnit, puttElevIn, puttMakePct, puttLeave, puttComeback });

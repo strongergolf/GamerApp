@@ -442,6 +442,8 @@ input[type=range].yard-slider::-moz-range-thumb{width:20px;height:20px;border-ra
 .ey-unit-toggle{margin-left:5px;font-family:ui-monospace,monospace;font-size:.5rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:1px 6px;background:transparent;border:1px solid var(--border2);border-radius:10px;color:var(--ink2);cursor:pointer;vertical-align:middle}
 .ey-unit-toggle:hover{border-color:var(--green2);color:var(--green)}
 .putt-profile-label{font-family:ui-monospace,monospace;font-size:.58rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:16px 0 6px}
+.putt-spark{max-width:540px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:7px 10px 4px;margin-top:10px}
+.putt-spark-head{display:flex;justify-content:space-between;align-items:center;gap:8px;font-family:ui-monospace,monospace;font-size:.56rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:3px}
 /* Short-game calibration ("Calibrate to My Data") */
 .sgcal-factors{font-family:ui-monospace,monospace;font-size:.66rem;color:var(--muted);margin-top:10px;display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center}
 .sgcal-factors b{color:var(--ink);font-weight:800}
