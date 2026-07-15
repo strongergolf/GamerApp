@@ -125,12 +125,12 @@ const PRACTICE_AREAS=[
        <div class="lvl-subhead">Ball Flight — from Bag Data</div>
        ${ballRefHtml()}
 
-       <div class="lvl-subhead" style="margin-top:14px">Club Behaviour at Impact — D-Plane Tendencies</div>
-       <div class="chain-caption" style="margin-top:4px">Each club's <strong>stock-shot</strong> impact geometry: horizontal face, horizontal path, vertical face (dyn loft), vertical path (attack angle) and vertical swing plane (degrees, left −/right +; blank plane = estimated from loft). The rotatable 3D render — <strong>drag to pan, middle-drag or two fingers to orbit, scroll or pinch to zoom</strong>, snap views below, double-tap to reset — shows the <span style="color:#4a7aaa;font-weight:700">impact plane</span>, the <span style="color:#c43c9e;font-weight:700">path</span> &amp; <span style="color:#2a6fc4;font-weight:700">face</span> vectors, the <span style="color:#b8860b;font-weight:700">D-plane</span> wedge, the perpendicular <span style="color:#cc2a2a;font-weight:700">spin axis</span>, and the <strong>expected ball flight</strong> scaled to the club's Bag carry, apex and rollout. Tap a club to load it; edits save automatically. <span class="placeholder-flag">prototype</span></div>
-       <div class="dpl-layout">
-         <div class="dpl-grid-col">${buildDplaneGrid()}</div>
-         <div class="dpl-vis-col"><div id="dplane-visual"></div></div>
-       </div>`,
+       <div class="lvl-subhead" style="margin-top:14px">The D-Plane Lab — Impact Geometry &amp; Ball Flight</div>
+       <div class="chain-caption" style="margin-top:4px">The rotatable 3D render — <strong>drag to pan, middle-drag or two fingers to orbit, scroll or pinch to zoom</strong>, snap views below, double-tap to reset — shows the <span style="color:#4a7aaa;font-weight:700">impact plane</span>, the <span style="color:#c43c9e;font-weight:700">path</span> &amp; <span style="color:#2a6fc4;font-weight:700">face</span> vectors, the <span style="color:#b8860b;font-weight:700">D-plane</span> wedge, the perpendicular <span style="color:#cc2a2a;font-weight:700">spin axis</span>, and the <strong>simulated ball flight</strong> (drag + spin lift, 5–200 mph, calibrated to your Bag captures at stock). Shot presets load the 9-window drill and short-game shots; the sliders explore freely and only touch your stored tendencies when you <strong>save as stock</strong>. <span class="placeholder-flag">prototype</span></div>
+       <div class="dpl-vis-main"><div id="dplane-visual"></div></div>
+       <div class="lvl-subhead" style="margin-top:16px">Stock-Shot Tendencies by Club</div>
+       <div class="chain-caption" style="margin-top:4px">Each club's <strong>stock-shot</strong> impact geometry: horizontal face, horizontal path, vertical face (dyn loft), vertical path (attack angle) and vertical swing plane (degrees, left −/right +; blank plane = estimated from loft). Tap a club to load it into the lab above; typed edits save automatically.</div>
+       <div class="dpl-grid-col">${buildDplaneGrid()}</div>`,
      improve:()=>ballImprove(),
      resources:()=>`
        ${ballLawsRef()}
@@ -764,6 +764,7 @@ function setDplaneCell(id,field,value){
      (previously a cleared Dyn Loft was stored as 0°, breaking the wedge) */
   if(String(value).trim()==='') delete STATE.dplane[id][field];
   else STATE.dplane[id][field]=parseFloat(value)||0;
+  if(id===window.dpVisClub) window.dpSand=null;   // grid is authoritative → reseed the sandbox
   if(typeof buildCourseStrategy==='function') buildCourseStrategy();
   if(typeof renderDPlaneVisual==='function') renderDPlaneVisual();
   saveState();
@@ -839,7 +840,7 @@ function buildCourseStrategy(){
 
 /* ---- D-Plane 3D visual (Practice L2) — rotatable orbit render of the Impact Plane,
    the D-plane, and the expected ball flight (scaled to the club's captured Bag data). ---- */
-function setDpVisClub(id){ window.dpVisClub=id; window.dpStrike={th:0,hl:0}; renderDPlaneVisual(); }
+function setDpVisClub(id){ window.dpVisClub=id; window.dpStrike={th:0,hl:0}; window.dpSand=null; renderDPlaneVisual(); }
 /* World-space D-plane vectors (x=lateral right, y=up, z=toward target).
    Launch uses the engine's spin-loft-keyed face fraction, matching the readout. */
 function dpWorldVectors(hFace,hPath,vFace,vPath){
@@ -899,26 +900,35 @@ function dpRenderScene(){
   const sceneEl=document.getElementById('dpv-scene'); if(!sceneEl) return;
   const DR=DPLANE_DEG, id=window.dpVisClub;
   const c=STATE.clubs.find(x=>x.id===id)||{}, d=(STATE.dplane&&STATE.dplane[id])||{};
-  const hFace=+d.hFace||0, hPath=+d.hPath||0, aoa=+d.aoa||0;
-  const vFace=d.vFace!=null?+d.vFace:parseFloat(c.loft)||30;
+  if(!window.dpSand||window.dpSand._club!==id) dpSeedSand(id);
+  const o=window.dpSand;
+  const hFace=o.hFace, hPath=o.hPath, vFace=o.vFace, aoa=o.aoa, bspd=Math.max(5,o.bspd);
+  const staticLoft=parseFloat(c.loft)||30;
   const vPlane=d.vPlane!=null?+d.vPlane:dpEstVPlane(c.loft);
   const hPlane=dpHPlane(aoa,vPlane,hPath);
   const p=perf(id)||{};
-  const carry=p.carry||150, apexFt=p.ht||80, total=p.total||carry;
-  const r=dpSolve(hFace,hPath,vFace,aoa,carry);
-  /* Gear effect from the strike preview (centre → zero shift). Low strike → more
-     spin → more curve; high → less. Woods gear far more than irons. */
+  const r=dpSolve(hFace,hPath,vFace,aoa,p.carry||150);
+  /* Gear effect from the strike preview (centre → zero shift): toe/heel tilts the
+     spin axis (woods far more than irons), low adds spin / high sheds it. */
   const st=window.dpStrike||{th:0,hl:0};
   const gearAxis=dpGearAxisShift(st.th, c.type==='wood'?'wood':'iron');
   const axisEff=r.spinAxis+gearAxis;
-  const curveYd=dpCurveYds(axisEff,carry)*(1-0.10*st.hl);
-  /* Vertical launch drives the height profile: the captured Bag apex is the anchor at the
-     club's captured launch angle, and scales with tan(vLaunch) as Vert. Face / Vert. Path
-     move — so delofting visibly flattens the flight and adding loft balloons it. */
-  const staticLoft=parseFloat(c.loft)||30;
-  const baseLaunch=(p.launch!=null&&+p.launch>2)?+p.launch:Math.max(4,0.75*staticLoft);
-  const launchRatio=Math.max(0.08,Math.min(2.6,Math.tan(Math.max(0.5,r.vLaunch)*DPLANE_DEG)/Math.tan(baseLaunch*DPLANE_DEG)));
-  const apexEff=apexFt*launchRatio*(1+0.05*st.hl);
+  /* Calibrate the sim to this club's captured Bag numbers at its STORED stock
+     settings, then apply those factors to whatever the sliders explore. */
+  const vF0=d.vFace!=null?+d.vFace:staticLoft;
+  const r0=dpSolve(+d.hFace||0,+d.hPath||0,vF0,+d.aoa||0,p.carry||150);
+  const bs0=(p.bspd>0)?+p.bspd:dpEstBspd(staticLoft);
+  const spin0est=dpSpinEst(bs0,r0.spinLoft);
+  const spinCal=(p.spin>0)?Math.max(0.5,Math.min(1.8,p.spin/spin0est)):1;
+  const sim0=dpFlightSim(bs0,Math.max(0.5,r0.vLaunch),0,(p.spin>0?+p.spin:spin0est),0);
+  const carryCal=(p.carry>0)?Math.max(0.7,Math.min(1.35,p.carry/Math.max(5,sim0.carry))):1;
+  const apexCal=(p.ht>0)?Math.max(0.6,Math.min(1.6,p.ht/Math.max(3,sim0.apex))):1;
+  /* Current shot: spin from ball speed × spin loft (per-club calibrated; low strike
+     adds spin, high sheds it), then the full flight from the integrator. */
+  const spinUsed=Math.max(300,Math.round(dpSpinEst(bspd,r.spinLoft)*spinCal*(1-0.07*st.hl)));
+  const sim=dpFlightSim(bspd,Math.max(0.2,r.vLaunch),r.hLaunch,spinUsed,axisEff);
+  const carryShow=sim.carry*carryCal, apexShow=sim.apex*apexCal, curveShow=sim.curve*carryCal;
+  const rollYd=dpRollEst(sim.land,spinUsed,carryShow);
 
   const wv=dpWorldVectors(hFace,hPath,vFace,aoa);
   const cam=dpCamBasis(window.dpCam.az, window.dpCam.el);
@@ -961,19 +971,15 @@ function dpRenderScene(){
   const axB={x:wv.launch.x-wv.axis.x, y:wv.launch.y-wv.axis.y, z:wv.launch.z-wv.axis.z};
   add([axA,axB], line(axB,axA,'#cc2a2a',1.9), 0.02);
 
-  /* Ball flight — scaled to Bag data: carry → zc scene units, apex from Max Height,
-     lateral curve from the engine (accelerates late as the ball slows). */
-  const hlT=Math.tan(r.hLaunch*DR)*zc;
-  const xLand=curveYd/Math.max(50,carry)*zc;
-  const apexY=(apexEff/3)/Math.max(50,carry)*zc;
-  const N=26, fpts=[];
-  for(let i=0;i<=N;i++){const f=i/N;
-    fpts.push({x:hlT*f+(xLand-hlT)*f*f, y:apexY*Math.sin(Math.PI*Math.pow(f,1.35)), z:zc*f});}
-  for(let i=0;i<N;i++) add([fpts[i],fpts[i+1]], line(fpts[i],fpts[i+1],'#111',2.4), 0.03);
+  /* Ball flight — simulated points (metres) scaled so the landing sits at zc;
+     the frame auto-fits the shot, the carry label at the flag carries the scale. */
+  const fscale=zc/Math.max(3,sim.zland);
+  const fpts=sim.pts.map(q=>({x:q.x*fscale, y:q.y*fscale, z:q.z*fscale}));
+  for(let i=0;i<fpts.length-1;i++) add([fpts[i],fpts[i+1]], line(fpts[i],fpts[i+1],'#111',2.4), 0.03);
   /* rollout along the landing direction, then the resting ball */
-  const la=fpts[N], lb=fpts[N-1];
+  const la=fpts[fpts.length-1], lb=fpts[Math.max(0,fpts.length-2)];
   let dx=la.x-lb.x, dz=la.z-lb.z; const dl=Math.hypot(dx,dz)||1; dx/=dl; dz/=dl;
-  const rollLen=Math.max(0,total-carry)/Math.max(50,carry)*zc;
+  const rollLen=rollYd*zc/Math.max(3,carryShow);
   const rend={x:la.x+dx*rollLen, y:0, z:la.z+dz*rollLen};
   if(rollLen>0.02) add([la,rend], line({x:la.x,y:0,z:la.z},rend,'#111',1.4,0.7,'3,2.5'), 0.03);
   const rq=P(rend);
@@ -984,7 +990,8 @@ function dpRenderScene(){
   add([{x:0,y:0.5,z:zc}],
     `<line x1="${fq.x.toFixed(1)}" y1="${fq.y.toFixed(1)}" x2="${fq.x.toFixed(1)}" y2="${(fq.y-30).toFixed(1)}" stroke="#9a9a9a" stroke-width="1.4"/>`
     +`<polygon points="${fq.x.toFixed(1)},${(fq.y-30).toFixed(1)} ${(fq.x+14).toFixed(1)},${(fq.y-24.5).toFixed(1)} ${fq.x.toFixed(1)},${(fq.y-19).toFixed(1)}" fill="#d33"/>`
-    +`<circle cx="${fq.x.toFixed(1)}" cy="${fq.y.toFixed(1)}" r="2" fill="#333"/>`);
+    +`<circle cx="${fq.x.toFixed(1)}" cy="${fq.y.toFixed(1)}" r="2" fill="#333"/>`
+    +`<text x="${(fq.x+4).toFixed(1)}" y="${(fq.y+11).toFixed(1)}" font-family="ui-monospace,monospace" font-size="7.5" font-weight="700" fill="#333" stroke="#fff" stroke-width="2.4" paint-order="stroke">${Math.round(carryShow)} yd</text>`);
   const oq=P(wv.O);
   add([wv.O], `<circle cx="${oq.x.toFixed(1)}" cy="${oq.y.toFixed(1)}" r="4" fill="#fff" stroke="#333" stroke-width="1.4"/>`, 0.3);
 
@@ -1006,34 +1013,80 @@ function dpRenderScene(){
     ${far}${prims.map(q=>q.svg).join('')}${top}
   </svg>`;
 
-  /* live readout */
+  /* live readout — impact line, then the simulated flight line */
   const fl=dpBallFlight(axisEff);
   const side=axisEff<-0.05?'L':axisEff>0.05?'R':'';
   const ro=document.getElementById('dpv-readout');
-  if(ro) ro.innerHTML=`Stock Shape <b style="color:#111">${fl}</b><span class="dpv-sep">·</span>3D Spin Loft <b style="color:#b8860b">${r.spinLoft.toFixed(1)}°</b><span class="dpv-sep">·</span>Spin Axis <b style="color:#cc2a2a">${Math.abs(axisEff).toFixed(1)}°${side}</b><span class="dpv-sep">·</span>Curve <b>${Math.abs(Math.round(curveYd))} yd${curveYd<-0.5?' L':curveYd>0.5?' R':''}</b><br>Launch <b>${r.vLaunch.toFixed(1)}°</b><span class="dpv-sep">·</span>Apex <b>${Math.round(apexEff)} ft</b><span class="dpv-sep">·</span>Impact Plane <b style="color:#4a7aaa">${vPlane.toFixed(1)}°${d.vPlane!=null?'':' (est)'}</b><span class="dpv-sep">·</span>Plane Base <b style="color:#4a7aaa">${dplFmt(hPlane)}°</b>${(st.th||st.hl)?`<span class="dpv-sep">·</span>Gear <b style="color:#cc2a2a">${dplFmt(gearAxis)}° axis</b>`:''}`;
+  if(ro) ro.innerHTML=`Shape <b style="color:#111">${fl}</b><span class="dpv-sep">·</span>3D Spin Loft <b style="color:#b8860b">${r.spinLoft.toFixed(1)}°</b><span class="dpv-sep">·</span>Spin Axis <b style="color:#cc2a2a">${Math.abs(axisEff).toFixed(1)}°${side}</b><span class="dpv-sep">·</span>Spin <b>~${spinUsed.toLocaleString()} rpm</b><span class="dpv-sep">·</span>Impact Plane <b style="color:#4a7aaa">${vPlane.toFixed(1)}°${d.vPlane!=null?'':' (est)'}</b>${(st.th||st.hl)?`<span class="dpv-sep">·</span>Gear <b style="color:#cc2a2a">${dplFmt(gearAxis)}° axis</b>`:''}<br>Launch <b>${r.vLaunch.toFixed(1)}°</b><span class="dpv-sep">·</span>Carry <b>${carryShow<25?carryShow.toFixed(1):Math.round(carryShow)} yd</b><span class="dpv-sep">·</span>Apex <b>${Math.round(apexShow)} ft</b><span class="dpv-sep">·</span>Land <b>${Math.round(sim.land)}°</b><span class="dpv-sep">·</span>Finish <b>${Math.abs(curveShow)<25?Math.abs(curveShow).toFixed(1):Math.abs(Math.round(curveShow))} yd${curveShow<-0.3?' L':curveShow>0.3?' R':''}</b><span class="dpv-sep">·</span>Roll <b>${rollYd.toFixed(1)} yd</b>`;
 }
-/* ---- Shape Sandbox: live impact-variable sliders under the 3D render. Writes the
-   same STATE.dplane the grid edits, so slider and typed capture stay one dataset;
-   scene + readout + the club's grid cells update live, save lands on release. ---- */
-function dpSandFmt(field,v){ v=parseFloat(v)||0; return field==='vFace'?v.toFixed(1)+'°':dplFmt(v)+'°'; }
+/* ---- Shape Sandbox: an EXPLORATION overlay seeded from the club's stored tendencies
+   + captured ball speed. Sliders and presets write only the overlay — the stored
+   stock numbers are untouched until "save as stock"; "revert" reseeds from stored. ---- */
+function dpSeedSand(id){
+  const c=STATE.clubs.find(x=>x.id===id)||{}, d=(STATE.dplane&&STATE.dplane[id])||{};
+  const loft=parseFloat(c.loft)||30, p=perf(id)||{};
+  window.dpSand={_club:id,
+    bspd: (p.bspd>0)?+p.bspd:dpEstBspd(loft),
+    hFace:+d.hFace||0, hPath:+d.hPath||0,
+    vFace:d.vFace!=null?+d.vFace:loft, aoa:+d.aoa||0};
+}
+function dpSandFmt(field,v){
+  v=parseFloat(v)||0;
+  if(field==='bspd') return Math.round(v)+' mph';
+  return field==='vFace'?v.toFixed(1)+'°':dplFmt(v)+'°';
+}
 function dpSetSand(field,val){
-  const id=window.dpVisClub; if(!id) return;
-  if(!STATE.dplane) STATE.dplane={};
-  if(!STATE.dplane[id]) STATE.dplane[id]={hFace:0,hPath:0,aoa:0};
-  STATE.dplane[id][field]=parseFloat(val)||0;
-  const sv=document.getElementById(`dpv-sand-${field}-v`); if(sv) sv.textContent=dpSandFmt(field,val);
-  const gi=document.getElementById(`dpl-in-${id}-${field}`); if(gi) gi.value=val;
+  const o=window.dpSand; if(!o) return;
+  o[field]=parseFloat(val)||0;
+  const sv=document.getElementById(`dpv-sand-${field}-v`); if(sv) sv.textContent=dpSandFmt(field,o[field]);
   dpRenderScene();
-  if(typeof buildCourseStrategy==='function') buildCourseStrategy();
 }
-/* clear this club's sandbox overrides → back to neutral (0/0/static loft/0) */
-function dpSandReset(){
-  const id=window.dpVisClub; if(!id||!STATE.dplane||!STATE.dplane[id]){ renderDPlaneVisual(); return; }
-  ['hFace','hPath','vFace','aoa'].forEach(f=>delete STATE.dplane[id][f]);
+/* push the overlay into the slider DOM (after a preset or revert) */
+function dpSandSync(){
+  const o=window.dpSand; if(!o) return;
+  ['bspd','hFace','hPath','vFace','aoa'].forEach(f=>{
+    const inEl=document.getElementById(`dpv-sand-${f}-in`); if(inEl) inEl.value=o[f];
+    const sv=document.getElementById(`dpv-sand-${f}-v`); if(sv) sv.textContent=dpSandFmt(f,o[f]);
+  });
+}
+/* commit the overlay's four impact numbers as the club's stored stock tendency */
+function dpSandSave(){
+  const id=window.dpVisClub, o=window.dpSand; if(!id||!o) return;
+  if(!STATE.dplane) STATE.dplane={};
+  STATE.dplane[id]=Object.assign({},STATE.dplane[id],{hFace:o.hFace,hPath:o.hPath,vFace:o.vFace,aoa:o.aoa});
   saveState();
   const col=document.querySelector('.dpl-grid-col'); if(col) col.innerHTML=buildDplaneGrid();
   if(typeof buildCourseStrategy==='function') buildCourseStrategy();
-  renderDPlaneVisual();
+  dpRenderScene();
+  if(typeof toast==='function') toast('Saved as stock tendency');
+}
+function dpSandRevert(){ window.dpSand=null; renderDPlaneVisual(); }
+
+/* ---- Shot presets. The 9-window drill (Tiger's drill: low/medium/high ×
+   draw/straight/fade with one club) shifts vFace/aoa RELATIVE to the club's stock
+   and sets the shape absolutely; specialty + short-game presets also set ball
+   speed (chip ~25, pitch ~45, flop ~55 mph) so the sim shows their real
+   trajectories. All load into the overlay only. ---- */
+const DP_SHOTS={
+  loDraw:{lbl:'Low Draw', vF:-6,aoa:-2,hF:1,hP:3.5},   loStr:{lbl:'Low',  vF:-6,aoa:-2,hF:0,hP:0},   loFade:{lbl:'Low Fade', vF:-6,aoa:-2,hF:-1,hP:-3.5},
+  mdDraw:{lbl:'Draw',     vF:0, aoa:0, hF:1,hP:3.5},   mdStr:{lbl:'Stock',vF:0, aoa:0, hF:0,hP:0},   mdFade:{lbl:'Fade',     vF:0, aoa:0, hF:-1,hP:-3.5},
+  hiDraw:{lbl:'High Draw',vF:5, aoa:1, hF:1,hP:3.5},   hiStr:{lbl:'High', vF:5, aoa:1, hF:0,hP:0},   hiFade:{lbl:'High Fade',vF:5, aoa:1, hF:-1,hP:-3.5},
+  stinger:{lbl:'Stinger', vF:-10,aoa:-4,hF:0,hP:0,bsMult:0.97},
+  chip:  {lbl:'Chip',  vFAbs:-8,aoaAbs:-3,hF:0,hP:0, bs:24},
+  pitch: {lbl:'Pitch', vFAbs:-3,aoaAbs:-3,hF:0,hP:0, bs:40},
+  flop:  {lbl:'Flop',  vFAbs:8, aoaAbs:-4,hF:3,hP:-4,bs:45}
+};
+function dpApplyPreset(key){
+  const P=DP_SHOTS[key], id=window.dpVisClub; if(!P||!id) return;
+  const c=STATE.clubs.find(x=>x.id===id)||{}, loft=parseFloat(c.loft)||30;
+  dpSeedSand(id);                                   // presets start from stock, never stack
+  const o=window.dpSand;
+  if(P.bs!=null) o.bspd=P.bs; else if(P.bsMult) o.bspd=Math.round(o.bspd*P.bsMult);
+  o.hFace=P.hF; o.hPath=P.hP;
+  o.vFace=(P.vFAbs!=null)?loft+P.vFAbs:o.vFace+P.vF;
+  o.vFace=Math.max(Math.max(0,loft-15),Math.min(loft+10,o.vFace));
+  o.aoa=Math.max(-6,Math.min(6,(P.aoaAbs!=null)?P.aoaAbs:o.aoa+P.aoa));
+  dpSandSync(); dpRenderScene();
 }
 
 /* Pointer navigation on the scene container (re-bound after each host rebuild).
@@ -1087,35 +1140,45 @@ function renderDPlaneVisual(){
   let id=window.dpVisClub; if(!clubs.find(c=>c.id===id)) id=(clubs.find(c=>c.id==='7i')||clubs[0]||{}).id;
   window.dpVisClub=id;
   const st=window.dpStrike=window.dpStrike||{th:0,hl:0};
+  if(!window.dpSand||window.dpSand._club!==id) dpSeedSand(id);
+  const o=window.dpSand;
   const opts=clubs.map(x=>`<option value="${x.id}"${x.id===id?' selected':''}>${x.label} — ${x.loft}</option>`).join('');
   const camBtns=Object.keys(DP_CAMS).map(k=>`<button type="button" class="dpv-cam-btn" onclick="dpSetCam('${k}')">${DP_CAMS[k].name}</button>`).join('');
-  /* Shape Sandbox rows — current values (override or fallback) + per-club ranges.
+  /* Shape Sandbox rows — the exploration overlay + per-club ranges.
      Face terms in face blue, path terms in path magenta, matching the render. */
-  const c=clubs.find(x=>x.id===id)||{}, d=(STATE.dplane&&STATE.dplane[id])||{};
+  const c=clubs.find(x=>x.id===id)||{};
   const loft=parseFloat(c.loft)||30;
-  const sandVals={hFace:+d.hFace||0, hPath:+d.hPath||0, vFace:d.vFace!=null?+d.vFace:loft, aoa:+d.aoa||0};
   const sandRow=(field,label,col,min,max,step)=>`<div class="dpv-sand-row">
       <span class="dpv-sand-lbl" style="color:${col}">${label}</span>
-      <span class="dpv-sand-val" id="dpv-sand-${field}-v">${dpSandFmt(field,sandVals[field])}</span>
-      <input type="range" min="${min}" max="${max}" step="${step}" value="${sandVals[field]}" oninput="dpSetSand('${field}',this.value)" onchange="saveState()">
+      <span class="dpv-sand-val" id="dpv-sand-${field}-v">${dpSandFmt(field,o[field])}</span>
+      <input type="range" id="dpv-sand-${field}-in" min="${min}" max="${max}" step="${step}" value="${o[field]}" oninput="dpSetSand('${field}',this.value)">
     </div>`;
   const strikeRow=(field,label)=>`<div class="dpv-sand-row">
       <span class="dpv-sand-lbl" style="color:#cc2a2a">${label}</span>
       <span class="dpv-sand-val" id="dpv-strike-${field}-v">${dpStrikeTxt(field,st[field])}</span>
       <input type="range" min="-3" max="3" step="1" value="${st[field]}" oninput="dpSetStrike('${field}',this.value)">
     </div>`;
+  const presetBtn=k=>`<button type="button" class="dpv-preset-btn" onclick="dpApplyPreset('${k}')">${DP_SHOTS[k].lbl}</button>`;
+  const presets=`<div class="dpv-sand" style="margin-top:8px">
+      <div class="dpv-strike-head">Shot Presets — the 9-window drill (one club, nine flights) + specialty &amp; short game</div>
+      <div class="dpv-preset-grid">${['hiDraw','hiStr','hiFade','mdDraw','mdStr','mdFade','loDraw','loStr','loFade'].map(presetBtn).join('')}</div>
+      <div class="dpv-preset-row">${['stinger','chip','pitch','flop'].map(presetBtn).join('')}</div>
+      <div class="dpv-strike-note">Each preset loads the sandbox relative to this club's stock — short-game shots drop the ball speed (chip ~25, pitch ~45, flop ~55 mph) so the sim shows their true trajectories.</div>
+    </div>`;
   const sandbox=`<div class="dpv-sand">
-      <div class="dpv-strike-head">Shape Sandbox — drag the impact numbers, watch the flight <button type="button" class="dpv-sand-reset" onclick="dpSandReset()">reset club</button></div>
+      <div class="dpv-strike-head">Shape Sandbox — drag the impact numbers, watch the flight
+        <span style="float:right;display:flex;gap:5px"><button type="button" class="dpv-sand-reset" onclick="dpSandSave()">save as stock</button><button type="button" class="dpv-sand-reset" onclick="dpSandRevert()">revert</button></span></div>
+      ${sandRow('bspd','Ball Speed','var(--ink2)',5,200,1)}
       ${sandRow('hFace','Horiz. Face','#2a6fc4',-8,8,0.1)}
       ${sandRow('hPath','Horiz. Path','#c43c9e',-8,8,0.1)}
       ${sandRow('vFace','Vert. Face','#2a6fc4',Math.max(0,loft-15),loft+10,0.5)}
       ${sandRow('aoa','Vert. Path','#c43c9e',-6,6,0.1)}
-      <div class="dpv-strike-note">− left / + right (RH) · vert. path − down / + up. Live in the render and the grid; saved as this club's stock tendency.</div>
+      <div class="dpv-strike-note">− left / + right (RH) · vert. path − down / + up. Explores freely — your stored tendencies only change when you <b>save as stock</b>; <b>revert</b> reloads them.</div>
       <div class="dpv-sand-sub">
         <div class="dpv-strike-head">Strike — Gear Effect <span class="dpv-strike-cur">layered on the D-plane, not part of it</span></div>
         ${strikeRow('th','Heel ↔ Toe')}
         ${strikeRow('hl','Low ↔ High')}
-        <div class="dpv-strike-note">Off-centre contact tilts the spin axis on top of the D-plane above (woods gear far more than irons). Full-shot intent is the centre of percussion — preview only; resets when you switch clubs.</div>
+        <div class="dpv-strike-note">Off-centre contact tilts the spin axis on top of the D-plane above (woods gear far more than irons); low strikes add spin, high strikes shed it. Full-shot intent is the centre of percussion — preview only; resets when you switch clubs.</div>
       </div>
     </div>`;
   host.innerHTML=`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
@@ -1126,6 +1189,7 @@ function renderDPlaneVisual(){
     <div class="dpv-panel"><div class="dpv-title">Impact Plane · D-Plane · Ball Flight — drag pan · middle-drag / 2-finger rotate · scroll / pinch zoom</div>
       <div id="dpv-scene"></div></div>
     <div class="dpv-cam-row">${camBtns}</div>
+    ${presets}
     ${sandbox}`;
   dpRenderScene();
   dpSceneDragInit();
@@ -1145,4 +1209,4 @@ function buildGearEffectL2(){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { STRAT_OPTS, ballRefHtml, buildAssess, buildImprove, buildResources, buildCourseStrategy, buildDplaneGrid, buildForceProfileSVG, buildGearEffectL2, buildKinematicSequenceSVG, buildStrategyPrefs, dpBallFlight, dpRenderScene, dpSandFmt, dpSandReset, dpSceneDragInit, dpSetCam, dpSetSand, dpSetStrike, dpStrikeTxt, dpWorldVectors, dplFmt, dplaneShape, escapeHtml, forceRow, getPath, metricBox, renderDPlaneVisual, saveSwing, setDpVisClub, setDplaneCell, setStrategy, setPath, stratLabel, stratSelect, stratSummary, toggleLevel });
+Object.assign(window, { STRAT_OPTS, ballRefHtml, buildAssess, buildImprove, buildResources, buildCourseStrategy, buildDplaneGrid, buildForceProfileSVG, buildGearEffectL2, buildKinematicSequenceSVG, buildStrategyPrefs, DP_SHOTS, dpApplyPreset, dpBallFlight, dpRenderScene, dpSandFmt, dpSandRevert, dpSandSave, dpSandSync, dpSceneDragInit, dpSeedSand, dpSetCam, dpSetSand, dpSetStrike, dpStrikeTxt, dpWorldVectors, dplFmt, dplaneShape, escapeHtml, forceRow, getPath, metricBox, renderDPlaneVisual, saveSwing, setDpVisClub, setDplaneCell, setStrategy, setPath, stratLabel, stratSelect, stratSummary, toggleLevel });

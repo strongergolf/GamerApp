@@ -729,8 +729,12 @@ table.chip-matrix tr:hover td{background:var(--surface2)}
 @media(max-width:380px){.dpv-grid{grid-template-columns:1fr}}
 /* D-Plane shaper: per-club inputs (left) beside the single 3D render (right) */
 .dpl-layout{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;margin-top:6px}
-.dpl-grid-col{flex:1 1 300px;min-width:0}
-.dpl-vis-col{flex:1 1 300px;min-width:260px}
+.dpl-grid-col{margin-top:6px;min-width:0}
+.dpl-vis-main{max-width:560px;margin:6px auto 0}
+.dpv-preset-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-top:7px}
+.dpv-preset-row{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-top:5px}
+.dpv-preset-btn{font-family:ui-monospace,monospace;font-size:.6rem;font-weight:700;letter-spacing:.03em;color:var(--ink2);background:var(--surface);border:1px solid var(--border2);border-radius:6px;padding:6px 4px;cursor:pointer;white-space:nowrap}
+.dpv-preset-btn:hover{border-color:var(--green);color:var(--ink)}
 .dpv-single .dpv-panel{background:#eef6fc}
 #dpv-scene{cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
 #dpv-scene:active{cursor:grabbing}

@@ -68,6 +68,73 @@ function dpCurveYds(spinAxis, carryYds, k){
   return Math.sin(spinAxis * DPLANE_DEG) * (carryYds || 0) * k;
 }
 
+/* ---- Ball-speed estimate for a full swing from loft (fallback when no Bag capture) ---- */
+function dpEstBspd(loft){
+  loft = parseFloat(loft) || 30;
+  return Math.max(55, Math.min(175, Math.round(180 - 1.55 * loft)));
+}
+
+/* ---- Spin-rate estimate (rpm) from ball speed + 3D spin loft. Friction-limited fit
+   to TrackMan norms (driver ~2.7k, 7i ~7k, PW ~9-10k, chip ~3k, flop ~8-9k);
+   calibrate per club against captured Bag spin where available. ---- */
+function dpSpinEst(bsMph, spinLoftDeg){
+  const sl = Math.max(2, spinLoftDeg);
+  const est = bsMph * 145 * Math.sin(sl * DPLANE_DEG) * Math.min(1.25, 0.35 + sl / 45);
+  return Math.max(300, Math.min(13000, Math.round(est)));
+}
+
+/* ---- Full-range ball-flight integrator (teaching-grade, ~5-200 mph ball speed).
+   3-DOF: gravity + drag + Magnus lift; the spin axis tilts the lift vector so
+   draw/fade curvature EMERGES rather than being estimated. Coefficient fits after
+   Bearman & Harvey (Cd, Cl vs spin factor S = ωr/v). Standard air density.
+   Returns yards / feet / degrees + the flight points (metres) for rendering. ---- */
+function dpFlightSim(bsMph, vLaunchDeg, hLaunchDeg, spinRpm, axisDeg){
+  const DR = DPLANE_DEG, m = 0.04593, dia = 0.04267, A = Math.PI * dia * dia / 4, rho = 1.194, rr = dia / 2;
+  const v0 = Math.max(1, bsMph) * 0.44704, vL = vLaunchDeg * DR, hL = hLaunchDeg * DR, phi = axisDeg * DR;
+  let vx = v0 * Math.cos(vL) * Math.sin(hL), vy = v0 * Math.sin(vL), vz = v0 * Math.cos(vL) * Math.cos(hL);
+  let x = 0, y = 0, z = 0, w = Math.max(0, spinRpm) * Math.PI / 30, apex = 0;
+  const dt = 0.02, pts = [{x:0, y:0, z:0}];
+  let lvx = vx, lvy = vy, lvz = vz;
+  for(let i = 1; i <= 900; i++){
+    const sp = Math.hypot(vx, vy, vz) || 0.01;
+    const S = w * rr / sp;
+    const Cd = 0.25 + 0.20 * Math.min(S, 0.5);
+    const Cl = Math.min(0.35, S < 0.1 ? 1.9 * S : 0.19 + 0.48 * (S - 0.1));
+    const q = 0.5 * rho * A * sp / m;
+    /* lift = perpendicular-up in the velocity's vertical plane, tilted phi toward the axis side */
+    const ux = vx / sp, uy = vy / sp, uz = vz / sp;
+    let px = -uy * ux, py = 1 - uy * uy, pz = -uy * uz;
+    const pl = Math.hypot(px, py, pz) || 1; px /= pl; py /= pl; pz /= pl;
+    const sx = py * uz - pz * uy, sy = pz * ux - px * uz, sz = px * uy - py * ux;   // right
+    const lx = Math.cos(phi) * px + Math.sin(phi) * sx,
+          ly = Math.cos(phi) * py + Math.sin(phi) * sy,
+          lz = Math.cos(phi) * pz + Math.sin(phi) * sz;
+    vx += (-q * Cd * vx + q * Cl * sp * lx) * dt;
+    vy += (-q * Cd * vy + q * Cl * sp * ly - 9.81) * dt;
+    vz += (-q * Cd * vz + q * Cl * sp * lz) * dt;
+    x += vx * dt; y += vy * dt; z += vz * dt;
+    w *= 0.999;                                          // ~5%/s spin decay
+    if(y > apex) apex = y;
+    if(i % 8 === 0) pts.push({x, y, z});
+    if(y <= 0 && vy < 0 && i > 3){ lvx = vx; lvy = vy; lvz = vz; break; }
+  }
+  pts.push({x, y: 0, z});
+  return {
+    carry: Math.hypot(x, z) * 1.09361,
+    curve: x * 1.09361,
+    apex: apex * 3.28084,
+    land: Math.atan2(-lvy, Math.hypot(lvx, lvz)) / DR,
+    zland: Math.max(z, 1),
+    pts
+  };
+}
+
+/* ---- Rollout estimate (yd) from land angle + spin; capped vs carry for short shots ---- */
+function dpRollEst(landDeg, spinRpm, carryYd){
+  const base = 0.022 * Math.pow(Math.max(0, 65 - landDeg), 2) * (1 - Math.min(spinRpm, 15000) / 16000);
+  return Math.max(0.2, Math.min(35, Math.min(1.2 * (carryYd || 1), base)));
+}
+
 /* ---- Convenience: full solve from the core impact variables ----
    Given horizontal face/path + vertical face(dyn loft)/path(AoA) + carry, return the
    derived ball-flight descriptors. */
@@ -90,5 +157,5 @@ function dpSolve(hFace, hPath, vFace, vPath, carry){
 Object.assign(window, {
   DPLANE_DEG, dpHPath, dpHPlane, dpVPath, dpVPlane, dpVDiff, dpHDiff, dp3DSpinLoft,
   dpSpinAxis, dpFaceFraction, dpHLaunch, dpVLaunch, dpGearAxisShift, dpGearSpinSign,
-  dpEstVPlane, dpCurveYds, dpSolve
+  dpEstVPlane, dpEstBspd, dpSpinEst, dpFlightSim, dpRollEst, dpCurveYds, dpSolve
 });
