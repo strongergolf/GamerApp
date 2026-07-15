@@ -925,7 +925,8 @@ function dpRenderScene(){
   const apexCal=(p.ht>0)?Math.max(0.6,Math.min(1.6,p.ht/Math.max(3,sim0.apex))):1;
   /* Current shot: spin from ball speed × spin loft (per-club calibrated; low strike
      adds spin, high sheds it), then the full flight from the integrator. */
-  const spinUsed=Math.max(300,Math.round(dpSpinEst(bspd,r.spinLoft)*spinCal*(1-0.07*st.hl)));
+  /* clamp AFTER calibration so a saturated raw estimate can't freeze the wedge range */
+  const spinUsed=Math.max(200,Math.min(13500,Math.round(dpSpinEst(bspd,r.spinLoft)*spinCal*(1-0.07*st.hl))));
   const sim=dpFlightSim(bspd,Math.max(0.2,r.vLaunch),r.hLaunch,spinUsed,axisEff);
   const carryShow=sim.carry*carryCal, apexShow=sim.apex*apexCal, curveShow=sim.curve*carryCal;
   const rollYd=dpRollEst(sim.land,spinUsed,carryShow);
@@ -1121,7 +1122,7 @@ function dpApplyPreset(key){
   if(P.bs!=null) o.bspd=P.bs; else if(P.bsMult) o.bspd=Math.round(o.bspd*P.bsMult);
   o.hFace=P.hF; o.hPath=P.hP;
   o.vFace=(P.vFAbs!=null)?loft+P.vFAbs:o.vFace+P.vF;
-  o.vFace=Math.max(10,Math.min(65,o.vFace));
+  o.vFace=Math.max(5,Math.min(65,o.vFace));
   o.aoa=Math.max(-8,Math.min(8,(P.aoaAbs!=null)?P.aoaAbs:o.aoa+P.aoa));
   dpSandSync(); dpRenderScene();
 }
@@ -1208,7 +1209,7 @@ function renderDPlaneVisual(){
       ${sandRow('bspd','Ball Speed','var(--ink2)',5,200,1)}
       ${sandRow('hFace','Horiz. Face','#2a6fc4',-10,10,0.1)}
       ${sandRow('hPath','Horiz. Path','#c43c9e',-10,10,0.1)}
-      ${sandRow('vFace','Vert. Face','#2a6fc4',10,65,0.5)}
+      ${sandRow('vFace','Vert. Face','#2a6fc4',5,65,0.5)}
       ${sandRow('aoa','Vert. Path','#c43c9e',-8,8,0.1)}
       <div class="dpv-strike-note">− left / + right (RH) · vert. path − down / + up. Explores freely — your stored tendencies only change when you <b>save as stock</b>; <b>revert</b> reloads them.</div>
       <div class="dpv-sand-sub">

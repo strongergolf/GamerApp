@@ -74,13 +74,15 @@ function dpEstBspd(loft){
   return Math.max(55, Math.min(175, Math.round(180 - 1.55 * loft)));
 }
 
-/* ---- Spin-rate estimate (rpm) from ball speed + 3D spin loft. Friction-limited fit
-   to TrackMan norms (driver ~2.7k, 7i ~7k, PW ~9-10k, chip ~3k, flop ~8-9k);
-   calibrate per club against captured Bag spin where available. ---- */
+/* ---- Spin-rate estimate (rpm) from ball speed + 3D spin loft. Saturating friction
+   fit to TrackMan norms — driver ~2.7-3.5k, 7i ~7k (calibrated), PW ~9.5k, full lob
+   wedge ~10-11k, flop ~7k — and keeps RESPONDING across the whole spin-loft range
+   (the hard mid-range cap that froze wedge spin is gone; final clamping happens
+   after per-club calibration in the Lab). ---- */
 function dpSpinEst(bsMph, spinLoftDeg){
   const sl = Math.max(2, spinLoftDeg);
-  const est = bsMph * 145 * Math.sin(sl * DPLANE_DEG) * Math.min(1.25, 0.35 + sl / 45);
-  return Math.max(300, Math.min(13000, Math.round(est)));
+  const est = bsMph * Math.sin(sl * DPLANE_DEG) * 175 * (1 - Math.exp(-sl / 17));
+  return Math.max(200, Math.min(18000, Math.round(est)));
 }
 
 /* ---- Full-range ball-flight integrator (teaching-grade, ~5-200 mph ball speed).
@@ -98,8 +100,10 @@ function dpFlightSim(bsMph, vLaunchDeg, hLaunchDeg, spinRpm, axisDeg){
   for(let i = 1; i <= 900; i++){
     const sp = Math.hypot(vx, vy, vz) || 0.01;
     const S = w * rr / sp;
-    const Cd = 0.25 + 0.20 * Math.min(S, 0.5);
-    const Cl = Math.min(0.35, S < 0.1 ? 1.9 * S : 0.19 + 0.48 * (S - 0.1));
+    /* grid-searched against TrackMan norms + the captured bag (driver 270/~high-90s ft,
+       7i 172-176/90 ft, PW ~140, chip ~7 yd); Foresight optimizer runs hotter by design */
+    const Cd = 0.225 + 0.22 * Math.min(S, 0.5);
+    const Cl = Math.min(0.28, S < 0.1 ? 2.0 * S : 0.20 + 0.45 * (S - 0.1));
     const q = 0.5 * rho * A * sp / m;
     /* lift = perpendicular-up in the velocity's vertical plane, tilted phi toward the axis side */
     const ux = vx / sp, uy = vy / sp, uz = vz / sp;
