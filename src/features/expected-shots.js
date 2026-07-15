@@ -107,6 +107,10 @@ function renderExpectedShots(id, dist, lie){
         <div class="es-val">${cmpSR.toFixed(2)}</div>
         ${cmpSel}
       </div>
+      ${lie==='green'&&typeof puttMakePct==='function'?`<div class="es-stat">
+        <div class="es-val">${puttMakePct(dist)}%</div>
+        <div class="es-lbl">make (typ.)</div>
+      </div>`:''}
     </div>
     <div class="es-sg">
       <div class="es-sg-control">

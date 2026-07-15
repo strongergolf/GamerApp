@@ -51,6 +51,23 @@ function aimBreakIn(distFt, grade, stimp, slope, paceIn){
 
 
 
+/* ---- Effective (flat-equivalent) putt distance from slope + stimp + pace. ----
+   Stimpmeter physics: a ball released at v0 = 6 ft/s rolls the stimp distance S on a
+   flat green, so friction deceleration a = v0²/(2S). On a slope θ the deceleration
+   becomes a ± g·sinθ, and the stroke that rolls D_target on the slope equals a flat
+   putt of D_eff = D_target·(1 + (g·sinθ/a)) = D_target·(1 + 1.786·stimp·sinθ)
+   (uphill +, downhill −). D_target includes the intended pace run-out past the cup.
+   After Penner, "The Physics of Putting" (2002) and Templeton's Vector Putting (1984).
+   Downhill steeper than ≈(56/stimp)% grade won't stop rolling → ok:false
+   (stimp 10 ⇒ ~5.6%, matching the accepted "unputtable" threshold). */
+function puttEffDist(distFt, elevIn, stimp, paceIn){
+  const target = distFt + (paceIn||0)/12;
+  const sinT = (elevIn||0) / (Math.max(1,distFt)*12);
+  const f = 1 + 1.786*(stimp||10)*sinT;
+  if(f <= 0.05) return {ok:false, ft:0, factor:f};
+  return {ok:true, ft:target*f, factor:f};
+}
+
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { aimBreakIn, slopeFactorFromElev, SLOPE_ELEV_ANCHORS });
+Object.assign(window, { aimBreakIn, slopeFactorFromElev, SLOPE_ELEV_ANCHORS, puttEffDist });

@@ -49,11 +49,8 @@ function buildPutting(){
       </div>
     </div>
 
-    <!-- 3. Expected shots strip (below Situational Info, matching Approach / Short Game) -->
+    <!-- 3. Expected shots strip (below Situational Info; carries the make-% data point) -->
     <div id="es-putting" class="expected-shots-strip"></div>
-
-    <!-- 3b. Make % by distance — slim sparkline (outcome model, Presumed) -->
-    <div id="putt-make-spark"></div>
 
     <!-- 4. Required Break + Side Profile (left column) · overhead break view (right) —
          the profile slots into the dead space beside the tall overhead SVG -->
@@ -181,54 +178,20 @@ function renderPutt(){
   const cupW=edgeOffsetIn/4.25;
   const res=document.getElementById('putt-result-wrap'); if(!res) return;
   const slopeWord=fmtSlopeElev(elevIn).toLowerCase();
-  /* Outcome model (Presumed): make %, typical lag leave, and the comeback length the
-     chosen pace buys if it misses — the speed-vs-line tradeoff behind the cone. */
-  const makePct=puttMakePct(dist), leaveFt=puttLeave(dist), comebackFt=puttComeback(pace);
+  const eff=(typeof puttEffDist==='function')?puttEffDist(dist,elevIn,stimp,pace):null;
+  const effTxt=eff?(eff.ok?` · plays ${eff.ft.toFixed(1)} ft`:' · won’t stop'):'';
   res.innerHTML=`
     <div class="putt-result-card">
       <h4>Required Break</h4>
-      <div class="putt-stat-grid">
+      <div class="putt-stat-grid" style="grid-template-columns:repeat(2,1fr)">
         <div class="putt-stat"><div class="putt-stat-val">${edgeOffsetIn.toFixed(1)}"</div><div class="putt-stat-lbl">Outside edge</div></div>
         <div class="putt-stat"><div class="putt-stat-val">${cupW.toFixed(2)}×</div><div class="putt-stat-lbl">Cup widths</div></div>
-        <div class="putt-stat"><div class="putt-stat-val">${breakIn.toFixed(1)}"</div><div class="putt-stat-lbl">Break to centre</div></div>
       </div>
-      <div class="putt-stat-grid" style="margin-top:6px">
-        <div class="putt-stat"><div class="putt-stat-val">${makePct}%</div><div class="putt-stat-lbl">Make (typ.)</div></div>
-        <div class="putt-stat"><div class="putt-stat-val">${leaveFt} ft</div><div class="putt-stat-lbl">Typical leave</div></div>
-        <div class="putt-stat"><div class="putt-stat-val">${comebackFt} ft</div><div class="putt-stat-lbl">Comeback @ pace</div></div>
-      </div>
-      <div class="putt-conditions">${dist} ft · grade ${grade}% · stimp ${stimp.toFixed(1)} · ${slopeWord} · pace ${pace}"</div>
+      <div class="putt-conditions">${dist} ft · grade ${grade}% · stimp ${stimp.toFixed(1)} · ${slopeWord} · pace ${pace}"${effTxt} · ${breakIn.toFixed(1)}" to centre</div>
     </div>`;
-  const spark=document.getElementById('putt-make-spark'); if(spark) spark.innerHTML=buildPuttMakeSpark(dist);
   const svgWrap=document.getElementById('putt-svg-wrap'); if(!svgWrap) return;
   svgWrap.innerHTML=buildPuttSVG(dist,breakIn,dir==='straight'?'lr':dir,slopeCategoryFromElev(elevIn),pace);
   const profWrap=document.getElementById('putt-profile-wrap'); if(profWrap) profWrap.innerHTML=buildPuttProfileSVG(dist,elevIn,pace,stimp);
-}
-
-/* Slim make%-by-distance sparkline: the outcome curve with the current putt marked.
-   Anchored to PUTT_MAKE_ANCHORS (typical good player, Presumed — refine from data). */
-function buildPuttMakeSpark(dist){
-  const W=320, H=44, PADL=8, PADR=10, PADT=8, PADB=10;
-  const X=d=>PADL+(d-2)/(60-2)*(W-PADL-PADR);
-  const Y=p=>PADT+(1-p/100)*(H-PADT-PADB);
-  const ptArr=[];
-  for(let d=2; d<=60; d+=2) ptArr.push(`${X(d).toFixed(1)},${Y(puttMakePct(d)).toFixed(1)}`);
-  const pts=ptArr.join(' ');
-  const area=`M ${ptArr[0]} L ${ptArr.join(' L ')} L ${X(60).toFixed(1)},${H-PADB} L ${X(2).toFixed(1)},${H-PADB} Z`;
-  const mx=X(Math.max(2,Math.min(60,dist))), my=Y(puttMakePct(dist));
-  const ticks=[5,10,20,30,40,50,60].map(d=>`<text x="${X(d).toFixed(1)}" y="${H-1.5}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="5.5" fill="var(--muted)">${d}</text>`).join('');
-  const prov=(typeof sgProv==='function')?sgProv('presumed'):'';
-  return `<div class="putt-spark">
-    <div class="putt-spark-head"><span>Make % by distance — typical good player</span>${prov}</div>
-    <svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block" xmlns="http://www.w3.org/2000/svg">
-      <path d="${area}" fill="var(--green2)" fill-opacity="0.14"/>
-      <polyline points="${pts.trim()}" fill="none" stroke="var(--green)" stroke-width="1.4" opacity="0.85"/>
-      <line x1="${mx.toFixed(1)}" y1="${my.toFixed(1)}" x2="${mx.toFixed(1)}" y2="${H-PADB}" stroke="var(--gold2)" stroke-width="1" stroke-dasharray="2,2" opacity="0.8"/>
-      <circle cx="${mx.toFixed(1)}" cy="${my.toFixed(1)}" r="2.6" fill="var(--gold2)"/>
-      <text x="${(mx+5).toFixed(1)}" y="${Math.max(7,my-3).toFixed(1)}" font-family="ui-monospace,monospace" font-size="7" font-weight="700" fill="var(--gold)">${puttMakePct(dist)}%</text>
-      ${ticks}
-    </svg>
-  </div>`;
 }
 
 function renderPuttSG(){
@@ -375,13 +338,15 @@ function buildPuttSVG(distFt,breakIn,dir,slope,pace){
 
 
 
-/* Side profile of the putt — ball → cup along the (tilted) green surface, with the pace overrun
-   past the hole. Complements the overhead break view: shows the uphill/downhill the model reads. */
+/* Side profile of the putt — ball → cup along the green surface drawn at the TRUE
+   input slope angle (safety-capped for extreme inch/short-putt combos), with the pace
+   overrun past the hole, a flag sized to the putt length, and the effective
+   (flat-equivalent) distance the stroke has to produce — see puttEffDist. */
 function buildPuttProfileSVG(distFt, elevIn, pace, stimp){
   const W=320, H=104, PAD=16, baseY=58;
   const ballX=PAD+4, holeX=W-PAD-46, run=holeX-ballX;
   const angleRad=Math.atan((elevIn||0)/(distFt*12)), angleDeg=angleRad*180/Math.PI;
-  const risePx=Math.max(-34, Math.min(34, Math.tan(angleRad)*run*1.5));   // visual, exaggerated + capped
+  const risePx=Math.max(-40, Math.min(40, Math.tan(angleRad)*run));       // true angle, capped for safety
   const ballY=baseY+risePx/2, holeY=baseY-risePx/2;                       // uphill → hole higher (smaller y)
   const sdx=holeX-ballX, sdy=holeY-ballY, slen=Math.hypot(sdx,sdy)||1, ux=sdx/slen, uy=sdy/slen;
   const pxPerFt=run/Math.max(1,distFt), pastPx=Math.min(44,(pace/12)*pxPerFt);
@@ -392,17 +357,28 @@ function buildPuttProfileSVG(distFt, elevIn, pace, stimp){
   const rollLine=`<line x1="${ballX}" y1="${ballY.toFixed(1)}" x2="${holeX}" y2="${holeY.toFixed(1)}" stroke="rgba(255,255,255,0.9)" stroke-width="1.5" stroke-dasharray="1,3" stroke-linecap="round"/>`;
   const overrun=pastPx>3?`<line x1="${holeX}" y1="${holeY.toFixed(1)}" x2="${finX.toFixed(1)}" y2="${finY.toFixed(1)}" stroke="#f4d47a" stroke-width="1.4" stroke-dasharray="3,3"/><circle cx="${finX.toFixed(1)}" cy="${finY.toFixed(1)}" r="3" fill="none" stroke="#f4d47a" stroke-width="1.2"/><text x="${finX.toFixed(1)}" y="${(finY-6).toFixed(1)}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="7" fill="#f4d47a">${pace}" past</text>`:'';
   const cup=`<line x1="${(holeX-4).toFixed(1)}" y1="${holeY.toFixed(1)}" x2="${(holeX-4).toFixed(1)}" y2="${(holeY+9).toFixed(1)}" stroke="#0c1a0c" stroke-width="1.5"/><line x1="${(holeX+4).toFixed(1)}" y1="${holeY.toFixed(1)}" x2="${(holeX+4).toFixed(1)}" y2="${(holeY+9).toFixed(1)}" stroke="#0c1a0c" stroke-width="1.5"/>`;
-  const flag=`<line x1="${holeX}" y1="${holeY.toFixed(1)}" x2="${holeX}" y2="${(holeY-30).toFixed(1)}" stroke="#d0c090" stroke-width="1.3"/><polygon points="${holeX},${(holeY-30).toFixed(1)} ${holeX+11},${(holeY-25).toFixed(1)} ${holeX},${(holeY-20).toFixed(1)}" fill="var(--gold2)" opacity="0.92"/>`;
+  /* flag sized to the putt: looms over a 3-footer, distant on a 60-ft lag */
+  const fs=Math.max(0.55, Math.min(1.35, 1.4-distFt*0.014));
+  const flag=`<line x1="${holeX}" y1="${holeY.toFixed(1)}" x2="${holeX}" y2="${(holeY-30*fs).toFixed(1)}" stroke="#d0c090" stroke-width="${(1.3*fs).toFixed(2)}"/><polygon points="${holeX},${(holeY-30*fs).toFixed(1)} ${(holeX+11*fs).toFixed(1)},${(holeY-25*fs).toFixed(1)} ${holeX},${(holeY-20*fs).toFixed(1)}" fill="var(--gold2)" opacity="0.92"/>`;
   const ball=`<circle cx="${ballX}" cy="${ballY.toFixed(1)}" r="5" fill="#f5f1e8" stroke="#666" stroke-width="1"/>`;
   const distLabel=`<text x="${((ballX+holeX)/2).toFixed(1)}" y="${H-4}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="var(--muted)">${distFt} ft</text>`;
   const riseTxt=Math.abs(elevIn)<0.5?'level':`${fmtSlopeElev(elevIn)} · ${Math.abs(angleDeg).toFixed(1)}°`;
   const slopeLabel=`<text x="${W-6}" y="12" text-anchor="end" font-family="ui-monospace,monospace" font-size="8" font-weight="700" fill="${elevIn>0.5?'#5fcf8f':elevIn<-0.5?'#e88494':'var(--muted)'}">${riseTxt}</text>`;
-  const cue=elevIn>2?'firmer — it climbs':elevIn<-2?'softer — let it release':'';
-  const cueLabel=cue?`<text x="8" y="12" font-family="ui-monospace,monospace" font-size="7.5" fill="var(--muted)">${cue}</text>`:'';
+  /* effective distance: the flat-equivalent stroke that produces the chosen pace */
+  const eff=(typeof puttEffDist==='function')?puttEffDist(distFt,elevIn,stimp,pace):null;
+  let effLabel='';
+  if(eff){
+    if(!eff.ok) effLabel=`<text x="8" y="12" font-family="ui-monospace,monospace" font-size="7.5" font-weight="700" fill="#e88494">won't stop — dead-weight only</text>`;
+    else{
+      const delta=eff.ft-distFt;
+      const deltaTxt=Math.abs(delta)<0.25?'':` (${delta>0?'+':''}${delta.toFixed(1)})`;
+      effLabel=`<text x="8" y="12" font-family="ui-monospace,monospace" font-size="7.5" font-weight="700" fill="#f4d47a">stroke it as ${eff.ft.toFixed(1)} ft${deltaTxt}</text>`;
+    }
+  }
   return `<svg data-pz viewBox="0 0 ${W} ${H}" style="width:100%;display:block" xmlns="http://www.w3.org/2000/svg">
     <rect width="${W}" height="${H}" fill="var(--surface2)" rx="10"/>
     ${surface}${rollLine}${overrun}${cup}${flag}${ball}
-    ${distLabel}${slopeLabel}${cueLabel}
+    ${distLabel}${slopeLabel}${effLabel}
   </svg>`;
 }
 
@@ -410,4 +386,4 @@ function buildPuttProfileSVG(distFt, elevIn, pace, stimp){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { buildPuttSVG, buildPuttProfileSVG, buildPuttMakeSpark, buildPutting, renderPutt, renderPuttSG, fmtSlopeElev, fmtPuttSlopeDeg, slopeCategoryFromElev, PUTT_BREAKS, puttBreakId, onPuttBreakSlider, onPuttGradeInput, puttSlopeTermHTML, onPuttSlopeInput, togglePuttSlopeUnit, puttElevIn, puttMakePct, puttLeave, puttComeback });
+Object.assign(window, { buildPuttSVG, buildPuttProfileSVG, buildPutting, renderPutt, renderPuttSG, fmtSlopeElev, fmtPuttSlopeDeg, slopeCategoryFromElev, PUTT_BREAKS, puttBreakId, onPuttBreakSlider, onPuttGradeInput, puttSlopeTermHTML, onPuttSlopeInput, togglePuttSlopeUnit, puttElevIn, puttMakePct, puttLeave, puttComeback });
