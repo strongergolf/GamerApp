@@ -941,12 +941,27 @@ function dpRenderScene(){
   const line=(a,b,col,w,op,dash)=>{const qa=P(a),qb=P(b);
     return `<line x1="${qa.x.toFixed(1)}" y1="${qa.y.toFixed(1)}" x2="${qb.x.toFixed(1)}" y2="${qb.y.toFixed(1)}" stroke="${col}" stroke-width="${w}" stroke-linecap="round" opacity="${op!=null?op:1}"${dash?` stroke-dasharray="${dash}"`:''}/>`;};
 
-  /* far layer: ground, grid, target line */
+  /* Frame auto-fit: carry AND most of the roll stay in frame; ydPerUnit converts
+     scene units back to (calibrated) yards for the downrange grid + markers. */
   const GX=3.0, GZ0=-1.0, GZ1=7.8, zc=6.0;
+  const rollM=rollYd/(1.09361*Math.max(0.2,carryCal));
+  const fitZ=Math.max(3, sim.zland + rollM*0.9);
+  const fscale=Math.min(zc/Math.max(3,sim.zland), 7.35/fitZ);
+  const ydPerUnit=1.09361*carryCal/fscale;
+
+  /* far layer: ground, long-drive-grid yardage lines, centre (target) line */
   let far=`<polygon points="${XY({x:-GX,y:0,z:GZ0})} ${XY({x:GX,y:0,z:GZ0})} ${XY({x:GX,y:0,z:GZ1})} ${XY({x:-GX,y:0,z:GZ1})}" fill="#8cbb6e"/>`;
-  for(let gx=-3;gx<=3;gx++) far+=line({x:gx,y:0,z:GZ0},{x:gx,y:0,z:GZ1},'#7aa860',0.5,0.55);
-  for(let gz=0;gz<=7;gz++)  far+=line({x:-GX,y:0,z:gz},{x:GX,y:0,z:gz},'#7aa860',0.5,0.55);
-  far+=line(wv.O,{x:0,y:0,z:zc+1.2},'#3f5f3f',1.2,0.55,'5,4');
+  for(let gx=-3;gx<=3;gx++) far+=line({x:gx,y:0,z:GZ0},{x:gx,y:0,z:GZ1},'#7aa860',0.4,0.4);
+  const stepArr=[1,2,5,10,25,50,100], maxYd=GZ1*ydPerUnit;
+  const step=stepArr.find(s=>maxYd/s<=7)||100;
+  for(let yd=step; yd<=maxYd; yd+=step){
+    const gz=yd/ydPerUnit;
+    far+=line({x:-GX,y:0,z:gz},{x:GX,y:0,z:gz},'#eef6ee',0.9,0.65);
+    const gq=P({x:GX,y:0,z:gz});
+    far+=`<text x="${(gq.x+3).toFixed(1)}" y="${(gq.y+2).toFixed(1)}" font-family="ui-monospace,monospace" font-size="6.5" font-weight="700" fill="#2f6a40" stroke="#fff" stroke-width="1.8" paint-order="stroke" opacity="0.9">${yd}${yd===step?' yd':''}</text>`;
+  }
+  far+=line({x:-GX,y:0,z:0},{x:GX,y:0,z:0},'#eef6ee',0.9,0.5);            // tee line
+  far+=line({x:0,y:0,z:GZ0+0.4},{x:0,y:0,z:GZ1},'#f2f7f2',1.4,0.8);       // centre / target line
 
   const prims=[];
   const add=(pts,svg,bias)=>{let s=0;pts.forEach(q=>{s+=dep(q);});prims.push({d:s/pts.length+(bias||0),svg});};
@@ -971,27 +986,28 @@ function dpRenderScene(){
   const axB={x:wv.launch.x-wv.axis.x, y:wv.launch.y-wv.axis.y, z:wv.launch.z-wv.axis.z};
   add([axA,axB], line(axB,axA,'#cc2a2a',1.9), 0.02);
 
-  /* Ball flight — simulated points (metres) scaled so the landing sits at zc;
-     the frame auto-fits the shot, the carry label at the flag carries the scale. */
-  const fscale=zc/Math.max(3,sim.zland);
+  /* Ball flight — simulated points (metres) scaled by the auto-fit frame */
   const fpts=sim.pts.map(q=>({x:q.x*fscale, y:q.y*fscale, z:q.z*fscale}));
   for(let i=0;i<fpts.length-1;i++) add([fpts[i],fpts[i+1]], line(fpts[i],fpts[i+1],'#111',2.4), 0.03);
   /* rollout along the landing direction, then the resting ball */
   const la=fpts[fpts.length-1], lb=fpts[Math.max(0,fpts.length-2)];
   let dx=la.x-lb.x, dz=la.z-lb.z; const dl=Math.hypot(dx,dz)||1; dx/=dl; dz/=dl;
-  const rollLen=rollYd*zc/Math.max(3,carryShow);
+  const rollLen=rollM*fscale;
   const rend={x:la.x+dx*rollLen, y:0, z:la.z+dz*rollLen};
   if(rollLen>0.02) add([la,rend], line({x:la.x,y:0,z:la.z},rend,'#111',1.4,0.7,'3,2.5'), 0.03);
+  add([la], `<circle cx="${P(la).x.toFixed(1)}" cy="${P(la).y.toFixed(1)}" r="2" fill="#111" opacity="0.75"/>`, 0.03);
   const rq=P(rend);
   add([rend], `<circle cx="${rq.x.toFixed(1)}" cy="${rq.y.toFixed(1)}" r="2.6" fill="#111"/>`, 0.03);
 
-  /* flag on the target line at carry distance; strike ball at the origin */
-  const fq=P({x:0,y:0,z:zc});
-  add([{x:0,y:0.5,z:zc}],
-    `<line x1="${fq.x.toFixed(1)}" y1="${fq.y.toFixed(1)}" x2="${fq.x.toFixed(1)}" y2="${(fq.y-30).toFixed(1)}" stroke="#9a9a9a" stroke-width="1.4"/>`
-    +`<polygon points="${fq.x.toFixed(1)},${(fq.y-30).toFixed(1)} ${(fq.x+14).toFixed(1)},${(fq.y-24.5).toFixed(1)} ${fq.x.toFixed(1)},${(fq.y-19).toFixed(1)}" fill="#d33"/>`
-    +`<circle cx="${fq.x.toFixed(1)}" cy="${fq.y.toFixed(1)}" r="2" fill="#333"/>`
-    +`<text x="${(fq.x+4).toFixed(1)}" y="${(fq.y+11).toFixed(1)}" font-family="ui-monospace,monospace" font-size="7.5" font-weight="700" fill="#333" stroke="#fff" stroke-width="2.4" paint-order="stroke">${Math.round(carryShow)} yd</text>`);
+  /* landing / rest markers: carry at the landing dot; total + roll (and how far
+     offline of the centre line, when it matters) at the resting ball */
+  const fmtYd=v=>v<25?v.toFixed(1):''+Math.round(v);
+  const mtxt=(pt,txt,col,mdy)=>{const q=P(pt);
+    return `<text x="${q.x.toFixed(1)}" y="${(q.y+mdy).toFixed(1)}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="7" font-weight="700" fill="${col}" stroke="#fff" stroke-width="2.2" paint-order="stroke" opacity="0.95">${txt}</text>`;};
+  const offYd=rend.x*ydPerUnit, totalShow=carryShow+rollYd;
+  let markers=mtxt({x:la.x,y:0,z:la.z},`carry ${fmtYd(carryShow)}`,'#111',-7);
+  markers+=mtxt(rend,`total ${fmtYd(totalShow)} · roll ${rollYd.toFixed(1)}`,'#111',12);
+  if(Math.abs(offYd)>=1) markers+=mtxt(rend,`${fmtYd(Math.abs(offYd))} yd ${offYd<0?'left':'right'} of line`,'#cc2a2a',21);
   const oq=P(wv.O);
   add([wv.O], `<circle cx="${oq.x.toFixed(1)}" cy="${oq.y.toFixed(1)}" r="4" fill="#fff" stroke="#333" stroke-width="1.4"/>`, 0.3);
 
@@ -1004,7 +1020,8 @@ function dpRenderScene(){
   let top=lab(wv.path,'path','#c43c9e')+lab(wv.face,'face','#2a6fc4')
     +lab(axA,`spin axis ${Math.abs(axisEff).toFixed(1)}°${axSide}`,'#cc2a2a')
     +lab(wedgeC,`spin loft ${r.spinLoft.toFixed(1)}°`,'#b8860b',0,2,'middle')
-    +lab(A4,'impact plane','#4a7aaa',6,10);
+    +lab(A4,'impact plane','#4a7aaa',6,10)
+    +markers;
 
   prims.sort((x,y)=>x.d-y.d);
   sceneEl.innerHTML=`<svg viewBox="0 0 ${VW} ${VH}" style="width:100%;display:block" xmlns="http://www.w3.org/2000/svg">
@@ -1017,7 +1034,7 @@ function dpRenderScene(){
   const fl=dpBallFlight(axisEff);
   const side=axisEff<-0.05?'L':axisEff>0.05?'R':'';
   const ro=document.getElementById('dpv-readout');
-  if(ro) ro.innerHTML=`Shape <b style="color:#111">${fl}</b><span class="dpv-sep">·</span>3D Spin Loft <b style="color:#b8860b">${r.spinLoft.toFixed(1)}°</b><span class="dpv-sep">·</span>Spin Axis <b style="color:#cc2a2a">${Math.abs(axisEff).toFixed(1)}°${side}</b><span class="dpv-sep">·</span>Spin <b>~${spinUsed.toLocaleString()} rpm</b><span class="dpv-sep">·</span>Impact Plane <b style="color:#4a7aaa">${vPlane.toFixed(1)}°${d.vPlane!=null?'':' (est)'}</b>${(st.th||st.hl)?`<span class="dpv-sep">·</span>Gear <b style="color:#cc2a2a">${dplFmt(gearAxis)}° axis</b>`:''}<br>Launch <b>${r.vLaunch.toFixed(1)}°</b><span class="dpv-sep">·</span>Carry <b>${carryShow<25?carryShow.toFixed(1):Math.round(carryShow)} yd</b><span class="dpv-sep">·</span>Apex <b>${Math.round(apexShow)} ft</b><span class="dpv-sep">·</span>Land <b>${Math.round(sim.land)}°</b><span class="dpv-sep">·</span>Finish <b>${Math.abs(curveShow)<25?Math.abs(curveShow).toFixed(1):Math.abs(Math.round(curveShow))} yd${curveShow<-0.3?' L':curveShow>0.3?' R':''}</b><span class="dpv-sep">·</span>Roll <b>${rollYd.toFixed(1)} yd</b>`;
+  if(ro) ro.innerHTML=`Shape <b style="color:#111">${fl}</b><span class="dpv-sep">·</span>3D Spin Loft <b style="color:#b8860b">${r.spinLoft.toFixed(1)}°</b><span class="dpv-sep">·</span>Spin Axis <b style="color:#cc2a2a">${Math.abs(axisEff).toFixed(1)}°${side}</b><span class="dpv-sep">·</span>Spin <b>~${spinUsed.toLocaleString()} rpm</b><span class="dpv-sep">·</span>Impact Plane <b style="color:#4a7aaa">${vPlane.toFixed(1)}°${d.vPlane!=null?'':' (est)'}</b>${(st.th||st.hl)?`<span class="dpv-sep">·</span>Gear <b style="color:#cc2a2a">${dplFmt(gearAxis)}° axis</b>`:''}<br>Launch <b>${r.vLaunch.toFixed(1)}°</b><span class="dpv-sep">·</span>Carry <b>${carryShow<25?carryShow.toFixed(1):Math.round(carryShow)} yd</b><span class="dpv-sep">·</span>Apex <b>${Math.round(apexShow)} ft</b><span class="dpv-sep">·</span>Land <b>${Math.round(sim.land)}°</b><span class="dpv-sep">·</span>Finish <b>${Math.abs(curveShow)<25?Math.abs(curveShow).toFixed(1):Math.abs(Math.round(curveShow))} yd${curveShow<-0.3?' L':curveShow>0.3?' R':''}</b><span class="dpv-sep">·</span>Roll <b>${rollYd.toFixed(1)} yd</b><span class="dpv-sep">·</span>Total <b>${(carryShow+rollYd)<25?(carryShow+rollYd).toFixed(1):Math.round(carryShow+rollYd)} yd</b>`;
 }
 /* ---- Shape Sandbox: an EXPLORATION overlay seeded from the club's stored tendencies
    + captured ball speed. Sliders and presets write only the overlay — the stored
