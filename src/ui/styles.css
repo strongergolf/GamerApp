@@ -730,10 +730,19 @@ table.chip-matrix tr:hover td{background:var(--surface2)}
 /* D-Plane shaper: per-club inputs (left) beside the single 3D render (right) */
 .dpl-layout{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;margin-top:6px}
 .dpl-grid-col{margin-top:6px;min-width:0}
-.dpl-vis-main{max-width:560px;margin:6px auto 0}
+.dpl-vis-main{max-width:880px;margin:6px auto 0}
+.dpv-cols{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap}
+.dpv-main-col{flex:1 1 330px;min-width:290px}
+.dpv-side-col{flex:1 1 232px;min-width:212px}
+.dpv-info{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 12px 9px}
+.dpv-info-h{font-family:ui-monospace,monospace;font-size:.56rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:2px 0 3px}
+.dpv-info-row{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:2.5px 0;border-bottom:1px dashed var(--border)}
+.dpv-info-row:last-child{border-bottom:none}
+.dpv-info-row .k{font-family:ui-monospace,monospace;font-size:.58rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);white-space:nowrap}
+.dpv-info-row .v{font-family:ui-monospace,monospace;font-size:.72rem;font-weight:800;color:var(--ink);text-align:right}
 .dpv-preset-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-top:7px}
-.dpv-preset-row{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-top:5px}
-.dpv-preset-btn{font-family:ui-monospace,monospace;font-size:.6rem;font-weight:700;letter-spacing:.03em;color:var(--ink2);background:var(--surface);border:1px solid var(--border2);border-radius:6px;padding:6px 4px;cursor:pointer;white-space:nowrap}
+.dpv-preset-row{display:grid;grid-template-columns:repeat(2,1fr);gap:5px;margin-top:5px}
+.dpv-preset-btn{font-family:ui-monospace,monospace;font-size:.57rem;font-weight:700;letter-spacing:.02em;color:var(--ink2);background:var(--surface);border:1px solid var(--border2);border-radius:6px;padding:6px 3px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dpv-preset-btn:hover{border-color:var(--green);color:var(--ink)}
 .dpv-single .dpv-panel{background:#eef6fc}
 #dpv-scene{cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}

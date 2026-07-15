@@ -1030,11 +1030,31 @@ function dpRenderScene(){
     ${far}${prims.map(q=>q.svg).join('')}${top}
   </svg>`;
 
-  /* live readout — impact line, then the simulated flight line */
+  /* live shot-info panel beside the viewer: impact block, then the simulated flight */
   const fl=dpBallFlight(axisEff);
   const side=axisEff<-0.05?'L':axisEff>0.05?'R':'';
   const ro=document.getElementById('dpv-readout');
-  if(ro) ro.innerHTML=`Shape <b style="color:#111">${fl}</b><span class="dpv-sep">·</span>3D Spin Loft <b style="color:#b8860b">${r.spinLoft.toFixed(1)}°</b><span class="dpv-sep">·</span>Spin Axis <b style="color:#cc2a2a">${Math.abs(axisEff).toFixed(1)}°${side}</b><span class="dpv-sep">·</span>Spin <b>~${spinUsed.toLocaleString()} rpm</b><span class="dpv-sep">·</span>Impact Plane <b style="color:#4a7aaa">${vPlane.toFixed(1)}°${d.vPlane!=null?'':' (est)'}</b>${(st.th||st.hl)?`<span class="dpv-sep">·</span>Gear <b style="color:#cc2a2a">${dplFmt(gearAxis)}° axis</b>`:''}<br>Launch <b>${r.vLaunch.toFixed(1)}°</b><span class="dpv-sep">·</span>Carry <b>${carryShow<25?carryShow.toFixed(1):Math.round(carryShow)} yd</b><span class="dpv-sep">·</span>Apex <b>${Math.round(apexShow)} ft</b><span class="dpv-sep">·</span>Land <b>${Math.round(sim.land)}°</b><span class="dpv-sep">·</span>Finish <b>${Math.abs(curveShow)<25?Math.abs(curveShow).toFixed(1):Math.abs(Math.round(curveShow))} yd${curveShow<-0.3?' L':curveShow>0.3?' R':''}</b><span class="dpv-sep">·</span>Roll <b>${rollYd.toFixed(1)} yd</b><span class="dpv-sep">·</span>Total <b>${(carryShow+rollYd)<25?(carryShow+rollYd).toFixed(1):Math.round(carryShow+rollYd)} yd</b>`;
+  if(ro){
+    const row=(k,v,col)=>`<div class="dpv-info-row"><span class="k">${k}</span><span class="v"${col?` style="color:${col}"`:''}>${v}</span></div>`;
+    const fmt1=v=>Math.abs(v)<25?v.toFixed(1):''+Math.round(v);
+    ro.innerHTML=
+      `<div class="dpv-info-h">Impact — D-Plane</div>`
+      +row('Shape',fl,'#111')
+      +row('3D Spin Loft',r.spinLoft.toFixed(1)+'°','#b8860b')
+      +row('Spin Axis',Math.abs(axisEff).toFixed(1)+'°'+(side?' '+side:''),'#cc2a2a')
+      +row('Spin (est)','~'+spinUsed.toLocaleString()+' rpm')
+      +row('Impact Plane',vPlane.toFixed(1)+'°'+(d.vPlane!=null?'':' est'),'#4a7aaa')
+      +((st.th||st.hl)?row('Gear Shift',dplFmt(gearAxis)+'° axis','#cc2a2a'):'')
+      +`<div class="dpv-info-h" style="margin-top:9px">Flight — Simulated</div>`
+      +row('Ball Speed',Math.round(bspd)+' mph')
+      +row('Launch',r.vLaunch.toFixed(1)+'°')
+      +row('Carry',fmt1(carryShow)+' yd')
+      +row('Apex',Math.round(apexShow)+' ft')
+      +row('Land Angle',Math.round(sim.land)+'°')
+      +row('Finish',Math.abs(curveShow)<0.3?'on line':fmt1(Math.abs(curveShow))+' yd '+(curveShow<0?'L':'R'))
+      +row('Roll',rollYd.toFixed(1)+' yd')
+      +row('Total',fmt1(carryShow+rollYd)+' yd');
+  }
 }
 /* ---- Shape Sandbox: an EXPLORATION overlay seeded from the club's stored tendencies
    + captured ball speed. Sliders and presets write only the overlay — the stored
@@ -1101,8 +1121,8 @@ function dpApplyPreset(key){
   if(P.bs!=null) o.bspd=P.bs; else if(P.bsMult) o.bspd=Math.round(o.bspd*P.bsMult);
   o.hFace=P.hF; o.hPath=P.hP;
   o.vFace=(P.vFAbs!=null)?loft+P.vFAbs:o.vFace+P.vF;
-  o.vFace=Math.max(Math.max(0,loft-15),Math.min(loft+10,o.vFace));
-  o.aoa=Math.max(-6,Math.min(6,(P.aoaAbs!=null)?P.aoaAbs:o.aoa+P.aoa));
+  o.vFace=Math.max(10,Math.min(65,o.vFace));
+  o.aoa=Math.max(-8,Math.min(8,(P.aoaAbs!=null)?P.aoaAbs:o.aoa+P.aoa));
   dpSandSync(); dpRenderScene();
 }
 
@@ -1177,19 +1197,19 @@ function renderDPlaneVisual(){
     </div>`;
   const presetBtn=k=>`<button type="button" class="dpv-preset-btn" onclick="dpApplyPreset('${k}')">${DP_SHOTS[k].lbl}</button>`;
   const presets=`<div class="dpv-sand" style="margin-top:8px">
-      <div class="dpv-strike-head">Shot Presets — the 9-window drill (one club, nine flights) + specialty &amp; short game</div>
+      <div class="dpv-strike-head">Shot Presets — 9-window drill + short game</div>
       <div class="dpv-preset-grid">${['hiDraw','hiStr','hiFade','mdDraw','mdStr','mdFade','loDraw','loStr','loFade'].map(presetBtn).join('')}</div>
       <div class="dpv-preset-row">${['stinger','chip','pitch','flop'].map(presetBtn).join('')}</div>
-      <div class="dpv-strike-note">Each preset loads the sandbox relative to this club's stock — short-game shots drop the ball speed (chip ~25, pitch ~45, flop ~55 mph) so the sim shows their true trajectories.</div>
+      <div class="dpv-strike-note">Loads the sliders relative to this club's stock; short-game presets drop the ball speed to their real values.</div>
     </div>`;
   const sandbox=`<div class="dpv-sand">
       <div class="dpv-strike-head">Shape Sandbox — drag the impact numbers, watch the flight
         <span style="float:right;display:flex;gap:5px"><button type="button" class="dpv-sand-reset" onclick="dpSandSave()">save as stock</button><button type="button" class="dpv-sand-reset" onclick="dpSandRevert()">revert</button></span></div>
       ${sandRow('bspd','Ball Speed','var(--ink2)',5,200,1)}
-      ${sandRow('hFace','Horiz. Face','#2a6fc4',-8,8,0.1)}
-      ${sandRow('hPath','Horiz. Path','#c43c9e',-8,8,0.1)}
-      ${sandRow('vFace','Vert. Face','#2a6fc4',Math.max(0,loft-15),loft+10,0.5)}
-      ${sandRow('aoa','Vert. Path','#c43c9e',-6,6,0.1)}
+      ${sandRow('hFace','Horiz. Face','#2a6fc4',-10,10,0.1)}
+      ${sandRow('hPath','Horiz. Path','#c43c9e',-10,10,0.1)}
+      ${sandRow('vFace','Vert. Face','#2a6fc4',10,65,0.5)}
+      ${sandRow('aoa','Vert. Path','#c43c9e',-8,8,0.1)}
       <div class="dpv-strike-note">− left / + right (RH) · vert. path − down / + up. Explores freely — your stored tendencies only change when you <b>save as stock</b>; <b>revert</b> reloads them.</div>
       <div class="dpv-sand-sub">
         <div class="dpv-strike-head">Strike — Gear Effect <span class="dpv-strike-cur">layered on the D-plane, not part of it</span></div>
@@ -1202,12 +1222,18 @@ function renderDPlaneVisual(){
       <label style="font-family:ui-monospace,monospace;font-size:.56rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)">Club</label>
       <select class="strat-select" style="max-width:150px" onchange="setDpVisClub(this.value)">${opts}</select>
     </div>
-    <div class="dpv-readout" id="dpv-readout"></div>
-    <div class="dpv-panel"><div class="dpv-title">Impact Plane · D-Plane · Ball Flight — drag pan · middle-drag / 2-finger rotate · scroll / pinch zoom</div>
-      <div id="dpv-scene"></div></div>
-    <div class="dpv-cam-row">${camBtns}</div>
-    ${presets}
-    ${sandbox}`;
+    <div class="dpv-cols">
+      <div class="dpv-main-col">
+        <div class="dpv-panel"><div class="dpv-title">Impact Plane · D-Plane · Ball Flight — drag pan · middle-drag / 2-finger rotate · scroll / pinch zoom</div>
+          <div id="dpv-scene"></div></div>
+        <div class="dpv-cam-row">${camBtns}</div>
+        ${sandbox}
+      </div>
+      <div class="dpv-side-col">
+        <div class="dpv-info" id="dpv-readout"></div>
+        ${presets}
+      </div>
+    </div>`;
   dpRenderScene();
   dpSceneDragInit();
 }
