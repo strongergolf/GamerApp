@@ -617,6 +617,12 @@ table.chip-matrix tr:hover td{background:var(--surface2)}
 .putt-stat-val{font-family:Arial,sans-serif;font-size:1.5rem;font-weight:800;color:var(--gold2);line-height:1}
 .putt-stat-lbl{font-family:ui-monospace,monospace;font-size:.59rem;text-transform:uppercase;letter-spacing:.07em;color:#7aa899;margin-top:3px}
 .putt-conditions{font-family:ui-monospace,monospace;font-size:.84rem;letter-spacing:.06em;color:#7aa899;text-align:center;margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.1)}
+.putt-sum{margin-top:12px;padding-top:9px;border-top:1px solid rgba(255,255,255,0.1)}
+.putt-sum-row{display:grid;gap:6px}
+.putt-sum-row+.putt-sum-row{margin-top:8px}
+.putt-sum-cell{text-align:center;min-width:0}
+.putt-sum-val{font-family:Arial,sans-serif;font-size:.92rem;font-weight:800;color:#f4f0e8;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.putt-sum-lbl{font-family:ui-monospace,monospace;font-size:.5rem;text-transform:uppercase;letter-spacing:.06em;color:#7aa899;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .putt-field{margin-bottom:12px}
 .putt-field label{display:block;font-family:ui-monospace,monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:4px}
 .putt-field input,.putt-field select{width:100%;padding:7px 9px;font-family:Arial,sans-serif;font-size:1rem;font-weight:700;color:var(--ink);background:var(--bg2);border:1px solid var(--border2);border-radius:6px;outline:none}

@@ -177,9 +177,11 @@ function renderPutt(){
   const edgeOffsetIn=Math.max(0,breakIn-HOLE_R);
   const cupW=edgeOffsetIn/4.25;
   const res=document.getElementById('putt-result-wrap'); if(!res) return;
-  const slopeWord=fmtSlopeElev(elevIn).toLowerCase();
   const eff=(typeof puttEffDist==='function')?puttEffDist(dist,elevIn,stimp,pace):null;
-  const effTxt=eff?(eff.ok?` · plays ${eff.ft.toFixed(1)} ft`:' · won’t stop'):'';
+  const effVal=eff?(eff.ok?`${eff.ft.toFixed(1)} ft`:`<span style="color:#e88494">won’t stop</span>`):'—';
+  /* Putt Summary — two labelled rows:
+     distance · stimp · up/downhill amount · sidehill %  /  pace past · effective distance · break to centre */
+  const sumCell=(l,v)=>`<div class="putt-sum-cell"><div class="putt-sum-val">${v}</div><div class="putt-sum-lbl">${l}</div></div>`;
   res.innerHTML=`
     <div class="putt-result-card">
       <h4>Required Break</h4>
@@ -187,7 +189,19 @@ function renderPutt(){
         <div class="putt-stat"><div class="putt-stat-val">${edgeOffsetIn.toFixed(1)}"</div><div class="putt-stat-lbl">Outside edge</div></div>
         <div class="putt-stat"><div class="putt-stat-val">${cupW.toFixed(2)}×</div><div class="putt-stat-lbl">Cup widths</div></div>
       </div>
-      <div class="putt-conditions">${dist} ft · grade ${grade}% · stimp ${stimp.toFixed(1)} · ${slopeWord} · pace ${pace}"${effTxt} · ${breakIn.toFixed(1)}" to centre</div>
+      <div class="putt-sum">
+        <div class="putt-sum-row" style="grid-template-columns:repeat(4,1fr)">
+          ${sumCell('Distance',`${dist} ft`)}
+          ${sumCell('Stimp',stimp.toFixed(1))}
+          ${sumCell('Up / Downhill',fmtSlopeElev(elevIn))}
+          ${sumCell('Sidehill',`${grade}%`)}
+        </div>
+        <div class="putt-sum-row" style="grid-template-columns:repeat(3,1fr)">
+          ${sumCell('Pace Past',`${pace}"`)}
+          ${sumCell('Effective Dist',effVal)}
+          ${sumCell('Break to Centre',`${breakIn.toFixed(1)}"`)}
+        </div>
+      </div>
     </div>`;
   const svgWrap=document.getElementById('putt-svg-wrap'); if(!svgWrap) return;
   svgWrap.innerHTML=buildPuttSVG(dist,breakIn,dir==='straight'?'lr':dir,slopeCategoryFromElev(elevIn),pace);
