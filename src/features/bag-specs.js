@@ -12,9 +12,9 @@ function buildSpecs(){
     const ballLabel=pf.ballMake&&pf.ballModel?`${pf.ballMake} ${pf.ballModel}`:'No ball on file';
     const ballSub=[ pf.ballLayers, pf.ballCover, pf.ballColor, pf.ballAlignment ].filter(Boolean).join(' · ');
     bw.innerHTML=`<div class="specs-col-head"><span></span><span>Model</span><span>Feel</span><span>Spin</span><span>Trajectory</span><span></span></div>
-      <div class="specs-club-row ball-row" onclick="showGroup('setup',document.querySelector('.ngroup:last-child'));setTimeout(()=>document.getElementById('ball-grid')?.scrollIntoView({behavior:'smooth'}),200)">
+      <div class="specs-club-row ball-row" onclick="const _dd=document.getElementById('ball-edit-dd');if(_dd)_dd.open=true;setTimeout(()=>document.getElementById('ball-grid')?.scrollIntoView({behavior:'smooth',block:'center'}),80)">
         <span class="spec-club" style="font-family:Arial,sans-serif;font-weight:800;font-size:1.1rem;color:var(--grey)">B</span>
-        <div class="spec-model">${ballLabel}<small>${ballSub||'tap to edit in Profile'}</small></div>
+        <div class="spec-model">${ballLabel}<small>${ballSub||'tap to edit below'}</small></div>
         <div class="spec-val">${pf.ballFirmness||'—'}</div>
         <div class="spec-val">${pf.ballSpin||'—'}</div>
         <div class="spec-val">${pf.ballTrajectory||'—'}</div>
@@ -302,6 +302,7 @@ function buildProfile(){
     <div class="edit-field"><label>Spin Characteristics</label>${sel('ball-spin',['','Low','Medium','High'],pf.ballSpin||'')}</div>
     <div class="edit-field"><label>Trajectory Tendency</label>${sel('ball-trajectory',['','Low','Mid','High'],pf.ballTrajectory||'')}</div>
     <div class="edit-field" style="grid-column:1/-1"><label>Notes</label><input id="ball-notes" value="${escapeHtml(pf.ballNotes||'')}" placeholder="feel preference, conditions, wind performance, short game control…"></div>`;
+  pfDirtyInit();
 }
 /* Clear the Edit Golf Ball form fields (does not persist until Save Edits). */
 function clearBallForm(){
@@ -354,8 +355,23 @@ function saveProfile(){
   pf.fairwayGrass=document.getElementById('pf-fairwaygrass')?.value??pf.fairwayGrass;
   pf.roughGrass=document.getElementById('pf-roughgrass')?.value??pf.roughGrass;
   pf.bunkerSand=document.getElementById('pf-bunkersand')?.value??pf.bunkerSand;
+  window.pfDirty=false;
   saveState(); refreshAll(); toast('Profile saved');
 }
+/* ---- Unsaved-edit protection: the Locker Room forms are the only ones in the app
+   without instant save. Any edit marks them dirty; navigating anywhere (tab/group
+   switch — see showGroup/showPage) or closing the app commits via saveProfile, so
+   edits can no longer be silently lost. Listeners sit on the grid CONTAINERS, which
+   survive buildProfile's innerHTML rebuilds. ---- */
+function pfDirtyInit(){
+  ['profile-grid','baseline-grid','ball-grid'].forEach(id=>{
+    const el=document.getElementById(id); if(!el||el._dirtyWired) return; el._dirtyWired=true;
+    el.addEventListener('input',()=>{ window.pfDirty=true; });
+    el.addEventListener('change',()=>{ window.pfDirty=true; });
+  });
+}
+function pfMaybeSave(){ if(window.pfDirty){ window.pfDirty=false; saveProfile(); } }
+window.addEventListener('beforeunload',()=>{ if(window.pfDirty) try{ pfMaybeSave(); }catch(_){} });
 function saveCalibration(){ const el=document.getElementById('dens-k'); if(el){ STATE.densityK=Math.max(0,Math.min(2,parseFloat(el.value)||0.65)); saveState(); buildLadder(); if(typeof updateCondSummary==='function') updateCondSummary(); toast('Calibration saved'); } }
 function generateFromSwingSpeed(){
   const target=parseFloat(document.getElementById('pf-ss')?.value);
@@ -378,13 +394,21 @@ function exportData(){
   a.download='strongergolf-bag-'+(STATE.profile.name||'data').replace(/\s+/g,'-').toLowerCase()+'.json';
   a.click(); URL.revokeObjectURL(a.href); toast('Exported');
 }
+/* Import and Reset both REPLACE the entire STATE (bag, captures, D-plane tendencies,
+   partials, profile, rounds) — so both confirm first and download a backup before acting. */
 function importData(e){
   const f=e.target.files[0]; if(!f)return;
+  if(!confirm(`Import "${f.name}"?\n\nThis REPLACES all current data (bag, captured numbers, tendencies, profile).\nA backup of your current data will download first.`)){ e.target.value=''; return; }
+  exportData();
   const r=new FileReader();
-  r.onload=()=>{ try{ window.STATE=mergeDefaults(JSON.parse(r.result)); saveState(); renderAll(); toast('Imported'); }catch(err){ toast('Import failed — invalid file'); } };
+  r.onload=()=>{ try{ window.STATE=mergeDefaults(JSON.parse(r.result)); saveState(); renderAll(); toast('Imported — previous data backed up'); }catch(err){ toast('Import failed — invalid file (current data unchanged)'); } };
   r.readAsText(f); e.target.value='';
 }
-function resetData(){ window.STATE=deepClone(DEFAULT_DATA); saveState(); renderAll(); toast('Reset to demo bag'); }
+function resetData(){
+  if(!confirm('Reset to the demo bag?\n\nThis REPLACES all current data (bag, captured numbers, tendencies, profile).\nA backup of your current data will download first.')) return;
+  exportData();
+  window.STATE=deepClone(DEFAULT_DATA); saveState(); renderAll(); toast('Reset to demo bag — previous data backed up');
+}
 
 /* ---- Handicap trend: manual snapshots over time + sparkline ---- */
 function hcpTrendHtml(){
@@ -430,4 +454,4 @@ function logHcpSnapshot(){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { buildProfile, buildSpecs, clearBallForm, estimatePerfForLoft, exportData, generateFromSwingSpeed, hcpTrendHtml, importData, logHcpSnapshot, repMatches, resetData, saveCalibration, saveClub, saveProfile, sel, selectReplacement, toggleSpecs });
+Object.assign(window, { buildProfile, buildSpecs, clearBallForm, estimatePerfForLoft, exportData, generateFromSwingSpeed, hcpTrendHtml, importData, logHcpSnapshot, pfDirtyInit, pfMaybeSave, repMatches, resetData, saveCalibration, saveClub, saveProfile, sel, selectReplacement, toggleSpecs });

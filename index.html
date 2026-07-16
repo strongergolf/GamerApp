@@ -217,26 +217,21 @@
 
 <!-- SPECS -->
 <div id="page-specs" class="page">
-  <div class="section-label" style="margin-top:0;display:flex;align-items:center;justify-content:space-between;gap:10px">Backup &amp; Transfer
-    <span style="display:flex;gap:8px;flex-shrink:0">
-      <button class="print-btn" onclick="exportData()">⬇ Export</button>
-      <button class="print-btn" onclick="triggerImportFile()">⬆ Import</button>
-    </span>
-  </div>
-
-  <div class="section-label" style="margin-top:22px">Golf Ball</div>
+  <!-- Backup & Transfer lives on My App → Data (was duplicated here at the top) -->
+  <div class="section-label" style="margin-top:0">Golf Ball</div>
   <div class="specs-wrap" id="ball-specs-wrap"></div>
   <div class="section-label" style="margin-top:18px">Clubs</div>
   <div id="gapping-wrap"></div>
   <div class="specs-wrap" id="specs-wrap"></div>
 
-  <div class="section-label" style="margin-top:22px">Edit Golf Ball</div>
-  <div class="profile-card" style="margin-bottom:0;border-radius:10px">
-    <div class="edit-grid" id="ball-grid"></div>
-    <div class="btn-row"><button class="btn btn-primary" onclick="saveProfile()">Save Edits</button><button class="btn" onclick="clearBallForm()">Clear</button></div>
-  </div>
+  <details class="defs-dropdown" id="ball-edit-dd" style="margin-top:22px"><summary>Edit Golf Ball</summary>
+    <div class="profile-card" style="margin-bottom:0;border-radius:10px">
+      <div class="edit-grid" id="ball-grid"></div>
+      <div class="btn-row"><button class="btn btn-primary" onclick="saveProfile()">Save Edits</button><button class="btn" onclick="clearBallForm()">Clear</button></div>
+    </div>
+  </details>
 
-  <div class="section-label" style="margin-top:22px">Add a Club</div>
+  <details class="defs-dropdown" style="margin-top:14px"><summary>Add a Club</summary>
   <div class="add-club-wrap" id="add-club-wrap">
     <div class="add-club-body">
       <div class="edit-grid">
@@ -270,6 +265,7 @@
       </div>
     </div>
   </div>
+  </details>
 </div>
 
 <!-- PRE-SHOT ROUTINE -->

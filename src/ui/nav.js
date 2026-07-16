@@ -18,6 +18,7 @@ const GROUPS={
 let currentGroup='play';
 
 function showGroup(group,el){
+  if(typeof pfMaybeSave==='function') pfMaybeSave();   // commit any unsaved Locker Room edits
   currentGroup=group;
   document.querySelectorAll('.ngroup').forEach(g=>g.classList.remove('active'));
   if(el)el.classList.add('active');
@@ -34,6 +35,7 @@ function updateSubScrollCue(){
   requestAnimationFrame(()=>sub.classList.toggle('is-scroll', sub.scrollWidth>sub.clientWidth+2));
 }
 function showPage(id,tab){
+  if(typeof pfMaybeSave==='function') pfMaybeSave();   // commit any unsaved Locker Room edits
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
   const pg=document.getElementById('page-'+id); if(pg)pg.classList.add('active');
