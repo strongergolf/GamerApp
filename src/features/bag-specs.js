@@ -245,6 +245,7 @@ function buildProfile(){
   if(_pg) _pg.innerHTML=`
     <div class="edit-subhead">Player</div>
     <div class="edit-field"><label>Name</label><input id="pf-name" value="${escapeHtml(pf.name||'')}"></div>
+    <div class="edit-field"><label>Handedness <span style="font-weight:400;text-transform:none;letter-spacing:0">— visuals currently drawn RH</span></label>${sel('pf-handed',['','RH','LH'],pf.handedness||'RH')}</div>
     <div class="edit-field"><label>Handicap</label><input id="pf-hcp" value="${escapeHtml(pf.handicap||'')}" placeholder="e.g. 8 or +2"></div>
     <div class="edit-field"><label>Goal Handicap</label><input id="pf-goalhcp" value="${escapeHtml(pf.goalHcp||'')}" placeholder="e.g. 5"></div>
     <div class="edit-field"><label>Handicap Service</label>${sel('pf-hcpsvc',['','GHIN (USGA)','Golf Canada','Golf Australia','CONGU (GB&I)','Golf NZ','Other'],pf.hcpService||'')}</div>
@@ -315,11 +316,9 @@ function saveProfile(){
   pf.name=document.getElementById('pf-name').value;
   pf.handicap=document.getElementById('pf-hcp').value;
   pf.driverSwingSpeed=parseFloat(document.getElementById('pf-ss').value)||pf.driverSwingSpeed;
-  pf.handedness=document.getElementById('pf-hand')?.value??pf.handedness;
-  pf.heightFt=document.getElementById('pf-htft')?.value??pf.heightFt;
-  pf.heightIn=document.getElementById('pf-htin')?.value??pf.heightIn;
-  pf.armToFloor=document.getElementById('pf-atf')?.value??pf.armToFloor;
-  pf.ageRange=document.getElementById('pf-age')?.value??pf.ageRange;
+  /* pf-handed = the profile's own control; the Assess swing card has a pf-hand twin —
+     both read/write STATE.profile.handedness ('RH'/'LH') and stay in sync via rebuilds */
+  pf.handedness=document.getElementById('pf-handed')?.value??pf.handedness;
   pf.gloveSize=document.getElementById('pf-glove')?.value??pf.gloveSize;
   pf.roundsPerYear=document.getElementById('pf-rounds')?.value??pf.roundsPerYear;
   pf.practicePerYear=document.getElementById('pf-practice').value;
@@ -337,7 +336,6 @@ function saveProfile(){
   if(pf.homeStimp!==''&&pf.homeStimp!=null){ const hs=parseFloat(pf.homeStimp); if(!isNaN(hs)) STATE.stimp=hs; }
   pf.hcpService=document.getElementById('pf-hcpsvc').value;
   pf.hcpId=document.getElementById('pf-hcpid').value;
-  pf.gloveSize=document.getElementById('pf-glove').value;
   pf.ballMake=document.getElementById('ball-make').value;
   pf.ballModel=document.getElementById('ball-model').value;
   pf.ballAlignment=document.getElementById('ball-align').value;
