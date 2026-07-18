@@ -386,7 +386,33 @@ function buildAssess(){
     <div class="btn-row" style="margin-top:14px"><button class="btn btn-primary" onclick="saveSwing()">Save Diagnostic Data</button></div>`);
 }
 function buildImprove(){ buildPracticeSlot('improve','improve-wrap'); }
-function buildResources(){ buildPracticeSlot('resources','resources-wrap'); }
+function buildResources(){
+  buildPracticeSlot('resources','resources-wrap');
+  const wrap=document.getElementById('resources-wrap');
+  if(wrap) wrap.insertAdjacentHTML('beforeend', pgaProSectionHtml());
+}
+/* ---- Work With a PGA Professional — links to the official national PGA associations
+   (the nine PGA World Alliance members; the CPG federates 30+ more national PGAs). ---- */
+function pgaProSectionHtml(){
+  const orgs=[
+    ['PGA of America','USA','https://www.pga.com'],
+    ['The PGA','Great Britain & Ireland','https://www.pga.info'],
+    ['PGA of Canada','Canada','https://www.pgaofcanada.com'],
+    ['PGA of Australia','Australia','https://www.pga.org.au'],
+    ['PGA of Germany','Germany','https://www.pga.de'],
+    ['PGA of Sweden','Sweden','https://www.pgasweden.com'],
+    ['PGA of Japan','Japan','https://www.pga.or.jp'],
+    ['PGA of South Africa','South Africa','https://www.pga.co.za'],
+    ['Confederation of Professional Golf','Europe &amp; beyond — 30+ national PGAs','https://cpg.golf']
+  ];
+  const chips=orgs.map(([name,region,url])=>`<a href="${url}" target="_blank" rel="noopener" style="display:block;background:var(--bg2);border:1px solid var(--border);border-left:3px solid var(--green);border-radius:7px;padding:9px 11px;text-decoration:none">
+      <div style="font-family:Arial,sans-serif;font-weight:800;font-size:.86rem;color:var(--ink)">${name} ↗</div>
+      <div style="font-family:ui-monospace,monospace;font-size:.6rem;color:var(--muted);margin-top:2px">${region}</div>
+    </a>`).join('');
+  return `<div class="section-label" style="margin-top:26px">Work With a PGA Professional</div>
+    <p class="intro-note">This app organises your knowledge and your numbers — it doesn't replace a coach's eye. For lessons, club fitting, and a professional read on anything the chain of causation surfaces, contact a certified professional through your national PGA. Every association below runs a member directory / find-a-pro service; the nine listed are the PGA World Alliance members, and the Confederation of Professional Golf federates 30+ further national PGAs worldwide.</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px">${chips}</div>`;
+}
 
 /* ---- reusable presentation helpers for Improve / Resources slots ---- */
 function drillBlock(title,intro,items){
@@ -1263,4 +1289,4 @@ function buildGearEffectL2(){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { STRAT_OPTS, ballRefHtml, buildAssess, buildImprove, buildResources, buildCourseStrategy, buildDplaneGrid, buildDplaneLab, buildForceProfileSVG, buildGearEffectL2, buildKinematicSequenceSVG, buildStrategyPrefs, DP_SHOTS, dpApplyPreset, dpBallFlight, dpRenderScene, dpSandFmt, dpSandRevert, dpSandSave, dpSandSync, dpSceneDragInit, dpSeedSand, dpSetCam, dpSetSand, dpSetStrike, dpStrikeTxt, dpWorldVectors, dplFmt, dplaneShape, escapeHtml, forceRow, getPath, metricBox, renderDPlaneVisual, saveSwing, setDpVisClub, setDplaneCell, setStrategy, setPath, stratLabel, stratSelect, stratSummary, toggleLevel });
+Object.assign(window, { STRAT_OPTS, ballRefHtml, buildAssess, buildImprove, buildResources, buildCourseStrategy, buildDplaneGrid, buildDplaneLab, buildForceProfileSVG, buildGearEffectL2, buildKinematicSequenceSVG, buildStrategyPrefs, pgaProSectionHtml, DP_SHOTS, dpApplyPreset, dpBallFlight, dpRenderScene, dpSandFmt, dpSandRevert, dpSandSave, dpSandSync, dpSceneDragInit, dpSeedSand, dpSetCam, dpSetSand, dpSetStrike, dpStrikeTxt, dpWorldVectors, dplFmt, dplaneShape, escapeHtml, forceRow, getPath, metricBox, renderDPlaneVisual, saveSwing, setDpVisClub, setDplaneCell, setStrategy, setPath, stratLabel, stratSelect, stratSummary, toggleLevel });
