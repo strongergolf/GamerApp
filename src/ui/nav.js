@@ -9,10 +9,11 @@ const GROUPS={
     {id:'bag',      label:'Stock Shots'},
     {id:'partials', label:'Approach'},
     {id:'shortgame',label:'Short Game'},
-    {id:'putting',  label:'Putting'}
+    {id:'putting',  label:'Putting'},
+    {id:'gameplan', label:'Gameplan'}
   ],
+  dplane:[{id:'dplane',label:'D-Plane Lab'}],
   diagnose:[{id:'assess',label:'Assess'},{id:'improve',label:'Practice'},{id:'tests',label:'Tests'},{id:'resources',label:'Resources'}],
-  plan:[{id:'planshot',label:'Pre-Shot'},{id:'postshot',label:'Post-Shot'},{id:'courses',label:'Pre-Round'},{id:'postround',label:'Post-Round'}],
   setup:[{id:'specs',label:'My Bag'},{id:'profile',label:'Myself'},{id:'reference',label:'My App'}]
 };
 let currentGroup='play';
@@ -67,7 +68,7 @@ function refreshAll(){
   buildImprove();
   buildResources();
   buildTests();
-  renderDPlaneVisual();
+  buildDplaneLab();
   buildCourseStrategy();
   buildCourses();
   buildRoundTracker();

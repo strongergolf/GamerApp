@@ -120,21 +120,16 @@ const PRACTICE_AREAS=[
      resources:()=>scoreResources()},
     {n:2,id:'ball',title:'Ball Flight &amp; Club Behaviour',cause:'Forces &amp; torques',status:'live',
      assess:()=>`
-       <div class="chain-caption">The D-plane covers both layers: ball flight is the <em>outcome</em> of club behaviour at impact, and the same impact variables explain both simultaneously. Ball data is captured on the Bag tab; D-plane inputs are editable here. <span class="placeholder-flag">Labels pending StrongerGolf terms</span></div>
+       <div class="chain-caption">The D-plane covers both layers: ball flight is the <em>outcome</em> of club behaviour at impact, and the same impact variables explain both simultaneously. Ball data is captured on the Bag tab. <span class="placeholder-flag">Labels pending StrongerGolf terms</span></div>
 
        <div class="lvl-subhead">Ball Flight — from Bag Data</div>
        ${ballRefHtml()}
 
-       <div class="lvl-subhead" style="margin-top:14px">The D-Plane Lab — Impact Geometry &amp; Ball Flight</div>
-       <div class="chain-caption" style="margin-top:4px">The rotatable 3D render — <strong>drag to pan, middle-drag or two fingers to orbit, scroll or pinch to zoom</strong>, snap views below, double-tap to reset — shows the <span style="color:#4a7aaa;font-weight:700">impact plane</span>, the <span style="color:#c43c9e;font-weight:700">path</span> &amp; <span style="color:#2a6fc4;font-weight:700">face</span> vectors, the <span style="color:#b8860b;font-weight:700">D-plane</span> wedge, the perpendicular <span style="color:#cc2a2a;font-weight:700">spin axis</span>, and the <strong>simulated ball flight</strong> (drag + spin lift, 5–200 mph, calibrated to your Bag captures at stock). Shot presets load the 9-window drill and short-game shots; the sliders explore freely and only touch your stored tendencies when you <strong>save as stock</strong>. <span class="placeholder-flag">prototype</span></div>
-       <div class="dpl-vis-main"><div id="dplane-visual"></div></div>
-       <div class="lvl-subhead" style="margin-top:16px">Stock-Shot Tendencies by Club</div>
-       <div class="chain-caption" style="margin-top:4px">Each club's <strong>stock-shot</strong> impact geometry: horizontal face, horizontal path, vertical face (dyn loft), vertical path (attack angle) and vertical swing plane (degrees, left −/right +; blank plane = estimated from loft). Tap a club to load it into the lab above; typed edits save automatically.</div>
-       <div class="dpl-grid-col">${buildDplaneGrid()}</div>`,
+       <div class="chain-caption" style="margin-top:14px">The interactive <strong>D-Plane Lab</strong> — the rotatable impact-geometry render, shot presets, ball-speed sandbox and per-club stock-shot tendencies — now has its own main tab: <b onclick="showGroup('dplane',document.querySelectorAll('.ngroup')[1])" style="color:var(--sky);cursor:pointer;text-decoration:underline">open the D-Plane Lab</b>.</div>`,
      improve:()=>ballImprove(),
      resources:()=>`
        ${ballLawsRef()}
-       <div class="chain-caption" style="margin-top:14px">The interactive D-plane shaper — per-club impact inputs alongside the live 3D render — now lives under <strong>Assess → Ball Flight &amp; Club Behaviour → D-Plane Tendencies</strong>.</div>
+       <div class="chain-caption" style="margin-top:14px">The interactive D-plane shaper — per-club impact inputs alongside the live 3D render — now lives in its own main tab: <b onclick="showGroup('dplane',document.querySelectorAll('.ngroup')[1])" style="color:var(--sky);cursor:pointer;text-decoration:underline">the D-Plane Lab</b>.</div>
        ${buildGearEffectL2()}
 
        <div class="chain-caption" style="margin-top:14px">Driver distance optimization (Foresight launch &amp; spin windows) now lives under the <strong>Driver</strong> in <strong>Stock Shots</strong>.</div>`},
@@ -831,14 +826,29 @@ function buildCourseStrategy(){
   wrap.innerHTML=`
     <div class="section-label" style="margin-top:0">Course Strategy <span class="proto-badge">prototype</span></div>
     ${buildStrategyPrefs()}
-    <p class="intro-note" style="margin-top:18px">Your bag plays <strong>${predominant}</strong>. These per-club ball-flight tendencies (set in Practice → D-Plane Tendencies) are the foundation for hole-by-hole aim points — favouring the side your stock shape works <em>away</em> from trouble.</p>
+    <p class="intro-note" style="margin-top:18px">Your bag plays <strong>${predominant}</strong>. These per-club ball-flight tendencies (set in the D-Plane Lab) are the foundation for hole-by-hole aim points — favouring the side your stock shape works <em>away</em> from trouble.</p>
     <div class="section-label">Predominant Ball Flight by Club</div>
     <div class="cs-grid">${rows}</div>
     <div class="section-label">Hole Overlays</div>
     <div class="lvl-soon-note">Coming: each hole's layout with your dispersion cone and stock shape overlaid, plus the expected-value aim point that keeps your predominant curve working away from hazards. Feeds from the per-club tendencies above and your Stock Shots dispersion data.</div>`;
 }
 
-/* ---- D-Plane 3D visual (Practice L2) — rotatable orbit render of the Impact Plane,
+/* ---- THE D-PLANE LAB — its own top-level page (#page-dplane). One place to build and
+   demonstrate ANY shot: the rotatable 3D impact-geometry render, shot presets, the
+   ball-speed sandbox, and the per-club stock-shot tendencies grid. ---- */
+function buildDplaneLab(){
+  const wrap=document.getElementById('dplane-lab-wrap'); if(!wrap) return;
+  wrap.innerHTML=`
+    <div class="section-label" style="margin-top:0">The D-Plane Lab — Impact Geometry &amp; Ball Flight</div>
+    <div class="chain-caption" style="margin-top:4px">The rotatable 3D render — <strong>drag to pan, middle-drag or two fingers to orbit, scroll or pinch to zoom</strong>, snap views below, double-tap to reset — shows the <span style="color:#4a7aaa;font-weight:700">impact plane</span>, the <span style="color:#c43c9e;font-weight:700">path</span> &amp; <span style="color:#2a6fc4;font-weight:700">face</span> vectors, the <span style="color:#b8860b;font-weight:700">D-plane</span> wedge, the perpendicular <span style="color:#cc2a2a;font-weight:700">spin axis</span>, and the <strong>simulated ball flight</strong> (drag + spin lift, 5–200 mph, calibrated to your Bag captures at stock). Shot presets load the 9-window drill and short-game shots; the sliders explore freely and only touch your stored tendencies when you <strong>save as stock</strong>. <span class="placeholder-flag">prototype</span></div>
+    <div class="dpl-vis-main"><div id="dplane-visual"></div></div>
+    <div class="lvl-subhead" style="margin-top:16px">Stock-Shot Tendencies by Club</div>
+    <div class="chain-caption" style="margin-top:4px">Each club's <strong>stock-shot</strong> impact geometry: horizontal face, horizontal path, vertical face (dyn loft), vertical path (attack angle) and vertical swing plane (degrees, left −/right +; blank plane = estimated from loft). Tap a club to load it into the lab above; typed edits save automatically.</div>
+    <div class="dpl-grid-col">${buildDplaneGrid()}</div>`;
+  renderDPlaneVisual();
+}
+
+/* ---- D-Plane 3D visual — rotatable orbit render of the Impact Plane,
    the D-plane, and the expected ball flight (scaled to the club's captured Bag data). ---- */
 function setDpVisClub(id){ window.dpVisClub=id; window.dpStrike={th:0,hl:0}; window.dpSand=null; renderDPlaneVisual(); }
 /* World-space D-plane vectors (x=lateral right, y=up, z=toward target).
@@ -1253,4 +1263,4 @@ function buildGearEffectL2(){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { STRAT_OPTS, ballRefHtml, buildAssess, buildImprove, buildResources, buildCourseStrategy, buildDplaneGrid, buildForceProfileSVG, buildGearEffectL2, buildKinematicSequenceSVG, buildStrategyPrefs, DP_SHOTS, dpApplyPreset, dpBallFlight, dpRenderScene, dpSandFmt, dpSandRevert, dpSandSave, dpSandSync, dpSceneDragInit, dpSeedSand, dpSetCam, dpSetSand, dpSetStrike, dpStrikeTxt, dpWorldVectors, dplFmt, dplaneShape, escapeHtml, forceRow, getPath, metricBox, renderDPlaneVisual, saveSwing, setDpVisClub, setDplaneCell, setStrategy, setPath, stratLabel, stratSelect, stratSummary, toggleLevel });
+Object.assign(window, { STRAT_OPTS, ballRefHtml, buildAssess, buildImprove, buildResources, buildCourseStrategy, buildDplaneGrid, buildDplaneLab, buildForceProfileSVG, buildGearEffectL2, buildKinematicSequenceSVG, buildStrategyPrefs, DP_SHOTS, dpApplyPreset, dpBallFlight, dpRenderScene, dpSandFmt, dpSandRevert, dpSandSave, dpSandSync, dpSceneDragInit, dpSeedSand, dpSetCam, dpSetSand, dpSetStrike, dpStrikeTxt, dpWorldVectors, dplFmt, dplaneShape, escapeHtml, forceRow, getPath, metricBox, renderDPlaneVisual, saveSwing, setDpVisClub, setDplaneCell, setStrategy, setPath, stratLabel, stratSelect, stratSummary, toggleLevel });

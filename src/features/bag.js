@@ -110,10 +110,10 @@ function buildLadder(){
   });
 }
 function buildGapping(){
-  /* The per-club gap distances render inline in the Clubs list (see buildSpecs); the
-     summary line was removed at the user's request. */
+  /* The per-club gap distances render inline in the Clubs list (see buildSpecs);
+     this slot carries the one-line legend decoding the gap-chip colours. */
   const wrap=document.getElementById('gapping-wrap');
-  if(wrap) wrap.innerHTML='';
+  if(wrap) wrap.innerHTML=`<div style="font-family:ui-monospace,monospace;font-size:.56rem;color:var(--muted);margin:0 0 6px 2px">gap chips between rows = difference to the next club · carry gap: <span style="color:#c4427a;font-weight:700">pink &gt;15 yd wide</span> · <span style="color:#d96070;font-weight:700">red &lt;8 yd tight</span> · grey = healthy</div>`;
 }
 function toggleDetail(c,row,group,inner){
   const open=group.classList.contains('open');

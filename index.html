@@ -23,8 +23,8 @@
 
 <nav class="nav-groups">
   <div class="ngroup active" onclick="showGroup('play',this)">Play</div>
-  <div class="ngroup" onclick="showGroup('plan',this)">Plan</div>
-  <div class="ngroup" onclick="showGroup('diagnose',this)">Practice</div>
+  <div class="ngroup" onclick="showGroup('dplane',this)">D-Plane Lab</div>
+  <div class="ngroup" onclick="showGroup('diagnose',this)">Improve</div>
   <div class="ngroup" onclick="showGroup('setup',this)">Locker Room</div>
 </nav>
 <nav class="nav-sub" id="nav-sub"></nav>
@@ -268,34 +268,37 @@
   </details>
 </div>
 
-<!-- PRE-SHOT ROUTINE -->
-<div id="page-planshot" class="page">
-  <div class="section-label" style="margin-top:0">Pre-Shot</div>
-  <p class="intro-note">First <b>Plan</b> the shot — read the situation, pick a target, build the true number. Then <b>Execute</b> your physical routine the same way every time. The effective-yardage equation is live — tap any term to open its detail and inputs.</p>
-  <div id="planshot-wrap"></div>
+<!-- GAMEPLAN — the former Plan group folded into one Play sub-tab, ordered as the round arc -->
+<div id="page-gameplan" class="page">
+  <p class="intro-note"><strong>Gameplan</strong> — the whole round arc in one place: prep the course, plan each shot, review each shot honestly, then close out the round. Pre-Shot stays open — it's the one you use mid-round.</p>
+
+  <details class="defs-dropdown"><summary>Pre-Round — Course Strategy &amp; Tracking</summary>
+    <div id="course-strategy-wrap" style="margin-top:10px"></div>
+    <div class="section-label" style="margin-top:22px">Round Strategy &amp; Live Tracking</div>
+    <div id="round-tracker-wrap"></div>
+    <div class="section-label" style="margin-top:22px">Course Editor</div>
+    <div id="course-editor-wrap"></div>
+  </details>
+
+  <details class="defs-dropdown" open style="margin-top:12px"><summary>Pre-Shot — Plan &amp; Execute</summary>
+    <p class="intro-note" style="margin-top:10px">First <b>Plan</b> the shot — read the situation, pick a target, build the true number. Then <b>Execute</b> your physical routine the same way every time. The effective-yardage equation is live — tap any term to open its detail and inputs.</p>
+    <div id="planshot-wrap"></div>
+  </details>
+
+  <details class="defs-dropdown" style="margin-top:12px"><summary>Post-Shot — Review</summary>
+    <p class="intro-note" style="margin-top:10px">After the ball stops, run a quick, honest review — in order: what happened, how you executed, whether the plan fit, and what to adjust next time. Separating result from execution from plan is how you learn from a shot instead of just reacting to it.</p>
+    <div id="postshot-wrap"></div>
+  </details>
+
+  <details class="defs-dropdown" style="margin-top:12px"><summary>Post-Round — Debrief</summary>
+    <p class="intro-note" style="margin-top:10px">Close the loop on the round you just played — log the numbers that drive strokes-gained, then a short structured debrief while it's fresh. Honest, consistent post-round data is what turns rounds into trend lines.</p>
+    <div id="postround-wrap"></div>
+  </details>
 </div>
 
-<!-- POST-SHOT ROUTINE -->
-<div id="page-postshot" class="page">
-  <div class="section-label" style="margin-top:0">Post-Shot</div>
-  <p class="intro-note">After the ball stops, run a quick, honest review — in order: what happened, how you executed, whether the plan fit, and what to adjust next time. Separating result from execution from plan is how you learn from a shot instead of just reacting to it.</p>
-  <div id="postshot-wrap"></div>
-</div>
-
-<!-- PRE-ROUND (course strategy + editor folded in) -->
-<div id="page-courses" class="page">
-  <div id="course-strategy-wrap"></div>
-  <div class="section-label" style="margin-top:22px">Round Strategy &amp; Live Tracking</div>
-  <div id="round-tracker-wrap"></div>
-  <div class="section-label" style="margin-top:22px">Course Editor</div>
-  <div id="course-editor-wrap"></div>
-</div>
-
-<!-- POST-ROUND -->
-<div id="page-postround" class="page">
-  <div class="section-label" style="margin-top:0">Post-Round</div>
-  <p class="intro-note">Close the loop on the round you just played — log the numbers that drive strokes-gained, then a short structured debrief while it's fresh. Honest, consistent post-round data is what turns rounds into trend lines.</p>
-  <div id="postround-wrap"></div>
+<!-- D-PLANE LAB — top-level page (content built by buildDplaneLab in diagnose.js) -->
+<div id="page-dplane" class="page">
+  <div id="dplane-lab-wrap"></div>
 </div>
 
 <!-- PROFILE -->
@@ -315,13 +318,8 @@
   <div id="longterm-wrap"></div>
   <div class="section-label">Community &amp; Coaching</div>
   <div class="profile-card" style="margin-top:0">
-    <h3>My Community <span style="font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;letter-spacing:.05em;color:var(--muted);text-transform:none">preview</span></h3>
-    <p class="gen-note">StrongerGolf is built first as a private, personal — but very comprehensive — golf knowledge &amp; reference tool. This is a placeholder for a future multi-player layer: should it ever expand to beta testers or a commercial release, a community would live here. Not the current development focus.</p>
-  </div>
-  <div class="profile-card">
-    <h3>Coach Mode <span style="font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;letter-spacing:.05em;color:var(--muted);text-transform:none">preview</span></h3>
-    <p class="gen-note">A locker room with a locker per student: switch between players, each with their own bag, baselines, swing data and skills-test history. Build lesson notes against any link in the causal chain and track every student's trend in one place.</p>
-    <div class="btn-row"><button class="btn" disabled style="opacity:.55;cursor:not-allowed">Add a student locker — coming soon</button></div>
+    <h3>Community &amp; Coach Mode <span style="font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;letter-spacing:.05em;color:var(--muted);text-transform:none">coming later — not the current focus</span></h3>
+    <p class="gen-note"><b>Community</b> — a future multi-player layer if StrongerGolf ever expands beyond a personal tool. <b>Coach Mode</b> — a locker per student: each with their own bag, baselines, swing data and skills-test history, with lesson notes against any link in the causal chain.</p>
   </div>
 </div>
 
