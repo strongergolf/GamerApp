@@ -49,6 +49,8 @@ body::after{content:'';position:fixed;inset:0;background-image:url("data:image/s
 .nav-groups{position:sticky;top:0;z-index:101;background:var(--panel);display:flex;border-bottom:2px solid var(--gold)}
 .ngroup{flex:1;padding:13px 10px;text-align:center;font-family:Arial,sans-serif;font-size:.82rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#5a8878;cursor:pointer;border-bottom:3px solid transparent;transition:color .2s,border-color .2s;line-height:1.2}
 .ngroup.active{color:var(--gold2);border-bottom-color:var(--gold2)}
+/* five main groups: compact the labels on phones so the strip never overflows */
+@media(max-width:640px){.ngroup{font-size:.62rem;letter-spacing:.07em;padding:12px 3px}}
 .ngroup:hover:not(.active){color:#8ab8a8}
 .nav-sub{position:sticky;top:46px;z-index:100;background:var(--panel2);display:flex;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--border2)}
 .nav-sub:empty{display:none}
@@ -768,9 +770,10 @@ table.chip-matrix tr:hover td{background:var(--surface2)}
 .dpl-layout{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;margin-top:6px}
 .dpl-grid-col{margin-top:6px;min-width:0}
 .dpl-vis-main{max-width:880px;margin:6px auto 0}
-.dpv-cols{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap}
-.dpv-main-col{flex:1 1 330px;min-width:290px}
-.dpv-side-col{flex:1 1 232px;min-width:212px}
+/* full-width viewer; sandbox + readout share the row below, stacking on mobile */
+.dpv-below{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;margin-top:10px}
+.dpv-below>.dpv-sand{flex:1.4 1 320px;min-width:290px;margin-top:0}
+.dpv-below>.dpv-info{flex:1 1 240px;min-width:212px}
 .dpv-info{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 12px 9px}
 .dpv-info-h{font-family:ui-monospace,monospace;font-size:.56rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:2px 0 3px}
 .dpv-info-row{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:2.5px 0;border-bottom:1px dashed var(--border)}

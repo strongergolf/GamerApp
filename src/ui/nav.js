@@ -9,10 +9,10 @@ const GROUPS={
     {id:'bag',      label:'Stock Shots'},
     {id:'partials', label:'Approach'},
     {id:'shortgame',label:'Short Game'},
-    {id:'putting',  label:'Putting'},
-    {id:'gameplan', label:'Gameplan'}
+    {id:'putting',  label:'Putting'}
   ],
   dplane:[{id:'dplane',label:'The Lab'},{id:'dpshots',label:'Shot Presets'}],
+  gameplan:[{id:'gameplan',label:'Gameplan'}],
   diagnose:[
     {id:'chain',label:'The Chain'},
     {id:'ch1',label:'1 Score'},{id:'ch2',label:'2 Ball Flight'},{id:'ch3',label:'3 Forces'},
@@ -45,6 +45,9 @@ function showPage(id,tab){
   document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
   const pg=document.getElementById('page-'+id); if(pg)pg.classList.add('active');
   if(tab)tab.classList.add('active');
+  /* the D-Plane viewer's viewBox is fitted to its host width, which is 0 while the
+     page is hidden — refit on first show */
+  if(id==='dplane'&&typeof dpRenderScene==='function') setTimeout(dpRenderScene,0);
 }
 let toastTimer;
 function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),1900); }

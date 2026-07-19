@@ -342,7 +342,7 @@ const PRACTICE_AREAS=[
        <div class="chain-caption">Where every level above cashes out into a real decision on a real hole. Strategy synthesises ball-flight data (L2), dispersion patterns, and scoring tendencies (L1) into optimal targets, shot shapes, and risk/reward choices. The eventual home for course overlays and hole-by-hole planning.</div>
 
        ${buildStrategyPrefs()}
-       <div class="chain-caption" style="margin-top:6px">These are the same preferences shown in the <strong>Plan → Strategy</strong> tab — editing here updates there.</div>`,
+       <div class="chain-caption" style="margin-top:6px">These are the same preferences shown on the <strong>Gameplan</strong> tab (Pre-Round — Course Strategy) — editing here updates there.</div>`,
      improve:()=>`
        <div class="lvl-subhead" style="margin-top:0">Strokes Gained — Decision Quality</div>
        <div class="lvl-soon-note">Future: flag shots where club or target selection cost strokes vs. the optimal decision, separate from execution error. A bad decision with a good swing still costs shots.</div>
@@ -1007,7 +1007,12 @@ function dpRenderScene(){
   const wv=dpWorldVectors(hFace,hPath,vFace,aoa);
   const cam=dpCamBasis(window.dpCam.az, window.dpCam.el);
   const pan=window.dpCam.pan||{x:0,y:0,z:0};
-  const VW=340, VH=250, CEN={x:0+pan.x,y:0.85+pan.y,z:3.0+pan.z}, SC=31*(window.dpCam.zoom||1);
+  /* Full-width viewer: widen the viewBox to the host's aspect (~400px tall on
+     desktop) instead of scaling the 340-unit scene up — labels stay readable and
+     the extra width just shows more sky/ground. Mobile keeps the 340 minimum. */
+  const VH=250, hostW=sceneEl.clientWidth||340;
+  const VW=Math.max(340,Math.round(VH*hostW/400));
+  const CEN={x:0+pan.x,y:0.85+pan.y,z:3.0+pan.z}, SC=31*(window.dpCam.zoom||1);
   const P=pt=>({x:VW/2+((pt.x-CEN.x)*cam.R.x+(pt.y-CEN.y)*cam.R.y+(pt.z-CEN.z)*cam.R.z)*SC,
                 y:VH/2-((pt.x-CEN.x)*cam.U.x+(pt.y-CEN.y)*cam.U.y+(pt.z-CEN.z)*cam.U.z)*SC});
   const dep=pt=>pt.x*cam.D.x+pt.y*cam.D.y+pt.z*cam.D.z;
@@ -1278,6 +1283,17 @@ function buildDpShots(){
      double-click / double-tap   → reset view */
 function dpSceneDragInit(){
   const el=document.getElementById('dpv-scene'); if(!el||el._dpDrag) return; el._dpDrag=true;
+  /* re-render when the host width changes (window resize, rotation, or the page
+     becoming visible after a hidden rebuild) so the dynamic viewBox stays fitted */
+  if(typeof ResizeObserver!=='undefined'){
+    el._dpRO=new ResizeObserver(()=>{const w=el.clientWidth;if(w&&Math.abs((el._dpW||0)-w)>2){el._dpW=w;dpRenderScene();}});
+    el._dpRO.observe(el);
+  }
+  if(!window._dpResizeHook){
+    window._dpResizeHook=true;
+    window.addEventListener('resize',()=>{clearTimeout(window._dpRzT);
+      window._dpRzT=setTimeout(()=>{const s=document.getElementById('dpv-scene');if(s&&s.clientWidth)dpRenderScene();},120);});
+  }
   const ptrs=new Map(); let px=0,py=0,pinchD=0,mode='pan';
   const zoomBy=f=>{window.dpCam.zoom=Math.max(0.5,Math.min(4,(window.dpCam.zoom||1)*f));dpRenderScene();};
   const rotate=(dx,dy)=>{
@@ -1357,16 +1373,12 @@ function renderDPlaneVisual(){
       <label style="font-family:ui-monospace,monospace;font-size:.56rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)">Club</label>
       <select class="strat-select" style="max-width:150px" onchange="setDpVisClub(this.value)">${opts}</select>
     </div>
-    <div class="dpv-cols">
-      <div class="dpv-main-col">
-        <div class="dpv-panel"><div class="dpv-title">Swing Plane · D-Plane · Ball Flight — drag pan · middle-drag / 2-finger rotate · scroll / pinch zoom</div>
-          <div id="dpv-scene"></div></div>
-        <div class="dpv-cam-row">${camBtns}</div>
-        ${sandbox}
-      </div>
-      <div class="dpv-side-col">
-        <div class="dpv-info" id="dpv-readout"></div>
-      </div>
+    <div class="dpv-panel"><div class="dpv-title">Swing Plane · D-Plane · Ball Flight — drag pan · middle-drag / 2-finger rotate · scroll / pinch zoom</div>
+      <div id="dpv-scene"></div></div>
+    <div class="dpv-cam-row">${camBtns}</div>
+    <div class="dpv-below">
+      ${sandbox}
+      <div class="dpv-info" id="dpv-readout"></div>
     </div>`;
   dpRenderScene();
   dpSceneDragInit();
