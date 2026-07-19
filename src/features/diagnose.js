@@ -866,7 +866,7 @@ function buildDplaneLab(){
   const wrap=document.getElementById('dplane-lab-wrap'); if(!wrap) return;
   wrap.innerHTML=`
     <div class="section-label" style="margin-top:0">The D-Plane Lab — Impact Geometry &amp; Ball Flight</div>
-    <div class="chain-caption" style="margin-top:4px">The rotatable 3D render — <strong>drag to pan, middle-drag or two fingers to orbit, scroll or pinch to zoom</strong>, snap views below, double-tap to reset — shows the <span style="color:#4a7aaa;font-weight:700">impact plane</span>, the <span style="color:#c43c9e;font-weight:700">path</span> &amp; <span style="color:#2a6fc4;font-weight:700">face</span> vectors, the <span style="color:#b8860b;font-weight:700">D-plane</span> wedge, the perpendicular <span style="color:#cc2a2a;font-weight:700">spin axis</span>, and the <strong>simulated ball flight</strong> (drag + spin lift, 5–200 mph, calibrated to your Bag captures at stock). Shot presets load the 9-window drill and short-game shots; the sliders explore freely and only touch your stored tendencies when you <strong>save as stock</strong>. <span class="placeholder-flag">prototype</span></div>
+    <div class="chain-caption" style="margin-top:4px">The rotatable 3D render — <strong>drag to pan, middle-drag or two fingers to orbit, scroll or pinch to zoom</strong>, snap views below, double-tap to reset — shows the <span style="color:#4a7aaa;font-weight:700">swing plane</span>, the <span style="color:#c43c9e;font-weight:700">path</span> &amp; <span style="color:#2a6fc4;font-weight:700">face</span> vectors, the <span style="color:#b8860b;font-weight:700">D-plane</span> wedge, the perpendicular <span style="color:#cc2a2a;font-weight:700">spin axis</span>, and the <strong>simulated ball flight</strong> (drag + spin lift, 5–200 mph, calibrated to your Bag captures at stock). The <strong>Shot Presets</strong> tab holds the 9-window drill and the named short-game shots; the sliders here explore freely and only touch your stored tendencies when you <strong>save as stock</strong>. <span class="placeholder-flag">prototype</span></div>
     <div class="dpl-vis-main"><div id="dplane-visual"></div></div>
     <div class="lvl-subhead" style="margin-top:16px">Stock-Shot Tendencies by Club</div>
     <div class="chain-caption" style="margin-top:4px">Each club's <strong>stock-shot</strong> impact geometry: horizontal face, horizontal path, vertical face (dyn loft), vertical path (attack angle) and vertical swing plane (degrees, left −/right +; blank plane = estimated from loft). Tap a club to load it into the lab above; typed edits save automatically.</div>
@@ -874,7 +874,7 @@ function buildDplaneLab(){
   renderDPlaneVisual();
 }
 
-/* ---- D-Plane 3D visual — rotatable orbit render of the Impact Plane,
+/* ---- D-Plane 3D visual — rotatable orbit render of the Swing Plane,
    the D-plane, and the expected ball flight (scaled to the club's captured Bag data). ---- */
 function setDpVisClub(id){ window.dpVisClub=id; window.dpStrike={th:0,hl:0}; window.dpSand=null; renderDPlaneVisual(); }
 /* World-space D-plane vectors (x=lateral right, y=up, z=toward target).
@@ -1003,7 +1003,7 @@ function dpRenderScene(){
   const prims=[];
   const add=(pts,svg,bias)=>{let s=0;pts.forEach(q=>{s+=dep(q);});prims.push({d:s/pts.length+(bias||0),svg});};
 
-  /* Impact plane: base line on the ground at the hPlane azimuth, tilted vPlane° up
+  /* Swing plane: base line on the ground at the hPlane azimuth, tilted vPlane° up
      toward the golfer's side (−x for RH). Contains the path vector by Law 1. */
   const hp=hPlane*DR, vp=vPlane*DR;
   const b={x:Math.sin(hp), y:0, z:Math.cos(hp)};
@@ -1056,8 +1056,8 @@ function dpRenderScene(){
   const wedgeC={x:(wv.O.x+wv.path.x+wv.face.x)/3, y:(wv.O.y+wv.path.y+wv.face.y)/3, z:(wv.O.z+wv.path.z+wv.face.z)/3};
   let top=lab(wv.path,'path','#c43c9e')+lab(wv.face,'face','#2a6fc4')
     +lab(axA,`spin axis ${Math.abs(axisEff).toFixed(1)}°${axSide}`,'#cc2a2a')
-    +lab(wedgeC,`spin loft ${r.spinLoft.toFixed(1)}°`,'#b8860b',0,2,'middle')
-    +lab(A4,'impact plane','#4a7aaa',6,10)
+    +lab(wedgeC,`3D spin loft ${r.spinLoft.toFixed(1)}°`,'#b8860b',0,2,'middle')
+    +lab(A4,'swing plane','#4a7aaa',6,10)
     +markers;
 
   prims.sort((x,y)=>x.d-y.d);
@@ -1075,16 +1075,23 @@ function dpRenderScene(){
     const row=(k,v,col)=>`<div class="dpv-info-row"><span class="k">${k}</span><span class="v"${col?` style="color:${col}"`:''}>${v}</span></div>`;
     const fmt1=v=>Math.abs(v)<25?v.toFixed(1):''+Math.round(v);
     ro.innerHTML=
-      `<div class="dpv-info-h">Impact — D-Plane</div>`
-      +row('Shape',fl,'#111')
+      `<div class="dpv-info-h">Swing Plane — Estimated</div>`
+      +row('Vert. Swing Plane',vPlane.toFixed(1)+'°'+(d.vPlane!=null?'':' est'),'#4a7aaa')
+      +row('Horiz. Swing Plane',dplFmt(hPlane)+'°','#4a7aaa')
+      +`<div class="dpv-info-h" style="margin-top:9px">D-Plane — Impact</div>`
+      +row('Horiz. Face',dplFmt(hFace)+'°','#2a6fc4')
+      +row('Horiz. Path',dplFmt(hPath)+'°','#c43c9e')
+      +row('Vert. Face',vFace.toFixed(1)+'°','#2a6fc4')
+      +row('Vert. Path',dplFmt(aoa)+'°','#c43c9e')
       +row('3D Spin Loft',r.spinLoft.toFixed(1)+'°','#b8860b')
       +row('Spin Axis',Math.abs(axisEff).toFixed(1)+'°'+(side?' '+side:''),'#cc2a2a')
       +row('Spin (est)','~'+spinUsed.toLocaleString()+' rpm')
-      +row('Impact Plane',vPlane.toFixed(1)+'°'+(d.vPlane!=null?'':' est'),'#4a7aaa')
       +((st.th||st.hl)?row('Gear Shift',dplFmt(gearAxis)+'° axis','#cc2a2a'):'')
-      +`<div class="dpv-info-h" style="margin-top:9px">Flight — Simulated</div>`
+      +`<div class="dpv-info-h" style="margin-top:9px">Ball Flight — Simulated</div>`
+      +row('Shape',fl,'#111')
       +row('Ball Speed',Math.round(bspd)+' mph')
-      +row('Launch',r.vLaunch.toFixed(1)+'°')
+      +row('Vert. Launch',r.vLaunch.toFixed(1)+'°')
+      +row('Horiz. Launch',dplFmt(r.hLaunch)+'°')
       +row('Carry',fmt1(carryShow)+' yd')
       +row('Apex',Math.round(apexShow)+' ft')
       +row('Land Angle',Math.round(sim.land)+'°')
@@ -1136,19 +1143,30 @@ function dpSandSave(){
 }
 function dpSandRevert(){ window.dpSand=null; renderDPlaneVisual(); }
 
-/* ---- Shot presets. The 9-window drill (Tiger's drill: low/medium/high ×
-   draw/straight/fade with one club) shifts vFace/aoa RELATIVE to the club's stock
-   and sets the shape absolutely; specialty + short-game presets also set ball
-   speed (chip ~25, pitch ~45, flop ~55 mph) so the sim shows their real
-   trajectories. All load into the overlay only. ---- */
+/* ---- Shot presets (their own sub-page — see buildDpShots). The 9-window drill
+   (Tiger's drill: low/medium/high × draw/straight/fade with one club) shifts
+   vFace/aoa RELATIVE to the club's stock and sets the shape absolutely; the named
+   short-game shots set vFace/aoa absolutely off the static loft AND drop ball
+   speed to real short-game values so the sim shows their true trajectories.
+   All load into the overlay only. ---- */
 const DP_SHOTS={
   loDraw:{lbl:'Low Draw', vF:-6,aoa:-2,hF:1,hP:3.5},   loStr:{lbl:'Low',  vF:-6,aoa:-2,hF:0,hP:0},   loFade:{lbl:'Low Fade', vF:-6,aoa:-2,hF:-1,hP:-3.5},
   mdDraw:{lbl:'Draw',     vF:0, aoa:0, hF:1,hP:3.5},   mdStr:{lbl:'Stock',vF:0, aoa:0, hF:0,hP:0},   mdFade:{lbl:'Fade',     vF:0, aoa:0, hF:-1,hP:-3.5},
   hiDraw:{lbl:'High Draw',vF:5, aoa:1, hF:1,hP:3.5},   hiStr:{lbl:'High', vF:5, aoa:1, hF:0,hP:0},   hiFade:{lbl:'High Fade',vF:5, aoa:1, hF:-1,hP:-3.5},
-  stinger:{lbl:'Stinger', vF:-10,aoa:-4,hF:0,hP:0,bsMult:0.97},
-  chip:  {lbl:'Chip',  vFAbs:-8,aoaAbs:-3,hF:0,hP:0, bs:24},
-  pitch: {lbl:'Pitch', vFAbs:-3,aoaAbs:-3,hF:0,hP:0, bs:40},
-  flop:  {lbl:'Flop',  vFAbs:8, aoaAbs:-4,hF:3,hP:-4,bs:45}
+  stinger:{lbl:'Stinger', vF:-10,aoa:-4,hF:0,hP:0,bsMult:0.97,
+    desc:'Driven flight — hard deloft, ball flighted under the wind. The tenth window.'},
+  bump:  {lbl:'Bump &amp; Run', vFAbs:-14,aoaAbs:-4,hF:0,hP:0, bs:20,
+    desc:'Ball back, hands ahead, hard deloft — flies low, lands early and runs out like a putt.'},
+  chip:  {lbl:'Chip',  vFAbs:-8,aoaAbs:-3,hF:0,hP:0, bs:24,
+    desc:'Small strike with a slight deloft — a short carry over the fringe, then a predictable release.'},
+  pitch: {lbl:'Pitch', vFAbs:-3,aoaAbs:-3,hF:0,hP:0, bs:40,
+    desc:'Fuller motion near the club\'s loft — mostly carry, a bounce or two, then it stops.'},
+  spinner:{lbl:'Spinner', vFAbs:-6,aoaAbs:-5,hF:0,hP:0, bs:47,
+    desc:'Speed plus spin loft — driven low with a steep strike so it takes one hop and checks hard.'},
+  flop:  {lbl:'Flop / Lob',  vFAbs:8, aoaAbs:-4,hF:3,hP:-4,bs:45,
+    desc:'Face laid open, plane swung out-to-in — maximum height, minimum rollout, for short-sided misses.'},
+  splash:{lbl:'Bunker Splash', vFAbs:10,aoaAbs:-7,hF:4,hP:-6,bs:26,
+    desc:'Greenside sand, approximated — open face, steep entry, the sand cushions ball speed. Directional guide only.'}
 };
 function dpApplyPreset(key){
   const P=DP_SHOTS[key], id=window.dpVisClub; if(!P||!id) return;
@@ -1161,6 +1179,58 @@ function dpApplyPreset(key){
   o.vFace=Math.max(5,Math.min(65,o.vFace));
   o.aoa=Math.max(-8,Math.min(8,(P.aoaAbs!=null)?P.aoaAbs:o.aoa+P.aoa));
   dpSandSync(); dpRenderScene();
+}
+/* Apply a preset from the Shot Presets page, then jump to the Lab to watch it fly. */
+function dpLoadShot(key){
+  const P=DP_SHOTS[key]; if(!P) return;
+  dpApplyPreset(key);
+  const tabs=document.querySelectorAll('#nav-sub .nav-tab');
+  showPage('dplane', tabs.length?tabs[0]:null);
+  if(typeof toast==='function') toast(P.lbl.replace('&amp;','&')+' loaded in the Lab');
+}
+/* One-line recipe summary for a short-game shot card. */
+function dpShotParamsTxt(s){
+  const sgn=v=>(v>=0?'+':'')+v;
+  const vf=s.vFAbs!=null?'loft'+sgn(s.vFAbs)+'°':sgn(s.vF)+'° vs stock';
+  const ao=s.aoaAbs!=null?sgn(s.aoaAbs)+'°':sgn(s.aoa)+'° vs stock';
+  const bs=s.bs!=null?s.bs+' mph':(s.bsMult?Math.round(s.bsMult*100)+'% ball speed':'stock speed');
+  return 'vert. face '+vf+' · vert. path '+ao+' · '+bs;
+}
+/* ---- SHOT PRESETS — its own sub-page under the D-Plane Lab tab (#page-dpshots).
+   The 9-window drill grid plus the named short-game shots as expandable recipe
+   cards. Tapping any shot loads its impact numbers into the Lab's sandbox
+   (relative to the selected club) and switches to the Lab. ---- */
+function buildDpShots(){
+  const wrap=document.getElementById('dpshots-wrap'); if(!wrap) return;
+  const clubs=STATE.clubs.filter(c=>c.type!=='putter');
+  let id=window.dpVisClub; if(!clubs.find(c=>c.id===id)) id=(clubs.find(c=>c.id==='7i')||clubs[0]||{}).id;
+  window.dpVisClub=id;
+  const opts=clubs.map(x=>`<option value="${x.id}"${x.id===id?' selected':''}>${x.label} — ${x.loft}</option>`).join('');
+  const presetBtn=k=>`<button type="button" class="dpv-preset-btn" onclick="dpLoadShot('${k}')">${DP_SHOTS[k].lbl}</button>`;
+  const shotCard=k=>{const s=DP_SHOTS[k];
+    return `<div class="dps-card" onclick="dpLoadShot('${k}')">
+      <div class="dps-card-name">${s.lbl}</div>
+      <div class="dps-card-desc">${s.desc||''}</div>
+      <div class="dps-card-params">${dpShotParamsTxt(s)}</div>
+    </div>`;};
+  wrap.innerHTML=`
+    <div class="section-label" style="margin-top:0">Shot Presets — load a shot into the Lab</div>
+    <div class="chain-caption" style="margin-top:4px">Every preset loads its impact numbers into the <strong>D-Plane Lab</strong> sandbox — relative to the selected club's stock tendencies — and jumps there so the 3D render shows the flight. Nothing here touches your stored stock numbers until you <strong>save as stock</strong> in the Lab.</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0 4px">
+      <label style="font-family:ui-monospace,monospace;font-size:.56rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)">Club</label>
+      <select class="strat-select" style="max-width:150px" onchange="setDpVisClub(this.value)">${opts}</select>
+    </div>
+    <div class="dpv-sand">
+      <div class="dpv-strike-head">9-Window Drill — full swing</div>
+      <div class="dpv-strike-note" style="margin-top:2px">Tiger's window drill: nine trajectory windows with one club — low / medium / high × draw / straight / fade — plus the stinger as the bonus tenth window. Loads relative to this club's stock numbers.</div>
+      <div class="dpv-preset-grid">${['hiDraw','hiStr','hiFade','mdDraw','mdStr','mdFade','loDraw','loStr','loFade'].map(presetBtn).join('')}</div>
+      <div class="dpv-preset-row" style="grid-template-columns:1fr">${presetBtn('stinger')}</div>
+    </div>
+    <div class="dpv-sand" style="margin-top:10px">
+      <div class="dpv-strike-head">Short Game — the named shots</div>
+      <div class="dpv-strike-note" style="margin-top:2px">Each named shot is its own recipe of loft, attack and speed — ball speeds drop to real short-game values so the sim shows true trajectories. Best viewed with a wedge selected above.</div>
+      <div class="dps-grid">${['bump','chip','pitch','spinner','flop','splash'].map(shotCard).join('')}</div>
+    </div>`;
 }
 
 /* Pointer navigation on the scene container (re-bound after each host rebuild).
@@ -1232,13 +1302,6 @@ function renderDPlaneVisual(){
       <span class="dpv-sand-val" id="dpv-strike-${field}-v">${dpStrikeTxt(field,st[field])}</span>
       <input type="range" min="-3" max="3" step="1" value="${st[field]}" oninput="dpSetStrike('${field}',this.value)">
     </div>`;
-  const presetBtn=k=>`<button type="button" class="dpv-preset-btn" onclick="dpApplyPreset('${k}')">${DP_SHOTS[k].lbl}</button>`;
-  const presets=`<div class="dpv-sand" style="margin-top:8px">
-      <div class="dpv-strike-head">Shot Presets — 9-window drill + short game</div>
-      <div class="dpv-preset-grid">${['hiDraw','hiStr','hiFade','mdDraw','mdStr','mdFade','loDraw','loStr','loFade'].map(presetBtn).join('')}</div>
-      <div class="dpv-preset-row">${['stinger','chip','pitch','flop'].map(presetBtn).join('')}</div>
-      <div class="dpv-strike-note">Loads the sliders relative to this club's stock; short-game presets drop the ball speed to their real values.</div>
-    </div>`;
   const sandbox=`<div class="dpv-sand">
       <div class="dpv-strike-head">Shape Sandbox — drag the impact numbers, watch the flight
         <span style="float:right;display:flex;gap:5px"><button type="button" class="dpv-sand-reset" onclick="dpSandSave()">save as stock</button><button type="button" class="dpv-sand-reset" onclick="dpSandRevert()">revert</button></span></div>
@@ -1261,14 +1324,13 @@ function renderDPlaneVisual(){
     </div>
     <div class="dpv-cols">
       <div class="dpv-main-col">
-        <div class="dpv-panel"><div class="dpv-title">Impact Plane · D-Plane · Ball Flight — drag pan · middle-drag / 2-finger rotate · scroll / pinch zoom</div>
+        <div class="dpv-panel"><div class="dpv-title">Swing Plane · D-Plane · Ball Flight — drag pan · middle-drag / 2-finger rotate · scroll / pinch zoom</div>
           <div id="dpv-scene"></div></div>
         <div class="dpv-cam-row">${camBtns}</div>
         ${sandbox}
       </div>
       <div class="dpv-side-col">
         <div class="dpv-info" id="dpv-readout"></div>
-        ${presets}
       </div>
     </div>`;
   dpRenderScene();
@@ -1289,4 +1351,4 @@ function buildGearEffectL2(){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { STRAT_OPTS, ballRefHtml, buildAssess, buildImprove, buildResources, buildCourseStrategy, buildDplaneGrid, buildDplaneLab, buildForceProfileSVG, buildGearEffectL2, buildKinematicSequenceSVG, buildStrategyPrefs, pgaProSectionHtml, DP_SHOTS, dpApplyPreset, dpBallFlight, dpRenderScene, dpSandFmt, dpSandRevert, dpSandSave, dpSandSync, dpSceneDragInit, dpSeedSand, dpSetCam, dpSetSand, dpSetStrike, dpStrikeTxt, dpWorldVectors, dplFmt, dplaneShape, escapeHtml, forceRow, getPath, metricBox, renderDPlaneVisual, saveSwing, setDpVisClub, setDplaneCell, setStrategy, setPath, stratLabel, stratSelect, stratSummary, toggleLevel });
+Object.assign(window, { STRAT_OPTS, ballRefHtml, buildAssess, buildImprove, buildResources, buildCourseStrategy, buildDplaneGrid, buildDplaneLab, buildDpShots, buildForceProfileSVG, buildGearEffectL2, buildKinematicSequenceSVG, buildStrategyPrefs, pgaProSectionHtml, DP_SHOTS, dpApplyPreset, dpBallFlight, dpLoadShot, dpRenderScene, dpSandFmt, dpSandRevert, dpSandSave, dpSandSync, dpSceneDragInit, dpSeedSand, dpSetCam, dpSetSand, dpSetStrike, dpShotParamsTxt, dpStrikeTxt, dpWorldVectors, dplFmt, dplaneShape, escapeHtml, forceRow, getPath, metricBox, renderDPlaneVisual, saveSwing, setDpVisClub, setDplaneCell, setStrategy, setPath, stratLabel, stratSelect, stratSummary, toggleLevel });

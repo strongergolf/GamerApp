@@ -12,7 +12,7 @@ const GROUPS={
     {id:'putting',  label:'Putting'},
     {id:'gameplan', label:'Gameplan'}
   ],
-  dplane:[{id:'dplane',label:'D-Plane Lab'}],
+  dplane:[{id:'dplane',label:'The Lab'},{id:'dpshots',label:'Shot Presets'}],
   diagnose:[{id:'assess',label:'Test & Assess'},{id:'improve',label:'Practice'},{id:'resources',label:'Resources'}],
   setup:[{id:'specs',label:'My Bag'},{id:'profile',label:'Myself'},{id:'reference',label:'My App'}]
 };
@@ -69,6 +69,7 @@ function refreshAll(){
   buildResources();
   buildTests();
   buildDplaneLab();
+  buildDpShots();
   buildCourseStrategy();
   buildCourses();
   buildRoundTracker();
