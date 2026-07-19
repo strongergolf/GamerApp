@@ -80,7 +80,7 @@ function buildLadder(){
     /* Dispersion badges coloured by club type (iron = blue, wood/utility = red,
        wedge = green) for a cleaner read than the old magnitude-based shading. */
     const dcRGB={wood:'217,96,112',iron:'26,90,170',wedge:'0,133,63',putter:'107,114,128'}[c.type]||'107,114,128';
-    const dc={ color:typeHex(c.type), bg:`rgba(${dcRGB},.12)`, border:`rgba(${dcRGB},.34)` };
+    const dc={ color:`var(--c-${['wood','iron','wedge','putter'].includes(c.type)?c.type:'putter'})`, bg:`rgba(${dcRGB},.12)`, border:`rgba(${dcRGB},.34)` };
     /* Lateral miss as % of total yardage now lives in Locker Room → My Bag (buildLateralGapping). */
     const adjBit = window.adjustOn && shown!==stock
       ? `<span class="adj">${shown}</span><span class="stock-sm">stock ${stock}</span>`

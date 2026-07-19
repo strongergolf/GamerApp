@@ -8,6 +8,11 @@
   --grey:#6b7280; --grey2:#9aa3ad; --grey-pale:#eceef1;
   --c-wood:#d96070; --c-iron:#1a5aaa; --c-wedge:#00853F; --c-putter:#6b7280;
   --header-bg:#0C2340;
+  /* D-plane accent colors — match the 3D render's vectors; brightened in dark theme */
+  --dp-face:#2a6fc4; --dp-path:#c43c9e; --dp-plane:#4a7aaa; --dp-loft:#9c7112; --dp-axis:#cc2a2a;
+  /* Brand-navy panels (nav, headers, result cards) — stay navy in BOTH themes so their
+     light text keeps contrast; never use var(--ink) as a background. */
+  --panel:#0C2340; --panel2:#1a3a5c;
 }
 /* Dark theme — overrides the neutral palette; accents (green/gold/sky) carry through */
 body.theme-dark{
@@ -18,6 +23,8 @@ body.theme-dark{
   --sky:#5aa0e8; --sky-pale:#16263f;
   --grey:#8b95a3; --grey2:#5a6675; --grey-pale:#1c2840;
   --c-wood:#e88494; --c-iron:#5aa0e8; --c-wedge:#27d077; --c-putter:#8b95a3;
+  --dp-face:#6ea8f2; --dp-path:#e678cf; --dp-plane:#86b2da; --dp-loft:#e6bd52; --dp-axis:#f28080;
+  --red:#6a9ae8; --red-pale:#182642; --amber:#1fb866; --amber-pale:#123026;
 }
 body.theme-dark::after{opacity:.25}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -39,11 +46,11 @@ body::after{content:'';position:fixed;inset:0;background-image:url("data:image/s
 
 /* NAV */
 /* TWO-TIER NAV */
-.nav-groups{position:sticky;top:0;z-index:101;background:var(--ink);display:flex;border-bottom:2px solid var(--gold)}
+.nav-groups{position:sticky;top:0;z-index:101;background:var(--panel);display:flex;border-bottom:2px solid var(--gold)}
 .ngroup{flex:1;padding:13px 10px;text-align:center;font-family:Arial,sans-serif;font-size:.82rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#5a8878;cursor:pointer;border-bottom:3px solid transparent;transition:color .2s,border-color .2s;line-height:1.2}
 .ngroup.active{color:var(--gold2);border-bottom-color:var(--gold2)}
 .ngroup:hover:not(.active){color:#8ab8a8}
-.nav-sub{position:sticky;top:46px;z-index:100;background:var(--ink2);display:flex;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--border2)}
+.nav-sub{position:sticky;top:46px;z-index:100;background:var(--panel2);display:flex;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--border2)}
 .nav-sub:empty{display:none}
 .nav-sub::-webkit-scrollbar{display:none}
 /* right-edge fade when the sub-tabs overflow (toggled in showGroup) — a cue that it scrolls */
@@ -61,7 +68,7 @@ body::after{content:'';position:fixed;inset:0;background-image:url("data:image/s
 
 /* CONDITIONS STRIP */
 .cond-strip{background:var(--surface);border:1px solid var(--border2);border-radius:10px;overflow:hidden;margin-bottom:18px}
-.cond-head{background:var(--ink);padding:11px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.cond-head{background:var(--panel);padding:11px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .cond-title{font-family:Arial,sans-serif;font-size:.92rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#f4f0e8}
 .cond-toggle{display:flex;align-items:center;gap:8px;font-family:ui-monospace,monospace;font-size:.62rem;color:#9fd0bd;cursor:pointer;user-select:none}
 .cond-toggle input{accent-color:var(--gold2);width:15px;height:15px;cursor:pointer}
@@ -179,7 +186,7 @@ table.lookup tr:hover td{background:var(--surface2)}
   .calc-dist-block .calc-stimp-col{flex:1 1 120px}
 }
 .calc-dist-block .calc-manual-col input{width:100%;padding:6px 8px;font-family:'Arial Narrow',Arial,sans-serif;font-size:1.1rem;font-weight:800;text-align:center;border:1.5px solid var(--border2);border-radius:6px;color:var(--ink);background:var(--bg2)}
-.calc-header{background:var(--ink);padding:13px 18px 11px;position:relative;overflow:hidden}
+.calc-header{background:var(--panel);padding:13px 18px 11px;position:relative;overflow:hidden}
 .calc-header::before{content:'';position:absolute;top:-40px;right:-40px;width:140px;height:140px;border-radius:50%;background:radial-gradient(circle,rgba(196,66,122,.2),transparent 70%);pointer-events:none}
 .calc-header-title{font-family:Arial,sans-serif;font-size:1rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#f4f0e8;margin-bottom:2px}
 .calc-header-sub{font-family:ui-monospace,monospace;font-size:.62rem;color:#7aa899;letter-spacing:.08em}
@@ -204,7 +211,7 @@ input[type=range].yard-slider::-moz-range-thumb{width:20px;height:20px;border-ra
 .calc-club-badge small{display:block;font-family:ui-monospace,monospace;font-size:.62rem;font-weight:400;color:var(--muted)}
 .calc-swing-label{font-family:Arial,sans-serif;font-size:.9rem;font-weight:700;color:var(--ink);letter-spacing:.04em}
 .calc-swing-sub{font-family:ui-monospace,monospace;font-size:.62rem;color:var(--muted);margin-top:1px}
-.calc-best-tag{font-family:ui-monospace,monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.1em;background:var(--ink);color:var(--gold2);padding:3px 8px;border-radius:4px;white-space:nowrap}
+.calc-best-tag{font-family:ui-monospace,monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.1em;background:var(--panel);color:var(--gold2);padding:3px 8px;border-radius:4px;white-space:nowrap}
 .calc-card-body{padding:8px 12px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;align-items:center}
 .calc-effort-col{grid-column:1/-1}
 .calc-effort-label{display:flex;justify-content:space-between;font-family:ui-monospace,monospace;font-size:.62rem;color:var(--muted);margin-bottom:3px}
@@ -282,7 +289,7 @@ input[type=range].yard-slider::-moz-range-thumb{width:20px;height:20px;border-ra
 .sg-scen-field label{display:block;font-family:ui-monospace,monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:3px}
 .sg-scen-field input,.sg-scen-field select{width:100%;padding:6px 8px;font-family:Arial,sans-serif;font-size:1rem;font-weight:700;color:var(--ink);background:var(--bg2);border:1px solid var(--border2);border-radius:6px;outline:none}
 .sg-scen-field input:focus,.sg-scen-field select:focus{border-color:var(--gold2)}
-.sg-result{background:var(--ink);border-radius:8px;padding:14px;text-align:center;margin-bottom:8px}
+.sg-result{background:var(--panel);border-radius:8px;padding:14px;text-align:center;margin-bottom:8px}
 .sg-result-num{font-family:Arial,sans-serif;font-size:2.8rem;font-weight:800;color:var(--gold2);line-height:1}
 .sg-result-label{font-family:ui-monospace,monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.12em;color:#7aa899;margin-top:4px}
 .sg-result-sub{font-family:ui-monospace,monospace;font-size:.62rem;color:#5a7060;margin-top:3px}
@@ -311,7 +318,7 @@ input[type=range].yard-slider::-moz-range-thumb{width:20px;height:20px;border-ra
 
 /* SWING DATA */
 .chain-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:14px}
-.chain-head{display:flex;align-items:center;gap:12px;padding:13px 16px;background:var(--ink);position:relative}
+.chain-head{display:flex;align-items:center;gap:12px;padding:13px 16px;background:var(--panel);position:relative}
 .chain-level{font-family:Arial,sans-serif;font-weight:800;font-size:1.5rem;color:var(--gold2);line-height:1;min-width:28px;text-align:center}
 .chain-titles{flex:1}
 .chain-title{font-family:Arial,sans-serif;font-size:1rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#f4f0e8;line-height:1.1}
@@ -377,12 +384,14 @@ input[type=range].yard-slider::-moz-range-thumb{width:20px;height:20px;border-ra
 .profile-card h3{font-family:Arial,sans-serif;font-size:.95rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink2);margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:10px}
 .btn{font-family:Arial,sans-serif;font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:8px 16px;border-radius:6px;border:1px solid var(--border2);background:var(--surface);color:var(--ink2);cursor:pointer;transition:all .15s}
 .btn:hover{background:var(--surface2)}
-.btn-primary{background:var(--ink);color:#f4f0e8;border-color:var(--ink)}
+.btn-primary{background:var(--panel);color:#f4f0e8;border-color:var(--panel)}
 .btn-primary:hover{background:var(--ink2)}
 .btn-accent{background:var(--gold);color:#fff;border-color:var(--gold)}
 .btn-accent:hover{background:var(--gold2)}
+/* dark theme lightens --gold, so white text loses contrast — flip to navy */
+body.theme-dark .btn-accent{color:#0C2340}
 .btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
-.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(120%);background:var(--ink);color:#f4f0e8;font-family:Arial,sans-serif;font-size:.82rem;font-weight:700;letter-spacing:.06em;padding:11px 22px;border-radius:8px;border:1px solid var(--gold);z-index:2000;transition:transform .3s ease;box-shadow:0 4px 16px rgba(0,0,0,.25)}
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(120%);background:var(--panel);color:#f4f0e8;font-family:Arial,sans-serif;font-size:.82rem;font-weight:700;letter-spacing:.06em;padding:11px 22px;border-radius:8px;border:1px solid var(--gold);z-index:2000;transition:transform .3s ease;box-shadow:0 4px 16px rgba(0,0,0,.25)}
 .toast.show{transform:translateX(-50%) translateY(0)}
 
 /* EXPECTED SHOTS STRIP */
@@ -608,7 +617,7 @@ table.chip-matrix tr:hover td{background:var(--surface2)}
 .putt-layout{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
 .putt-controls{flex:1;min-width:220px}
 .putt-visual{flex:0 0 260px;display:flex;flex-direction:column;align-items:center}
-.putt-result-card{background:var(--ink);border-radius:10px;padding:14px 16px;margin-bottom:12px;color:#f4f0e8}
+.putt-result-card{background:var(--panel);border-radius:10px;padding:14px 16px;margin-bottom:12px;color:#f4f0e8}
 .putt-result-card h4{font-family:Arial,sans-serif;font-size:.72rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--gold2);margin-bottom:10px}
 .putt-aim-note{font-family:Arial,sans-serif;font-size:1.02rem;font-weight:700;color:#f4f0e8;margin-bottom:12px;line-height:1.45;text-align:center}
 .putt-aim-note strong{color:var(--gold2);font-weight:800}

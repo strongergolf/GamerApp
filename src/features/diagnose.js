@@ -93,7 +93,7 @@ const PRACTICE_AREAS=[
                  <td id="sg-tot-h-atg-in" style="color:var(--gold)">—</td>
                  <td id="sg-tot-h-putt-in" style="color:var(--red)">—</td>
                </tr>
-               <tr style="background:var(--ink);color:#f4f0e8">
+               <tr style="background:var(--panel);color:#f4f0e8">
                  <td style="font-family:Arial,sans-serif;font-weight:800;font-size:.8rem">Total</td>
                  <td id="sg-tot-par-all">—</td>
                  <td id="sg-tot-sc-all" style="font-family:Arial,sans-serif;font-weight:800;font-size:.95rem;color:var(--gold2)">—</td>
@@ -199,7 +199,7 @@ const PRACTICE_AREAS=[
         {id:'imp',  label:'Impact Zone',   sub:'pre→contact'},
         {id:'ft',   label:'Follow-Thru',   sub:'release→finish'},
       ];
-      const phHdrs=phases.map(ph=>`<th style="padding:5px 4px;font-family:Arial,sans-serif;font-size:.58rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--border);background:var(--bg2);text-align:center;white-space:nowrap">${ph.label}<br><span style="font-family:ui-monospace,monospace;font-size:.42rem;font-weight:400;color:var(--border2)">${ph.sub}</span></th>`).join('');
+      const phHdrs=phases.map(ph=>`<th style="padding:5px 4px;font-family:Arial,sans-serif;font-size:.58rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--border);background:var(--bg2);text-align:center;white-space:nowrap">${ph.label}<br><span style="font-family:ui-monospace,monospace;font-size:.42rem;font-weight:400;color:var(--muted)">${ph.sub}</span></th>`).join('');
       const rows=segments.map(seg=>
         `<tr><td style="padding:6px 8px;white-space:nowrap;border-bottom:1px solid var(--border)">
            <span style="font-family:Arial,sans-serif;font-weight:800;font-size:.88rem;color:${seg.color}">${seg.label}</span>
@@ -464,7 +464,7 @@ function scoreImprove(){
 function scoreResources(){
   return `<div class="lvl-subhead" style="margin-top:0">Strokes Gained — the idea</div>`
     +refNote(`Every shot is worth the expected strokes from where it started minus the expected strokes from where it finished, minus one for the stroke itself. Positive = you gained ground on the baseline; negative = you lost it.`)
-    +refNote(`The four categories — <b style="color:#1a5aaa">Off the Tee</b>, <b style="color:#00853F">Approach</b>, <b style="color:#d96070">Around the Green</b>, <b style="color:#6b7280">Putting</b> — each map straight down this chain. A negative Approach number is usually a Ball-Flight (L2) or Forces (L3) problem; negative Putting points at green-reading and speed control.`)
+    +refNote(`The four categories — <b style="color:var(--c-iron)">Off the Tee</b>, <b style="color:var(--c-wedge)">Approach</b>, <b style="color:var(--c-wood)">Around the Green</b>, <b style="color:var(--grey)">Putting</b> — each map straight down this chain. A negative Approach number is usually a Ball-Flight (L2) or Forces (L3) problem; negative Putting points at green-reading and speed control.`)
     +expertList('Top Voices — Scoring & Strokes Gained','The data scientists behind every number in Assess.',[
       ['Mark Broadie','Researcher','“Every Shot Counts” (2014)','Columbia professor who invented Strokes Gained from PGA Tour ShotLink data — and proved approach play, not putting, separates skill levels most. The framework behind every category average here.'],
       ['Peter Sanders','Game analyst','ShotByShot.com','Pioneered strokes-gained-style amateur analysis years before it went mainstream — scoring each part of your game relative to your own handicap target, exactly how the Scenario Calculator is calibrated.'],
@@ -866,7 +866,6 @@ function buildDplaneLab(){
   const wrap=document.getElementById('dplane-lab-wrap'); if(!wrap) return;
   wrap.innerHTML=`
     <div class="section-label" style="margin-top:0">The D-Plane Lab — Impact Geometry &amp; Ball Flight</div>
-    <div class="chain-caption" style="margin-top:4px">The rotatable 3D render — <strong>drag to pan, middle-drag or two fingers to orbit, scroll or pinch to zoom</strong>, snap views below, double-tap to reset — shows the <span style="color:#4a7aaa;font-weight:700">swing plane</span>, the <span style="color:#c43c9e;font-weight:700">path</span> &amp; <span style="color:#2a6fc4;font-weight:700">face</span> vectors, the <span style="color:#b8860b;font-weight:700">D-plane</span> wedge, the perpendicular <span style="color:#cc2a2a;font-weight:700">spin axis</span>, and the <strong>simulated ball flight</strong> (drag + spin lift, 5–200 mph, calibrated to your Bag captures at stock). The <strong>Shot Presets</strong> tab holds the 9-window drill and the named short-game shots; the sliders here explore freely and only touch your stored tendencies when you <strong>save as stock</strong>. <span class="placeholder-flag">prototype</span></div>
     <div class="dpl-vis-main"><div id="dplane-visual"></div></div>
     <div class="lvl-subhead" style="margin-top:16px">Stock-Shot Tendencies by Club</div>
     <div class="chain-caption" style="margin-top:4px">Each club's <strong>stock-shot</strong> impact geometry: horizontal face, horizontal path, vertical face (dyn loft), vertical path (attack angle) and vertical swing plane (degrees, left −/right +; blank plane = estimated from loft). Tap a club to load it into the lab above; typed edits save automatically.</div>
@@ -1076,19 +1075,19 @@ function dpRenderScene(){
     const fmt1=v=>Math.abs(v)<25?v.toFixed(1):''+Math.round(v);
     ro.innerHTML=
       `<div class="dpv-info-h">Swing Plane — Estimated</div>`
-      +row('Vert. Swing Plane',vPlane.toFixed(1)+'°'+(d.vPlane!=null?'':' est'),'#4a7aaa')
-      +row('Horiz. Swing Plane',dplFmt(hPlane)+'°','#4a7aaa')
+      +row('Vert. Swing Plane',vPlane.toFixed(1)+'°'+(d.vPlane!=null?'':' est'),'var(--dp-plane)')
+      +row('Horiz. Swing Plane',dplFmt(hPlane)+'°','var(--dp-plane)')
       +`<div class="dpv-info-h" style="margin-top:9px">D-Plane — Impact</div>`
-      +row('Horiz. Face',dplFmt(hFace)+'°','#2a6fc4')
-      +row('Horiz. Path',dplFmt(hPath)+'°','#c43c9e')
-      +row('Vert. Face',vFace.toFixed(1)+'°','#2a6fc4')
-      +row('Vert. Path',dplFmt(aoa)+'°','#c43c9e')
-      +row('3D Spin Loft',r.spinLoft.toFixed(1)+'°','#b8860b')
-      +row('Spin Axis',Math.abs(axisEff).toFixed(1)+'°'+(side?' '+side:''),'#cc2a2a')
+      +row('Horiz. Face',dplFmt(hFace)+'°','var(--dp-face)')
+      +row('Horiz. Path',dplFmt(hPath)+'°','var(--dp-path)')
+      +row('Vert. Face',vFace.toFixed(1)+'°','var(--dp-face)')
+      +row('Vert. Path',dplFmt(aoa)+'°','var(--dp-path)')
+      +row('3D Spin Loft',r.spinLoft.toFixed(1)+'°','var(--dp-loft)')
+      +row('Spin Axis',Math.abs(axisEff).toFixed(1)+'°'+(side?' '+side:''),'var(--dp-axis)')
       +row('Spin (est)','~'+spinUsed.toLocaleString()+' rpm')
-      +((st.th||st.hl)?row('Gear Shift',dplFmt(gearAxis)+'° axis','#cc2a2a'):'')
+      +((st.th||st.hl)?row('Gear Shift',dplFmt(gearAxis)+'° axis','var(--dp-axis)'):'')
       +`<div class="dpv-info-h" style="margin-top:9px">Ball Flight — Simulated</div>`
-      +row('Shape',fl,'#111')
+      +row('Shape',fl,'var(--ink)')
       +row('Ball Speed',Math.round(bspd)+' mph')
       +row('Vert. Launch',r.vLaunch.toFixed(1)+'°')
       +row('Horiz. Launch',dplFmt(r.hLaunch)+'°')
@@ -1298,7 +1297,7 @@ function renderDPlaneVisual(){
       <input type="range" id="dpv-sand-${field}-in" min="${min}" max="${max}" step="${step}" value="${o[field]}" oninput="dpSetSand('${field}',this.value)">
     </div>`;
   const strikeRow=(field,label)=>`<div class="dpv-sand-row">
-      <span class="dpv-sand-lbl" style="color:#cc2a2a">${label}</span>
+      <span class="dpv-sand-lbl" style="color:var(--dp-axis)">${label}</span>
       <span class="dpv-sand-val" id="dpv-strike-${field}-v">${dpStrikeTxt(field,st[field])}</span>
       <input type="range" min="-3" max="3" step="1" value="${st[field]}" oninput="dpSetStrike('${field}',this.value)">
     </div>`;
@@ -1306,16 +1305,14 @@ function renderDPlaneVisual(){
       <div class="dpv-strike-head">Shape Sandbox — drag the impact numbers, watch the flight
         <span style="float:right;display:flex;gap:5px"><button type="button" class="dpv-sand-reset" onclick="dpSandSave()">save as stock</button><button type="button" class="dpv-sand-reset" onclick="dpSandRevert()">revert</button></span></div>
       ${sandRow('bspd','Ball Speed','var(--ink2)',5,200,1)}
-      ${sandRow('hFace','Horiz. Face','#2a6fc4',-10,10,0.1)}
-      ${sandRow('hPath','Horiz. Path','#c43c9e',-10,10,0.1)}
-      ${sandRow('vFace','Vert. Face','#2a6fc4',5,65,0.5)}
-      ${sandRow('aoa','Vert. Path','#c43c9e',-8,8,0.1)}
-      <div class="dpv-strike-note">− left / + right (RH) · vert. path − down / + up. Explores freely — your stored tendencies only change when you <b>save as stock</b>; <b>revert</b> reloads them.</div>
+      ${sandRow('hFace','Horiz. Face','var(--dp-face)',-10,10,0.1)}
+      ${sandRow('hPath','Horiz. Path','var(--dp-path)',-10,10,0.1)}
+      ${sandRow('vFace','Vert. Face','var(--dp-face)',5,65,0.5)}
+      ${sandRow('aoa','Vert. Path','var(--dp-path)',-8,8,0.1)}
       <div class="dpv-sand-sub">
         <div class="dpv-strike-head">Strike — Gear Effect <span class="dpv-strike-cur">layered on the D-plane, not part of it</span></div>
         ${strikeRow('th','Heel ↔ Toe')}
         ${strikeRow('hl','Low ↔ High')}
-        <div class="dpv-strike-note">Off-centre contact tilts the spin axis on top of the D-plane above (woods gear far more than irons); low strikes add spin, high strikes shed it. Full-shot intent is the centre of percussion — preview only; resets when you switch clubs.</div>
       </div>
     </div>`;
   host.innerHTML=`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">

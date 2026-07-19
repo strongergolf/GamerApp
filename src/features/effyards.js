@@ -168,7 +168,7 @@ function eyContrib(ctx,key,S){
 /* effective (plays-like) yardage for a context, given a measured base */
 function eyEffective(ctx,measured){ return measured + eyTotal(ctx,measured) + eyDifficulty(ctx); }
 
-const eyColor=d=>d>0.5?'#d96070':d<-0.5?'#1a5aaa':'var(--muted)';
+const eyColor=d=>d>0.5?'var(--gold)':d<-0.5?'var(--sky)':'var(--muted)';
 const eyFmt=d=>{ const r=Math.round(d); return (r>0?'+':r<0?'−':'')+Math.abs(r); };
 function eyTermValLabel(ctx,term){
   if(term.type==='step'){ const o=term.opts.find(x=>x[0]===EY[ctx][term.key]); return o?o[1]:term.opts[0][1]; }

@@ -33,10 +33,10 @@ function sgFlagstick(baseX,baseY,topX,topY,dir){
      input    = typed in by the user (specs, baselines, typical-round stats)
      presumed = assumed / interviewed / app default — NOT measured */
 const SG_PROV = {
-  captured: { label:'Captured', color:'#00853F', bg:'rgba(0,133,63,.12)' },
-  verified: { label:'Verified', color:'#00853F', bg:'rgba(0,133,63,.12)' },
-  input:    { label:'Input',    color:'#1a5aaa', bg:'rgba(26,90,170,.12)' },
-  presumed: { label:'Presumed', color:'#b07d12', bg:'rgba(196,150,30,.16)' }
+  captured: { label:'Captured', color:'var(--green)', bg:'rgba(0,133,63,.12)' },
+  verified: { label:'Verified', color:'var(--green)', bg:'rgba(0,133,63,.12)' },
+  input:    { label:'Input',    color:'var(--sky)',   bg:'rgba(26,90,170,.12)' },
+  presumed: { label:'Presumed', color:'var(--dp-loft)', bg:'rgba(196,150,30,.16)' }
 };
 /* Inline provenance badge. kind ∈ captured|verified|input|presumed. */
 function sgProv(kind){

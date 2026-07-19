@@ -12,7 +12,7 @@ function wedgeModel(){
       height:{full:fh,tq:Math.round(fh*0.85),half:Math.round(fh*0.70)}};
   });
 }
-function effortColor(p){ return p<=80?'#00853F':p<=90?'#1a5aaa':'#d96070'; }
+function effortColor(p){ return p<=80?'var(--green)':p<=90?'var(--sky)':'var(--gold)'; }
 function interpFlight(club,key,target){
   const i=SWINGS.findIndex(s=>s.key===key), lo=SWINGS[i-1], hi=SWINGS[i+1], a=club.carries[key];
   if(target>a&&hi){const u=club.carries[hi.key],t=Math.min(1,(target-a)/(u-a));return{launch:Math.round(club.launch[key]+t*(club.launch[hi.key]-club.launch[key])),spin:Math.round(club.spin[key]+t*(club.spin[hi.key]-club.spin[key])),height:Math.round(club.height[key]+t*(club.height[hi.key]-club.height[key]))};}
