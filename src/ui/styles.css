@@ -378,6 +378,28 @@ input[type=range].yard-slider::-moz-range-thumb{width:20px;height:20px;border-ra
 .lvl-subhead-sm{font-family:ui-monospace,monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin:8px 0 6px}
 .lvl-ref-stat{display:inline-block;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 11px;margin:3px 5px 3px 0;font-family:ui-monospace,monospace;font-size:.62rem;color:var(--ink2)}
 .lvl-ref-stat b{font-family:Arial,sans-serif;font-size:.95rem;color:var(--ink);letter-spacing:.02em}
+/* THE CHAIN — landing map cards + per-level pages */
+.chn-stack{display:flex;flex-direction:column}
+.chn-card{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:12px 14px;cursor:pointer;transition:border-color .15s}
+.chn-card:hover{border-color:var(--gold)}
+.chn-num{font-family:Arial,sans-serif;font-weight:800;font-size:1.7rem;line-height:1;min-width:30px;text-align:center;color:var(--gold)}
+.chn-titles{flex:1;min-width:0}
+.chn-title{font-family:Arial,sans-serif;font-size:1rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--ink);line-height:1.15}
+.chn-cause{font-family:ui-monospace,monospace;font-size:.6rem;letter-spacing:.06em;color:var(--muted);margin-top:3px}
+.chn-cause b{color:var(--green)}
+.chn-chev{font-family:Arial,sans-serif;font-size:1.25rem;color:var(--muted)}
+.chn-link{display:flex;align-items:center;gap:9px;margin:3px 0 3px 26px}
+.chn-l{width:2px;height:16px;background:linear-gradient(180deg,var(--gold),var(--border2));border-radius:1px}
+.chn-t{font-family:ui-monospace,monospace;font-size:.54rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+.chn-rails{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px}
+.chn-pills{display:flex;gap:6px;margin:10px 0}
+.chn-pill{flex:1;font-family:Arial,sans-serif;font-size:.72rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);background:var(--bg2);border:1px solid var(--border);border-radius:7px;padding:8px 6px;cursor:pointer;transition:all .15s}
+.chn-pill.active{background:var(--panel);color:var(--gold2);border-color:var(--panel)}
+.chn-pill:hover:not(.active){border-color:var(--border2);color:var(--ink)}
+.chn-body{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 15px}
+.chn-walk{display:flex;justify-content:space-between;gap:8px;margin-top:12px}
+.chn-walk-btn{font-family:ui-monospace,monospace;font-size:.6rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--ink2);background:var(--bg2);border:1px solid var(--border2);border-radius:7px;padding:7px 11px;cursor:pointer}
+.chn-walk-btn:hover{border-color:var(--gold);color:var(--ink)}
 
 /* PROFILE */
 .profile-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;margin-bottom:16px}

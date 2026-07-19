@@ -13,7 +13,11 @@ const GROUPS={
     {id:'gameplan', label:'Gameplan'}
   ],
   dplane:[{id:'dplane',label:'The Lab'},{id:'dpshots',label:'Shot Presets'}],
-  diagnose:[{id:'assess',label:'Test & Assess'},{id:'improve',label:'Practice'},{id:'resources',label:'Resources'}],
+  diagnose:[
+    {id:'chain',label:'The Chain'},
+    {id:'ch1',label:'1 Score'},{id:'ch2',label:'2 Ball Flight'},{id:'ch3',label:'3 Forces'},
+    {id:'ch4',label:'4 Sequence'},{id:'ch5',label:'5 Body'},{id:'ch6',label:'6 Mind'},{id:'ch7',label:'7 Strategy'}
+  ],
   setup:[{id:'specs',label:'My Bag'},{id:'profile',label:'Myself'},{id:'reference',label:'My App'}]
 };
 let currentGroup='play';
@@ -64,10 +68,8 @@ function refreshAll(){
   renderExpectedShots('es-150', 95, typeof approachLie==='function'?approachLie():'fairway');
   renderExpectedShots('es-short', 20, 'atg');
   renderExpectedShots('es-putting', 15, 'green');
-  buildAssess();
-  buildImprove();
-  buildResources();
-  buildTests();
+  buildChainLanding();
+  buildChainLevels();
   buildDplaneLab();
   buildDpShots();
   buildCourseStrategy();

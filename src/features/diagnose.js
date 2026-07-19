@@ -10,8 +10,9 @@ function metricBox(label,unit,path){
 }
 /* The seven links in the chain of causation. Each area exposes up to three
    render slots — assess (measure/enter data), improve (drills & prescriptions),
-   resources (reference charts & the "ideal" to compare against). buildAssess /
-   buildImprove / buildResources render one slot across all areas into a page. */
+   resources (reference charts & the "ideal" to compare against). buildChainLevel
+   renders one level's page with the three slots as pills; buildChainLanding
+   renders the tappable chain map. */
 const PRACTICE_AREAS=[
     {n:1,id:'score',title:'Score',cause:'Ball behaviour',status:'live',
      assess:()=>`
@@ -357,40 +358,84 @@ const PRACTICE_AREAS=[
        ${strategyExperts()}`}
   ];
 
-/* ---- Practice page builders: render one slot across all areas ---- */
-function practiceCard(area,slot,idx){
-  const html=area[slot]?area[slot]():'';
-  const cid=slot+'-'+area.id;
-  const body=html||`<div class="lvl-soon-note">Nothing allocated to this link yet — check the other Practice sub-tabs.</div>`;
-  return `${idx>0?'<div class="lvl-connector"></div>':''}
-    <div class="lvl-card has-data" data-lvl="${cid}">
-      <div class="lvl-head" onclick="toggleLevel('${cid}')">
-        <div class="lvl-num">${area.n}</div>
-        <div class="lvl-titles"><div class="lvl-title">${area.title}</div></div>
-        <div class="lvl-right"><div class="lvl-chev">▾</div></div>
-      </div>
-      <div class="lvl-body"><div class="lvl-inner">${body}</div></div>
+/* ---- THE CHAIN — chain-major layout. A landing diagram (#page-chain) is the map;
+   each level has its own page (#page-ch1..7) with Assess / Practice / Resources
+   pills. Content still comes from PRACTICE_AREAS' three render slots — this is the
+   same material pivoted level-first instead of slot-first. ---- */
+const CHAIN_SLOTS=[['assess','Assess'],['improve','Practice'],['resources','Resources']];
+const CHAIN_SHORT={1:'Score',2:'Ball Flight',3:'Forces',4:'Sequence',5:'Body',6:'Mind',7:'Strategy'};
+window.chainSlotSel=window.chainSlotSel||{};        // level n → active pill (default assess)
+
+/* jump to a level page + light its sub-tab (tab 0 = the chain map, tab n = level n) */
+function chainGo(n){
+  const tabs=document.querySelectorAll('#nav-sub .nav-tab');
+  showPage('ch'+n, tabs.length>n?tabs[n]:null);
+  window.scrollTo(0,0);
+}
+function chainSetSlot(n,slot){ window.chainSlotSel[n]=slot; buildChainLevel(n); }
+
+function buildChainLanding(){
+  const wrap=document.getElementById('chain-wrap'); if(!wrap) return;
+  const card=a=>`<div class="chn-card" onclick="chainGo(${a.n})">
+      <div class="chn-num">${a.n}</div>
+      <div class="chn-titles"><div class="chn-title">${a.title}</div>
+        ${a.cause?`<div class="chn-cause">caused by <b>${a.cause.toLowerCase()}</b></div>`:''}</div>
+      ${a.status==='soon'?'<span class="lvl-status soon">soon</span>':''}
+      <div class="chn-chev">›</div>
     </div>`;
-}
-function buildPracticeSlot(slot,wrapId){
-  const wrap=document.getElementById(wrapId);
-  if(!wrap) return;
-  wrap.innerHTML=PRACTICE_AREAS.map((a,i)=>practiceCard(a,slot,i)).join('');
-}
-function buildAssess(){
-  buildPracticeSlot('assess','assess-wrap');
-  const wrap=document.getElementById('assess-wrap');
-  if(wrap) wrap.insertAdjacentHTML('beforeend',`
+  const link='<div class="chn-link"><span class="chn-l"></span><span class="chn-t">is caused by</span></div>';
+  const stack=PRACTICE_AREAS.filter(a=>a.n<=5).map((a,i)=>(i?link:'')+card(a)).join('');
+  const rails=PRACTICE_AREAS.filter(a=>a.n>5).map(card).join('');
+  wrap.innerHTML=`
+    <div class="section-label" style="margin-top:0">The Chain of Causation</div>
+    <p class="intro-note"><strong>Read down to diagnose</strong> — a score result traces to the link that broke. <strong>Read up to build</strong> — this body action creates this force, this club delivery, this ball flight, this score. Tap any link; each opens with three views: <strong>Assess</strong> (measure where you are), <strong>Practice</strong> (close the gap), <strong>Resources</strong> (the ideal to compare against).</p>
+    <div class="chn-stack">${stack}</div>
+    <div class="section-label">Running Alongside — shaping every link</div>
+    <div class="chn-rails">${rails}</div>
     <div class="section-label">Diagnostic Notes</div>
     <textarea data-swing="notes" class="metric-input" style="width:100%;min-height:90px;font-family:Arial,sans-serif;font-size:.85rem;font-weight:400;line-height:1.5" placeholder="Working diagnosis, feels and cues…">${escapeHtml(STATE.swing.notes||'')}</textarea>
-    <div class="btn-row" style="margin-top:14px"><button class="btn btn-primary" onclick="saveSwing()">Save Diagnostic Data</button></div>`);
+    <div class="btn-row" style="margin-top:14px"><button class="btn btn-primary" onclick="saveSwing()">Save Diagnostic Notes</button></div>
+    ${pgaProSectionHtml()}`;
 }
-function buildImprove(){ buildPracticeSlot('improve','improve-wrap'); }
-function buildResources(){
-  buildPracticeSlot('resources','resources-wrap');
-  const wrap=document.getElementById('resources-wrap');
-  if(wrap) wrap.insertAdjacentHTML('beforeend', pgaProSectionHtml());
+
+function buildChainLevel(n){
+  const wrap=document.getElementById('ch'+n+'-wrap'); if(!wrap) return;
+  const a=PRACTICE_AREAS.find(x=>x.n===n); if(!a) return;
+  const slot=window.chainSlotSel[n]||'assess';
+  const pills=CHAIN_SLOTS.map(([k,l])=>`<button type="button" class="chn-pill${k===slot?' active':''}" onclick="chainSetSlot(${n},'${k}')">${l}</button>`).join('');
+  let content=(a[slot]?a[slot]():'')||'<div class="lvl-soon-note">Nothing allocated to this view yet.</div>';
+  /* Skills Tests live in L1 Score — Assess: they are outcome measures, same family as SG */
+  if(n===1&&slot==='assess') content+=`
+    <div class="lvl-subhead" style="margin-top:18px">Skills Tests</div>
+    <div class="chain-caption" style="margin-top:4px">Repeatable skills challenges scored 0–100 on your own anchors (the TrackMan-Combine idea). Log a result and watch the trend line move over time.</div>
+    <div id="tests-wrap"></div>`;
+  const sub=a.cause?`caused by ${a.cause.toLowerCase()}`
+    :n===6?'the mental layer — shapes every link'
+    :n===7?'where the whole chain cashes out on the course'
+    :'the foundation the whole chain stands on';
+  const up=(n>1&&n<=5)?PRACTICE_AREAS.find(x=>x.n===n-1):null;
+  const down=(n<5)?PRACTICE_AREAS.find(x=>x.n===n+1):null;
+  const walk=(up||down)?`<div class="chn-walk">
+      ${up?`<button type="button" class="chn-walk-btn" onclick="chainGo(${up.n})">▲ causes · ${up.n} ${CHAIN_SHORT[up.n]}</button>`:'<span></span>'}
+      ${down?`<button type="button" class="chn-walk-btn" onclick="chainGo(${down.n})">▼ caused by · ${down.n} ${CHAIN_SHORT[down.n]}</button>`:''}
+    </div>`:'';
+  wrap.innerHTML=`
+    <div class="chain-card" style="margin-bottom:10px">
+      <div class="chain-head">
+        <div class="chain-level">${a.n}</div>
+        <div class="chain-titles"><div class="chain-title">${a.title}</div>
+          <div class="chain-sub">${sub}</div></div>
+        ${a.status==='soon'?'<span class="lvl-status soon">soon</span>':''}
+      </div>
+    </div>
+    <div class="chn-pills">${pills}</div>
+    <div class="chn-body">${content}</div>
+    ${walk}`;
+  if(n===1&&slot==='assess'&&typeof buildTests==='function') buildTests();
+  /* the static Definitions dropdown lives on the L2 page — show it only on Resources */
+  if(n===2){ const defs=document.getElementById('ch2-defs'); if(defs) defs.style.display=(slot==='resources')?'':'none'; }
 }
+function buildChainLevels(){ for(let n=1;n<=7;n++) buildChainLevel(n); }
 /* ---- Work With a PGA Professional — links to the official national PGA associations
    (the nine PGA World Alliance members; the CPG federates 30+ more national PGAs). ---- */
 function pgaProSectionHtml(){
@@ -592,13 +637,6 @@ function ballRefHtml(){
     <div class="lvl-soon-note" style="margin-top:10px">Open the Bag tab to edit every club's full ball-flight profile and see trajectory &amp; dispersion plots.</div>`;
 }
 
-function toggleLevel(id){
-  const card=document.querySelector(`.lvl-card[data-lvl="${id}"]`);
-  if(!card)return;
-  const open=card.classList.contains('open');
-  document.querySelectorAll('.lvl-card').forEach(c=>c.classList.remove('open'));
-  if(!open){ card.classList.add('open'); setTimeout(()=>card.scrollIntoView({behavior:'smooth',block:'nearest'}),60); }
-}
 function forceRow(name,desc,key){
   const f=STATE.swing.forces[key];
   const stages=[['transition','Transition'],['mid','Mid (7–8:00)'],['impact','Impact']];
@@ -1348,4 +1386,4 @@ function buildGearEffectL2(){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { STRAT_OPTS, ballRefHtml, buildAssess, buildImprove, buildResources, buildCourseStrategy, buildDplaneGrid, buildDplaneLab, buildDpShots, buildForceProfileSVG, buildGearEffectL2, buildKinematicSequenceSVG, buildStrategyPrefs, pgaProSectionHtml, DP_SHOTS, dpApplyPreset, dpBallFlight, dpLoadShot, dpRenderScene, dpSandFmt, dpSandRevert, dpSandSave, dpSandSync, dpSceneDragInit, dpSeedSand, dpSetCam, dpSetSand, dpSetStrike, dpShotParamsTxt, dpStrikeTxt, dpWorldVectors, dplFmt, dplaneShape, escapeHtml, forceRow, getPath, metricBox, renderDPlaneVisual, saveSwing, setDpVisClub, setDplaneCell, setStrategy, setPath, stratLabel, stratSelect, stratSummary, toggleLevel });
+Object.assign(window, { STRAT_OPTS, ballRefHtml, buildChainLanding, buildChainLevel, buildChainLevels, chainGo, chainSetSlot, buildCourseStrategy, buildDplaneGrid, buildDplaneLab, buildDpShots, buildForceProfileSVG, buildGearEffectL2, buildKinematicSequenceSVG, buildStrategyPrefs, pgaProSectionHtml, DP_SHOTS, dpApplyPreset, dpBallFlight, dpLoadShot, dpRenderScene, dpSandFmt, dpSandRevert, dpSandSave, dpSandSync, dpSceneDragInit, dpSeedSand, dpSetCam, dpSetSand, dpSetStrike, dpShotParamsTxt, dpStrikeTxt, dpWorldVectors, dplFmt, dplaneShape, escapeHtml, forceRow, getPath, metricBox, renderDPlaneVisual, saveSwing, setDpVisClub, setDplaneCell, setStrategy, setPath, stratLabel, stratSelect, stratSummary });

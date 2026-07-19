@@ -24,7 +24,7 @@
 <nav class="nav-groups">
   <div class="ngroup active" onclick="showGroup('play',this)">Play</div>
   <div class="ngroup" onclick="showGroup('dplane',this)">D-Plane Lab</div>
-  <div class="ngroup" onclick="showGroup('diagnose',this)">Improve</div>
+  <div class="ngroup" onclick="showGroup('diagnose',this)">The Chain</div>
   <div class="ngroup" onclick="showGroup('setup',this)">Locker Room</div>
 </nav>
 <nav class="nav-sub" id="nav-sub"></nav>
@@ -80,28 +80,24 @@
   <div id="putting-wrap"></div>
 </div>
 
-<!-- IMPROVE — TEST & ASSESS (skills tests + the chain of causation) -->
-<div id="page-assess" class="page">
-  <div class="section-label" style="margin-top:0">Skills Tests</div>
-  <p class="intro-note"><strong>Test</strong> — repeatable skills challenges scored 0–100 on your own anchors (the TrackMan-Combine idea). Log a result and watch the trend line move over time.</p>
-  <div id="tests-wrap"></div>
-
-  <div class="section-label" style="margin-top:26px">Assess — the Chain of Causation</div>
-  <p class="intro-note"><strong>Assess</strong> — measure where you are. Each of the seven links in the chain of causation, top to bottom: <strong>read down to diagnose</strong> (a score result → which link broke); <strong>read up to build</strong> (this body action → this force → this club delivery → this ball flight → this score). Enter your data; it flows to <em>Practice</em> and to the rest of the app. Tap a link to expand.</p>
-  <div id="assess-wrap"></div>
+<!-- THE CHAIN — landing map (content built by buildChainLanding in diagnose.js) -->
+<div id="page-chain" class="page">
+  <div id="chain-wrap"></div>
 </div>
 
-<!-- PRACTICE — IMPROVE -->
-<div id="page-improve" class="page">
-  <p class="intro-note"><strong>Practice</strong> — turn the assessment into a plan. Drills, feels, and prescriptive priorities for each link in the chain, keyed to the gaps found in <em>Assess</em>. Tap a link to expand.</p>
-  <div id="improve-wrap"></div>
-</div>
+<!-- THE CHAIN — one page per level (buildChainLevel) -->
+<div id="page-ch1" class="page"><div id="ch1-wrap"></div></div>
+<div id="page-ch3" class="page"><div id="ch3-wrap"></div></div>
+<div id="page-ch4" class="page"><div id="ch4-wrap"></div></div>
+<div id="page-ch5" class="page"><div id="ch5-wrap"></div></div>
+<div id="page-ch6" class="page"><div id="ch6-wrap"></div></div>
+<div id="page-ch7" class="page"><div id="ch7-wrap"></div></div>
 
-<!-- IMPROVE — RESOURCES -->
-<div id="page-resources" class="page">
-  <p class="intro-note"><strong>Resources</strong> — the reference library behind every link: D-plane visuals, elite force profiles, kinematic-sequence and ground-force benchmarks, and the ball-flight laws. The "ideal" you are measuring against in <em>Assess</em>. Tap a link to expand.</p>
-  <div id="resources-wrap"></div>
-  <details class="defs-dropdown">
+<!-- THE CHAIN — level 2 Ball Flight; the static Definitions dropdown lives here,
+     shown only on the Resources pill (toggled by buildChainLevel) -->
+<div id="page-ch2" class="page">
+  <div id="ch2-wrap"></div>
+  <details class="defs-dropdown" id="ch2-defs">
     <summary>Definitions — StrongerGolf vocabulary &amp; launch-monitor cross-map</summary>
     <p class="intro-note">The StrongerGolf vocabulary, worded to keep front-of-mind that <strong>impact is a 3D event</strong>: every variable has a Vertical and a Horizontal component of one 3D vector. <strong>Tap any card</strong> to expand deeper context and alternate launch-monitor names.</p>
 

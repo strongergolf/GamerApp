@@ -37,7 +37,7 @@ const DEFAULT_DATA = {
   /* Per-club observed miss tendencies (My Bag → club detail). Keyed by club id.
      {dir, curve, heelToe, lowHigh}. Will feed gear-effect + dispersion skew + D-plane. */
   missTendency: {},
-  /* Skills-test history (Improve → Tests). Each: {id, date, type, score, detail{}}. */
+  /* Skills-test history (The Chain → 1 Score → Assess). Each: {id, date, type, score, detail{}}. */
   skillsTests: [],
   /* Handicap snapshots over time (Locker Room → Myself). Each: {date, hcp}. */
   hcpHistory: [],
