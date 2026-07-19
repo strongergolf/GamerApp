@@ -216,8 +216,13 @@
 
 <!-- SPECS -->
 <div id="page-specs" class="page">
-  <!-- Backup & Transfer lives on My App → Data (was duplicated here at the top) -->
-  <div class="section-label" style="margin-top:0">Golf Ball</div>
+  <!-- Export/Import are shortcuts to the same functions as My App → Data (the full card, incl. Reset, lives there) -->
+  <div class="section-label" style="margin-top:0;display:flex;align-items:center;justify-content:space-between;gap:10px">Golf Ball
+    <span style="display:flex;gap:8px;flex-shrink:0">
+      <button class="print-btn" onclick="exportData()" title="Download a JSON backup of all app data">⬇ Export</button>
+      <button class="print-btn" onclick="triggerImportFile()" title="Restore from a JSON backup (confirms &amp; backs up first)">⬆ Import</button>
+    </span>
+  </div>
   <div class="specs-wrap" id="ball-specs-wrap"></div>
   <div class="section-label" style="margin-top:18px">Clubs</div>
   <div id="gapping-wrap"></div>
