@@ -126,11 +126,11 @@ const PRACTICE_AREAS=[
        <div class="lvl-subhead">Ball Flight — from Bag Data</div>
        ${ballRefHtml()}
 
-       <div class="chain-caption" style="margin-top:14px">The interactive <strong>D-Plane Lab</strong> — the rotatable impact-geometry render, shot presets, ball-speed sandbox and per-club stock-shot tendencies — now has its own main tab: <b onclick="showGroup('dplane',document.querySelectorAll('.ngroup')[1])" style="color:var(--sky);cursor:pointer;text-decoration:underline">open the D-Plane Lab</b>.</div>`,
+       <div class="chain-caption" style="margin-top:14px">The interactive <strong>D-Plane Lab</strong> — the rotatable impact-geometry render, shot presets, ball-speed sandbox and per-club stock-shot tendencies — now has its own main tab: <b onclick="showGroup('dplane')" style="color:var(--sky);cursor:pointer;text-decoration:underline">open the D-Plane Lab</b>.</div>`,
      improve:()=>ballImprove(),
      resources:()=>`
        ${ballLawsRef()}
-       <div class="chain-caption" style="margin-top:14px">The interactive D-plane shaper — per-club impact inputs alongside the live 3D render — now lives in its own main tab: <b onclick="showGroup('dplane',document.querySelectorAll('.ngroup')[1])" style="color:var(--sky);cursor:pointer;text-decoration:underline">the D-Plane Lab</b>.</div>
+       <div class="chain-caption" style="margin-top:14px">The interactive D-plane shaper — per-club impact inputs alongside the live 3D render — now lives in its own main tab: <b onclick="showGroup('dplane')" style="color:var(--sky);cursor:pointer;text-decoration:underline">the D-Plane Lab</b>.</div>
        ${buildGearEffectL2()}
 
        <div class="chain-caption" style="margin-top:14px">Driver distance optimization (Foresight launch &amp; spin windows) now lives under the <strong>Driver</strong> in <strong>Stock Shots</strong>.</div>`},

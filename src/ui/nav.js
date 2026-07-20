@@ -24,6 +24,9 @@ let currentGroup='play';
 
 function showGroup(group,el){
   if(typeof pfMaybeSave==='function') pfMaybeSave();   // commit any unsaved Locker Room edits
+  /* deep links pass only the group name — resolve the nav button by data-group so
+     links survive main-tab reordering (never reference .ngroup by index) */
+  if(!el) el=document.querySelector(`.ngroup[data-group="${group}"]`);
   currentGroup=group;
   document.querySelectorAll('.ngroup').forEach(g=>g.classList.remove('active'));
   if(el)el.classList.add('active');
