@@ -32,7 +32,6 @@ src/
   main.js               ← entry point; imports all modules in dependency order; boots the app
   ui/
     styles.css          ← all CSS (design tokens + component styles)
-    body.html           ← reference copy of the body markup (the live copy is in index.html)
     nav.js              ← navigation, toast, renderAll() orchestrator, init helpers
   data/
     defaults.js         ← DEFAULT_DATA: Mark's Gamer Bag, performance, profile, swing tree
@@ -53,7 +52,7 @@ src/
     shortgame.js        ← Short Game tab (Chip Shot Options, chip matrix)
     putting.js          ← Putting tab (AimPoint, Expected Putts)
     sg-tracking.js      ← scenario calc, round logging, SG averages/trend/sparkline
-    diagnose.js         ← PRACTICE_AREAS (7 causal-chain links × assess/improve/resources slots) + per-club D-plane tendencies grid
+    diagnose.js         ← PRACTICE_AREAS (7 causal-chain links × assess/improve/resources slots), The Chain pages, D-Plane Lab + Shot Presets, per-club D-plane tendencies grid
     courses.js          ← Course maps: data model, vector hole renderer (renderHoleSVG), trace-on-image editor (Plan tab)
     bag-specs.js        ← My Bag specs/edit, ball listing, profile (Myself), data import/export
     club-form.js        ← add-a-club form
@@ -77,19 +76,20 @@ This pattern works and is verified (the app builds and runs). But it is the *sta
 1. **Pure physics modules first** (`physics/*.js`): these have no DOM dependencies. Convert `function foo` → `export function foo`, remove the `Object.assign(window, …)` line, and add `import { foo } from '../physics/...'` everywhere it's used. Test after each module.
 2. **State** (`store.js`): replace `window.STATE` with `getState()` / `setState()` exported accessors; import them where needed.
 3. **Feature/render modules**: convert to exports, then replace the inline `onclick="fn()"` handlers in `index.html` with `addEventListener` wired up inside each module's build function. This is the biggest step — do it one tab at a time.
-4. **Delete** `src/ui/body.html` once `index.html` is the sole source of markup (it's currently just a reference copy).
+4. ~~Delete `src/ui/body.html`~~ — done (2026-07); `index.html` is the sole source of markup.
+5. **Dedupe the double-defined globals**: `calcSuggestions`, `effortColor`, `interpFlight`, `wedgeModel` are defined in BOTH `features/approach.js` and `physics/flight.js`, and both `Object.assign` them onto window — last-loaded wins silently. Until deduped, any fix to one copy must be applied to both.
 
 Run `npm run build` frequently — Vite/Rollup will flag any unresolved import immediately, which is exactly the safety net the old single-file approach lacked.
 
 ## Verifying changes
 
-There's a `runtime_test.mjs` at the project root that loads the built bundle under jsdom, boots it, and checks STATE + key functions. Run after a build:
+There's a `runtime_test.mjs` at the project root that loads the built bundle under jsdom, boots it, and smoke-tests the render: STATE + key globals, **every `.page` div renders non-empty**, and **every `[id$="-wrap"]` container is populated** (a short allowlist covers wraps that legitimately start empty). It exits non-zero on failure. Run after every build:
 
 ```bash
 npm run build && node runtime_test.mjs
 ```
 
-It catches reference errors that a syntax check misses (e.g. a function called before it's globalized). Expand it as you go.
+It catches reference errors a syntax check misses AND the silently-empty-page class of bug (a broken `getElementById`, a typo'd id, a builder that early-returns). If you add a page or a `-wrap` container, the test covers it automatically; if a new wrap legitimately renders empty at boot, add it to `EMPTY_OK` with a comment.
 
 ---
 
@@ -139,12 +139,11 @@ All full-swing long-club trajectory SVGs use an **asymmetric cubic bezier** refl
 
 ### Later-batch features (rough; connectivity to be refined)
 - **Per-club miss tendency** (`buildMissBlock`/`setMiss`, bag.js → club detail): dir / curve / heel-toe / low-high selects → `STATE.missTendency[clubId]`. `missNote()` gives a live gear-effect read. NOT yet wired into dispersion/gear-effect/D-plane (intended next).
-- **Skills Tests** (`skills.js` → Improve → **Tests** sub-tab, page `page-tests`/`tests-wrap`): wedge-ladder (proximity→0–100) + driver (carry+offline→0–100) tests, scored & stored in `STATE.skillsTests`, per-type trend sparkline. `buildTests()` in refreshAll.
+- **Skills Tests** (`skills.js` → The Chain → **1 Score → Assess**, rendered into `#tests-wrap` by `buildChainLevel(1)`): wedge-ladder (proximity→0–100) + driver (carry+offline→0–100) tests, scored & stored in `STATE.skillsTests`, per-type trend sparkline.
 - **Handicap trend** (`hcpTrendHtml`/`logHcpSnapshot`, bag-specs.js → Myself): manual snapshots → `STATE.hcpHistory` + sparkline; latest snapshot updates `profile.handicap`.
 - **Home setup** (profile fields homeCourse/usualTee/homeStimp): saving homeStimp seeds `STATE.stimp` (Putting/Approach).
 - **Coach Mode**: static placeholder card in Myself (multi-locker future; `profile.coachMode` reserved).
 - New STATE slices in defaults.js + merged in store.js mergeDefaults: `missTendency {}`, `skillsTests []`, `hcpHistory []`.
-- Practice/Improve group now has FOUR sub-tabs: Assess / Practice / **Tests** / Resources.
 
 ### Distance Dialler / Pitch Shot Options (flight.js)
 - 3-tier sort: closest anchor → fuller swing → effort nearest 87%.
@@ -158,7 +157,9 @@ All full-swing long-club trajectory SVGs use an **asymmetric cubic bezier** refl
 - Wordmark: "Stronger" green + "Golf" pink; trajectory arc above in pink. Tagline "Club, Shot & Swing Data".
 
 ## Naming conventions (preserve exactly)
-Mark uses specific teaching language. Keep these strings verbatim: "Side Slope at Point of Influence", "Chip Shot Options", "Pitch Shot Options", "Expected Putts Calculator". Nav: Play (Stock Shots / Approach / Short Game / Putting), Practice (three sub-tabs — Assess / Improve / Resources — internally the `diagnose` nav group; pages `page-assess`/`page-improve`/`page-resources`, wraps `assess-wrap`/`improve-wrap`/`resources-wrap`. The 7 causal-chain links live in `PRACTICE_AREAS` in diagnose.js, each exposing `assess`/`improve`/`resources` render slots; `buildAssess`/`buildImprove`/`buildResources` render one slot across all areas. Assess = data entry, Resources = reference charts / D-plane visual / force & kinematic profiles, Improve = drills), Plan (Course Strategy — the `courses` page), Plan group → Strategy (`courses` page) / Course Editor (`editor` page). Locker Room group → My Bag / Myself / **My Community** (`community` page — placeholder, multi-user/coaching future) / **My App Settings** (`reference` page id, relabelled — holds Data export/import/reset + the Data Provenance legend). The StrongerGolf vocabulary + launch-monitor cross-map ("Definitions") moved out of the old App References into a `<details class="defs-dropdown">` at the bottom of Practice → Resources.
+Mark uses specific teaching language. Keep these strings verbatim: "Side Slope at Point of Influence", "Chip Shot Options", "Pitch Shot Options", "Expected Putts Calculator". Terminology: **Swing Plane** (not "Impact Plane"), **Vert. Face / Vert. Path** (not TrackMan's Dynamic Loft / Attack Angle), always **"3D Spin Loft"** (TrackMan's Spin Loft is 2D-only).
+
+Nav (five main groups, 2026-07): **Play** (Stock Shots / Approach / Short Game / Putting) · **D-Plane Lab** (`dplane` group: The Lab `page-dplane` + Shot Presets `page-dpshots`) · **The Chain** (`diagnose` group: chain map `page-chain` + one page per level `page-ch1`…`page-ch7`; the 7 causal-chain links live in `PRACTICE_AREAS` in diagnose.js, each exposing `assess`/`improve`/`resources` render slots; `buildChainLanding` renders the map, `buildChainLevel(n)` renders a level with Assess / Practice / Resources pills; Skills Tests fold into 1 Score → Assess; the Definitions `<details class="defs-dropdown" id="ch2-defs">` lives on the 2 Ball Flight page, shown only on its Resources pill) · **Gameplan** (`gameplan` group, single page — Pre-Round course strategy & tracking, Pre-Shot, Post-Shot, Post-Round) · **Locker Room** (`setup` group: My Bag `specs` / Myself `profile` / My App `reference` — Data export/import/reset + the Data Provenance legend). Content deep-links reach main groups positionally (`document.querySelectorAll('.ngroup')[1]` = D-Plane Lab) — audit these before reordering main tabs.
 
 ## Data provenance (standard practice)
 Every data point is one of four states; label them (sometimes visibly, via `sgProv(kind)` / `SG_PROV` in `ui/brand.js`) so trust is explicit:
