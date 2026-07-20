@@ -26,7 +26,6 @@ import './physics/conditions.js';
 import './physics/dplane.js';
 import './physics/dispersion.js';
 import './physics/sg.js';
-import './physics/flight.js';
 import './physics/chip.js';
 import './physics/shortgame-vars.js';
 import './physics/putting.js';

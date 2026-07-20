@@ -41,7 +41,6 @@ src/
     dplane.js           ← exact impact-geometry engine (HPath, SpinAxis, 3D SpinLoft, gear) — single source of truth
     conditions.js       ← air density + carry factor from weather
     dispersion.js       ← lateral dispersion model + club colour/label helpers
-    flight.js           ← partial-swing interpolation + Pitch Shot suggestion engine
     chip.js             ← chip rollout model (launch = 75% loft, archetype ratios)
     putting.js          ← AimPoint break model (pace factor, slope multipliers)
     driver.js           ← Driver Optimizer (Foresight table) + trajectory SVG
@@ -77,7 +76,7 @@ This pattern works and is verified (the app builds and runs). But it is the *sta
 2. **State** (`store.js`): replace `window.STATE` with `getState()` / `setState()` exported accessors; import them where needed.
 3. **Feature/render modules**: convert to exports, then replace the inline `onclick="fn()"` handlers in `index.html` with `addEventListener` wired up inside each module's build function. This is the biggest step — do it one tab at a time.
 4. ~~Delete `src/ui/body.html`~~ — done (2026-07); `index.html` is the sole source of markup.
-5. **Dedupe the double-defined globals**: `calcSuggestions`, `effortColor`, `interpFlight`, `wedgeModel` are defined in BOTH `features/approach.js` and `physics/flight.js`, and both `Object.assign` them onto window — last-loaded wins silently. Until deduped, any fix to one copy must be applied to both.
+5. ~~Dedupe the double-defined globals~~ — done (2026-07): `physics/flight.js` was deleted; it held stale duplicates of `calcSuggestions`, `effortColor`, `interpFlight`, `wedgeModel` that `features/approach.js` (loaded later) was silently overriding. The approach.js versions — fairway-wood extension, full-only-club guards, 3 options — are the single source now. If you find yourself defining a name that another module already `Object.assign`s onto window, stop: last-loaded wins silently.
 
 Run `npm run build` frequently — Vite/Rollup will flag any unresolved import immediately, which is exactly the safety net the old single-file approach lacked.
 
@@ -145,7 +144,7 @@ All full-swing long-club trajectory SVGs use an **asymmetric cubic bezier** refl
 - **Coach Mode**: static placeholder card in Myself (multi-locker future; `profile.coachMode` reserved).
 - New STATE slices in defaults.js + merged in store.js mergeDefaults: `missTendency {}`, `skillsTests []`, `hcpHistory []`.
 
-### Distance Dialler / Pitch Shot Options (flight.js)
+### Distance Dialler / Pitch Shot Options (approach.js)
 - 3-tier sort: closest anchor → fuller swing → effort nearest 87%.
 - Upper window bound = anchor × **1.04**.
 - Dedup by **club+swing pair**, then a second pass to one option per club. (Keying dedup on anchor-carry alone was a bug — it wrongly dropped valid alternatives.)
