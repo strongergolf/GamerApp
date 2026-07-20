@@ -51,7 +51,8 @@ src/
     shortgame.js        ← Short Game tab (Chip Shot Options, chip matrix)
     putting.js          ← Putting tab (AimPoint, Expected Putts)
     sg-tracking.js      ← scenario calc, round logging, SG averages/trend/sparkline
-    diagnose.js         ← PRACTICE_AREAS (7 causal-chain links × assess/improve/resources slots), The Chain pages, D-Plane Lab + Shot Presets, per-club D-plane tendencies grid
+    diagnose.js         ← PRACTICE_AREAS (7 causal-chain links × assess/improve/resources slots), The Chain pages, strategy prefs + course strategy
+    dplane-lab.js       ← D-Plane Lab: 3D viewer, Shape Sandbox, Shot Presets page, per-club tendencies grid, gear effect (physics stays in physics/dplane.js)
     courses.js          ← Course maps: data model, vector hole renderer (renderHoleSVG), trace-on-image editor (Plan tab)
     bag-specs.js        ← My Bag specs/edit, ball listing, profile (Myself), data import/export
     club-form.js        ← add-a-club form

@@ -35,6 +35,7 @@ import './features/bag.js';
 import './features/approach.js';
 import './features/sg-tracking.js';
 import './features/diagnose.js';
+import './features/dplane-lab.js';
 import './features/courses.js';
 import './features/planshot.js';
 import './features/effyards.js';

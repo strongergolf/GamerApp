@@ -812,6 +812,7 @@ table.chip-matrix tr:hover td{background:var(--surface2)}
 .dpv-strike-sliders label{flex:1 1 120px;font-family:ui-monospace,monospace;font-size:.54rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
 .dpv-strike-sliders input[type=range]{width:100%;display:block;margin-top:2px}
 .dpv-strike-note{font-family:Arial,sans-serif;font-size:.7rem;line-height:1.35;color:var(--muted);margin-top:7px}
+.dpv-cal-warn{margin-top:8px;font-family:Arial,sans-serif;font-size:.68rem;line-height:1.45;color:var(--dp-loft);background:rgba(196,150,30,.12);border:1px solid rgba(196,150,30,.32);border-radius:6px;padding:6px 9px}
 .dpv-panel{border:1px solid var(--border2);border-radius:8px;overflow:hidden;background:#eef6fc}
 .dpv-title{font-family:ui-monospace,monospace;font-size:.55rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink2);text-align:center;padding:4px 0 2px;background:var(--bg2)}
 .dpv-readout{font-family:Arial,sans-serif;font-size:.92rem;font-weight:600;color:var(--ink2);margin-bottom:8px;line-height:1.5}
