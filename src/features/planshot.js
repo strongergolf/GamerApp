@@ -326,7 +326,7 @@ function psTargetHTML(){
       <p class="intro-note" style="margin:12px 0 0">Coming: overlay your <b>86% dispersion pattern</b> on the hole to auto-pick the aim that <b>avoids trouble &amp; minimises expected score</b> — tee aim favouring the shortest route to the pin, and an approach target that <b>minimises the chance of missing the green</b>, then the shortest expected putt. Powered by the Course Map.</p>
     </div>`;
 }
-/* EXECUTE — the physical pre-shot routine, run top to bottom. Steps 1-2 & 7-8 are action
+/* EXECUTE — the physical pre-shot routine, run top to bottom. Steps 1-2 & 7-9 are action
    reminders; steps 3-6 are 5-point sliders whose live effect on swing & ball flight is
    quantified in the panel below. */
 function psExecuteHTML(){
@@ -347,7 +347,8 @@ function psExecuteHTML(){
       ${head('6 · Set lower body')}
       ${sliders('Set lower body')}
       ${head('7 · Waggle &amp; look')}${note('Waggle to stay athletic and free of tension; take one last look down the line at the TARGET in the distance.')}
-      ${head('8 · Trigger')}${note('Use your TRIGGER (forward press, kick-in, breath) to start the takeaway — then commit, no second-guessing.')}
+      ${head('8 · Backswing Trigger')}${note('Use your TRIGGER (forward press, kick-in, breath) to start the takeaway — then commit, no second-guessing.')}
+      ${head('9 · Release')}${note('Let it go — a free, full RELEASE of the clubhead through the ball to a balanced, held finish. Trust the plan; no steering.')}
       <div id="pse-readout" class="sgv-readout" style="margin-top:14px">${pseReadoutInner()}</div>
       ${pseHowHTML()}
     </div>`;
