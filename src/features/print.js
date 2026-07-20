@@ -19,7 +19,11 @@ function prSwingTable(clubIds){
       if(key==='full'){ total=p.total!=null?p.total:p.carry; carry=p.carry!=null?p.carry:(total!=null?total*ratio:null); }
       else { total=pr[key]!=null?pr[key]:(p.total!=null?p.total*(key==='tq'?0.92:0.78):null); carry=total!=null?total*ratio:null; }
       if(total==null) return '<td>&mdash;</td>';
-      return `<td><span class="big">${Math.round(total)+firm}</span><span class="sm">${carry!=null?Math.round(carry)+firm:'—'}</span></td>`;
+      /* mirror the on-screen tables: when Adjust is on, carry scales with air density
+         and roll-out is preserved (adjTotal); firmness still adds on top. */
+      const aCarry=(window.adjustOn&&carry!=null)?adjCarry(carry):carry;
+      const aTotal=(window.adjustOn&&carry!=null)?adjTotal(carry,total):total;
+      return `<td><span class="big">${Math.round(aTotal)+firm}</span><span class="sm">${aCarry!=null?Math.round(aCarry)+firm:'—'}</span></td>`;
     };
     body+=`<tr><td class="club"><span class="big">${c.label}</span><span class="sm">${c.loft||''}</span></td>${cell('full')}${cell('tq')}${cell('half')}</tr>`;
   });
@@ -33,8 +37,11 @@ function prFullTable(clubIds){
   clubIds.forEach(id=>{
     const c=(STATE.clubs||[]).find(x=>x.id===id); if(!c||c.type==='putter') return;
     const p=perf(id); if(p.carry==null&&p.total==null) return;
-    const carry=p.carry!=null?Math.round(p.carry)+firm:null;
-    const total=p.total!=null?Math.round(p.total)+firm:carry;
+    /* env adjustment: carry scales, roll-out preserved (adjTotal); off ⇒ stock */
+    const aCarry=(window.adjustOn&&p.carry!=null)?adjCarry(p.carry):p.carry;
+    const aTotal=(window.adjustOn&&p.carry!=null&&p.total!=null)?adjTotal(p.carry,p.total):p.total;
+    const carry=aCarry!=null?Math.round(aCarry)+firm:null;
+    const total=aTotal!=null?Math.round(aTotal)+firm:carry;
     const d86=(p.carry!=null&&typeof disp86==='function')?disp86(p.carry):null;
     body+=`<tr><td class="club"><span class="big">${c.label}</span><span class="sm">${c.loft||''}</span></td>`
       +`<td>${carry!=null?carry:'&mdash;'}</td>`
@@ -76,12 +83,22 @@ function stockShotsPrintTable(){ return prSwingTable(prStockClubIds()); }
 
 const PR_ARC=`<svg class="arc" viewBox="0 0 220 30" xmlns="http://www.w3.org/2000/svg"><path d="M 8,26 C 151,16 166,-6 212,26" fill="none" stroke="#F4C2C2" stroke-width="2.4" stroke-linecap="round"/></svg>`;
 const prMark=`<div class="mark"><span class="s">Stronger</span><span class="g">Golf</span></div>`;
+/* When the Environmental Adjustment is on, the card carries the adjusted numbers — so
+   label it, otherwise an adjusted card is indistinguishable from a stock one later. */
+function prConditionsNote(){
+  if(!window.adjustOn) return `<div class="sub">On-Course Reference</div>`;
+  const b=STATE.baseline||{};
+  const f=(typeof carryFactor==='function')?carryFactor():1;
+  const pct=(f-1)*100, sign=pct>0?'+':'';
+  return `<div class="sub">On-Course Reference &middot; Playing Conditions</div>
+    <div class="cond-note">${Math.round(b.tempF)}&deg;F &middot; ${Math.round(b.altitudeFt)} ft &middot; ${Math.round(b.humidity)}% RH &middot; ${b.pressureInHg} inHg &nbsp;&mdash;&nbsp; carries play <b>${sign}${pct.toFixed(1)}%</b></div>`;
+}
 /* Single-sided card: Full-Swing Stock Shots (whole bag) on the left; Partial Approach
    Shots over the Chip Shot Matrix on the right. */
 function prCard(){
   const partialIds=(typeof PARTIAL_CLUBS!=='undefined'?PARTIAL_CLUBS:['7i','8i','9i','P','W','S','X']);
   return `<section class="card">
-    <div class="head">${PR_ARC}${prMark}<div class="sub">On-Course Reference</div></div>
+    <div class="head">${PR_ARC}${prMark}${prConditionsNote()}</div>
     <div class="cols">
       <div class="col"><div class="mtitle">Full Swing Stock Shots</div>${prFullTable(prAllFullIds())}</div>
       <div class="col">
@@ -102,6 +119,8 @@ function printCardHTML(sides){
     .mark{font-family:'Arial Narrow',Arial,sans-serif;font-size:1.7rem;font-weight:800;line-height:1}
     .mark .s{color:#00853F}.mark .g{color:#d96070}
     .head .sub{font-size:.62rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#3a5a7a;margin-top:3px}
+    .head .cond-note{font-size:.6rem;font-weight:600;color:#0C2340;margin-top:4px}
+    .head .cond-note b{color:#00853F}
     .cols{display:flex;gap:18px;align-items:flex-start}
     .col{flex:1;min-width:0}
     .mtitle{font-size:.72rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#0C2340;text-align:center;margin-bottom:5px}
@@ -130,4 +149,4 @@ function printCard(){
 /* All three matrix buttons print the unified two-sided reference card. */
 function printMatrix(type){ printCard(); }
 
-Object.assign(window, { printMatrix, printCard, prSwingTable, prFullTable, prChipTable, prStockClubIds, stockShotsPrintTable, printCardHTML });
+Object.assign(window, { printMatrix, printCard, prCard, prConditionsNote, prSwingTable, prFullTable, prChipTable, prStockClubIds, stockShotsPrintTable, printCardHTML });
