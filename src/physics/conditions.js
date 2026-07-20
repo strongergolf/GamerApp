@@ -34,8 +34,16 @@ function currentConditions(){
 }
 function num(id, fb){ const v = parseFloat(document.getElementById(id)?.value); return isNaN(v)?fb:v; }
 function adjCarry(stock){ return Math.round(stock * carryFactor()); }
+/* Env-adjusted TOTAL. Only the CARRY portion scales with air density; the roll-out
+   (stockTotal − stockCarry) is a ground effect, unchanged by air, so it's added back
+   on top of the new carry. With adjustOn off, carryFactor()=1 ⇒ returns stockTotal. */
+function adjTotal(stockCarry, stockTotal){
+  const c = +stockCarry || 0, t = +stockTotal || 0;
+  const roll = Math.max(0, t - c);
+  return adjCarry(c) + roll;
+}
 
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { STD_COND, adjCarry, airDensity, carryFactor, currentConditions, num, satVaporPressure });
+Object.assign(window, { STD_COND, adjCarry, adjTotal, airDensity, carryFactor, currentConditions, num, satVaporPressure });

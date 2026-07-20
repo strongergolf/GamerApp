@@ -75,6 +75,8 @@ function buildLadder(){
     const p=perf(c.id);
     const stock=p.carry||0;
     const shown=window.adjustOn?adjCarry(stock):stock;
+    const stockTot=p.total||0;
+    const shownTot=(window.adjustOn&&stockTot)?adjTotal(stock,stockTot):stockTot;
     const pct=Math.round((shown/MAX_CARRY)*100);
     const d86=disp86(stock);                                /* single 86% L/R lateral half-width */
     /* Dispersion badges coloured by club type (iron = blue, wood/utility = red,
@@ -92,7 +94,7 @@ function buildLadder(){
       <div class="bar-area">
         <div class="bar-meta">
           <span class="bar-carry">${adjBit} <span style="font-size:.62rem;color:var(--ink2);font-family:ui-monospace,monospace;font-weight:500">carry</span></span>
-          <span class="bar-total">${p.total?`<strong>${p.total}</strong> <span style="font-weight:400;font-size:.75rem">total</span>`:'—'}</span>
+          <span class="bar-total">${stockTot?`<strong>${shownTot}</strong>${(window.adjustOn&&shownTot!==stockTot)?`<span class="stock-sm">stock ${stockTot}</span>`:''} <span style="font-weight:400;font-size:.75rem">total</span>`:'—'}</span>
         </div>
         <div class="bar-track"><div class="bar-fill ${c.type}" style="width:${Math.min(100,pct)}%"></div></div>
       </div>

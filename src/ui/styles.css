@@ -94,8 +94,9 @@ body::after{content:'';position:fixed;inset:0;background-image:url("data:image/s
 .bar-meta{display:flex;justify-content:space-between;margin-bottom:3px;align-items:baseline}
 .bar-carry{font-family:Arial,sans-serif;font-size:.92rem;font-weight:700;color:var(--ink);letter-spacing:.03em}
 .bar-carry .adj{color:var(--gold);margin-left:4px}
-.bar-carry .stock-sm{font-size:.66rem;color:var(--ink2);font-family:ui-monospace,monospace;font-weight:500;margin-left:5px}
+.bar-carry .stock-sm,.bar-total .stock-sm{font-size:.66rem;color:var(--ink2);font-family:ui-monospace,monospace;font-weight:500;margin-left:5px}
 .bar-total{font-family:Arial,sans-serif;font-size:.85rem;font-weight:400;color:var(--ink);letter-spacing:.02em}
+.bar-total .adj{color:var(--gold)}
 .bar-track{height:7px;background:var(--bg2);border-radius:4px;overflow:hidden}
 .bar-fill{height:100%;border-radius:4px;transition:width .5s ease}
 .bar-fill.wood{background:linear-gradient(90deg,#a03268,#e07080)}

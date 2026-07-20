@@ -28,8 +28,12 @@ function buildPartialsTable(){
       }
       if(total==null){ html+=`<td><div class="carry-cell empty">—</div></td>`; }
       else{
-        const t=Math.round(total)+(window.approachGreenFirmness||0);   // firmness adds rollout to total only
-        html+=`<td><div class="carry-cell">${t}<small>${carry!=null?Math.round(carry)+' carry':'—'}</small></div></td>`;
+        /* Env adjustment: carry scales with air density, roll-out unchanged; green
+           firmness then adds its rollout on top. Matches the Stock Shots ladder. */
+        const aCarry=(window.adjustOn&&carry!=null)?adjCarry(carry):carry;
+        const aTotal=(window.adjustOn&&carry!=null)?adjTotal(carry,total):Math.round(total);
+        const t=aTotal+(window.approachGreenFirmness||0);
+        html+=`<td><div class="carry-cell">${t}<small>${aCarry!=null?Math.round(aCarry)+' carry':'—'}</small></div></td>`;
       }
     });
     html+=`</tr>`;
