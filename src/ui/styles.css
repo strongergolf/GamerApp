@@ -840,7 +840,11 @@ table.chip-matrix tr:hover td{background:var(--surface2)}
 .strat-q{font-family:ui-monospace,monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:4px}
 .strat-select{width:100%;font-family:Arial,sans-serif;font-size:.88rem;font-weight:600;padding:7px 9px;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;color:var(--ink);outline:none}
 /* Hole overlays — aim-point optimiser (features/strategy.js) */
-.strat-hole-row{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.strat-hole-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0}
+.strat-mode{display:flex;gap:4px}
+.strat-mode-btn{font-family:ui-monospace,monospace;font-size:.56rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);background:var(--bg2);border:1px solid var(--border2);border-radius:6px;padding:7px 11px;cursor:pointer}
+.strat-mode-btn.active{background:var(--panel);color:var(--gold2);border-color:var(--panel)}
+.strat-mode-btn:hover:not(.active){color:var(--ink);border-color:var(--gold)}
 .strat-hole-grid{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap}
 .strat-hole-map{flex:1 1 300px;min-width:260px;max-width:420px}
 .strat-hole-panel{flex:1 1 250px;min-width:230px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:11px 13px}
@@ -860,7 +864,9 @@ body.theme-dark .sh-aim b{color:var(--gold2)}
 .sh-gain{margin-top:8px;font-family:Arial,sans-serif;font-size:.72rem;line-height:1.4;color:var(--green);background:var(--green-pale);border:1px solid rgba(0,133,63,.25);border-radius:6px;padding:5px 8px}
 .sh-mix{display:flex;flex-wrap:wrap;gap:4px;margin-top:9px}
 .mix-chip{font-family:ui-monospace,monospace;font-size:.5rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;border-radius:4px;padding:2px 6px;border:1px solid currentColor;opacity:.95}
-.mix-fairway{color:var(--green)} .mix-green{color:var(--green2)} .mix-rough{color:var(--muted)}
+/* --green2 is too light on the panel in light theme (2.6:1) — darken it there */
+.mix-fairway{color:var(--green)} .mix-green{color:#00693a} .mix-rough{color:var(--muted)}
+body.theme-dark .mix-green{color:var(--green2)}
 .mix-sand{color:var(--dp-loft)} .mix-water{color:var(--sky)} .mix-oob{color:var(--c-wood)}
 .sh-note{font-family:ui-monospace,monospace;font-size:.5rem;color:var(--muted);margin-top:9px;line-height:1.5}
 .strat-select:focus{border-color:var(--green)}

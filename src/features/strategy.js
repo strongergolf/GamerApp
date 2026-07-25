@@ -28,13 +28,18 @@ function aimSigmaLat(carry){ return getDispersion(carry)/AIM_CI90; }
 function aimSigmaDist(carry){ return getDepthDispersion(carry)/AIM_CI90; }
 
 /* Weighted landing samples (field units) for a shot from `from` aimed at `aim`.
-   The error ellipse is lateral × depth, tilted DISP_SLANT° long-left / short-right. */
-function aimSamples(hole, from, aim){
+   The error ellipse is lateral × depth, tilted DISP_SLANT° long-left / short-right.
+   opt.sigmaYd overrides the length the sigmas are looked up at (an approach from rough
+   needs more club, so it disperses like the longer shot it really is); opt.latMult /
+   opt.depthMult apply the lie's dispersion penalty. */
+function aimSamples(hole, from, aim, opt){
+  opt=opt||{};
   const ypu=cfYardsPerUnit(hole); if(ypu==null||!from||!aim) return [];
   const dx=aim.x-from.x, dy=aim.y-from.y, L=Math.hypot(dx,dy);
   if(L<1e-6) return [];
   const vx=dx/L, vy=dy/L, ux=-vy, uy=vx;          // along-shot and lateral unit vectors
-  const shotYd=L*ypu, sLat=aimSigmaLat(shotYd), sDist=aimSigmaDist(shotYd);
+  const shotYd=(opt.sigmaYd!=null)?opt.sigmaYd:L*ypu;
+  const sLat=aimSigmaLat(shotYd)*(opt.latMult||1), sDist=aimSigmaDist(shotYd)*(opt.depthMult||1);
   const th=(window.DISP_SLANT||15)*Math.PI/180, ct=Math.cos(th), st=Math.sin(th);
   const out=[];
   for(let i=0;i<AIM_Z.length;i++) for(let j=0;j<AIM_Z.length;j++){
@@ -68,8 +73,8 @@ function aimTail(rows, wsum, frac, fromWorst){
   return acc>0?val/acc:null;
 }
 /* Score one aim point over its whole landing distribution. */
-function aimScore(hole, from, aim, hcp, posture){
-  const s=aimSamples(hole,from,aim); if(!s.length) return null;
+function aimScore(hole, from, aim, hcp, posture, opt){
+  const s=aimSamples(hole,from,aim,opt); if(!s.length) return null;
   let wsum=0, mean=0, pen=0; const rows=[], lieMix={};
   for(let i=0;i<s.length;i++){
     const e=cfExpectedStrokes(hole,s[i].pt,hcp); if(e==null) continue;
@@ -124,32 +129,122 @@ function optimiseAim(hole, from, opts){
   return { best, straight, ranked:results.slice(0,8), posture, hcp };
 }
 
+/* ---------- APPROACH SHOTS — play it from where the ball actually lies ----------
+   A tee shot chooses a club and a line; an approach mostly knows its club and chooses a
+   SPOT on and around the green. So the candidates here are a grid of aim points around
+   the pin (lateral AND short/long), scored the same way.
+
+   The lie does two things, and cfLieAt already tells us what it is:
+     1. costs distance  — reuse the app's own effective-yardage model (EY_SITUATION), so
+        a rough lie needs more club and therefore disperses like the longer shot it is;
+     2. costs accuracy  — the multipliers below. PRESUMED: rough hurts distance control
+        (flyers and grabbers) more than direction, sand more again. Refine from data. */
+const APPROACH_LIE = {
+  fairway:{ lat:1.00, depth:1.00 },
+  rough:  { lat:1.20, depth:1.35 },
+  sand:   { lat:1.30, depth:1.50 }
+};
+/* cfLieAt's vocabulary -> the effective-yardage model's situation key. */
+function approachSituation(lie){ return lie==='sand'?'bunker' : lie==='rough'?'rough' : 'fairway'; }
+function approachLieCostYd(lie){
+  const S=(typeof EY_SITUATION!=='undefined')?EY_SITUATION:{fairway:0,rough:6,bunker:8};
+  return S[approachSituation(lie)]||0;
+}
+/* Name the shot for a required (effective) yardage — reuses the Approach tab's own
+   club+swing engine so the wording matches the rest of the app; falls back to the
+   nearest full club when the distance is outside that engine's window. */
+function approachShotName(effYd){
+  if(typeof calcSuggestions==='function'){
+    const s=calcSuggestions(Math.round(effYd));
+    if(s&&s.length){
+      const sw=s[0].sw.key==='full'?'full':s[0].sw.key==='tq'?'¾':'½';
+      return { label:s[0].club.label, detail:sw+' swing', effort:s[0].effort };
+    }
+  }
+  let best=null,bd=1e9;
+  aimClubs().forEach(c=>{ const d=Math.abs(c.total-effYd); if(d<bd){bd=d;best=c;} });
+  return best?{label:best.label, detail:'full swing', effort:null}:{label:'—',detail:'',effort:null};
+}
+const APPROACH_LAT = 24, APPROACH_LONG = 12, APPROACH_SHORT = 24, APPROACH_STEP = 4;
+
+/* Optimise an approach played from `from`. Returns the best aim SPOT relative to the pin
+   plus the shot that plays it, or a {blocked} reason when there is nothing to optimise. */
+function optimiseApproach(hole, from, opts){
+  opts=opts||{};
+  const ypu=cfYardsPerUnit(hole); if(ypu==null||!from||!hole.pin) return null;
+  const lie=cfLieAt(hole,from);
+  if(cfIsPenalty(lie)) return {blocked:'penalty', lie};
+  if(lie==='green')   return {blocked:'green', lie, toPin:cfDistToPinYd(hole,from)};
+  const toPin=cfDistToPinYd(hole,from);
+  if(toPin==null) return null;
+  if(toPin<20) return {blocked:'chip', lie, toPin};
+  const hcp=cfHcp(opts.hcp), posture=opts.posture||'balanced';
+  const mult=APPROACH_LIE[lie]||APPROACH_LIE.fairway;
+  const cost=approachLieCostYd(lie);
+  const longest=Math.max(...aimClubs().map(c=>c.total), 0);
+  /* shot frame: v along ball→pin, u lateral */
+  const dx=hole.pin.x-from.x, dy=hole.pin.y-from.y, L=Math.hypot(dx,dy);
+  const vx=dx/L, vy=dy/L, ux=-vy, uy=vx;
+  const results=[];
+  for(let lat=-APPROACH_LAT; lat<=APPROACH_LAT; lat+=APPROACH_STEP){
+    for(let dep=-APPROACH_SHORT; dep<=APPROACH_LONG; dep+=APPROACH_STEP){
+      const aim={ x:hole.pin.x+ux*(lat/ypu)+vx*(dep/ypu), y:hole.pin.y+uy*(lat/ypu)+vy*(dep/ypu) };
+      const geo=Math.hypot(aim.x-from.x,aim.y-from.y)*ypu;      // real yards to the spot
+      const eff=geo+cost;                                        // what you must club for
+      if(eff>longest+10) continue;                               // out of range
+      const r=aimScore(hole,from,aim,hcp,posture,{sigmaYd:eff,latMult:mult.lat,depthMult:mult.depth});
+      if(!r) continue;
+      r.latYd=lat; r.depthYd=dep; r.geoYd=geo; r.effYd=eff;
+      r.greenRate=r.lieMix.green||0;
+      results.push(r);
+    }
+  }
+  if(!results.length) return {blocked:'range', lie, toPin};
+  results.sort((a,b)=>a.score-b.score);
+  const best=results[0];
+  const atFlag=results.find(r=>r.latYd===0&&r.depthYd===0)||null;   // straight at the stick
+  best.shot=approachShotName(best.effYd);
+  return { best, atFlag, ranked:results.slice(0,8), lie, toPin, cost, mult, posture, hcp };
+}
+
 /* ---------- overlay + panel ---------- */
 window.stratSel = window.stratSel || { cIdx:0, hIdx:0 };
+window.stratShot = window.stratShot || { mode:'tee', ball:null };
 
-/* SVG overlay drawn inside renderHoleSVG: the dispersion ellipse at the recommended aim,
-   the aim marker, and the line from the shot origin. Field units. */
-function aimOverlaySVG(hole, from, res){
-  if(!res||!res.best) return '';
-  const ypu=cfYardsPerUnit(hole); if(ypu==null) return '';
-  const b=res.best, aim=b.aim;
+/* SVG overlay drawn inside renderHoleSVG: the shot line, the dispersion ellipse at the
+   recommended aim, the aim marker, and (for an approach) the ball. Field units.
+   sig = {sigmaYd, latMult, depthMult} so the drawn ellipse matches the scored one. */
+function aimOverlaySVG(hole, from, aim, sig, showBall){
+  const ypu=cfYardsPerUnit(hole); if(ypu==null||!from||!aim) return '';
+  sig=sig||{};
   const dx=aim.x-from.x, dy=aim.y-from.y, L=Math.hypot(dx,dy)||1;
   const ux=-dy/L, uy=dx/L;
-  const shotYd=L*ypu;
-  const rx=(aimSigmaLat(shotYd)*AIM_CI90)/ypu;           // 90% lateral half-width
-  const ry=(aimSigmaDist(shotYd)*AIM_CI90)/ypu;          // 90% depth half-width
+  const shotYd=(sig.sigmaYd!=null)?sig.sigmaYd:L*ypu;
+  const rx=(aimSigmaLat(shotYd)*(sig.latMult||1)*AIM_CI90)/ypu;    // 90% lateral half-width
+  const ry=(aimSigmaDist(shotYd)*(sig.depthMult||1)*AIM_CI90)/ypu; // 90% depth half-width
   const ang=Math.atan2(uy,ux)*180/Math.PI+(window.DISP_SLANT||15);
-  return `<line x1="${from.x}" y1="${from.y}" x2="${aim.x.toFixed(1)}" y2="${aim.y.toFixed(1)}" stroke="var(--gold2)" stroke-width="3" stroke-dasharray="14,10" opacity="0.85"/>
+  const ball=showBall?`<circle cx="${from.x.toFixed(1)}" cy="${from.y.toFixed(1)}" r="11" fill="#fff" stroke="#111" stroke-width="3"/>`:'';
+  return `<line x1="${from.x.toFixed(1)}" y1="${from.y.toFixed(1)}" x2="${aim.x.toFixed(1)}" y2="${aim.y.toFixed(1)}" stroke="var(--gold2)" stroke-width="3" stroke-dasharray="14,10" opacity="0.85"/>
     <g transform="rotate(${ang.toFixed(1)} ${aim.x.toFixed(1)} ${aim.y.toFixed(1)})">
       <ellipse cx="${aim.x.toFixed(1)}" cy="${aim.y.toFixed(1)}" rx="${rx.toFixed(1)}" ry="${ry.toFixed(1)}"
         fill="var(--gold2)" fill-opacity="0.22" stroke="var(--gold2)" stroke-opacity="0.9" stroke-width="3"/>
     </g>
     <circle cx="${aim.x.toFixed(1)}" cy="${aim.y.toFixed(1)}" r="9" fill="none" stroke="#fff" stroke-width="3"/>
-    <circle cx="${aim.x.toFixed(1)}" cy="${aim.y.toFixed(1)}" r="3.5" fill="#fff"/>`;
+    <circle cx="${aim.x.toFixed(1)}" cy="${aim.y.toFixed(1)}" r="3.5" fill="#fff"/>${ball}`;
 }
 
-function stratSetCourse(i){ window.stratSel.cIdx=+i; window.stratSel.hIdx=0; buildHoleOverlay(); }
-function stratSetHole(i){ window.stratSel.hIdx=+i; buildHoleOverlay(); }
+function stratSetCourse(i){ window.stratSel.cIdx=+i; window.stratSel.hIdx=0; window.stratShot.ball=null; buildHoleOverlay(); }
+function stratSetHole(i){ window.stratSel.hIdx=+i; window.stratShot.ball=null; buildHoleOverlay(); }
+function stratSetShotMode(m){ window.stratShot.mode=m; buildHoleOverlay(); }
+/* Tap the hole to drop the ball anywhere — the lie under it is read straight off the
+   mapped polygons, so the advice changes when you land in the rough or a bunker. */
+function stratMapClick(evt){
+  if(window.stratShot.mode!=='approach') return;
+  const svg=evt.currentTarget, r=svg.getBoundingClientRect();
+  window.stratShot.ball={ x:Math.round((evt.clientX-r.left)/r.width*CF_W),
+                          y:Math.round((evt.clientY-r.top)/r.height*CF_H) };
+  buildHoleOverlay();
+}
 
 function buildHoleOverlay(){
   const wrap=document.getElementById('hole-overlay-wrap'); if(!wrap) return;
@@ -169,6 +264,10 @@ function buildHoleOverlay(){
     <div class="strat-hole-row">
       <select class="strat-select" style="max-width:210px" onchange="stratSetCourse(this.value)">${cOpts}</select>
       <select class="strat-select" style="max-width:170px" onchange="stratSetHole(this.value)">${hOpts}</select>
+      <span class="strat-mode">
+        <button type="button" class="strat-mode-btn${window.stratShot.mode==='tee'?' active':''}" onclick="stratSetShotMode('tee')">Tee shot</button>
+        <button type="button" class="strat-mode-btn${window.stratShot.mode==='approach'?' active':''}" onclick="stratSetShotMode('approach')">Approach</button>
+      </span>
     </div>`;
   if(!hole){ wrap.innerHTML=head+`<div class="lvl-soon-note">This course has no holes yet.</div>`; return; }
   if(!cfHasScale(hole) || !hole.tee || !hole.pin){
@@ -176,37 +275,88 @@ function buildHoleOverlay(){
     return;
   }
   const posture=(STATE.strategy||{}).riskPosture||'balanced';
-  const res=optimiseAim(hole, hole.tee, {posture});
-  if(!res){ wrap.innerHTML=head+`<div class="lvl-soon-note">Could not solve this hole — check that the bag has carry distances.</div>`; return; }
-  const b=res.best, ypu=cfYardsPerUnit(hole);
-  const side=b.offsetYd===0?'straight down the line':`${Math.abs(b.offsetYd)} yd ${b.offsetYd<0?'left':'right'} of the flag line`;
-  const gain=res.straight?(res.straight.mean-b.mean):0;
   const pct=v=>Math.round(v*100);
   const mixOrder=['fairway','green','rough','sand','water','oob'];
-  const mix=mixOrder.filter(k=>b.lieMix[k]>0.004).map(k=>
-    `<span class="mix-chip mix-${k}">${CF_LIE_LABEL[k]} ${pct(b.lieMix[k])}%</span>`).join('');
-  const overlay=aimOverlaySVG(hole, hole.tee, res);
+  const mixHTML=m=>mixOrder.filter(k=>m[k]>0.004).map(k=>
+    `<span class="mix-chip mix-${k}">${CF_LIE_LABEL[k]} ${pct(m[k])}%</span>`).join('');
   const holeYd=cfDistYd(hole,hole.tee,hole.pin);
+  const hdr=`<div class="sh-head">Hole ${hole.num||hi+1} · par ${hole.par||4} · ${Math.round(holeYd)} yd</div>`;
+  let panel='', overlay='';
+
+  if(window.stratShot.mode==='approach'){
+    /* default the ball to where a good tee shot finishes, then let the user drag it around */
+    if(!window.stratShot.ball){
+      const t=optimiseAim(hole, hole.tee, {posture});
+      window.stratShot.ball = t ? {x:Math.round(t.best.aim.x), y:Math.round(t.best.aim.y)} : {...hole.tee};
+    }
+    const ball=window.stratShot.ball;
+    const res=optimiseApproach(hole, ball, {posture});
+    if(!res){ panel=`<div class="lvl-soon-note">Could not solve this shot.</div>`; }
+    else if(res.blocked){
+      const why={ green:'The ball is on the green — that is a putt, not an approach.',
+        chip:`Only ${Math.round(res.toPin)} yd to the pin — that is a chip. The short-game model on the Play tab covers it.`,
+        penalty:'The ball is in a penalty area. Take relief first, then drop it on the fairway or rough.',
+        range:'No club in the bag reaches the green from here.' }[res.blocked];
+      panel=`<div class="sh-head">Approach</div><div class="sh-aim" style="margin-top:6px">${why}</div>
+        <div class="sh-note">Tap the hole to move the ball.</div>`;
+      overlay=`<circle cx="${ball.x}" cy="${ball.y}" r="11" fill="#fff" stroke="#111" stroke-width="3"/>`;
+    } else {
+      const b=res.best, s=b.shot;
+      const lat=b.latYd, dep=b.depthYd;
+      const parts=[];
+      if(lat!==0) parts.push(`${Math.abs(lat)} yd ${lat<0?'left':'right'}`);
+      if(dep!==0) parts.push(`${Math.abs(dep)} yd ${dep<0?'short':'long'}`);
+      const spot=parts.length?parts.join(', ')+' of the flag':'right at the flag';
+      const gain=res.atFlag?(res.atFlag.mean-b.mean):0;
+      overlay=aimOverlaySVG(hole, ball, b.aim, {sigmaYd:b.effYd,latMult:res.mult.lat,depthMult:res.mult.depth}, true);
+      panel=hdr
+        +`<div class="sh-club">${s.label}<span class="sh-loft">${s.detail}</span></div>
+        <div class="sh-aim">Aim <b>${spot}</b></div>
+        <div class="sh-row"><span>Lie</span><b>${CF_LIE_LABEL[res.lie]}</b></div>
+        <div class="sh-row"><span>To the pin</span><b>${Math.round(res.toPin)} yd</b></div>
+        <div class="sh-row"><span>Plays</span><b>${Math.round(b.effYd)} yd${res.cost?` (+${res.cost} lie)`:''}</b></div>
+        <div class="sh-row"><span>Expected strokes</span><b>${b.mean.toFixed(2)}</b></div>
+        <div class="sh-row"><span>Hits the green</span><b>${pct(b.greenRate)}%</b></div>
+        <div class="sh-row"><span>Penalty risk</span><b class="${b.penaltyRate>0.08?'sh-warn':''}">${pct(b.penaltyRate)}%</b></div>
+        ${res.atFlag&&Math.abs(gain)>0.004?`<div class="sh-gain">${gain>0?'+':''}${gain.toFixed(2)} strokes vs firing straight at the flag</div>`:''}
+        <div class="sh-mix">${mixHTML(b.lieMix)}</div>
+        <div class="sh-note">Tap the hole to move the ball · posture <b>${res.posture}</b> · handicap ${res.hcp}</div>`;
+    }
+  } else {
+    const res=optimiseAim(hole, hole.tee, {posture});
+    if(!res){ wrap.innerHTML=head+`<div class="lvl-soon-note">Could not solve this hole — check that the bag has carry distances.</div>`; return; }
+    const b=res.best;
+    const side=b.offsetYd===0?'straight down the line':`${Math.abs(b.offsetYd)} yd ${b.offsetYd<0?'left':'right'} of the flag line`;
+    const gain=res.straight?(res.straight.mean-b.mean):0;
+    overlay=aimOverlaySVG(hole, hole.tee, b.aim, {sigmaYd:b.alongYd});
+    panel=hdr
+      +`<div class="sh-club">${b.club.label}<span class="sh-loft">${b.club.loft||''}</span></div>
+      <div class="sh-aim">Aim <b>${side}</b></div>
+      <div class="sh-row"><span>Expected strokes</span><b>${b.mean.toFixed(2)}</b></div>
+      <div class="sh-row"><span>Typical quarter (best)</span><b>${b.best25.toFixed(2)}</b></div>
+      <div class="sh-row"><span>Bad quarter (worst)</span><b>${b.worst25.toFixed(2)}</b></div>
+      <div class="sh-row"><span>Penalty risk</span><b class="${b.penaltyRate>0.08?'sh-warn':''}">${pct(b.penaltyRate)}%</b></div>
+      ${res.straight&&Math.abs(gain)>0.004?`<div class="sh-gain">${gain>0?'+':''}${gain.toFixed(2)} strokes vs aiming straight at the flag with the same club</div>`:''}
+      <div class="sh-mix">${mixHTML(b.lieMix)}</div>
+      <div class="sh-note">Posture: <b>${posture}</b> · handicap ${res.hcp} · ${AIM_Z.length*AIM_Z.length} samples per aim</div>`;
+  }
+
   wrap.innerHTML=head+`
     <div class="strat-hole-grid">
       <div class="strat-hole-map">${renderHoleSVG(hole,{overlay})}</div>
-      <div class="strat-hole-panel">
-        <div class="sh-head">Hole ${hole.num||hi+1} · par ${hole.par||4} · ${Math.round(holeYd)} yd</div>
-        <div class="sh-club">${b.club.label}<span class="sh-loft">${b.club.loft||''}</span></div>
-        <div class="sh-aim">Aim <b>${side}</b></div>
-        <div class="sh-row"><span>Expected strokes</span><b>${b.mean.toFixed(2)}</b></div>
-        <div class="sh-row"><span>Typical quarter (best)</span><b>${b.best25.toFixed(2)}</b></div>
-        <div class="sh-row"><span>Bad quarter (worst)</span><b>${b.worst25.toFixed(2)}</b></div>
-        <div class="sh-row"><span>Penalty risk</span><b class="${b.penaltyRate>0.08?'sh-warn':''}">${pct(b.penaltyRate)}%</b></div>
-        ${res.straight&&Math.abs(gain)>0.004?`<div class="sh-gain">${gain>0?'+':''}${gain.toFixed(2)} strokes vs aiming straight at the flag with the same club</div>`:''}
-        <div class="sh-mix">${mix}</div>
-        <div class="sh-note">Posture: <b>${posture}</b> · handicap ${res.hcp} · ${AIM_Z.length*AIM_Z.length} samples per aim</div>
-      </div>
+      <div class="strat-hole-panel">${panel}</div>
     </div>`;
+  const svg=wrap.querySelector('.strat-hole-map svg');
+  if(svg && window.stratShot.mode==='approach'){
+    svg.style.cursor='crosshair';
+    svg.addEventListener('click', stratMapClick);
+  }
 }
 
 Object.assign(window, {
   AIM_Z, AIM_W, AIM_CI90, AIM_LAT_SWEEP, AIM_LAT_STEP,
   aimSigmaLat, aimSigmaDist, aimSamples, aimObjective, aimTail, aimScore, aimClubs,
-  optimiseAim, aimOverlaySVG, stratSetCourse, stratSetHole, buildHoleOverlay
+  optimiseAim, aimOverlaySVG, stratSetCourse, stratSetHole, buildHoleOverlay,
+  APPROACH_LIE, approachSituation, approachLieCostYd, approachShotName, optimiseApproach,
+  stratSetShotMode, stratMapClick
 });
