@@ -101,11 +101,16 @@ function aimScore(hole, from, aim, hcp, posture, opt){
   if(!wsum) return null;
   mean/=wsum;
   const avgToPin=dsum/wsum;
+  /* Spread of the outcome, which is what a tournament objective trades against the mean.
+     This is the BETWEEN-position variance — the part the shot choice actually controls. */
+  let v=0; for(let i=0;i<rows.length;i++){ const d=rows[i].e-mean; v+=d*d*rows[i].w; }
+  const variance=v/wsum;
   rows.sort((a,b)=>a.e-b.e);
   const best25=aimTail(rows,wsum,0.25,false)??mean, worst25=aimTail(rows,wsum,0.25,true)??mean;
   Object.keys(lieMix).forEach(k=>{ lieMix[k]=lieMix[k]/wsum; });
   const avoid=aimAvoidance(lieMix);
-  return { aim, mean, best25, worst25, penaltyRate:pen/wsum, lieMix, avoid, avgToPin,
+  return { aim, mean, best25, worst25, variance, sd:Math.sqrt(variance),
+           penaltyRate:pen/wsum, lieMix, avoid, avgToPin,
            recoveryRate:lieMix.trees||0, greenRate:lieMix.green||0,
            score:aimObjective(mean,best25,worst25,posture)+AIM_AVOID_EPS*avoid };
 }
@@ -250,6 +255,69 @@ function shotScoreFor(r, posture){
   return aimObjective(r.mean, r.best25, r.worst25, posture) + AIM_AVOID_EPS*(r.avoid||0);
 }
 
+/* ---- TOURNAMENT / TARGET-SCORE UTILITY ----
+   Every objective above minimises EXPECTED strokes, and for ordinary stroke play that is
+   correct: expectation is linear, so the lowest expected score on each hole also gives the
+   lowest expected round and the lowest expected tournament. Those three levels are one
+   objective, not three.
+
+   Playing for a NUMBER is the level that genuinely differs — a cut line, a score to win, a
+   match. There the goal stops being the lowest mean and becomes the best CHANCE of reaching
+   a target. Under a normal approximation of the remaining total,
+        P(total <= T) = Phi( (T - mu) / sigma )
+   so maximising that probability is exactly maximising the z-score (T - mu)/sigma. That one
+   line reproduces the whole of golf's risk intuition without asserting any of it:
+     comfortably ahead of the target (T > mu) -> variance LOWERS z -> protect, play safe
+     behind the target              (T < mu) -> variance RAISES z -> gamble, take it on
+     exactly on target                        -> collapses to minimising the mean
+   The further behind you are, the more variance is worth. No hand-set aggression dial —
+   it falls out of the arithmetic. */
+const SHOT_HOLE_SD = 0.8;   /* score sd on a hole not yet played (PRESUMED — most holes are
+                               par or bogey with the odd birdie/double) */
+const SHOT_POS_SD  = 0.5;   /* residual scoring sd from a given position, on top of the
+                               between-position spread the shot choice controls (PRESUMED) */
+/* How much a deviation must be worth, in probability of reaching the target, before it is
+   taken at all. One percentage point: enough to ignore the rounding-error gambles that a
+   raw z-maximiser would take with 60 holes still to play. */
+const SHOT_TARGET_MIN_GAIN = 0.01;
+/* Abramowitz & Stegun 7.1.26 — plenty accurate for a probability readout. */
+function normCdf(z){
+  const s=z<0?-1:1, x=Math.abs(z)/Math.SQRT2;
+  const t=1/(1+0.3275911*x);
+  const y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-0.284496736)*t+0.254829592)*t*Math.exp(-x*x);
+  return 0.5*(1+s*y);
+}
+/* What is still to play — including LATER ROUNDS, which is what makes the model behave the
+   way tournament golf actually should. With three rounds still to come, one shot's variance
+   is a rounding error against everything left, so the z-score barely moves and the play
+   collapses to the balanced one. Deviating only starts to pay as the holes run out, which
+   is Mark's rule — do not change strategy much until the closing stretch — arrived at by
+   arithmetic rather than imposed as a gate. */
+function tournamentCtx(course, hi, hcp){
+  const T=STATE.tournament||{};
+  const target=parseFloat(T.target), played=parseFloat(T.strokesSoFar)||0;
+  const roundsAfter=Math.max(0, Math.min(3, parseInt(T.roundsRemaining)||0));
+  if(!isFinite(target)||target<=0) return null;
+  const holes=(course&&course.holes)||[];
+  const perHole=(cfHcp(hcp)+2.5)/18;            // Broadie: avg ≈ par + hcp + 2.5 over 18
+  let expRem=0, n=0;
+  for(let i=hi+1;i<holes.length;i++){ expRem+=(holes[i].par||4)+perHole; n++; }
+  const parRound=holes.reduce((s,x)=>s+(x.par||4),0)||72;
+  expRem += roundsAfter*(parRound+perHole*18);
+  const totalHolesLeft=n+roundsAfter*18;
+  return { target, played, holesAfter:n, roundsAfter, totalHolesLeft, expRem,
+           varRem:totalHolesLeft*SHOT_HOLE_SD*SHOT_HOLE_SD,
+           budget:target-played,
+           closingStretch: totalHolesLeft<=9 };   // where deviating starts to be worth it
+}
+/* z-score for a candidate: how many sd's of headroom it leaves against the target. */
+function shotZ(r, ctx){
+  if(!ctx||!r) return null;
+  const mu=r.mean+ctx.expRem;
+  const sd=Math.sqrt(Math.max(1e-6, (r.variance||0)+SHOT_POS_SD*SHOT_POS_SD+ctx.varRem));
+  return (ctx.budget-mu)/sd;
+}
+
 function optimiseShot(hole, from, opts){
   opts=opts||{};
   const ypu=cfYardsPerUnit(hole); if(ypu==null||!from||!hole.pin) return null;
@@ -295,6 +363,26 @@ function optimiseShot(hole, from, opts){
     for(let i=1;i<results.length;i++){ const s=shotScoreFor(results[i],p); if(s<ws){ws=s;win=results[i];} }
     byPosture[p]=win;
   });
+  /* Playing for a number: maximise the z-score instead of minimising the mean.
+     But maximising z alone is not enough. Any deficit at all makes the extra variance
+     weakly better, so the raw argmax gambles on day one of a four-round event — the size
+     of the gain shrinks as holes remain, the DECISION does not. So a deviation has to earn
+     its keep: it is only taken when it moves the probability of reaching the target by at
+     least SHOT_TARGET_MIN_GAIN. Because that gain scales with how little golf is left, the
+     gate opens by itself down the closing stretch and stays shut before it — which is the
+     rule (don't change strategy until the final nine) as a consequence, not a hard stop. */
+  const tourCtx=opts.tourCtx||null;
+  if(tourCtx){
+    let win=results[0], wz=shotZ(results[0],tourCtx);
+    for(let i=1;i<results.length;i++){ const z=shotZ(results[i],tourCtx); if(z>wz){wz=z;win=results[i];} }
+    const base=byPosture.balanced, bz=shotZ(base,tourCtx);
+    const gain=normCdf(wz)-normCdf(bz);
+    const deviate = gain>=SHOT_TARGET_MIN_GAIN;
+    const pick = deviate?win:base, pz = deviate?wz:bz;
+    byPosture.target=Object.assign(Object.create(Object.getPrototypeOf(pick)),pick);
+    byPosture.target._z=pz; byPosture.target._p=normCdf(pz);
+    byPosture.target._gain=gain; byPosture.target._deviates=deviate;
+  }
   results.sort((a,b)=>shotScoreFor(a,posture)-shotScoreFor(b,posture));
   const best=byPosture[posture]||results[0];
   /* Name each play the way a golfer would, from what it actually does */
@@ -309,7 +397,7 @@ function optimiseShot(hole, from, opts){
   const naiveAim={ x:from.x+vx*(naiveAlong/ypu), y:from.y+vy*(naiveAlong/ypu) };
   const naive=aimScore(hole,from,naiveAim,hcp,posture,{sigmaYd:naiveAlong+cost,latMult:mult.lat,depthMult:mult.depth});
   if(naive){ naive.geoYd=naiveAlong; naive.shot=approachShotName(naiveAlong+cost); }
-  return { best, naive, byPosture, ranked:results.slice(0,5), lie, toPin, cost, mult, posture, hcp, recovery };
+  return { best, naive, byPosture, tourCtx, ranked:results.slice(0,5), lie, toPin, cost, mult, posture, hcp, recovery };
 }
 
 /* ---------- overlay + panel: TWO shots, side by side ----------
@@ -425,9 +513,41 @@ function stratPostureTable(res){
       <span class="ss-pen${r.penaltyRate>0.08?' sh-warn':''}">${pct(r.penaltyRate)}%</span>
     </div>`;
   }).join('');
+  const t=res.byPosture.target, ctx=res.tourCtx;
+  let tourRow='', tourNote='';
+  if(t&&ctx){
+    const off=Math.abs(t.latYd)>=1?` · ${Math.abs(t.latYd)}${t.latYd<0?'L':'R'}`:'';
+    tourRow=`<div class="sh-strat-row sh-strat-target">
+      <span class="ss-name">Target ${ctx.target}</span>
+      <span class="ss-play">${t.shot.label} · ${Math.round(t.geoYd)} yd${off}</span>
+      <span class="ss-exp">${t.mean.toFixed(2)}</span>
+      <span class="ss-pen">${Math.round(t._p*100)}%</span></div>`;
+    const gainPts=Math.abs((t._gain||0)*100);
+    tourNote=`<div class="sh-tour-note">${
+      t._deviates
+        ? `Worth deviating — this play adds <b>${gainPts.toFixed(1)}</b> points of probability with <b>${ctx.totalHolesLeft}</b> hole${ctx.totalHolesLeft===1?'':'s'} left.`
+        : `Hold the balanced play. Deviating would move the odds by only <b>${gainPts.toFixed(1)}</b> points with <b>${ctx.totalHolesLeft}</b> hole${ctx.totalHolesLeft===1?'':'s'} still to play — not worth the risk this early.`
+    } The last column is the chance of reaching <b>${ctx.target}</b>.</div>`;
+  }
   return `<div class="sh-alt-h">Strategy comparison — tap to switch</div>
-    <div class="sh-strat-hd"><span>Stance</span><span>Play</span><span>Exp</span><span>Pen</span></div>
-    <div class="sh-strat-tbl">${rows}</div>`;
+    <div class="sh-strat-hd"><span>Stance</span><span>Play</span><span>Exp</span><span>${t?'Pen / P':'Pen'}</span></div>
+    <div class="sh-strat-tbl">${rows}${tourRow}</div>${tourNote}`;
+}
+/* Target-score inputs. Rounds-after matters: it is what stops the model from gambling on
+   day one of a four-round event. */
+function stratTourInputs(){
+  const T=STATE.tournament||{};
+  return `<div class="sh-alt-h">Playing for a number</div>
+    <div class="sh-tour-row">
+      <label>Target total<input type="number" min="1" value="${T.target!=null?T.target:''}" placeholder="e.g. 72" oninput="stratSetTour('target',this.value)"></label>
+      <label>Strokes so far<input type="number" min="0" value="${T.strokesSoFar||0}" oninput="stratSetTour('strokesSoFar',this.value)"></label>
+      <label>Rounds after this<input type="number" min="0" max="3" value="${T.roundsRemaining||0}" oninput="stratSetTour('roundsRemaining',this.value)"></label>
+    </div>`;
+}
+function stratSetTour(field,val){
+  STATE.tournament=STATE.tournament||{};
+  STATE.tournament[field]= (val===''||val==null) ? null : (field==='target'?parseFloat(val):parseInt(val)||0);
+  saveState(); window.stratOptCache=null; buildHoleOverlay();
 }
 
 /* One shot drawn on the hole: shot line, dispersion ellipse, aim marker and its yardages. */
@@ -509,7 +629,8 @@ function buildHoleOverlay(){
 
   /* ---- BEST PLAY: one ball, one answer ---- */
   if(S.mode==='best'){
-    const ball=S.ball, res=optimiseShot(hole, ball, {posture:stratPosture()});
+    const tourCtx=tournamentCtx(course, hi, cfHcp());
+    const ball=S.ball, res=optimiseShot(hole, ball, {posture:stratPosture(), tourCtx});
     const ballMark=`<circle cx="${ball.x}" cy="${ball.y}" r="13" fill="#fff" stroke="#111" stroke-width="3"/>`;
     let body, ov=ballMark;
     if(!res){ body=`<div class="lvl-soon-note">Could not solve from here.</div>`; }
@@ -536,6 +657,7 @@ function buildHoleOverlay(){
         ${res.naive&&gain>0.004?`<div class="sh-gain">Saves <b>${gain.toFixed(2)}</b> strokes vs taking everything you have at the flag (${res.naive.mean.toFixed(2)})</div>`:''}
         <div class="sh-mix">${mixHTML(b.lieMix)}</div>
         ${stratPostureTable(res)}
+        ${stratTourInputs()}
         <div class="sh-alt-h">Next best options — ${SHOT_POSTURE_LABEL[res.posture]}</div>${alts}`;
     }
     wrap.innerHTML=head+`
@@ -644,7 +766,8 @@ Object.assign(window, {
   APPROACH_LIE, approachSituation, approachLieCostYd, approachShotName, optimiseApproach,
   AIM_AVOID, AIM_AVOID_EPS, aimAvoidance, optimiseShot, shotScoreFor, stratPostureTable,
   SHOT_LAT_MAX, SHOT_LAT_STEP, SHOT_RECOVERY_MAX_YD, SHOT_POSTURES, SHOT_POSTURE_LABEL,
-  stratSetPosture,
+  stratSetPosture, SHOT_HOLE_SD, SHOT_POS_SD, SHOT_TARGET_MIN_GAIN, normCdf, tournamentCtx, shotZ,
+  stratTourInputs, stratSetTour,
   SHOT_COL, stratSetShotMode, stratSetActive, stratPosture, stratCurrent, stratOptimal,
   stratGreenMid, stratClearAims, stratResetAim, stratScoreAim, stratEnsureAims,
   stratShotSVG, stratOverlay, stratDragInit
