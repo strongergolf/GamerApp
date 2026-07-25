@@ -129,6 +129,137 @@ function renderHoleSVG(hole, opts){
   </svg>`;
 }
 
+/* ============================================================
+   GEOMETRY, SCALE & LIE QUERIES
+   The queryable layer under the strategy overlays and the expected-strokes /
+   aim-point work. Hole geometry is stored in field units (the 1000x1400 portrait
+   canvas); everything here converts that to real yards, real lat/lon, and a lie.
+
+   Two independent routes to real-world scale:
+     - an OSM-imported hole carries a full georeference (hole.geo) written by
+       osmBuildHole, so field <-> lat/lon is exact;
+     - a hand-traced hole carries hole.scaleYpu from the calibrate tool, or the
+       scale can be inferred from tee->pin against the known hole yardage.
+   ============================================================ */
+const CF_YD_PER_M = 1.09361, CF_DEG = Math.PI/180, CF_EARTH_R = 6378137;
+
+/* Yards per field unit. null when the hole has no usable scale yet. */
+function cfYardsPerUnit(hole){
+  if(!hole) return null;
+  if(hole.geo && hole.geo.s>0) return CF_YD_PER_M/hole.geo.s;      // metres-based, exact
+  if(hole.scaleYpu>0) return +hole.scaleYpu;                        // calibrate tool
+  if(hole.tee && hole.pin && hole.yards>0){                         // infer from known yardage
+    const d=Math.hypot(hole.pin.x-hole.tee.x, hole.pin.y-hole.tee.y);
+    if(d>0) return hole.yards/d;
+  }
+  return null;
+}
+function cfHasScale(hole){ return cfYardsPerUnit(hole)!=null; }
+/* Straight-line distance in yards between two field points (null without a scale). */
+function cfDistYd(hole,a,b){
+  const ypu=cfYardsPerUnit(hole); if(ypu==null||!a||!b) return null;
+  return Math.hypot(b.x-a.x, b.y-a.y)*ypu;
+}
+function cfDistToPinYd(hole,pt){ return (hole&&hole.pin)?cfDistYd(hole,pt,hole.pin):null; }
+function cfDistFromTeeYd(hole,pt){ return (hole&&hole.tee)?cfDistYd(hole,hole.tee,pt):null; }
+
+/* ---- Georeference: field <-> lat/lon (OSM-imported holes only) ----
+   hole.geo maps field space to metres in the hole's own frame:
+     x = ox + s*u,  y = oy - s*v      (u = lateral, v = along-play from the tee)
+   then (u,v) rotates back to the projection's metre grid via the orthonormal basis. */
+function cfFieldToLatLon(hole,pt){
+  const g=hole&&hole.geo; if(!g||!pt) return null;
+  const u=(pt.x-g.ox)/g.s, v=(g.oy-pt.y)/g.s;
+  const mx=g.tx+u*g.ux+v*g.vx, my=g.ty+u*g.uy+v*g.vy;
+  return { lat:g.lat0+my/(CF_DEG*CF_EARTH_R),
+           lon:g.lon0+mx/(CF_DEG*CF_EARTH_R*Math.cos(g.lat0*CF_DEG)) };
+}
+function cfLatLonToField(hole,lat,lon){
+  const g=hole&&hole.geo; if(!g) return null;
+  const mx=(lon-g.lon0)*CF_DEG*CF_EARTH_R*Math.cos(g.lat0*CF_DEG);
+  const my=(lat-g.lat0)*CF_DEG*CF_EARTH_R;
+  const dx=mx-g.tx, dy=my-g.ty;
+  return { x:g.ox+g.s*(dx*g.ux+dy*g.uy), y:g.oy-g.s*(dx*g.vx+dy*g.vy) };
+}
+
+/* ---- polygon primitives (field units) ---- */
+function cfPointInPoly(pt,poly){
+  if(!pt||!poly||poly.length<3) return false;
+  let inside=false;
+  for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+    const xi=poly[i].x, yi=poly[i].y, xj=poly[j].x, yj=poly[j].y;
+    if(((yi>pt.y)!==(yj>pt.y)) && (pt.x < (xj-xi)*(pt.y-yi)/((yj-yi)||1e-9)+xi)) inside=!inside;
+  }
+  return inside;
+}
+function cfDistPtSeg(p,a,b){
+  const dx=b.x-a.x, dy=b.y-a.y, L2=dx*dx+dy*dy;
+  if(!L2) return Math.hypot(p.x-a.x,p.y-a.y);
+  let t=((p.x-a.x)*dx+(p.y-a.y)*dy)/L2; t=Math.max(0,Math.min(1,t));
+  return Math.hypot(p.x-(a.x+t*dx), p.y-(a.y+t*dy));
+}
+/* 0 when inside the polygon, else the distance to its nearest edge (field units). */
+function cfDistToPoly(pt,poly){
+  if(!poly||poly.length<2) return Infinity;
+  if(cfPointInPoly(pt,poly)) return 0;
+  let best=Infinity;
+  for(let i=0,j=poly.length-1;i<poly.length;j=i++) best=Math.min(best,cfDistPtSeg(pt,poly[j],poly[i]));
+  return best;
+}
+
+/* ---- Lie classification ----
+   Priority matters: hazards are traced ON TOP of the surface they sit in (a bunker
+   inside a fairway), and the green polygon overlaps the fairway at the fringe. So
+   penalty areas beat bunkers beat green beats fairway; anything outside every mapped
+   surface is rough. */
+function cfLieAt(hole,pt){
+  if(!hole||!pt) return 'rough';
+  const hz=hole.hazards||[];
+  for(let i=0;i<hz.length;i++) if(hz[i].type==='water' && cfPointInPoly(pt,hz[i].pts)) return 'water';
+  for(let i=0;i<hz.length;i++) if(hz[i].type==='oob'   && cfPointInPoly(pt,hz[i].pts)) return 'oob';
+  for(let i=0;i<hz.length;i++) if(hz[i].type==='sand'  && cfPointInPoly(pt,hz[i].pts)) return 'sand';
+  if(cfPointInPoly(pt,hole.green)) return 'green';
+  if(cfPointInPoly(pt,hole.fairway)) return 'fairway';
+  return 'rough';
+}
+/* Mapped lie -> the strokes-gained baseline lie used by srForPlayer(). */
+function cfSgLie(lie){ return lie==='green'?'green' : lie==='fairway'?'fairway' : lie==='sand'?'sand' : 'rough'; }
+function cfIsPenalty(lie){ return lie==='water'||lie==='oob'; }
+const CF_LIE_LABEL={green:'Green',fairway:'Fairway',sand:'Bunker',water:'Penalty area',oob:'Out of bounds',rough:'Rough'};
+
+/* Nearest distance in yards to a hazard (optionally of one type); 0 when inside one. */
+function cfDistToHazardYd(hole,pt,type){
+  const ypu=cfYardsPerUnit(hole); if(ypu==null||!hole) return null;
+  let best=Infinity;
+  (hole.hazards||[]).forEach(z=>{ if(!type||z.type===type) best=Math.min(best,cfDistToPoly(pt,z.pts)); });
+  return isFinite(best)?best*ypu:null;
+}
+/* Resolve a handicap for the SG baselines: explicit arg, else the golfer profile. */
+function cfHcp(hcp){
+  const raw=(hcp!=null&&hcp!=='')?hcp:((STATE.profile&&STATE.profile.handicap)||0);
+  return (typeof parseHcp==='function')?parseHcp(raw):(parseFloat(raw)||0);
+}
+/* Expected strokes to hole out from a field point — the value the aim-point optimiser
+   minimises. Green distances convert to FEET (the SR green table is in feet).
+   NOTE: penalty areas are approximated as one stroke plus a rough-lie recovery at the
+   same distance. Real relief (stroke-and-distance vs lateral drop) is a refinement. */
+function cfExpectedStrokes(hole,pt,hcp){
+  if(typeof srForPlayer!=='function') return null;
+  const d=cfDistToPinYd(hole,pt); if(d==null) return null;
+  const lie=cfLieAt(hole,pt), h=cfHcp(hcp);
+  if(cfIsPenalty(lie)){ const sr=srForPlayer('rough',Math.max(15,d),h); return sr==null?null:1+sr; }
+  const sgLie=cfSgLie(lie);
+  return srForPlayer(sgLie, sgLie==='green'?Math.max(1,d*3):Math.max(1,d), h);
+}
+/* One call for everything the strategy UI wants about a spot on the hole. */
+function cfShotContext(hole,pt,hcp){
+  const lie=cfLieAt(hole,pt);
+  return { lie, label:CF_LIE_LABEL[lie]||lie, penalty:cfIsPenalty(lie),
+    toPin:cfDistToPinYd(hole,pt), fromTee:cfDistFromTeeYd(hole,pt),
+    toSand:cfDistToHazardYd(hole,pt,'sand'), toWater:cfDistToHazardYd(hole,pt,'water'),
+    expected:cfExpectedStrokes(hole,pt,hcp) };
+}
+
 /* ---------- editor page ---------- */
 function buildCourses(){
   const wrap=document.getElementById('course-editor-wrap'); if(!wrap) return;
@@ -248,7 +379,14 @@ function osmBuildHole(h, feats, ref){
   const fGeo=geo=>projGeo(geo).map(toField);
   const biggest=arr=>arr.length?arr.slice().sort((a,b)=>b.length-a.length)[0]:null;
   const hazards=feats.bunkers.map(g=>({type:'sand',pts:fGeo(g)})).concat(feats.water.map(g=>({type:'water',pts:fGeo(g)})));
-  return { num:h.num||0, par:h.par||4, yards:Math.round(vlen*1.09361), scaleYpu:null, bg:null,
+  /* Keep the projection so the hole stays georeferenced: field <-> metres <-> lat/lon.
+     toField is the affine x = ox + s*u, y = oy - s*v, so store those offsets directly
+     (see cfFieldToLatLon / cfLatLonToField). scale is field units per METRE. */
+  const geo={ lat0:ref.lat0, lon0:ref.lon0, tx:T.x, ty:T.y,
+              ux:uhat.x, uy:uhat.y, vx:vhat.x, vy:vhat.y,
+              s:scale, ox:FW/2-cx*scale, oy:FH-PADy+minV*scale };
+  return { num:h.num||0, par:h.par||4, yards:Math.round(vlen*1.09361),
+    scaleYpu:+(1.09361/scale).toFixed(5), geo, bg:null,
     tee:toField(toUV(T)), pin:toField(toUV(G)),
     green:biggest(feats.greens)?fGeo(biggest(feats.greens)):[],
     fairway:biggest(feats.fairways)?fGeo(biggest(feats.fairways)):[],
@@ -371,6 +509,10 @@ Object.assign(window, {
   CF_W, CF_H, cfCourses, cfCur, cfHole, cfAddCourse, cfDeleteCourse, cfSelectCourse, cfRenameCourse,
   cfAddHole, cfSelectHole, cfSetHoleField, cfSetMode, cfCanvasClick, cfFinishFeature, cfUndoPoint,
   cfClearFeature, cfLoadBg, cfClearBg, renderHoleSVG, buildCourses, cfModeHint, cfRefreshCanvas,
+  cfYardsPerUnit, cfHasScale, cfDistYd, cfDistToPinYd, cfDistFromTeeYd,
+  cfFieldToLatLon, cfLatLonToField, cfPointInPoly, cfDistPtSeg, cfDistToPoly,
+  cfLieAt, cfSgLie, cfIsPenalty, CF_LIE_LABEL, cfDistToHazardYd, cfHcp,
+  cfExpectedStrokes, cfShotContext,
   osmToMeters, osmCentroid, osmParse, osmNearestHoleIdx, osmBuildHole, osmBuildCourse, cfOsmImport, cfImportBox, cfLoadPresets,
   startRound, endRound, buildRoundTracker
 });
