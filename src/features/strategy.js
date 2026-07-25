@@ -56,6 +56,20 @@ function aimSamples(hole, from, aim, opt){
      protect  — half mean, half the WORST quartile (a CVaR tail): kills big numbers
      chase    — half mean, half the BEST quartile: buys upside
      match    — a touch more aggressive than balanced                              */
+/* ---- Avoidance priority, all else being equal ----
+   Getting the expected-strokes MAGNITUDES right (courses.js) already makes the optimiser
+   avoid trouble in the right order, because it minimises expected strokes and OOB costs
+   more than a penalty area, which costs more than a recovery, which costs more than rough.
+   This term only settles NEAR-TIES: two aims that score the same on expected strokes should
+   not be treated as equal if one of them flirts with OB and the other with light rough.
+   Weighted by severity, and scaled by a deliberately tiny epsilon so it can never override
+   a real difference in expected strokes — it just breaks the tie the way a golfer would. */
+const AIM_AVOID = { oob:8, water:4, trees:2, sand:1, rough:1 };
+const AIM_AVOID_EPS = 0.02;
+function aimAvoidance(lieMix){
+  let a=0; Object.keys(lieMix||{}).forEach(k=>{ a+=(AIM_AVOID[k]||0)*lieMix[k]; });
+  return a;
+}
 function aimObjective(mean, best25, worst25, posture){
   if(posture==='protect') return 0.5*mean+0.5*worst25;
   if(posture==='chase')   return 0.5*mean+0.5*best25;
@@ -88,8 +102,10 @@ function aimScore(hole, from, aim, hcp, posture, opt){
   rows.sort((a,b)=>a.e-b.e);
   const best25=aimTail(rows,wsum,0.25,false)??mean, worst25=aimTail(rows,wsum,0.25,true)??mean;
   Object.keys(lieMix).forEach(k=>{ lieMix[k]=lieMix[k]/wsum; });
-  return { aim, mean, best25, worst25, penaltyRate:pen/wsum, lieMix,
-           score:aimObjective(mean,best25,worst25,posture) };
+  const avoid=aimAvoidance(lieMix);
+  return { aim, mean, best25, worst25, penaltyRate:pen/wsum, lieMix, avoid,
+           recoveryRate:lieMix.trees||0,
+           score:aimObjective(mean,best25,worst25,posture)+AIM_AVOID_EPS*avoid };
 }
 
 /* Clubs that can be hit off the tee / from the turf, longest first, with the distance the
@@ -361,7 +377,7 @@ function buildHoleOverlay(){
   }
   stratEnsureAims(hole);
   const pct=v=>Math.round(v*100);
-  const mixOrder=['fairway','green','rough','sand','water','oob'];
+  const mixOrder=['fairway','green','rough','sand','trees','water','oob'];
   const mixHTML=m=>mixOrder.filter(k=>m[k]>0.004).map(k=>
     `<span class="mix-chip mix-${k}">${CF_LIE_LABEL[k]} ${pct(m[k])}%</span>`).join('');
   const results=[stratScoreAim(hole,S.aims[0]), stratScoreAim(hole,S.aims[1])];
@@ -456,6 +472,7 @@ Object.assign(window, {
   aimSigmaLat, aimSigmaDist, aimSamples, aimObjective, aimTail, aimScore, aimClubs,
   optimiseAim, stratSetCourse, stratSetHole, buildHoleOverlay,
   APPROACH_LIE, approachSituation, approachLieCostYd, approachShotName, optimiseApproach,
+  AIM_AVOID, AIM_AVOID_EPS, aimAvoidance,
   SHOT_COL, stratSetShotMode, stratSetActive, stratPosture, stratCurrent, stratOptimal,
   stratGreenMid, stratClearAims, stratResetAim, stratScoreAim, stratEnsureAims,
   stratShotSVG, stratOverlay, stratDragInit

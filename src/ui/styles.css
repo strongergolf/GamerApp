@@ -886,6 +886,7 @@ body.theme-dark .sh-row b.sh-warn{color:var(--c-wood)}
 .mix-fairway{color:var(--green)} .mix-green{color:#00693a} .mix-rough{color:var(--muted)}
 body.theme-dark .mix-green{color:var(--green2)}
 .mix-sand{color:var(--dp-loft)} .mix-water{color:var(--sky)} .mix-oob{color:var(--c-wood)}
+.mix-trees{color:#1e6b38} body.theme-dark .mix-trees{color:#4fbf7a}
 .sh-note{font-family:ui-monospace,monospace;font-size:.5rem;color:var(--muted);margin-top:9px;line-height:1.5}
 .strat-select:focus{border-color:var(--green)}
 .strat-note{font-family:Arial,sans-serif;font-size:.78rem;line-height:1.5;color:var(--ink2);background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:9px 12px}

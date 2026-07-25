@@ -72,7 +72,7 @@ function cfFinishFeature(){
   const e=window.courseEdit, h=cfHole(); if(!h||!e.mode||e.draft.length<2) { e.draft=[]; cfRefreshCanvas(); return; }
   if(e.mode==='green') h.green=e.draft.slice();
   else if(e.mode==='fairway') h.fairway=e.draft.slice();
-  else if(['sand','water','oob'].includes(e.mode)){ h.hazards=h.hazards||[]; h.hazards.push({type:e.mode, pts:e.draft.slice()}); }
+  else if(['sand','water','oob','trees'].includes(e.mode)){ h.hazards=h.hazards||[]; h.hazards.push({type:e.mode, pts:e.draft.slice()}); }
   e.draft=[]; saveState(); buildCourses(); buildCourseStrategy&&buildCourseStrategy();
 }
 function cfUndoPoint(){ const e=window.courseEdit; e.draft.pop(); cfRefreshCanvas(); }
@@ -82,7 +82,7 @@ function cfClearFeature(){
   else if(e.mode==='fairway') h.fairway=[];
   else if(e.mode==='tee') h.tee=null;
   else if(e.mode==='pin') h.pin=null;
-  else if(['sand','water','oob'].includes(e.mode)) h.hazards=(h.hazards||[]).filter(z=>z.type!==e.mode);
+  else if(['sand','water','oob','trees'].includes(e.mode)) h.hazards=(h.hazards||[]).filter(z=>z.type!==e.mode);
   e.draft=[]; saveState(); buildCourses();
 }
 function cfLoadBg(input){
@@ -106,7 +106,7 @@ function cfPoly(pts,fill,stroke,op){ if(!pts||pts.length<2) return '';
 function renderHoleSVG(hole, opts){
   opts=opts||{}; const interactive=!!opts.interactive, e=window.courseEdit;
   if(!hole) return `<svg viewBox="0 0 ${CF_W} ${CF_H}" style="width:100%;display:block"><rect width="${CF_W}" height="${CF_H}" fill="var(--bg2)"/></svg>`;
-  const hz={sand:'#d9c98a', water:'#3a78c0', oob:'#b85c5c'};
+  const hz={sand:'#d9c98a', water:'#3a78c0', oob:'#b85c5c', trees:'#1e5c2f'};
   const bg = hole.bg ? `<image href="${hole.bg}" x="0" y="0" width="${CF_W}" height="${CF_H}" preserveAspectRatio="xMidYMid slice" opacity="${interactive?0.85:0.55}"/>` : '';
   const fairway = cfPoly(hole.fairway,'#3fa45a','#2e7d44',0.85);
   const green = cfPoly(hole.green,'#5ec77a','#2e7d44',0.95);
@@ -248,6 +248,9 @@ function cfRunwayYd(hole,pt){
    trade one inaccuracy for another. Applies only to shots inside CF_RUNWAY_MAX that are off
    the green. PRESUMED — replace with measured up-and-down data when it exists. */
 const CF_RUNWAY_MAX = 40, CF_RUNWAY_TYP = 0.65, CF_RUNWAY_K = 0.25;
+/* Yards a punch-out from the trees typically advances the ball — sideways to very slight
+   progress. PRESUMED; the whole recovery model hangs off this one number. */
+const CF_RECOVERY_ADV = 25;
 function cfRunwayAdj(hole,pt,distYd){
   if(distYd==null||distYd>CF_RUNWAY_MAX) return 0;
   const run=cfRunwayYd(hole,pt); if(run==null) return 0;
@@ -260,12 +263,16 @@ function cfRunwayAdj(hole,pt,distYd){
    inside a fairway), and the green polygon overlaps the fairway at the fringe. So
    penalty areas beat bunkers beat green beats fairway; anything outside every mapped
    surface is rough. */
+/* Overlapping polygons resolve WORST-FIRST, which is also the order a golfer avoids them:
+   out of bounds, penalty area, trees, bunker, then the surfaces. */
+const CF_LIE_ORDER=['oob','water','trees','sand'];
 function cfLieAt(hole,pt){
   if(!hole||!pt) return 'rough';
   const hz=hole.hazards||[];
-  for(let i=0;i<hz.length;i++) if(hz[i].type==='water' && cfPointInPoly(pt,hz[i].pts)) return 'water';
-  for(let i=0;i<hz.length;i++) if(hz[i].type==='oob'   && cfPointInPoly(pt,hz[i].pts)) return 'oob';
-  for(let i=0;i<hz.length;i++) if(hz[i].type==='sand'  && cfPointInPoly(pt,hz[i].pts)) return 'sand';
+  for(let k=0;k<CF_LIE_ORDER.length;k++){
+    const want=CF_LIE_ORDER[k];
+    for(let i=0;i<hz.length;i++) if(hz[i].type===want && cfPointInPoly(pt,hz[i].pts)) return want;
+  }
   if(cfPointInPoly(pt,hole.green)) return 'green';
   if(cfPointInPoly(pt,hole.fairway)) return 'fairway';
   return 'rough';
@@ -273,7 +280,8 @@ function cfLieAt(hole,pt){
 /* Mapped lie -> the strokes-gained baseline lie used by srForPlayer(). */
 function cfSgLie(lie){ return lie==='green'?'green' : lie==='fairway'?'fairway' : lie==='sand'?'sand' : 'rough'; }
 function cfIsPenalty(lie){ return lie==='water'||lie==='oob'; }
-const CF_LIE_LABEL={green:'Green',fairway:'Fairway',sand:'Bunker',water:'Penalty area',oob:'Out of bounds',rough:'Rough'};
+function cfIsRecovery(lie){ return lie==='trees'; }
+const CF_LIE_LABEL={green:'Green',fairway:'Fairway',sand:'Bunker',trees:'Trees',water:'Penalty area',oob:'Out of bounds',rough:'Rough'};
 
 /* Nearest distance in yards to a hazard (optionally of one type); 0 when inside one. */
 function cfDistToHazardYd(hole,pt,type){
@@ -295,7 +303,18 @@ function cfExpectedStrokes(hole,pt,hcp){
   if(typeof srForPlayer!=='function') return null;
   const d=cfDistToPinYd(hole,pt); if(d==null) return null;
   const lie=cfLieAt(hole,pt), h=cfHcp(hcp);
-  if(cfIsPenalty(lie)){ const sr=srForPlayer('rough',Math.max(15,d),h); return sr==null?null:1+sr; }
+  /* Worst lies, worst first. The optimiser minimises expected strokes, so getting these
+     magnitudes right IS the avoidance priority — no separate rule needed:
+       OUT OF BOUNDS  stroke AND distance: you replay the shot, so two strokes on top of a
+                      rough recovery — strictly worse than a drop.
+       PENALTY AREA   one stroke, then play on from a lateral drop: no progress made.
+       TREES          RECOVERY. On average you spend a shot getting sideways back into play
+                      with only slight advancement (CF_RECOVERY_ADV). A real player may take
+                      on a gap; the average outcome is a punch-out, which is what a model
+                      should assume. */
+  if(lie==='oob')   { const sr=srForPlayer('rough',Math.max(15,d),h); return sr==null?null:2+sr; }
+  if(lie==='water') { const sr=srForPlayer('rough',Math.max(15,d),h); return sr==null?null:1+sr; }
+  if(lie==='trees') { const sr=srForPlayer('rough',Math.max(15,d-CF_RECOVERY_ADV),h); return sr==null?null:1+sr; }
   const sgLie=cfSgLie(lie);
   const base=srForPlayer(sgLie, sgLie==='green'?Math.max(1,d*3):Math.max(1,d), h);
   if(base==null) return null;
@@ -348,7 +367,7 @@ function buildCourses(){
       <span class="cf-tools-lbl">Trace:</span>
       ${modeBtn('calibrate','📏 Scale')}${modeBtn('tee','⛳ Tee')}${modeBtn('pin','🚩 Pin')}
       ${modeBtn('fairway','Fairway')}${modeBtn('green','Green')}
-      ${modeBtn('sand','Bunker')}${modeBtn('water','Water')}${modeBtn('oob','OOB')}
+      ${modeBtn('sand','Bunker')}${modeBtn('water','Water')}${modeBtn('trees','Trees')}${modeBtn('oob','OOB')}
     </div>
     <div class="cf-tools">
       <button class="btn" onclick="cfFinishFeature()">✓ Finish shape</button>
@@ -369,6 +388,7 @@ function cfModeHint(mode){
     green:'Click around the green edge, then “Finish shape”.',
     sand:'Click around a bunker, then “Finish shape”. Repeat for more bunkers.',
     water:'Click around a water hazard, then “Finish shape”.',
+    trees:'Click around a tree line or copse, then “Finish shape”. Modelled as a recovery — a shot spent getting back in play.',
     oob:'Click around an OOB region, then “Finish shape”.'
   };
   return mode? m[mode]||'' : 'Pick a tool above. Add a backdrop image to trace over, calibrate the scale, then trace features.';
@@ -391,17 +411,47 @@ function osmToMeters(lat,lon,lat0,lon0){
   return { x:(lon-lon0)*D*R*Math.cos(lat0*D), y:(lat-lat0)*D*R };
 }
 function osmCentroid(geo){ let la=0,lo=0; geo.forEach(p=>{la+=p.lat;lo+=p.lon;}); return {lat:la/geo.length, lon:lo/geo.length}; }
+/* A single mapped tree is a NODE, not a way — buffer it into a small polygon so it can be
+   tested against like any other obstacle. One oak guarding a corner matters in golf. */
+const OSM_TREE_R_M = 4, OSM_TREE_CAP = 400, OSM_TREE_MAX_SPAN_M = 400;
+/* rough bounding-box span of a lat/lon ring, in metres */
+function osmSpanM(geo){
+  let la0=90,la1=-90,lo0=180,lo1=-180;
+  geo.forEach(p=>{ la0=Math.min(la0,p.lat); la1=Math.max(la1,p.lat); lo0=Math.min(lo0,p.lon); lo1=Math.max(lo1,p.lon); });
+  const mLat=(la1-la0)*111319.49, mLon=(lo1-lo0)*111319.49*Math.cos((la0+la1)/2*Math.PI/180);
+  return Math.hypot(mLat,mLon);
+}
+function osmTreeCircle(lat,lon,rM){
+  const dLat=rM/111319.49, dLon=rM/(111319.49*Math.cos(lat*Math.PI/180));
+  const pts=[]; for(let a=0;a<8;a++){ const th=a*Math.PI/4;
+    pts.push({lat:lat+dLat*Math.sin(th), lon:lon+dLon*Math.cos(th)}); }
+  return pts;
+}
 function osmParse(elements){
-  const f={holes:[],greens:[],fairways:[],tees:[],bunkers:[],water:[]};
+  const f={holes:[],greens:[],fairways:[],tees:[],bunkers:[],water:[],trees:[]};
+  let treeNodes=0;
   (elements||[]).forEach(el=>{
-    const t=el.tags, geo=el.geometry; if(!t||!geo||!geo.length) return;
-    const g=t.golf; if(!g) return;
-    if(g==='hole') f.holes.push({num:parseInt(t.ref||t.name)||null, par:parseInt(t.par)||null, line:geo});
-    else if(g==='green') f.greens.push(geo);
-    else if(g==='fairway') f.fairways.push(geo);
-    else if(g==='tee') f.tees.push(geo);
-    else if(g==='bunker') f.bunkers.push(geo);
-    else if(g==='water_hazard'||g==='lateral_water_hazard') f.water.push(geo);
+    const t=el.tags; if(!t) return;
+    const geo=el.geometry;
+    const g=t.golf;
+    if(g){
+      if(!geo||!geo.length) return;
+      if(g==='hole') f.holes.push({num:parseInt(t.ref||t.name)||null, par:parseInt(t.par)||null, line:geo});
+      else if(g==='green') f.greens.push(geo);
+      else if(g==='fairway') f.fairways.push(geo);
+      else if(g==='tee') f.tees.push(geo);
+      else if(g==='bunker') f.bunkers.push(geo);
+      else if(g==='water_hazard'||g==='lateral_water_hazard') f.water.push(geo);
+      return;
+    }
+    /* trees: woods and tree rows are ways, individual trees are nodes */
+    if(t.natural==='wood'||t.landuse==='forest'||t.natural==='scrub'||t.natural==='tree_row'){
+      /* skip the surrounding woodland — a polygon spanning the whole property is not a
+         golf feature and would swamp whichever hole it got assigned to */
+      if(geo&&geo.length>1&&osmSpanM(geo)<=OSM_TREE_MAX_SPAN_M) f.trees.push(geo);
+    } else if(t.natural==='tree' && el.lat!=null && el.lon!=null && treeNodes<OSM_TREE_CAP){
+      treeNodes++; f.trees.push(osmTreeCircle(el.lat, el.lon, OSM_TREE_R_M));
+    }
   });
   return f;
 }
@@ -429,7 +479,9 @@ function osmBuildHole(h, feats, ref){
   const toField=p=>({x:Math.round(FW/2+(p.u-cx)*scale), y:Math.round(FH-PADy-(p.v-minV)*scale)});
   const fGeo=geo=>projGeo(geo).map(toField);
   const biggest=arr=>arr.length?arr.slice().sort((a,b)=>b.length-a.length)[0]:null;
-  const hazards=feats.bunkers.map(g=>({type:'sand',pts:fGeo(g)})).concat(feats.water.map(g=>({type:'water',pts:fGeo(g)})));
+  const hazards=feats.bunkers.map(g=>({type:'sand',pts:fGeo(g)}))
+    .concat(feats.water.map(g=>({type:'water',pts:fGeo(g)})))
+    .concat((feats.trees||[]).map(g=>({type:'trees',pts:fGeo(g)})));
   /* Keep the projection so the hole stays georeferenced: field <-> metres <-> lat/lon.
      toField is the affine x = ox + s*u, y = oy - s*v, so store those offsets directly
      (see cfFieldToLatLon / cfLatLonToField). scale is field units per METRE. */
@@ -447,10 +499,12 @@ function osmBuildCourse(name, parsed){
   let la=0,lo=0,n=0; parsed.holes.forEach(h=>h.line.forEach(p=>{la+=p.lat;lo+=p.lon;n++;}));
   const ref={lat0:la/n, lon0:lo/n};
   const assign=list=>list.map(geo=>({geo, hi:osmNearestHoleIdx(osmCentroid(geo),parsed.holes,ref)}));
-  const A={greens:assign(parsed.greens),fairways:assign(parsed.fairways),tees:assign(parsed.tees),bunkers:assign(parsed.bunkers),water:assign(parsed.water)};
+  const A={greens:assign(parsed.greens),fairways:assign(parsed.fairways),tees:assign(parsed.tees),
+    bunkers:assign(parsed.bunkers),water:assign(parsed.water),trees:assign(parsed.trees||[])};
   const pick=(arr,hi)=>arr.filter(x=>x.hi===hi).map(x=>x.geo);
   const holes=parsed.holes.map((h,hi)=>osmBuildHole(h,{
-    greens:pick(A.greens,hi),fairways:pick(A.fairways,hi),tees:pick(A.tees,hi),bunkers:pick(A.bunkers,hi),water:pick(A.water,hi)
+    greens:pick(A.greens,hi),fairways:pick(A.fairways,hi),tees:pick(A.tees,hi),
+    bunkers:pick(A.bunkers,hi),water:pick(A.water,hi),trees:pick(A.trees,hi)
   },ref)).sort((a,b)=>(a.num||99)-(b.num||99));
   return {id:cfUID(), name, source:'osm', attribution:'© OpenStreetMap contributors', holes};
 }
@@ -487,7 +541,13 @@ async function cfOsmImport(){
   /* 2) fetch golf features via Overpass (with mirror fallback) */
   let data;
   try{
-    const oq='[out:json][timeout:25];(way[golf]('+S+','+W+','+N+','+E+'););out geom;';
+    const bb=S+','+W+','+N+','+E;
+    const oq='[out:json][timeout:25];('
+      +'way[golf]('+bb+');'
+      +'way[natural=wood]('+bb+');way[landuse=forest]('+bb+');'
+      +'way[natural=scrub]('+bb+');way[natural=tree_row]('+bb+');'
+      +'node[natural=tree]('+bb+');'
+      +');out geom;';
     data=await cfOverpass(oq, set);
   }catch(e){ set('Map service busy or unreachable — try again in a moment ('+(e&&e.message||'')+').'); return; }
   /* 3) parse → build → store */
@@ -562,7 +622,8 @@ Object.assign(window, {
   cfClearFeature, cfLoadBg, cfClearBg, renderHoleSVG, buildCourses, cfModeHint, cfRefreshCanvas,
   cfYardsPerUnit, cfHasScale, cfDistYd, cfDistToPinYd, cfDistFromTeeYd,
   cfFieldToLatLon, cfLatLonToField, cfPointInPoly, cfDistPtSeg, cfDistToPoly,
-  cfLieAt, cfSgLie, cfIsPenalty, CF_LIE_LABEL, cfDistToHazardYd, cfHcp,
+  cfLieAt, cfSgLie, cfIsPenalty, cfIsRecovery, CF_LIE_LABEL, CF_LIE_ORDER, CF_RECOVERY_ADV,
+  osmSpanM, osmTreeCircle, cfDistToHazardYd, cfHcp,
   cfSegHit, cfSegPolyFirstHit, cfRunwayYd, cfRunwayAdj, CF_RUNWAY_MAX,
   cfExpectedStrokes, cfShotContext,
   osmToMeters, osmCentroid, osmParse, osmNearestHoleIdx, osmBuildHole, osmBuildCourse, cfOsmImport, cfImportBox, cfLoadPresets,
