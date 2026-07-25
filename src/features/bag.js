@@ -231,7 +231,10 @@ function buildSideSVG(c,p){
   const lx2=x0+24*Math.cos(launchRad),ly2=y0-24*Math.sin(launchRad);
   const rx2=carryX-24*Math.cos(landRad),ry2=y3-24*Math.sin(landRad);
   const htLX=Math.min(pk.x+3,W-26),htLY=Math.max(pk.y-3,PAD_T+5);
-  return `<svg data-pz viewBox="0 0 ${W} ${H+4}" style="width:100%;display:block" xmlns="http://www.w3.org/2000/svg">
+  /* Two caption rows sit BELOW the ground line — the total at groundY+9 and the carry
+     at H+10 — so the viewBox has to clear the lower one's descenders (~H+11.5) or the
+     wrap's overflow:hidden clips them. H+14 leaves a small bottom margin. */
+  return `<svg data-pz viewBox="0 0 ${W} ${H+14}" style="width:100%;display:block" xmlns="http://www.w3.org/2000/svg">
     <line x1="4" y1="${groundY}" x2="${W-4}" y2="${groundY}" stroke="#c0d8cf" stroke-width="0.8"/>
     <line x1="${pk.x.toFixed(1)}" y1="${(pk.y+2).toFixed(1)}" x2="${pk.x.toFixed(1)}" y2="${groundY}" stroke="#c0d8cf" stroke-width="0.6" stroke-dasharray="3,2"/>
     <text x="${htLX.toFixed(1)}" y="${htLY.toFixed(1)}" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="6.5" fill="#3a5a7a">${p.ht||'—'}ft</text>
