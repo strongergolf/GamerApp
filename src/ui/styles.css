@@ -846,7 +846,8 @@ table.chip-matrix tr:hover td{background:var(--surface2)}
 .strat-mode-btn.active{background:var(--panel);color:var(--gold2);border-color:var(--panel)}
 .strat-mode-btn:hover:not(.active){color:var(--ink);border-color:var(--gold)}
 .strat-hole-grid{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap}
-.strat-hole-map{flex:1 1 300px;min-width:260px;max-width:420px}
+.strat-hole-map{flex:1 1 300px;min-width:260px;max-width:420px;touch-action:none;cursor:crosshair}
+.sh-cost{margin-top:8px;font-family:Arial,sans-serif;font-size:.72rem;line-height:1.4;color:var(--c-wood);background:var(--gold-pale);border:1px solid rgba(217,96,112,.3);border-radius:6px;padding:5px 8px}
 .strat-hole-panel{flex:1 1 250px;min-width:230px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:11px 13px}
 .sh-head{font-family:ui-monospace,monospace;font-size:.58rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
 .sh-club{font-family:Arial,sans-serif;font-size:1.5rem;font-weight:800;color:var(--ink);line-height:1.1;margin-top:2px}
@@ -860,7 +861,9 @@ body.theme-dark .sh-aim b{color:var(--gold2)}
 .sh-row:last-of-type{border-bottom:none}
 .sh-row span{font-family:ui-monospace,monospace;font-size:.58rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
 .sh-row b{font-family:ui-monospace,monospace;font-size:.82rem;font-weight:800;color:var(--ink)}
-.sh-row b.sh-warn{color:var(--c-wood)}
+/* brand pink is too light on the panel in light theme — darken it there (matches .sh-aim b) */
+.sh-row b.sh-warn{color:#b8455a}
+body.theme-dark .sh-row b.sh-warn{color:var(--c-wood)}
 .sh-gain{margin-top:8px;font-family:Arial,sans-serif;font-size:.72rem;line-height:1.4;color:var(--green);background:var(--green-pale);border:1px solid rgba(0,133,63,.25);border-radius:6px;padding:5px 8px}
 .sh-mix{display:flex;flex-wrap:wrap;gap:4px;margin-top:9px}
 .mix-chip{font-family:ui-monospace,monospace;font-size:.5rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;border-radius:4px;padding:2px 6px;border:1px solid currentColor;opacity:.95}

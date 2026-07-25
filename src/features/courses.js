@@ -207,6 +207,54 @@ function cfDistToPoly(pt,poly){
   return best;
 }
 
+/* ---- RUNWAY — yards of green between where a greenside shot lands and the hole ----
+   Short-siding is only expensive when there is no green to work with. A "short side" with
+   plenty of runway, or an easy angle, is not a penalty at all — penalising the SIDE would
+   invent a false penalty in exactly those cases. So measure the thing that actually costs
+   strokes: cast the line from the ball to the pin and measure how much green sits between
+   where that line crosses the edge and the hole. */
+function cfSegHit(a,b,c,d){                 // segment ab × segment cd → hit point (with t) or null
+  const rx=b.x-a.x, ry=b.y-a.y, sx=d.x-c.x, sy=d.y-c.y;
+  const den=rx*sy-ry*sx; if(Math.abs(den)<1e-12) return null;
+  const t=((c.x-a.x)*sy-(c.y-a.y)*sx)/den, u=((c.x-a.x)*ry-(c.y-a.y)*rx)/den;
+  if(t<0||t>1||u<0||u>1) return null;
+  return {x:a.x+t*rx, y:a.y+t*ry, t};
+}
+function cfSegPolyFirstHit(from,to,poly){
+  if(!poly||poly.length<3) return null;
+  let best=null;
+  for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+    const h=cfSegHit(from,to,poly[j],poly[i]);
+    if(h&&(!best||h.t<best.t)) best=h;
+  }
+  return best;
+}
+/* Runway in yards. null when already on the green, or the hole has no green mapped. */
+function cfRunwayYd(hole,pt){
+  if(!hole||!hole.pin||!(hole.green||[]).length||!pt) return null;
+  const ypu=cfYardsPerUnit(hole); if(ypu==null) return null;
+  if(cfPointInPoly(pt,hole.green)) return null;
+  const e=cfSegPolyFirstHit(pt,hole.pin,hole.green);
+  if(!e) return 0;                                   // line never reaches green → nothing to work with
+  return Math.hypot(hole.pin.x-e.x, hole.pin.y-e.y)*ypu;
+}
+/* Difficulty of a greenside recovery RELATIVE to the baseline, from runway alone. The SR
+   tables already encode an average up-and-down for the distance; runway only says whether
+   this particular one is better or worse than that average. Typical runway ≈ 65% of the
+   distance to the pin (the ball usually sits about a third of the way out in fringe/rough).
+
+   Deliberately small and tightly clamped (−0.06 … +0.15 strokes): runway is itself a proxy
+   for slope, firmness and grain that this app does not map, so over-weighting it would just
+   trade one inaccuracy for another. Applies only to shots inside CF_RUNWAY_MAX that are off
+   the green. PRESUMED — replace with measured up-and-down data when it exists. */
+const CF_RUNWAY_MAX = 40, CF_RUNWAY_TYP = 0.65, CF_RUNWAY_K = 0.25;
+function cfRunwayAdj(hole,pt,distYd){
+  if(distYd==null||distYd>CF_RUNWAY_MAX) return 0;
+  const run=cfRunwayYd(hole,pt); if(run==null) return 0;
+  const ratio=run/Math.max(2, CF_RUNWAY_TYP*distYd);
+  return Math.max(-0.06, Math.min(0.15, CF_RUNWAY_K*(1-ratio)));
+}
+
 /* ---- Lie classification ----
    Priority matters: hazards are traced ON TOP of the surface they sit in (a bunker
    inside a fairway), and the green polygon overlaps the fairway at the fringe. So
@@ -249,7 +297,10 @@ function cfExpectedStrokes(hole,pt,hcp){
   const lie=cfLieAt(hole,pt), h=cfHcp(hcp);
   if(cfIsPenalty(lie)){ const sr=srForPlayer('rough',Math.max(15,d),h); return sr==null?null:1+sr; }
   const sgLie=cfSgLie(lie);
-  return srForPlayer(sgLie, sgLie==='green'?Math.max(1,d*3):Math.max(1,d), h);
+  const base=srForPlayer(sgLie, sgLie==='green'?Math.max(1,d*3):Math.max(1,d), h);
+  if(base==null) return null;
+  /* off-green greenside shots get the runway adjustment; putts and long shots do not */
+  return (lie==='green')?base:base+cfRunwayAdj(hole,pt,d);
 }
 /* One call for everything the strategy UI wants about a spot on the hole. */
 function cfShotContext(hole,pt,hcp){
@@ -512,6 +563,7 @@ Object.assign(window, {
   cfYardsPerUnit, cfHasScale, cfDistYd, cfDistToPinYd, cfDistFromTeeYd,
   cfFieldToLatLon, cfLatLonToField, cfPointInPoly, cfDistPtSeg, cfDistToPoly,
   cfLieAt, cfSgLie, cfIsPenalty, CF_LIE_LABEL, cfDistToHazardYd, cfHcp,
+  cfSegHit, cfSegPolyFirstHit, cfRunwayYd, cfRunwayAdj, CF_RUNWAY_MAX,
   cfExpectedStrokes, cfShotContext,
   osmToMeters, osmCentroid, osmParse, osmNearestHoleIdx, osmBuildHole, osmBuildCourse, cfOsmImport, cfImportBox, cfLoadPresets,
   startRound, endRound, buildRoundTracker
