@@ -878,6 +878,20 @@ body.theme-dark .sh-strat-row .ss-pen.sh-warn{color:var(--c-wood)}
 .sh-alt{display:flex;justify-content:space-between;gap:8px;padding:2px 0}
 .sh-alt span{font-family:ui-monospace,monospace;font-size:.56rem;color:var(--ink2)}
 .sh-alt b{font-family:ui-monospace,monospace;font-size:.66rem;color:var(--muted)}
+/* line comparison table — metrics down the side, A/B/O across */
+.sh-tbl{width:100%;border-collapse:collapse;margin-top:8px;table-layout:fixed}
+.sh-tbl th,.sh-tbl td{padding:3px 4px;text-align:right;font-family:ui-monospace,monospace;font-size:.6rem;color:var(--ink2);border-bottom:1px solid var(--border)}
+.sh-tbl thead th{font-size:.56rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid var(--border2);padding-bottom:4px}
+.sh-tbl th[scope=row]{text-align:left;font-weight:400;font-size:.52rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);width:34%}
+.sh-tbl td b{color:var(--ink);font-weight:800;font-size:.7rem}
+.sh-tbl .tsub{font-size:.5rem;color:var(--muted);font-weight:400}
+.sh-tbl td.on{background:var(--bg2)}
+.sh-tbl thead th.on{background:var(--bg2)}
+.sh-tbl tr.sh-tbl-key td{font-weight:800;color:var(--ink);font-size:.72rem}
+.sh-tbl tr.sh-tbl-key th[scope=row]{color:var(--ink2)}
+.sh-tbl tr.sh-tbl-chips td{padding-top:5px}
+.sh-tbl tr.sh-tbl-chips .mix-chip{display:inline-block;margin:1px 0 1px 2px;font-size:.44rem;padding:1px 3px}
+.sh-tbl tr:last-child th,.sh-tbl tr:last-child td{border-bottom:none}
 .sh-two{display:flex;gap:6px;align-items:flex-start;flex-wrap:wrap}
 .sh-col{flex:1 1 120px;min-width:110px;border:1px solid var(--border);border-radius:8px;padding:7px 8px;background:var(--surface)}
 .sh-col.on{border-color:var(--border2);background:var(--surface2)}

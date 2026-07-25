@@ -466,6 +466,12 @@ function stratScoreShot(hole, from, aim){
   r.fromTeeYd=cfDistYd(hole,hole.tee,aim);
   r.toPinYd=cfDistToPinYd(hole,aim);
   r.toMidYd=mid?cfDistYd(hole,aim,mid):null;
+  /* Two different questions, and the gap between them IS the cost of your dispersion:
+       expAtAim — strokes left if the ball finishes exactly on the target spot
+       mean     — strokes left once the whole pattern is accounted for, fairway and rough
+                  and bunker and penalty in their real proportions */
+  r.expAtAim=cfExpectedStrokes(hole,aim,cfHcp());
+  r.dispersionCost=(r.expAtAim!=null)?(r.mean-r.expAtAim):null;
   return r;
 }
 
@@ -655,29 +661,41 @@ function buildHoleOverlay(){
   const lineBtns=SHOT_LINES.map(l=>
     `<button type="button" class="strat-pick${l===S.active?' active':''}" style="--pick:${SHOT_COL[l]}" onclick="stratSetLine('${l}')">${l}${l==='O'?' (best)':''}</button>`).join('');
 
-  const col=(l)=>{
-    const r=shots[l];
-    const hd=`<div class="sh-col-h ln-${l}">${l}-${n}${l==='O'?' · best':''}</div>`;
-    if(!r) return `<div class="sh-col">${hd}<div class="sh-note">Not reached on this line.</div></div>`;
-    if(r.blocked){
-      const txt = r.blocked==='putt' ? `On the green — <b>${Math.round((r.toPinFrom||0)*3)} ft</b> putt`
-        : r.blocked==='penalty' ? 'In a penalty area — take relief'
-        : r.blocked==='tap' ? 'Tap-in range' : 'No shot from here';
-      return `<div class="sh-col${l===S.active?' on':''}">${hd}<div class="sh-aim" style="margin:4px 0 0">${txt}</div></div>`;
-    }
-    return `<div class="sh-col${l===S.active?' on':''}">
-      ${hd}
-      <div class="sh-club">${r.shot.label}<span class="sh-loft">${r.shot.detail||''}</span></div>
-      <div class="sh-row"><span>Shot length</span><b>${Math.round(r.geoYd)} yd</b></div>
-      ${r.lieCost?`<div class="sh-row"><span>Plays</span><b>${Math.round(r.playsYd)} yd</b></div>`:''}
-      <div class="sh-row"><span>From tee</span><b>${r.fromTeeYd!=null?Math.round(r.fromTeeYd)+' yd':'—'}</b></div>
-      <div class="sh-row"><span>To pin</span><b>${r.toPinYd!=null?Math.round(r.toPinYd)+' yd':'—'}</b></div>
-      <div class="sh-row"><span>To middle</span><b>${r.toMidYd!=null?Math.round(r.toMidYd)+' yd':'—'}</b></div>
-      <div class="sh-row"><span>Expected</span><b>${r.mean.toFixed(2)}</b></div>
-      <div class="sh-row"><span>Penalty</span><b class="${r.penaltyRate>0.08?'sh-warn':''}">${pct(r.penaltyRate)}%</b></div>
-      <div class="sh-mix">${mixHTML(r.lieMix)}</div>
-    </div>`;
-  };
+  /* One table, metrics down the side and the three lines across — far less vertical space
+     than three stacked cards, and it lines the numbers up for comparison, which is the
+     whole point. Penalty risk is NOT a row: it already lives in the outcome badges
+     alongside fairway, rough and bunker, where it belongs. */
+  const CHIP_SHORT={fairway:'FW',green:'GRN',rough:'RGH',sand:'SND',trees:'TRE',water:'PEN',oob:'OB'};
+  const chipsFor=m=>mixOrder.filter(k=>m[k]>0.004)
+    .map(k=>`<span class="mix-chip mix-${k}">${CHIP_SHORT[k]} ${pct(m[k])}</span>`).join('');
+  const blockedTxt=r=> r.blocked==='putt' ? `${Math.round((r.toPinFrom||0)*3)} ft putt`
+      : r.blocked==='penalty' ? 'take relief' : r.blocked==='tap' ? 'tap-in' : 'no shot';
+  const TBL_ROWS=[
+    ['Club',        r=>`<b>${r.shot.label}</b>${r.shot.detail?` <span class="tsub">${r.shot.detail}</span>`:''}`],
+    ['Length',      r=>Math.round(r.geoYd)+' yd'],
+    ['Plays',       r=>r.lieCost?Math.round(r.playsYd)+' yd':'—', 'lieCost'],
+    ['From tee',    r=>r.fromTeeYd!=null?Math.round(r.fromTeeYd):'—'],
+    ['To pin',      r=>r.toPinYd!=null?Math.round(r.toPinYd):'—'],
+    ['To middle',   r=>r.toMidYd!=null?Math.round(r.toMidYd):'—'],
+    ['Exp · on target', r=>r.expAtAim!=null?r.expAtAim.toFixed(2):'—', null, 'key'],
+    ['Exp · remaining', r=>r.mean.toFixed(2), null, 'key']
+  ];
+  const anyLieCost=SHOT_LINES.some(l=>shots[l]&&!shots[l].blocked&&shots[l].lieCost);
+  const th=SHOT_LINES.map(l=>`<th class="ln-${l}${l===S.active?' on':''}">${l}-${n}${l==='O'?'<span class="tsub"> best</span>':''}</th>`).join('');
+  const body=TBL_ROWS.filter(row=>row[2]!=='lieCost'||anyLieCost).map(row=>{
+    const cells=SHOT_LINES.map(l=>{
+      const r=shots[l];
+      const cls=(l===S.active?' class="on"':'');
+      if(!r) return `<td${cls}>—</td>`;
+      if(r.blocked) return `<td${cls}>${row[0]==='Club'?`<i>${blockedTxt(r)}</i>`:'—'}</td>`;
+      return `<td${cls}>${row[1](r)}</td>`;
+    }).join('');
+    return `<tr class="${row[3]==='key'?'sh-tbl-key':''}"><th scope="row">${row[0]}</th>${cells}</tr>`;
+  }).join('');
+  const chipRow=`<tr class="sh-tbl-chips"><th scope="row">Outcome</th>${
+    SHOT_LINES.map(l=>{const r=shots[l];
+      return `<td${l===S.active?' class="on"':''}>${(r&&!r.blocked)?chipsFor(r.lieMix):'—'}</td>`;}).join('')}</tr>`;
+  const table=`<table class="sh-tbl"><thead><tr><th></th>${th}</tr></thead><tbody>${body}${chipRow}</tbody></table>`;
   /* verdict across the three lines that actually produced a shot */
   const live=SHOT_LINES.filter(l=>shots[l]&&!shots[l].blocked);
   let verdict='';
@@ -705,7 +723,7 @@ function buildHoleOverlay(){
         <div class="strat-picks">${shotBtns}</div>
         <div class="strat-picks">${lineBtns}<button type="button" class="strat-mode-btn" onclick="stratResetAim()">↺ reset</button></div>
         ${oRes&&oRes.best.category?`<div class="sh-cat">${oRes.best.category}</div>`:''}
-        <div class="sh-two">${col('A')}${col('B')}${col('O')}</div>
+        ${table}
         ${verdict}
         ${stratPostureTable(oRes)}
         ${stratTourInputs()}
