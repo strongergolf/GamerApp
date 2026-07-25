@@ -400,15 +400,20 @@ function optimiseShot(hole, from, opts){
   return { best, naive, byPosture, tourCtx, ranked:results.slice(0,5), lie, toPin, cost, mult, posture, hcp, recovery };
 }
 
-/* ---------- overlay + panel: TWO shots, side by side ----------
-   Rather than measuring one aim against "the recommendation", place two and compare them
-   directly. Shot 1 starts on the optimiser's answer and Shot 2 straight at the flag, then
-   drag either one. In approach mode both shots are played from the same ball, which can
-   itself be dragged. */
+/* ---------- overlay + panel: LINES A / B / O, shot by shot ----------
+   A hole is not one decision, it is a sequence. So the unit here is a LINE — a strategic
+   path through the hole — and a SHOT NUMBER within it. A-1 is the A tee shot; A-2 is the
+   second shot played from wherever A-1 finished; O-3 is the third shot down the optimal
+   line, which on a typical par 4 is the putt.
+
+   Line O is the optimiser's own chain, recomputed from the tee. Lines A and B are yours:
+   drag either one and every number moves, including the shots that follow it. */
 window.stratSel = window.stratSel || { cIdx:0, hIdx:0 };
-window.stratShot = window.stratShot || { mode:'tee', ball:null, aims:[null,null], active:0 };
+window.stratShot = window.stratShot || { shotNum:1, lines:{A:[],B:[]}, active:'A' };
 window.stratOptCache = null;
-const SHOT_COL = ['#ffd24a','#5ad1ff'];          // fixed: they sit on the green map, not the theme
+const SHOT_LINES = ['A','B','O'];
+const SHOT_COL = { A:'#ffd24a', B:'#5ad1ff', O:'#79e08d' };
+const SHOT_MAX = 6;
 
 function stratPosture(){ return (STATE.strategy||{}).riskPosture||'balanced'; }
 function stratCurrent(){
@@ -417,87 +422,144 @@ function stratCurrent(){
   const hs=c.holes||[]; const hi=Math.min(window.stratSel.hIdx,Math.max(0,hs.length-1));
   return hs[hi]?{course:c, hole:hs[hi], hi}:null;
 }
-/* The optimiser's own answer, cached per hole/posture so dragging stays cheap. */
-function stratOptimal(hole){
-  const key=window.stratSel.cIdx+'|'+window.stratSel.hIdx+'|'+stratPosture()+'|'+cfHcp();
-  if(window.stratOptCache && window.stratOptCache.key===key) return window.stratOptCache.res;
-  const res=optimiseAim(hole, hole.tee, {posture:stratPosture()});
-  window.stratOptCache={key,res};
-  return res;
-}
 /* Centre of the green — the reference every golfer actually clubs to. */
 function stratGreenMid(hole){
   const g=hole&&hole.green; if(!g||!g.length) return hole?hole.pin:null;
   let x=0,y=0; g.forEach(p=>{x+=p.x;y+=p.y;});
   return {x:x/g.length, y:y/g.length};
 }
-function stratClearAims(){ window.stratShot.ball=null; window.stratShot.aims=[null,null]; window.stratOptCache=null; }
-function stratSetCourse(i){ window.stratSel.cIdx=+i; window.stratSel.hIdx=0; stratClearAims(); buildHoleOverlay(); }
-function stratSetHole(i){ window.stratSel.hIdx=+i; stratClearAims(); buildHoleOverlay(); }
-function stratSetShotMode(m){ window.stratShot.mode=m; window.stratShot.active=0; stratClearAims(); buildHoleOverlay(); }
-function stratSetActive(a){ window.stratShot.active=(a==='ball')?'ball':+a; buildHoleOverlay(); }
-function stratResetAim(){ stratClearAims(); buildHoleOverlay(); }
-/* Writes the SAME STATE.strategy.riskPosture the Strategy Preferences panel uses, through
-   the same setter, so the two surfaces can never drift apart. */
+function stratClearLines(){ window.stratShot.lines={A:[],B:[]}; window.stratShot.shotNum=1; window.stratOptCache=null; }
+function stratSetCourse(i){ window.stratSel.cIdx=+i; window.stratSel.hIdx=0; stratClearLines(); buildHoleOverlay(); }
+function stratSetHole(i){ window.stratSel.hIdx=+i; stratClearLines(); buildHoleOverlay(); }
+function stratSetShotNum(n){ window.stratShot.shotNum=Math.max(1,Math.min(SHOT_MAX,+n)); buildHoleOverlay(); }
+function stratSetLine(l){ window.stratShot.active=l; buildHoleOverlay(); }
+function stratResetAim(){ stratClearLines(); buildHoleOverlay(); }
 function stratSetPosture(p){
   if(typeof setStrategy==='function') setStrategy('riskPosture',p);
   else { STATE.strategy=STATE.strategy||{}; STATE.strategy.riskPosture=p; saveState(); }
-  window.stratOptCache=null;
-  buildHoleOverlay();
+  window.stratOptCache=null; buildHoleOverlay();
+}
+function stratSetTour(field,val){
+  STATE.tournament=STATE.tournament||{};
+  STATE.tournament[field]= (val===''||val==null) ? null : (field==='target'?parseFloat(val):parseInt(val)||0);
+  saveState(); window.stratOptCache=null; buildHoleOverlay();
 }
 
-/* Score ONE chosen aim in whichever mode is active. Tee: the club is whichever finishes
-   nearest the spot, so dragging short becomes a lay-up. Approach: the lie under the ball
-   sets both the distance cost and the dispersion penalty. */
-function stratScoreAim(hole, aim){
-  const ypu=cfYardsPerUnit(hole); if(ypu==null||!aim) return null;
-  const approach = window.stratShot.mode==='approach';
-  const from = approach ? window.stratShot.ball : hole.tee;
-  if(!from) return null;
+/* Score ONE shot: played from `from`, aimed at `aim`. Mode-free — the lie under the ball
+   decides the distance cost and the dispersion penalty, wherever on the hole it sits. */
+function stratScoreShot(hole, from, aim){
+  const ypu=cfYardsPerUnit(hole); if(ypu==null||!from) return null;
+  const lie=cfLieAt(hole,from);
+  const toPinFrom=cfDistToPinYd(hole,from);
+  if(cfIsPenalty(lie)) return {blocked:'penalty', lie, from, toPinFrom};
+  if(lie==='green')    return {blocked:'putt', lie, from, toPinFrom};
+  if(!aim) return null;
   const geo=Math.hypot(aim.x-from.x,aim.y-from.y)*ypu;
-  if(geo<10) return null;
-  let sig={sigmaYd:geo}, shot, lie=null, cost=0;
-  if(approach){
-    lie=cfLieAt(hole,from);
-    if(cfIsPenalty(lie)||lie==='green') return null;
-    const m=APPROACH_LIE[lie]||APPROACH_LIE.fairway;
-    cost=approachLieCostYd(lie);
-    sig={sigmaYd:geo+cost, latMult:m.lat, depthMult:m.depth};
-    shot=approachShotName(geo+cost);
-  } else {
-    let c=null,bd=1e9;
-    aimClubs().forEach(x=>{ const d=Math.abs(x.total-geo); if(d<bd){bd=d;c=x;} });
-    shot={label:c?c.label:'—', detail:c?(c.loft||''):''};
-  }
+  if(geo<8) return {blocked:'tap', lie, from, toPinFrom};
+  const mult=APPROACH_LIE[lie]||APPROACH_LIE.fairway, cost=approachLieCostYd(lie);
+  const sig={sigmaYd:geo+cost, latMult:mult.lat, depthMult:mult.depth};
   const r=aimScore(hole,from,aim,cfHcp(),stratPosture(),sig);
   if(!r) return null;
   const mid=stratGreenMid(hole);
-  r.shot=shot; r.from=from; r.aim=aim; r.sig=sig; r.lie=lie; r.lieCost=cost;
+  r.shot=approachShotName(geo+cost); r.from=from; r.aim=aim; r.sig=sig; r.lie=lie; r.lieCost=cost;
   r.geoYd=geo; r.playsYd=geo+cost;
   r.fromTeeYd=cfDistYd(hole,hole.tee,aim);
   r.toPinYd=cfDistToPinYd(hole,aim);
   r.toMidYd=mid?cfDistYd(hole,aim,mid):null;
   return r;
 }
-/* Sensible starting pair: the optimiser's answer, and straight at the flag. */
-function stratEnsureAims(hole){
-  const S=window.stratShot;
-  if(S.mode==='best'){ if(!S.ball) S.ball={...hole.tee}; return; }   // start on the tee shot
-  if(S.mode==='approach'){
-    if(!S.ball){ const t=stratOptimal(hole); S.ball = t?{x:Math.round(t.best.aim.x),y:Math.round(t.best.aim.y)}:{...hole.tee}; }
-    if(!S.aims[0]){ const a=optimiseApproach(hole,S.ball,{posture:stratPosture()});
-      S.aims[0]=(a&&!a.blocked)?{x:Math.round(a.best.aim.x),y:Math.round(a.best.aim.y)}:{...hole.pin}; }
-    if(!S.aims[1]) S.aims[1]={...hole.pin};                       // fire straight at the stick
-  } else {
-    const t=stratOptimal(hole); if(!t) return;
-    if(!S.aims[0]) S.aims[0]={x:Math.round(t.best.aim.x), y:Math.round(t.best.aim.y)};
-    if(!S.aims[1]){ const s=t.straight||t.best; S.aims[1]={x:Math.round(s.aim.x), y:Math.round(s.aim.y)}; }
+
+/* The optimiser's whole path through the hole, tee to green. Cached per hole/posture so
+   dragging a user line never re-solves it. */
+function stratOChain(hole){
+  const key=window.stratSel.cIdx+'|'+window.stratSel.hIdx+'|'+stratPosture()+'|'+cfHcp();
+  if(window.stratOptCache&&window.stratOptCache.key===key) return window.stratOptCache.chain;
+  const chain=[]; let from={x:hole.tee.x, y:hole.tee.y};
+  for(let n=1;n<=SHOT_MAX;n++){
+    const res=optimiseShot(hole, from, {posture:stratPosture()});
+    if(!res){ break; }
+    if(res.blocked){ chain.push({n, from, blocked:res.blocked, toPin:res.toPin, lie:res.lie}); break; }
+    const aim={x:Math.round(res.best.aim.x), y:Math.round(res.best.aim.y)};
+    chain.push({n, from, res, aim});
+    from=aim;
   }
+  window.stratOptCache={key, chain};
+  return chain;
+}
+/* Where shot n on a line is played from: the tee, or wherever that line's previous shot
+   was aimed. An unplayed A/B shot inherits the optimal line's position at that stage. */
+function stratBallFor(hole, line, n){
+  if(n<=1) return {x:hole.tee.x, y:hole.tee.y};
+  if(line!=='O'){
+    const arr=window.stratShot.lines[line]||[];
+    if(arr[n-2]) return arr[n-2];
+  }
+  const c=stratOChain(hole), prev=c[n-2];
+  return (prev&&prev.aim)?prev.aim:null;
+}
+/* The aim for shot n on a line. O uses the optimiser's chain. An unset A/B shot must be
+   re-solved from THAT LINE'S OWN position, not inherited from O — a line that drove into
+   the trees cannot play O's approach, and inheriting it proposed a 188-yard blast out of a
+   wood. A defaults to the optimiser's answer from where it actually lies; B defaults to
+   straight at the flag, capped both by what the player can hit and by what the lie allows. */
+function stratLineAim(hole, line, n){
+  const c=stratOChain(hole), step=c[n-1];
+  if(line==='O') return (step&&step.aim)?step.aim:null;
+  const arr=window.stratShot.lines[line]||[];
+  if(arr[n-1]) return arr[n-1];
+  const from=stratBallFor(hole,line,n); if(!from||!hole.pin) return null;
+  if(line==='A'){
+    const r=optimiseShot(hole, from, {posture:stratPosture()});
+    return (r&&!r.blocked)?{x:Math.round(r.best.aim.x), y:Math.round(r.best.aim.y)}:null;
+  }
+  const ypu=cfYardsPerUnit(hole); if(ypu==null) return null;
+  const dx=hole.pin.x-from.x, dy=hole.pin.y-from.y, L=Math.hypot(dx,dy)||1;
+  const clubs=aimClubs(); if(!clubs.length) return null;
+  const longest=Math.max.apply(null, clubs.map(x=>x.total));
+  const lie=cfLieAt(hole,from);
+  const cap=cfIsRecovery(lie)?SHOT_RECOVERY_MAX_YD:longest;   // no full shots out of trees
+  const d=Math.min(L*ypu, longest, cap);
+  return {x:Math.round(from.x+dx/L*(d/ypu)), y:Math.round(from.y+dy/L*(d/ypu))};
 }
 
-/* Every strategy's answer to the same situation, side by side. This is the point of keeping
-   the posture out of the sampling: you can see what a stance actually COSTS you here, in
-   strokes, rather than choosing one blind. Tap a row to adopt it app-wide. */
+/* One shot drawn on the hole: line, dispersion ellipse, aim marker, yardages. */
+function stratShotSVG(hole, r, line, n, dim){
+  if(!r||r.blocked) return '';
+  const ypu=cfYardsPerUnit(hole); if(ypu==null) return '';
+  const col=SHOT_COL[line], from=r.from, aim=r.aim;
+  const dx=aim.x-from.x, dy=aim.y-from.y, L=Math.hypot(dx,dy)||1;
+  const ux=-dy/L, uy=dx/L;
+  const rx=(aimSigmaLat(r.sig.sigmaYd)*(r.sig.latMult||1)*AIM_CI90)/ypu;
+  const ry=(aimSigmaDist(r.sig.sigmaYd)*(r.sig.depthMult||1)*AIM_CI90)/ypu;
+  const ang=Math.atan2(uy,ux)*180/Math.PI+(window.DISP_SLANT||15);
+  const op=dim?0.4:1;
+  const lbl=(txt,off,size)=>dim?'':`<text x="${aim.x.toFixed(1)}" y="${(aim.y+off).toFixed(1)}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="${size}" font-weight="700" fill="${col}" stroke="#14351d" stroke-width="8" paint-order="stroke">${txt}</text>`;
+  return `<line x1="${from.x.toFixed(1)}" y1="${from.y.toFixed(1)}" x2="${aim.x.toFixed(1)}" y2="${aim.y.toFixed(1)}" stroke="${col}" stroke-width="${dim?2:3.5}" stroke-dasharray="14,10" opacity="${op*0.9}"/>
+    ${dim?'':`<g transform="rotate(${ang.toFixed(1)} ${aim.x.toFixed(1)} ${aim.y.toFixed(1)})">
+      <ellipse cx="${aim.x.toFixed(1)}" cy="${aim.y.toFixed(1)}" rx="${rx.toFixed(1)}" ry="${ry.toFixed(1)}"
+        fill="${col}" fill-opacity="0.18" stroke="${col}" stroke-opacity="0.95" stroke-width="3.5"/></g>`}
+    <circle cx="${aim.x.toFixed(1)}" cy="${aim.y.toFixed(1)}" r="${dim?5:9}" fill="none" stroke="#fff" stroke-width="${dim?2:3}" opacity="${op}"/>
+    <circle cx="${aim.x.toFixed(1)}" cy="${aim.y.toFixed(1)}" r="3" fill="#fff" opacity="${op}"/>
+    ${lbl(`${line}-${n} · ${r.shot.label} · ${Math.round(r.geoYd)} yd`, -ry-20, 31)}
+    ${r.toPinYd!=null?lbl(`${Math.round(r.toPinYd)} to pin${r.toMidYd!=null?' · '+Math.round(r.toMidYd)+' to mid':''}`, ry+44, 27):''}`;
+}
+function stratOverlay(hole, shots, n){
+  const S=window.stratShot;
+  let s='';
+  /* the optimal line's earlier shots, faint, so the path so far is visible */
+  const c=stratOChain(hole);
+  for(let i=0;i<n-1 && i<c.length;i++){
+    const st=c[i]; if(!st||!st.res) continue;
+    s+=stratShotSVG(hole, st.res.best.from?st.res.best:Object.assign({},st.res.best,{from:st.from, aim:st.aim, sig:{sigmaYd:st.res.best.effYd, latMult:st.res.mult.lat, depthMult:st.res.mult.depth}, shot:st.res.best.shot, geoYd:st.res.best.geoYd, toPinYd:null}), 'O', st.n, true);
+  }
+  SHOT_LINES.forEach(l=>{ if(l!==S.active && shots[l]) s+=stratShotSVG(hole,shots[l],l,n,false); });
+  if(shots[S.active]) s+=stratShotSVG(hole,shots[S.active],S.active,n,false);   // active on top
+  const ball=shots.__ball;
+  if(ball) s+=`<circle cx="${ball.x}" cy="${ball.y}" r="13" fill="#fff" stroke="#111" stroke-width="3"/>`;
+  return s;
+}
+
+/* Every strategy's answer to the same situation, side by side. Tap a row to adopt it. */
 function stratPostureTable(res){
   if(!res||!res.byPosture) return '';
   const pct=v=>Math.round(v*100);
@@ -533,8 +595,6 @@ function stratPostureTable(res){
     <div class="sh-strat-hd"><span>Stance</span><span>Play</span><span>Exp</span><span>${t?'Pen / P':'Pen'}</span></div>
     <div class="sh-strat-tbl">${rows}${tourRow}</div>${tourNote}`;
 }
-/* Target-score inputs. Rounds-after matters: it is what stops the model from gambling on
-   day one of a four-round event. */
 function stratTourInputs(){
   const T=STATE.tournament||{};
   return `<div class="sh-alt-h">Playing for a number</div>
@@ -543,46 +603,6 @@ function stratTourInputs(){
       <label>Strokes so far<input type="number" min="0" value="${T.strokesSoFar||0}" oninput="stratSetTour('strokesSoFar',this.value)"></label>
       <label>Rounds after this<input type="number" min="0" max="3" value="${T.roundsRemaining||0}" oninput="stratSetTour('roundsRemaining',this.value)"></label>
     </div>`;
-}
-function stratSetTour(field,val){
-  STATE.tournament=STATE.tournament||{};
-  STATE.tournament[field]= (val===''||val==null) ? null : (field==='target'?parseFloat(val):parseInt(val)||0);
-  saveState(); window.stratOptCache=null; buildHoleOverlay();
-}
-
-/* One shot drawn on the hole: shot line, dispersion ellipse, aim marker and its yardages. */
-function stratShotSVG(hole, r, idx){
-  if(!r) return '';
-  const ypu=cfYardsPerUnit(hole); if(ypu==null) return '';
-  const col=SHOT_COL[idx], from=r.from, aim=r.aim;
-  const dx=aim.x-from.x, dy=aim.y-from.y, L=Math.hypot(dx,dy)||1;
-  const ux=-dy/L, uy=dx/L;
-  const rx=(aimSigmaLat(r.sig.sigmaYd)*(r.sig.latMult||1)*AIM_CI90)/ypu;
-  const ry=(aimSigmaDist(r.sig.sigmaYd)*(r.sig.depthMult||1)*AIM_CI90)/ypu;
-  const ang=Math.atan2(uy,ux)*180/Math.PI+(window.DISP_SLANT||15);
-  const on=(window.stratShot.active===idx);
-  const lbl=(txt,off,size)=>`<text x="${aim.x.toFixed(1)}" y="${(aim.y+off).toFixed(1)}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="${size}" font-weight="700" fill="${col}" stroke="#14351d" stroke-width="8" paint-order="stroke">${txt}</text>`;
-  return `<line x1="${from.x.toFixed(1)}" y1="${from.y.toFixed(1)}" x2="${aim.x.toFixed(1)}" y2="${aim.y.toFixed(1)}" stroke="${col}" stroke-width="${on?4:2.5}" stroke-dasharray="14,10" opacity="${on?0.95:0.6}"/>
-    <g transform="rotate(${ang.toFixed(1)} ${aim.x.toFixed(1)} ${aim.y.toFixed(1)})">
-      <ellipse cx="${aim.x.toFixed(1)}" cy="${aim.y.toFixed(1)}" rx="${rx.toFixed(1)}" ry="${ry.toFixed(1)}"
-        fill="${col}" fill-opacity="${on?0.2:0.1}" stroke="${col}" stroke-opacity="${on?0.95:0.6}" stroke-width="${on?4:2.5}"/>
-    </g>
-    <circle cx="${aim.x.toFixed(1)}" cy="${aim.y.toFixed(1)}" r="9" fill="none" stroke="#fff" stroke-width="${on?3.5:2.5}" opacity="${on?1:0.75}"/>
-    <circle cx="${aim.x.toFixed(1)}" cy="${aim.y.toFixed(1)}" r="3.5" fill="#fff" opacity="${on?1:0.75}"/>
-    ${lbl(`${idx+1} · ${r.shot.label} · ${Math.round(r.geoYd)} yd`, -ry-20, 31)}
-    ${r.toPinYd!=null?lbl(`${Math.round(r.toPinYd)} to pin${r.toMidYd!=null?' · '+Math.round(r.toMidYd)+' to mid':''}`, ry+44, 27):''}`;
-}
-function stratOverlay(hole, results){
-  let s='';
-  results.forEach((r,i)=>{ if(i!==window.stratShot.active) s+=stratShotSVG(hole,r,i); });
-  const act=results[window.stratShot.active];
-  if(act) s+=stratShotSVG(hole,act,window.stratShot.active);      // active shot drawn on top
-  const b=window.stratShot.ball;
-  if(window.stratShot.mode==='approach'&&b){
-    const live=(window.stratShot.active==='ball');
-    s+=`<circle cx="${b.x}" cy="${b.y}" r="${live?14:11}" fill="#fff" stroke="#111" stroke-width="3"/>`;
-  }
-  return s;
 }
 
 function buildHoleOverlay(){
@@ -593,25 +613,18 @@ function buildHoleOverlay(){
       <div class="lvl-soon-note">Import a course first (Course Editor below, or the OpenStreetMap importer) — then this shows each hole with your dispersion pattern and the expected-strokes aim point.</div>`;
     return;
   }
-  const cur=stratCurrent();
   const ci=Math.min(window.stratSel.cIdx, courses.length-1), course=courses[ci];
   const holes=course.holes||[];
   const hi=Math.min(window.stratSel.hIdx, Math.max(0,holes.length-1)), hole=holes[hi];
   const cOpts=courses.map((c,i)=>`<option value="${i}"${i===ci?' selected':''}>${escapeHtml(c.name||'Course')}</option>`).join('');
   const hOpts=holes.map((h,i)=>`<option value="${i}"${i===hi?' selected':''}>Hole ${h.num||i+1} · par ${h.par||4}</option>`).join('');
   const S=window.stratShot;
-  const pickBtn=(v,label,col)=>`<button type="button" class="strat-pick${S.active===v?' active':''}"${col?` style="--pick:${col}"`:''} onclick="stratSetActive('${v}')">${label}</button>`;
   const head=`<div class="section-label">Hole Overlays <span class="proto-badge">prototype</span></div>
-    <div class="chain-caption" style="margin-top:4px">Two shots, compared head to head. <strong>Shot 1</strong> starts on the optimiser's answer and <strong>Shot 2</strong> straight at the flag — pick one and drag it anywhere on the hole to see every number move. Each candidate aim is convolved with that club's dispersion and every sampled landing point scored against the mapped greens, bunkers and water.</div>
+    <div class="chain-caption" style="margin-top:4px">A hole is a sequence, not one decision. <b class="ln-O">Line O</b> is the optimiser's path through it; <b class="ln-A">A</b> and <b class="ln-B">B</b> are yours. Pick a shot number and a line, then drag anywhere on the hole — <b>A-2</b> is the second shot played from wherever <b>A-1</b> finished.</div>
     <div class="strat-hole-row">
       <select class="strat-select" style="max-width:200px" onchange="stratSetCourse(this.value)">${cOpts}</select>
       <select class="strat-select" style="max-width:160px" onchange="stratSetHole(this.value)">${hOpts}</select>
-      <span class="strat-mode">
-        <button type="button" class="strat-mode-btn${S.mode==='tee'?' active':''}" onclick="stratSetShotMode('tee')">Tee shot</button>
-        <button type="button" class="strat-mode-btn${S.mode==='approach'?' active':''}" onclick="stratSetShotMode('approach')">Approach</button>
-        <button type="button" class="strat-mode-btn${S.mode==='best'?' active':''}" onclick="stratSetShotMode('best')">Best play</button>
-      </span>
-      <select class="strat-select" data-strat="riskPosture" style="max-width:150px" title="Risk posture — the same setting as Strategy Preferences" onchange="stratSetPosture(this.value)">
+      <select class="strat-select" data-strat="riskPosture" style="max-width:140px" title="Risk posture — the same setting as Strategy Preferences" onchange="stratSetPosture(this.value)">
         ${SHOT_POSTURES.map(p=>`<option value="${p}"${p===stratPosture()?' selected':''}>${SHOT_POSTURE_LABEL[p]}</option>`).join('')}
       </select>
     </div>`;
@@ -620,117 +633,92 @@ function buildHoleOverlay(){
     wrap.innerHTML=head+`<div class="lvl-soon-note">Hole ${hole.num||hi+1} needs a tee, a pin and a scale before it can be optimised. Holes imported from OpenStreetMap get all three automatically; a hand-traced hole needs the <b>calibrate</b> tool (or just a tee, a pin and the hole yardage).</div>`;
     return;
   }
-  stratEnsureAims(hole);
+  const chain=stratOChain(hole);
+  const maxShot=Math.max(1, Math.min(SHOT_MAX, chain.length));
+  const n=Math.min(S.shotNum, maxShot); S.shotNum=n;
   const pct=v=>Math.round(v*100);
   const mixOrder=['fairway','green','rough','sand','trees','water','oob'];
   const mixHTML=m=>mixOrder.filter(k=>m[k]>0.004).map(k=>
     `<span class="mix-chip mix-${k}">${CF_LIE_LABEL[k]} ${pct(m[k])}%</span>`).join('');
-  const holeYd0=cfDistYd(hole,hole.tee,hole.pin);
 
-  /* ---- BEST PLAY: one ball, one answer ---- */
-  if(S.mode==='best'){
-    const tourCtx=tournamentCtx(course, hi, cfHcp());
-    const ball=S.ball, res=optimiseShot(hole, ball, {posture:stratPosture(), tourCtx});
-    const ballMark=`<circle cx="${ball.x}" cy="${ball.y}" r="13" fill="#fff" stroke="#111" stroke-width="3"/>`;
-    let body, ov=ballMark;
-    if(!res){ body=`<div class="lvl-soon-note">Could not solve from here.</div>`; }
-    else if(res.blocked){
-      const why={ green:'The ball is on the green — that is a putt.',
-        chip:`Only ${Math.round(res.toPin)} yd to the pin — that is a chip, covered by the short-game model on the Play tab.`,
-        penalty:'The ball is in a penalty area. Take relief first, then drop it on the fairway or in the rough.',
-        range:'Nothing in the bag can advance it from here.' }[res.blocked];
-      body=`<div class="sh-aim" style="margin-top:6px">${why}</div>`;
-    } else {
-      const b=res.best;
-      const side=Math.abs(b.latYd)<1?'straight at the flag line':`${Math.abs(b.latYd)} yd ${b.latYd<0?'left':'right'} of the flag line`;
-      const gain=res.naive?(res.naive.mean-b.mean):0;
-      ov=stratShotSVG(hole,{...b, from:ball, sig:{sigmaYd:b.effYd,latMult:res.mult.lat,depthMult:res.mult.depth}},0)+ballMark;
-      const alts=res.ranked.slice(1,5).map(r=>`<div class="sh-alt"><span>${r.shot.label} · ${Math.round(r.geoYd)} yd · ${Math.abs(r.latYd)<1?'centre':Math.abs(r.latYd)+(r.latYd<0?'L':'R')}</span><b>${r.mean.toFixed(2)}</b></div>`).join('');
-      body=`<div class="sh-cat">${b.category}</div>
-        <div class="sh-club">${b.shot.label}<span class="sh-loft">${b.shot.detail||''}</span></div>
-        <div class="sh-aim">Play it <b>${Math.round(b.geoYd)} yd</b>, ${side}</div>
-        <div class="sh-row"><span>Expected for the hole</span><b>${b.mean.toFixed(2)}</b></div>
-        <div class="sh-row"><span>Leaves you about</span><b>${Math.round(b.avgToPin)} yd</b></div>
-        <div class="sh-row"><span>Hits the green</span><b>${pct(b.greenRate)}%</b></div>
-        <div class="sh-row"><span>Penalty risk</span><b class="${b.penaltyRate>0.08?'sh-warn':''}">${pct(b.penaltyRate)}%</b></div>
-        ${b.recoveryRate>0.01?`<div class="sh-row"><span>Back in the trees</span><b class="${b.recoveryRate>0.1?'sh-warn':''}">${pct(b.recoveryRate)}%</b></div>`:''}
-        ${res.naive&&gain>0.004?`<div class="sh-gain">Saves <b>${gain.toFixed(2)}</b> strokes vs taking everything you have at the flag (${res.naive.mean.toFixed(2)})</div>`:''}
-        <div class="sh-mix">${mixHTML(b.lieMix)}</div>
-        ${stratPostureTable(res)}
-        ${stratTourInputs()}
-        <div class="sh-alt-h">Next best options — ${SHOT_POSTURE_LABEL[res.posture]}</div>${alts}`;
+  /* score every line's shot n */
+  const shots={};
+  SHOT_LINES.forEach(l=>{
+    const from=stratBallFor(hole,l,n), aim=stratLineAim(hole,l,n);
+    shots[l]= from ? stratScoreShot(hole, from, aim) : null;
+  });
+  shots.__ball = (shots[S.active]&&shots[S.active].from) || stratBallFor(hole,S.active,n);
+
+  const holeYd=cfDistYd(hole,hole.tee,hole.pin);
+  const shotBtns=Array.from({length:maxShot},(_,i)=>i+1).map(i=>
+    `<button type="button" class="strat-pick${i===n?' active':''}" onclick="stratSetShotNum(${i})">Shot ${i}</button>`).join('');
+  const lineBtns=SHOT_LINES.map(l=>
+    `<button type="button" class="strat-pick${l===S.active?' active':''}" style="--pick:${SHOT_COL[l]}" onclick="stratSetLine('${l}')">${l}${l==='O'?' (best)':''}</button>`).join('');
+
+  const col=(l)=>{
+    const r=shots[l];
+    const hd=`<div class="sh-col-h ln-${l}">${l}-${n}${l==='O'?' · best':''}</div>`;
+    if(!r) return `<div class="sh-col">${hd}<div class="sh-note">Not reached on this line.</div></div>`;
+    if(r.blocked){
+      const txt = r.blocked==='putt' ? `On the green — <b>${Math.round((r.toPinFrom||0)*3)} ft</b> putt`
+        : r.blocked==='penalty' ? 'In a penalty area — take relief'
+        : r.blocked==='tap' ? 'Tap-in range' : 'No shot from here';
+      return `<div class="sh-col${l===S.active?' on':''}">${hd}<div class="sh-aim" style="margin:4px 0 0">${txt}</div></div>`;
     }
-    wrap.innerHTML=head+`
-      <div class="strat-hole-grid">
-        <div class="strat-hole-map">${renderHoleSVG(hole,{overlay:`<g id="strat-overlay">${ov}</g>`})}</div>
-        <div class="strat-hole-panel">
-          <div class="sh-head">Hole ${hole.num||hi+1} · par ${hole.par||4} · ${Math.round(holeYd0)} yd${res&&res.lie?` · ball in the ${CF_LIE_LABEL[res.lie].toLowerCase()}`:''}${res&&res.toPin!=null?` · ${Math.round(res.toPin)} yd to pin`:''}</div>
-          ${body}
-          <div class="sh-note">Drag the ball anywhere on the hole · posture <b>${stratPosture()}</b> · handicap ${cfHcp()}</div>
-        </div>
-      </div>`;
-    stratDragInit(wrap); return;
-  }
-
-  const results=[stratScoreAim(hole,S.aims[0]), stratScoreAim(hole,S.aims[1])];
-  const holeYd=holeYd0;
-  const ballLie=(S.mode==='approach'&&S.ball)?cfLieAt(hole,S.ball):null;
-  /* approach played from an impossible spot — say so instead of a broken panel */
-  if(S.mode==='approach' && (ballLie==='green'||cfIsPenalty(ballLie))){
-    const why = ballLie==='green' ? 'The ball is on the green — that is a putt, not an approach.'
-                                  : 'The ball is in a penalty area. Take relief first, then drop it on the fairway or rough.';
-    wrap.innerHTML=head+`<div class="strat-hole-grid">
-        <div class="strat-hole-map">${renderHoleSVG(hole,{overlay:`<g id="strat-overlay">${stratOverlay(hole,[null,null])}</g>`})}</div>
-        <div class="strat-hole-panel"><div class="sh-head">Approach</div>
-          <div class="sh-aim" style="margin-top:6px">${why}</div>
-          <div class="sh-note">Pick <b>Ball</b> below and drag it somewhere playable.</div>
-          <div class="strat-picks" style="margin-top:9px">${pickBtn('ball','Ball')}</div></div>
-      </div>`;
-    stratDragInit(wrap); return;
-  }
-  const col=(r,i)=>{
-    if(!r) return `<div class="sh-col"><div class="sh-col-h" style="color:${SHOT_COL[i]}">Shot ${i+1}</div>
-      <div class="sh-note">Drag it onto the hole.</div></div>`;
-    return `<div class="sh-col${S.active===i?' on':''}">
-      <div class="sh-col-h" style="color:${SHOT_COL[i]}">Shot ${i+1}</div>
+    return `<div class="sh-col${l===S.active?' on':''}">
+      ${hd}
       <div class="sh-club">${r.shot.label}<span class="sh-loft">${r.shot.detail||''}</span></div>
       <div class="sh-row"><span>Shot length</span><b>${Math.round(r.geoYd)} yd</b></div>
       ${r.lieCost?`<div class="sh-row"><span>Plays</span><b>${Math.round(r.playsYd)} yd</b></div>`:''}
-      ${S.mode==='approach'?`<div class="sh-row"><span>From tee</span><b>${r.fromTeeYd!=null?Math.round(r.fromTeeYd)+' yd':'—'}</b></div>`:''}
+      <div class="sh-row"><span>From tee</span><b>${r.fromTeeYd!=null?Math.round(r.fromTeeYd)+' yd':'—'}</b></div>
       <div class="sh-row"><span>To pin</span><b>${r.toPinYd!=null?Math.round(r.toPinYd)+' yd':'—'}</b></div>
       <div class="sh-row"><span>To middle</span><b>${r.toMidYd!=null?Math.round(r.toMidYd)+' yd':'—'}</b></div>
       <div class="sh-row"><span>Expected</span><b>${r.mean.toFixed(2)}</b></div>
-      <div class="sh-row"><span>Worst quarter</span><b>${r.worst25.toFixed(2)}</b></div>
-      <div class="sh-row"><span>Penalty risk</span><b class="${r.penaltyRate>0.08?'sh-warn':''}">${pct(r.penaltyRate)}%</b></div>
+      <div class="sh-row"><span>Penalty</span><b class="${r.penaltyRate>0.08?'sh-warn':''}">${pct(r.penaltyRate)}%</b></div>
       <div class="sh-mix">${mixHTML(r.lieMix)}</div>
     </div>`;
   };
+  /* verdict across the three lines that actually produced a shot */
+  const live=SHOT_LINES.filter(l=>shots[l]&&!shots[l].blocked);
   let verdict='';
-  if(results[0]&&results[1]){
-    const d=results[1].mean-results[0].mean;
-    verdict = Math.abs(d)<0.005
-      ? `<div class="sh-gain">The two shots are level on expected strokes.</div>`
-      : `<div class="sh-gain"><b style="color:${SHOT_COL[d>0?0:1]}">Shot ${d>0?1:2}</b> is better by <b>${Math.abs(d).toFixed(2)}</b> strokes.</div>`;
+  if(live.length>1){
+    /* Compare every line to the BEST, not to the runner-up — with two lines tied at the top
+       a runner-up comparison reports "level" while a third sits 0.7 strokes adrift. */
+    const sorted=live.slice().sort((a,b)=>shots[a].mean-shots[b].mean);
+    const bestMean=shots[sorted[0]].mean;
+    const tied=sorted.filter(l=>shots[l].mean-bestMean<0.005);
+    const worse=sorted.filter(l=>shots[l].mean-bestMean>=0.005);
+    const tag=l=>`<b class="ln-${l}">${l}-${n}</b>`;
+    verdict = worse.length===0
+      ? `<div class="sh-gain">These lines are level on expected strokes.</div>`
+      : `<div class="sh-gain">${tied.map(tag).join(' and ')} ${tied.length>1?'are':'is'} best${
+          worse.map(l=>` · ${tag(l)} costs <b>+${(shots[l].mean-bestMean).toFixed(2)}</b>`).join('')}</div>`;
   }
-  const picks=`<div class="strat-picks">${pickBtn(0,'Shot 1',SHOT_COL[0])}${pickBtn(1,'Shot 2',SHOT_COL[1])}${S.mode==='approach'?pickBtn('ball','Ball'):''}
-    <button type="button" class="strat-mode-btn" onclick="stratResetAim()">↺ reset</button></div>`;
+  const ballLie=shots.__ball?cfLieAt(hole,shots.__ball):null;
+  const oStep=chain[n-1];
+  const oRes=(oStep&&oStep.res)?oStep.res:null;
   wrap.innerHTML=head+`
     <div class="strat-hole-grid">
-      <div class="strat-hole-map">${renderHoleSVG(hole,{overlay:`<g id="strat-overlay">${stratOverlay(hole,results)}</g>`})}</div>
+      <div class="strat-hole-map">${renderHoleSVG(hole,{overlay:`<g id="strat-overlay">${stratOverlay(hole,shots,n)}</g>`})}</div>
       <div class="strat-hole-panel">
         <div class="sh-head">Hole ${hole.num||hi+1} · par ${hole.par||4} · ${Math.round(holeYd)} yd${ballLie?` · ball in the ${CF_LIE_LABEL[ballLie].toLowerCase()}`:''}</div>
-        ${picks}
-        <div class="sh-two">${col(results[0],0)}${col(results[1],1)}</div>
+        <div class="strat-picks">${shotBtns}</div>
+        <div class="strat-picks">${lineBtns}<button type="button" class="strat-mode-btn" onclick="stratResetAim()">↺ reset</button></div>
+        ${oRes&&oRes.best.category?`<div class="sh-cat">${oRes.best.category}</div>`:''}
+        <div class="sh-two">${col('A')}${col('B')}${col('O')}</div>
         ${verdict}
-        <div class="sh-note">Drag on the hole to move the highlighted shot · posture <b>${stratPosture()}</b> · handicap ${cfHcp()}</div>
+        ${stratPostureTable(oRes)}
+        ${stratTourInputs()}
+        <div class="sh-note">Dragging moves <b>${S.active}-${n}</b> · posture <b>${stratPosture()}</b> · handicap ${cfHcp()}</div>
       </div>
     </div>`;
   stratDragInit(wrap);
 }
 
-/* Drag the highlighted shot (or the ball) straight on the hole and watch every number move.
-   The listeners live on the WRAPPER, which survives the innerHTML rebuild each move
-   triggers — so a drag is never interrupted by its own re-render. */
+/* Drag the active line's shot straight on the hole. Listeners live on the WRAPPER, which
+   survives the innerHTML rebuild each move triggers, so a drag is never interrupted by its
+   own re-render. Moving shot n discards that line's later shots — they stemmed from a
+   position that no longer exists. */
 function stratDragInit(wrap){
   if(!wrap||wrap._stratDrag) return; wrap._stratDrag=true;
   let dragging=false, last=0;
@@ -742,14 +730,16 @@ function stratDragInit(wrap){
   };
   const apply=(e,force)=>{
     const p=ptOf(e); if(!p) return;
-    const now=Date.now(); if(!force && now-last<50) return; last=now;      // ~20fps is plenty
+    const now=Date.now(); if(!force && now-last<50) return; last=now;
     const S=window.stratShot;
-    if(S.mode==='best'||S.active==='ball'){ S.ball=p; S.aims=[null,null]; } // moving the ball re-seeds the aims
-    else S.aims[S.active]=p;
+    if(S.active==='O') return;                       // the optimiser's line is not draggable
+    const arr=window.stratShot.lines[S.active]||(window.stratShot.lines[S.active]=[]);
+    arr[S.shotNum-1]=p; arr.length=S.shotNum;        // later shots stemmed from the old spot
     buildHoleOverlay();
   };
   wrap.addEventListener('pointerdown',e=>{
     if(!e.target.closest||!e.target.closest('.strat-hole-map')) return;
+    if(window.stratShot.active==='O') return;
     dragging=true; try{ wrap.setPointerCapture(e.pointerId); }catch(_){}
     apply(e,true); e.preventDefault();
   });
@@ -768,7 +758,8 @@ Object.assign(window, {
   SHOT_LAT_MAX, SHOT_LAT_STEP, SHOT_RECOVERY_MAX_YD, SHOT_POSTURES, SHOT_POSTURE_LABEL,
   stratSetPosture, SHOT_HOLE_SD, SHOT_POS_SD, SHOT_TARGET_MIN_GAIN, normCdf, tournamentCtx, shotZ,
   stratTourInputs, stratSetTour,
-  SHOT_COL, stratSetShotMode, stratSetActive, stratPosture, stratCurrent, stratOptimal,
-  stratGreenMid, stratClearAims, stratResetAim, stratScoreAim, stratEnsureAims,
+  SHOT_COL, SHOT_LINES, SHOT_MAX, stratPosture, stratCurrent, stratGreenMid,
+  stratClearLines, stratResetAim, stratSetShotNum, stratSetLine,
+  stratScoreShot, stratOChain, stratBallFor, stratLineAim,
   stratShotSVG, stratOverlay, stratDragInit
 });

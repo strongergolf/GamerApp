@@ -878,10 +878,15 @@ body.theme-dark .sh-strat-row .ss-pen.sh-warn{color:var(--c-wood)}
 .sh-alt{display:flex;justify-content:space-between;gap:8px;padding:2px 0}
 .sh-alt span{font-family:ui-monospace,monospace;font-size:.56rem;color:var(--ink2)}
 .sh-alt b{font-family:ui-monospace,monospace;font-size:.66rem;color:var(--muted)}
-.sh-two{display:flex;gap:8px;align-items:flex-start}
-.sh-col{flex:1;min-width:0;border:1px solid var(--border);border-radius:8px;padding:7px 8px;background:var(--surface)}
+.sh-two{display:flex;gap:6px;align-items:flex-start;flex-wrap:wrap}
+.sh-col{flex:1 1 120px;min-width:110px;border:1px solid var(--border);border-radius:8px;padding:7px 8px;background:var(--surface)}
 .sh-col.on{border-color:var(--border2);background:var(--surface2)}
 .sh-col-h{font-family:ui-monospace,monospace;font-size:.54rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em}
+/* Line colours: the bright SHOT_COL values are tuned for the dark green hole map and fail
+   contrast on a light panel, so panel text uses darkened twins and only flips bright in the
+   dark theme. */
+.ln-A{color:#8a5e00} .ln-B{color:#0a6294} .ln-O{color:#00693a}
+body.theme-dark .ln-A{color:#ffd24a} body.theme-dark .ln-B{color:#5ad1ff} body.theme-dark .ln-O{color:#79e08d}
 .sh-col .sh-club{font-size:1.1rem;margin-top:1px}
 .sh-col .sh-loft{font-size:.58rem;margin-left:5px}
 .sh-col .sh-row{padding:2px 0}
