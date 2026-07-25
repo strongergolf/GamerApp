@@ -543,4 +543,4 @@ function buildGearEffectPanel(c){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { buildEnvPanels, buildGapping, buildGearEffectPanel, buildGearFaceSVG, buildLadder, buildMissBlock, buildSideSVG, buildTopSVG, envPanelHTML, envSyncSummary, initApproachAimDrag, missNote, missSelect, onEnvInput, onEnvToggle, renderConditions, setMiss, statCell, toggleDetail, updateCondSummary });
+Object.assign(window, { DISP_DEPTH_YD, DISP_SLANT, buildEnvPanels, buildGapping, buildGearEffectPanel, buildGearFaceSVG, buildLadder, buildMissBlock, buildSideSVG, buildTopSVG, envPanelHTML, envSyncSummary, initApproachAimDrag, missNote, missSelect, onEnvInput, onEnvToggle, renderConditions, setMiss, statCell, toggleDetail, updateCondSummary });

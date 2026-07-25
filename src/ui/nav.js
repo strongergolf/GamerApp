@@ -79,6 +79,7 @@ function refreshAll(){
   buildDplaneLab();
   buildDpShots();
   buildCourseStrategy();
+  buildHoleOverlay();
   buildCourses();
   buildRoundTracker();
   buildLongTerm();

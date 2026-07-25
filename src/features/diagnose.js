@@ -836,8 +836,8 @@ function buildCourseStrategy(){
     <p class="intro-note" style="margin-top:18px">Your bag plays <strong>${predominant}</strong>. These per-club ball-flight tendencies (set in the D-Plane Lab) are the foundation for hole-by-hole aim points — favouring the side your stock shape works <em>away</em> from trouble.</p>
     <div class="section-label">Predominant Ball Flight by Club</div>
     <div class="cs-grid">${rows}</div>
-    <div class="section-label">Hole Overlays</div>
-    <div class="lvl-soon-note">Coming: each hole's layout with your dispersion cone and stock shape overlaid, plus the expected-value aim point that keeps your predominant curve working away from hazards. Feeds from the per-club tendencies above and your Stock Shots dispersion data.</div>`;
+    <div id="hole-overlay-wrap"></div>`;
+  if(typeof buildHoleOverlay==='function') buildHoleOverlay();
 }
 
 
