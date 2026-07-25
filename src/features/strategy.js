@@ -89,22 +89,24 @@ function aimTail(rows, wsum, frac, fromWorst){
 /* Score one aim point over its whole landing distribution. */
 function aimScore(hole, from, aim, hcp, posture, opt){
   const s=aimSamples(hole,from,aim,opt); if(!s.length) return null;
-  let wsum=0, mean=0, pen=0; const rows=[], lieMix={};
+  let wsum=0, mean=0, pen=0, dsum=0; const rows=[], lieMix={};
   for(let i=0;i<s.length;i++){
     const e=cfExpectedStrokes(hole,s[i].pt,hcp); if(e==null) continue;
     const lie=cfLieAt(hole,s[i].pt), w=s[i].w;
     mean+=e*w; wsum+=w; if(cfIsPenalty(lie)) pen+=w;
+    const dp=cfDistToPinYd(hole,s[i].pt); if(dp!=null) dsum+=dp*w;   // where it leaves you
     lieMix[lie]=(lieMix[lie]||0)+w;
     rows.push({e,w});
   }
   if(!wsum) return null;
   mean/=wsum;
+  const avgToPin=dsum/wsum;
   rows.sort((a,b)=>a.e-b.e);
   const best25=aimTail(rows,wsum,0.25,false)??mean, worst25=aimTail(rows,wsum,0.25,true)??mean;
   Object.keys(lieMix).forEach(k=>{ lieMix[k]=lieMix[k]/wsum; });
   const avoid=aimAvoidance(lieMix);
-  return { aim, mean, best25, worst25, penaltyRate:pen/wsum, lieMix, avoid,
-           recoveryRate:lieMix.trees||0,
+  return { aim, mean, best25, worst25, penaltyRate:pen/wsum, lieMix, avoid, avgToPin,
+           recoveryRate:lieMix.trees||0, greenRate:lieMix.green||0,
            score:aimObjective(mean,best25,worst25,posture)+AIM_AVOID_EPS*avoid };
 }
 
@@ -223,6 +225,75 @@ function optimiseApproach(hole, from, opts){
   return { best, atFlag, ranked:results.slice(0,8), lie, toPin, cost, mult, posture, hcp };
 }
 
+/* ---------- THE UNIFIED RECOMMENDATION — "what is the play from here?" ----------
+   One optimiser for any ball, any lie, anywhere on the hole. A tee shot picking a line, an
+   approach picking a spot, a lay-up and a punch-out are not four different problems — they
+   are one search over "where do I try to put it next", scored the same way: the expected
+   strokes to finish the HOLE from wherever the ball comes to rest.
+
+   Candidates are swept in the shot's own frame — how far up the hole (along) crossed with
+   how far offline (lateral) — so lay-ups, going for it and sideways recoveries all fall out
+   of the same grid rather than being special-cased.
+
+   The one genuine constraint: from the TREES you cannot realistically take on a full shot,
+   because the model has no line-of-sight test. Trees are modelled as a recovery, so the
+   options are capped at a punch-out's range — which is the same assumption the expected-
+   strokes model already makes for that lie, keeping the two consistent. */
+const SHOT_LAT_MAX = 40, SHOT_LAT_STEP = 8, SHOT_ALONG_STEPS = 10;
+const SHOT_RECOVERY_MAX_YD = 70;
+
+function optimiseShot(hole, from, opts){
+  opts=opts||{};
+  const ypu=cfYardsPerUnit(hole); if(ypu==null||!from||!hole.pin) return null;
+  const lie=cfLieAt(hole,from);
+  const toPin=cfDistToPinYd(hole,from);
+  if(cfIsPenalty(lie)) return {blocked:'penalty', lie, toPin};
+  if(lie==='green')    return {blocked:'green', lie, toPin};
+  if(toPin==null)      return null;
+  if(toPin<20)         return {blocked:'chip', lie, toPin};
+  const hcp=cfHcp(opts.hcp), posture=opts.posture||'balanced';
+  const mult=APPROACH_LIE[lie]||APPROACH_LIE.fairway;
+  const cost=approachLieCostYd(lie);
+  const clubs=aimClubs(); if(!clubs.length) return null;
+  const longest=Math.max.apply(null, clubs.map(c=>c.total));
+  const recovery=cfIsRecovery(lie);
+  const maxGeo = recovery ? Math.min(SHOT_RECOVERY_MAX_YD, toPin+10)
+                          : Math.min(Math.max(30,longest-cost)+10, toPin+25);
+  const minGeo = Math.min(recovery?15:25, maxGeo);
+  const dx=hole.pin.x-from.x, dy=hole.pin.y-from.y, L=Math.hypot(dx,dy)||1;
+  const vx=dx/L, vy=dy/L, ux=-vy, uy=vx;
+  const results=[];
+  for(let i=0;i<=SHOT_ALONG_STEPS;i++){
+    const along=minGeo+(maxGeo-minGeo)*i/SHOT_ALONG_STEPS;
+    for(let lat=-SHOT_LAT_MAX; lat<=SHOT_LAT_MAX; lat+=SHOT_LAT_STEP){
+      const aim={ x:from.x+(vx*along+ux*lat)/ypu, y:from.y+(vy*along+uy*lat)/ypu };
+      const geo=Math.hypot(aim.x-from.x,aim.y-from.y)*ypu;
+      const eff=geo+cost;
+      if(eff>longest+10) continue;
+      const r=aimScore(hole,from,aim,hcp,posture,{sigmaYd:eff,latMult:mult.lat,depthMult:mult.depth});
+      if(!r) continue;
+      r.geoYd=geo; r.effYd=eff; r.latYd=lat; r.alongYd=along;
+      r.shot=approachShotName(eff);
+      results.push(r);
+    }
+  }
+  if(!results.length) return {blocked:'range', lie, toPin};
+  results.sort((a,b)=>a.score-b.score);
+  const best=results[0];
+  /* Name the play the way a golfer would, from what it actually does */
+  best.category = recovery ? 'Recovery — get it back in play'
+    : (best.greenRate>0.35 || best.avgToPin<18) ? 'Go for the green'
+    : 'Lay up / position';
+  /* The naive alternative: everything you have, straight at the flag. Capped by the SAME
+     range limit the optimiser is held to, or the comparison is against a shot it was never
+     allowed to pick (from the trees that made the punch-out look worse than a fantasy). */
+  const naiveAlong=Math.min(Math.max(30,longest-cost), toPin, maxGeo);
+  const naiveAim={ x:from.x+vx*(naiveAlong/ypu), y:from.y+vy*(naiveAlong/ypu) };
+  const naive=aimScore(hole,from,naiveAim,hcp,posture,{sigmaYd:naiveAlong+cost,latMult:mult.lat,depthMult:mult.depth});
+  if(naive){ naive.geoYd=naiveAlong; naive.shot=approachShotName(naiveAlong+cost); }
+  return { best, naive, ranked:results.slice(0,5), lie, toPin, cost, mult, posture, hcp, recovery };
+}
+
 /* ---------- overlay + panel: TWO shots, side by side ----------
    Rather than measuring one aim against "the recommendation", place two and compare them
    directly. Shot 1 starts on the optimiser's answer and Shot 2 straight at the flag, then
@@ -297,6 +368,7 @@ function stratScoreAim(hole, aim){
 /* Sensible starting pair: the optimiser's answer, and straight at the flag. */
 function stratEnsureAims(hole){
   const S=window.stratShot;
+  if(S.mode==='best'){ if(!S.ball) S.ball={...hole.tee}; return; }   // start on the tee shot
   if(S.mode==='approach'){
     if(!S.ball){ const t=stratOptimal(hole); S.ball = t?{x:Math.round(t.best.aim.x),y:Math.round(t.best.aim.y)}:{...hole.tee}; }
     if(!S.aims[0]){ const a=optimiseApproach(hole,S.ball,{posture:stratPosture()});
@@ -368,6 +440,7 @@ function buildHoleOverlay(){
       <span class="strat-mode">
         <button type="button" class="strat-mode-btn${S.mode==='tee'?' active':''}" onclick="stratSetShotMode('tee')">Tee shot</button>
         <button type="button" class="strat-mode-btn${S.mode==='approach'?' active':''}" onclick="stratSetShotMode('approach')">Approach</button>
+        <button type="button" class="strat-mode-btn${S.mode==='best'?' active':''}" onclick="stratSetShotMode('best')">Best play</button>
       </span>
     </div>`;
   if(!hole){ wrap.innerHTML=head+`<div class="lvl-soon-note">This course has no holes yet.</div>`; return; }
@@ -380,8 +453,52 @@ function buildHoleOverlay(){
   const mixOrder=['fairway','green','rough','sand','trees','water','oob'];
   const mixHTML=m=>mixOrder.filter(k=>m[k]>0.004).map(k=>
     `<span class="mix-chip mix-${k}">${CF_LIE_LABEL[k]} ${pct(m[k])}%</span>`).join('');
+  const holeYd0=cfDistYd(hole,hole.tee,hole.pin);
+
+  /* ---- BEST PLAY: one ball, one answer ---- */
+  if(S.mode==='best'){
+    const ball=S.ball, res=optimiseShot(hole, ball, {posture:stratPosture()});
+    const ballMark=`<circle cx="${ball.x}" cy="${ball.y}" r="13" fill="#fff" stroke="#111" stroke-width="3"/>`;
+    let body, ov=ballMark;
+    if(!res){ body=`<div class="lvl-soon-note">Could not solve from here.</div>`; }
+    else if(res.blocked){
+      const why={ green:'The ball is on the green — that is a putt.',
+        chip:`Only ${Math.round(res.toPin)} yd to the pin — that is a chip, covered by the short-game model on the Play tab.`,
+        penalty:'The ball is in a penalty area. Take relief first, then drop it on the fairway or in the rough.',
+        range:'Nothing in the bag can advance it from here.' }[res.blocked];
+      body=`<div class="sh-aim" style="margin-top:6px">${why}</div>`;
+    } else {
+      const b=res.best;
+      const side=Math.abs(b.latYd)<1?'straight at the flag line':`${Math.abs(b.latYd)} yd ${b.latYd<0?'left':'right'} of the flag line`;
+      const gain=res.naive?(res.naive.mean-b.mean):0;
+      ov=stratShotSVG(hole,{...b, from:ball, sig:{sigmaYd:b.effYd,latMult:res.mult.lat,depthMult:res.mult.depth}},0)+ballMark;
+      const alts=res.ranked.slice(1,5).map(r=>`<div class="sh-alt"><span>${r.shot.label} · ${Math.round(r.geoYd)} yd · ${Math.abs(r.latYd)<1?'centre':Math.abs(r.latYd)+(r.latYd<0?'L':'R')}</span><b>${r.mean.toFixed(2)}</b></div>`).join('');
+      body=`<div class="sh-cat">${b.category}</div>
+        <div class="sh-club">${b.shot.label}<span class="sh-loft">${b.shot.detail||''}</span></div>
+        <div class="sh-aim">Play it <b>${Math.round(b.geoYd)} yd</b>, ${side}</div>
+        <div class="sh-row"><span>Expected for the hole</span><b>${b.mean.toFixed(2)}</b></div>
+        <div class="sh-row"><span>Leaves you about</span><b>${Math.round(b.avgToPin)} yd</b></div>
+        <div class="sh-row"><span>Hits the green</span><b>${pct(b.greenRate)}%</b></div>
+        <div class="sh-row"><span>Penalty risk</span><b class="${b.penaltyRate>0.08?'sh-warn':''}">${pct(b.penaltyRate)}%</b></div>
+        ${b.recoveryRate>0.01?`<div class="sh-row"><span>Back in the trees</span><b class="${b.recoveryRate>0.1?'sh-warn':''}">${pct(b.recoveryRate)}%</b></div>`:''}
+        ${res.naive&&gain>0.004?`<div class="sh-gain">Saves <b>${gain.toFixed(2)}</b> strokes vs taking everything you have at the flag (${res.naive.mean.toFixed(2)})</div>`:''}
+        <div class="sh-mix">${mixHTML(b.lieMix)}</div>
+        <div class="sh-alt-h">Next best options</div>${alts}`;
+    }
+    wrap.innerHTML=head+`
+      <div class="strat-hole-grid">
+        <div class="strat-hole-map">${renderHoleSVG(hole,{overlay:`<g id="strat-overlay">${ov}</g>`})}</div>
+        <div class="strat-hole-panel">
+          <div class="sh-head">Hole ${hole.num||hi+1} · par ${hole.par||4} · ${Math.round(holeYd0)} yd${res&&res.lie?` · ball in the ${CF_LIE_LABEL[res.lie].toLowerCase()}`:''}${res&&res.toPin!=null?` · ${Math.round(res.toPin)} yd to pin`:''}</div>
+          ${body}
+          <div class="sh-note">Drag the ball anywhere on the hole · posture <b>${stratPosture()}</b> · handicap ${cfHcp()}</div>
+        </div>
+      </div>`;
+    stratDragInit(wrap); return;
+  }
+
   const results=[stratScoreAim(hole,S.aims[0]), stratScoreAim(hole,S.aims[1])];
-  const holeYd=cfDistYd(hole,hole.tee,hole.pin);
+  const holeYd=holeYd0;
   const ballLie=(S.mode==='approach'&&S.ball)?cfLieAt(hole,S.ball):null;
   /* approach played from an impossible spot — say so instead of a broken panel */
   if(S.mode==='approach' && (ballLie==='green'||cfIsPenalty(ballLie))){
@@ -452,7 +569,7 @@ function stratDragInit(wrap){
     const p=ptOf(e); if(!p) return;
     const now=Date.now(); if(!force && now-last<50) return; last=now;      // ~20fps is plenty
     const S=window.stratShot;
-    if(S.active==='ball'){ S.ball=p; S.aims=[null,null]; }                 // moving the ball re-seeds the aims
+    if(S.mode==='best'||S.active==='ball'){ S.ball=p; S.aims=[null,null]; } // moving the ball re-seeds the aims
     else S.aims[S.active]=p;
     buildHoleOverlay();
   };
@@ -472,7 +589,8 @@ Object.assign(window, {
   aimSigmaLat, aimSigmaDist, aimSamples, aimObjective, aimTail, aimScore, aimClubs,
   optimiseAim, stratSetCourse, stratSetHole, buildHoleOverlay,
   APPROACH_LIE, approachSituation, approachLieCostYd, approachShotName, optimiseApproach,
-  AIM_AVOID, AIM_AVOID_EPS, aimAvoidance,
+  AIM_AVOID, AIM_AVOID_EPS, aimAvoidance, optimiseShot,
+  SHOT_LAT_MAX, SHOT_LAT_STEP, SHOT_RECOVERY_MAX_YD,
   SHOT_COL, stratSetShotMode, stratSetActive, stratPosture, stratCurrent, stratOptimal,
   stratGreenMid, stratClearAims, stratResetAim, stratScoreAim, stratEnsureAims,
   stratShotSVG, stratOverlay, stratDragInit

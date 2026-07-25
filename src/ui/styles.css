@@ -853,6 +853,12 @@ table.chip-matrix tr:hover td{background:var(--surface2)}
 .strat-pick{font-family:ui-monospace,monospace;font-size:.54rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);background:var(--bg2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;cursor:pointer}
 .strat-pick.active{background:var(--panel);color:var(--pick,var(--gold2));border-color:var(--panel)}
 .strat-pick:hover:not(.active){color:var(--ink);border-color:var(--border2)}
+/* best-play recommendation */
+.sh-cat{font-family:ui-monospace,monospace;font-size:.56rem;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--green);background:var(--green-pale);border:1px solid rgba(0,133,63,.28);border-radius:5px;padding:3px 8px;display:inline-block;margin:6px 0 2px}
+.sh-alt-h{font-family:ui-monospace,monospace;font-size:.5rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:10px 0 3px;padding-top:7px;border-top:1px dashed var(--border)}
+.sh-alt{display:flex;justify-content:space-between;gap:8px;padding:2px 0}
+.sh-alt span{font-family:ui-monospace,monospace;font-size:.56rem;color:var(--ink2)}
+.sh-alt b{font-family:ui-monospace,monospace;font-size:.66rem;color:var(--muted)}
 .sh-two{display:flex;gap:8px;align-items:flex-start}
 .sh-col{flex:1;min-width:0;border:1px solid var(--border);border-radius:8px;padding:7px 8px;background:var(--surface)}
 .sh-col.on{border-color:var(--border2);background:var(--surface2)}
