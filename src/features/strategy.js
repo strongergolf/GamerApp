@@ -9,8 +9,8 @@
 // Known simplifications, all flagged where they bite:
 //   - landing point uses the club's TOTAL distance (dispersion is sized off carry), so
 //     carry-vs-roll interaction with a hazard lip is not modelled;
-//   - distance dispersion is club-independent (DISP_DEPTH_YD), which is the app's
-//     current displayed model and the weakest input here — first thing to calibrate;
+//   - dispersion is keyed on the SHOT LENGTH (origin→aim) rather than the club's own
+//     carry; the two differ by the rollout, which barely moves either sigma;
 //   - penalty relief is cfExpectedStrokes' one-stroke-plus-recovery approximation.
 
 /* Deterministic 7-node grid per axis. Deterministic, not Monte-Carlo, so the same hole
@@ -22,9 +22,10 @@ const AIM_CI90 = 1.645;                       // getDispersion() is a 90% CI hal
 const AIM_LAT_SWEEP = 30, AIM_LAT_STEP = 5;   // candidate aims, yards either side of the line
 
 function aimSigmaLat(carry){ return getDispersion(carry)/AIM_CI90; }
-/* The app draws a fixed front-back half-width for every club (DISP_DEPTH_YD); treat it
-   on the same 90% basis as the lateral figure so the maths matches the overhead view. */
-function aimSigmaDist(){ return (window.DISP_DEPTH_YD||8)/AIM_CI90; }
+/* Depth (distance-control) sigma — per-club, same 90% basis as the lateral figure, so the
+   two are the axes of one honest error ellipse. Short shots come out depth-dominant and
+   long shots lateral-dominant, with the crossover near 115 yd. */
+function aimSigmaDist(carry){ return getDepthDispersion(carry)/AIM_CI90; }
 
 /* Weighted landing samples (field units) for a shot from `from` aimed at `aim`.
    The error ellipse is lateral × depth, tilted DISP_SLANT° long-left / short-right. */
@@ -33,7 +34,7 @@ function aimSamples(hole, from, aim){
   const dx=aim.x-from.x, dy=aim.y-from.y, L=Math.hypot(dx,dy);
   if(L<1e-6) return [];
   const vx=dx/L, vy=dy/L, ux=-vy, uy=vx;          // along-shot and lateral unit vectors
-  const sLat=aimSigmaLat(L*ypu), sDist=aimSigmaDist();
+  const shotYd=L*ypu, sLat=aimSigmaLat(shotYd), sDist=aimSigmaDist(shotYd);
   const th=(window.DISP_SLANT||15)*Math.PI/180, ct=Math.cos(th), st=Math.sin(th);
   const out=[];
   for(let i=0;i<AIM_Z.length;i++) for(let j=0;j<AIM_Z.length;j++){
@@ -134,8 +135,9 @@ function aimOverlaySVG(hole, from, res){
   const b=res.best, aim=b.aim;
   const dx=aim.x-from.x, dy=aim.y-from.y, L=Math.hypot(dx,dy)||1;
   const ux=-dy/L, uy=dx/L;
-  const rx=(aimSigmaLat(b.club.carry)*AIM_CI90)/ypu;     // 90% lateral half-width
-  const ry=(aimSigmaDist()*AIM_CI90)/ypu;                // 90% depth half-width
+  const shotYd=L*ypu;
+  const rx=(aimSigmaLat(shotYd)*AIM_CI90)/ypu;           // 90% lateral half-width
+  const ry=(aimSigmaDist(shotYd)*AIM_CI90)/ypu;          // 90% depth half-width
   const ang=Math.atan2(uy,ux)*180/Math.PI+(window.DISP_SLANT||15);
   return `<line x1="${from.x}" y1="${from.y}" x2="${aim.x.toFixed(1)}" y2="${aim.y.toFixed(1)}" stroke="var(--gold2)" stroke-width="3" stroke-dasharray="14,10" opacity="0.85"/>
     <g transform="rotate(${ang.toFixed(1)} ${aim.x.toFixed(1)} ${aim.y.toFixed(1)})">

@@ -123,9 +123,31 @@ All full-swing long-club trajectory SVGs use an **asymmetric cubic bezier** refl
 - **Break direction** has a Straight option that zeroes the Side Slope (grade) slider, and vice versa (grade 0 ⇒ Straight).
 - The SVG shows a **cone of valid speed/line combinations** (flanking paths), not a single line. UI term: "Side Slope at Point of Influence" (spell out — no "P.O.I." abbreviation).
 
-### Dispersion (bag.js)
+### Dispersion (physics/dispersion.js)
 - Geometric: `halfAngle = atan(dispersion / carry)`.
 - Dual confidence intervals: **90% CI** (`getDispersion`) and **68% CI** = 90% × 0.608.
+- **Two axes, both per-club, both 90% CI half-widths** so they form one error ellipse:
+  lateral = `getDispersion(carry)` / `disp86()`; depth (distance control) =
+  `getDepthDispersion(carry)` / `depth86()`. Depth replaced a flat ±8 yd in 2026-07.
+  Distance error ≈ 3% of carry for full swings, rising under ~100 yd (you control swing
+  length, not one repeatable motion): 1σ ≈ 9.4%@40 · 4.5%@100 · 3.3%@150 · 3.0%@270.
+  **Depth beats lateral below ~117 yd** — short shots miss long/short more than left/right
+  (Broadie: amateur short-game patterns run ~3× longer than wide) — so the overhead oval
+  reads TALL for wedges and WIDE for full swings. Passes ≈8 yd at 150 so mid-irons were
+  unchanged. Presumed; promote to Captured from multi-session launch-monitor data.
+
+### Course strategy engine (courses.js + strategy.js)
+- Hole geometry is stored in field units (1000×1400). OSM-imported holes carry `hole.geo`
+  (a full georeference) so field ↔ lat/lon is exact; hand-traced holes fall back to
+  `scaleYpu` or infer scale from tee→pin vs the known yardage (`cfYardsPerUnit`).
+- Query layer in courses.js: `cfLieAt` (penalty > bunker > green > fairway > rough, since
+  hazards are traced ON TOP of the surface they sit in), `cfDistToPinYd`,
+  `cfDistToHazardYd`, `cfExpectedStrokes` (green distances converted to FEET for the SR
+  green table), `cfShotContext`.
+- `optimiseAim` (strategy.js) sweeps club × lateral aim (±30 yd), convolves each with the
+  dispersion ellipse, classifies 49 deterministic weighted samples and scores them with
+  `srForPlayer`. Risk posture reshapes the objective: balanced = mean, protect = half mean
+  + half worst quartile, chase = half mean + half best quartile.
 - Overhead overlay: fairway background for loft ≤ 23° (D/F/H/U), green ellipse + landing-zone ellipse for loft > 23° (irons/wedges). Labels read "X L/R", not "±X".
 
 ### Strokes Gained (sg.js, sg-tracking.js)
