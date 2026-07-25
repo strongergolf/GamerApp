@@ -786,13 +786,17 @@ const RISK_NOTE={
   match:'Match play: the goal each hole is to <b>beat your opponent</b>, not shoot the lowest mean. Truly opponent-aware aim needs to know their lie/score — a future feature (e.g. Trackman online matches feeding live opponent status). For now it plays a touch more aggressive than balanced.'
 };
 function setStrategy(key,val){ STATE.strategy=STATE.strategy||{}; STATE.strategy[key]=val; saveState();
+  /* Every control bound to this key follows, wherever it is rendered — the Strategy
+     Preferences panel, The Chain L7, and the Hole Overlays posture picker are ONE setting,
+     so changing it in any of them must move the others rather than silently drift. */
+  document.querySelectorAll('[data-strat="'+key+'"]').forEach(s=>{ if(s.value!==val) s.value=val; });
   document.querySelectorAll('.strat-summary').forEach(s=>s.innerHTML=stratSummary());
   if(key==='riskPosture'){ const n=RISK_NOTE[val]||''; document.querySelectorAll('.strat-risk-note').forEach(e=>e.innerHTML=n); }
 }
 function stratLabel(key){ const cur=(STATE.strategy||{})[key]; const o=(STRAT_OPTS[key]||[]).find(x=>x[0]===cur); return o?o[1]:'—'; }
 function stratSelect(key){
   const cur=(STATE.strategy||{})[key];
-  return `<select class="strat-select" onchange="setStrategy('${key}',this.value)">`+
+  return `<select class="strat-select" data-strat="${key}" onchange="setStrategy('${key}',this.value)">`+
     STRAT_OPTS[key].map(([v,l])=>`<option value="${v}"${v===cur?' selected':''}>${l}</option>`).join('')+`</select>`;
 }
 function stratSummary(){
@@ -843,4 +847,4 @@ function buildCourseStrategy(){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { STRAT_OPTS, ballRefHtml, buildChainLanding, buildChainLevel, buildChainLevels, chainGo, chainSetSlot, buildCourseStrategy, buildForceProfileSVG, buildKinematicSequenceSVG, buildStrategyPrefs, pgaProSectionHtml, escapeHtml, forceRow, getPath, metricBox, saveSwing, setStrategy, setPath, stratLabel, stratSelect, stratSummary });
+Object.assign(window, { STRAT_OPTS, RISK_NOTE, ballRefHtml, buildChainLanding, buildChainLevel, buildChainLevels, chainGo, chainSetSlot, buildCourseStrategy, buildForceProfileSVG, buildKinematicSequenceSVG, buildStrategyPrefs, pgaProSectionHtml, escapeHtml, forceRow, getPath, metricBox, saveSwing, setStrategy, setPath, stratLabel, stratSelect, stratSummary });

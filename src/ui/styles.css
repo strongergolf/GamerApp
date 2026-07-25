@@ -856,6 +856,17 @@ table.chip-matrix tr:hover td{background:var(--surface2)}
 /* best-play recommendation */
 .sh-cat{font-family:ui-monospace,monospace;font-size:.56rem;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--green);background:var(--green-pale);border:1px solid rgba(0,133,63,.28);border-radius:5px;padding:3px 8px;display:inline-block;margin:6px 0 2px}
 .sh-alt-h{font-family:ui-monospace,monospace;font-size:.5rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:10px 0 3px;padding-top:7px;border-top:1px dashed var(--border)}
+/* strategy comparison table */
+.sh-strat-hd,.sh-strat-row{display:grid;grid-template-columns:1.05fr 1.5fr .55fr .5fr;gap:5px;align-items:baseline}
+.sh-strat-hd{font-family:ui-monospace,monospace;font-size:.46rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);padding:0 5px 2px}
+.sh-strat-hd span:nth-child(3),.sh-strat-hd span:nth-child(4){text-align:right}
+.sh-strat-row{font-family:ui-monospace,monospace;font-size:.58rem;color:var(--ink2);padding:4px 5px;border-radius:5px;cursor:pointer;border:1px solid transparent}
+.sh-strat-row:hover{background:var(--bg2)}
+.sh-strat-row.on{background:var(--bg2);border-color:var(--border2);color:var(--ink);font-weight:700}
+.sh-strat-row .ss-exp,.sh-strat-row .ss-pen{text-align:right}
+.sh-strat-row .ss-exp{font-weight:800;color:var(--ink)}
+.sh-strat-row .ss-pen.sh-warn{color:#b8455a}
+body.theme-dark .sh-strat-row .ss-pen.sh-warn{color:var(--c-wood)}
 .sh-alt{display:flex;justify-content:space-between;gap:8px;padding:2px 0}
 .sh-alt span{font-family:ui-monospace,monospace;font-size:.56rem;color:var(--ink2)}
 .sh-alt b{font-family:ui-monospace,monospace;font-size:.66rem;color:var(--muted)}

@@ -241,6 +241,14 @@ function optimiseApproach(hole, from, opts){
    strokes model already makes for that lie, keeping the two consistent. */
 const SHOT_LAT_MAX = 40, SHOT_LAT_STEP = 8, SHOT_ALONG_STEPS = 10;
 const SHOT_RECOVERY_MAX_YD = 70;
+/* The app's four strategic stances, in one place. Same keys as STATE.strategy.riskPosture,
+   so this panel and the Strategy Preferences elsewhere are the one setting, not two. */
+const SHOT_POSTURES = ['balanced','protect','chase','match'];
+const SHOT_POSTURE_LABEL = { balanced:'Balanced', protect:'Protecting', chase:'Chasing', match:'Match play' };
+/* Re-score an already-sampled candidate under a different strategy. */
+function shotScoreFor(r, posture){
+  return aimObjective(r.mean, r.best25, r.worst25, posture) + AIM_AVOID_EPS*(r.avoid||0);
+}
 
 function optimiseShot(hole, from, opts){
   opts=opts||{};
@@ -278,12 +286,22 @@ function optimiseShot(hole, from, opts){
     }
   }
   if(!results.length) return {blocked:'range', lie, toPin};
-  results.sort((a,b)=>a.score-b.score);
-  const best=results[0];
-  /* Name the play the way a golfer would, from what it actually does */
-  best.category = recovery ? 'Recovery — get it back in play'
-    : (best.greenRate>0.35 || best.avgToPin<18) ? 'Go for the green'
-    : 'Lay up / position';
+  /* A strategy changes the OBJECTIVE, not the sampling — so score every candidate once and
+     re-rank the same list per posture. Comparing four strategies costs four passes over an
+     array, not four solves, which is what makes live side-by-side comparison affordable. */
+  const byPosture={};
+  SHOT_POSTURES.forEach(p=>{
+    let win=results[0], ws=shotScoreFor(results[0],p);
+    for(let i=1;i<results.length;i++){ const s=shotScoreFor(results[i],p); if(s<ws){ws=s;win=results[i];} }
+    byPosture[p]=win;
+  });
+  results.sort((a,b)=>shotScoreFor(a,posture)-shotScoreFor(b,posture));
+  const best=byPosture[posture]||results[0];
+  /* Name each play the way a golfer would, from what it actually does */
+  const categorise=r=>{ r.category = recovery ? 'Recovery — get it back in play'
+    : (r.greenRate>0.35 || r.avgToPin<18) ? 'Go for the green' : 'Lay up / position'; return r; };
+  Object.keys(byPosture).forEach(p=>categorise(byPosture[p]));
+  categorise(best);
   /* The naive alternative: everything you have, straight at the flag. Capped by the SAME
      range limit the optimiser is held to, or the comparison is against a shot it was never
      allowed to pick (from the trees that made the punch-out look worse than a fantasy). */
@@ -291,7 +309,7 @@ function optimiseShot(hole, from, opts){
   const naiveAim={ x:from.x+vx*(naiveAlong/ypu), y:from.y+vy*(naiveAlong/ypu) };
   const naive=aimScore(hole,from,naiveAim,hcp,posture,{sigmaYd:naiveAlong+cost,latMult:mult.lat,depthMult:mult.depth});
   if(naive){ naive.geoYd=naiveAlong; naive.shot=approachShotName(naiveAlong+cost); }
-  return { best, naive, ranked:results.slice(0,5), lie, toPin, cost, mult, posture, hcp, recovery };
+  return { best, naive, byPosture, ranked:results.slice(0,5), lie, toPin, cost, mult, posture, hcp, recovery };
 }
 
 /* ---------- overlay + panel: TWO shots, side by side ----------
@@ -331,6 +349,14 @@ function stratSetHole(i){ window.stratSel.hIdx=+i; stratClearAims(); buildHoleOv
 function stratSetShotMode(m){ window.stratShot.mode=m; window.stratShot.active=0; stratClearAims(); buildHoleOverlay(); }
 function stratSetActive(a){ window.stratShot.active=(a==='ball')?'ball':+a; buildHoleOverlay(); }
 function stratResetAim(){ stratClearAims(); buildHoleOverlay(); }
+/* Writes the SAME STATE.strategy.riskPosture the Strategy Preferences panel uses, through
+   the same setter, so the two surfaces can never drift apart. */
+function stratSetPosture(p){
+  if(typeof setStrategy==='function') setStrategy('riskPosture',p);
+  else { STATE.strategy=STATE.strategy||{}; STATE.strategy.riskPosture=p; saveState(); }
+  window.stratOptCache=null;
+  buildHoleOverlay();
+}
 
 /* Score ONE chosen aim in whichever mode is active. Tee: the club is whichever finishes
    nearest the spot, so dragging short becomes a lay-up. Approach: the lie under the ball
@@ -379,6 +405,29 @@ function stratEnsureAims(hole){
     if(!S.aims[0]) S.aims[0]={x:Math.round(t.best.aim.x), y:Math.round(t.best.aim.y)};
     if(!S.aims[1]){ const s=t.straight||t.best; S.aims[1]={x:Math.round(s.aim.x), y:Math.round(s.aim.y)}; }
   }
+}
+
+/* Every strategy's answer to the same situation, side by side. This is the point of keeping
+   the posture out of the sampling: you can see what a stance actually COSTS you here, in
+   strokes, rather than choosing one blind. Tap a row to adopt it app-wide. */
+function stratPostureTable(res){
+  if(!res||!res.byPosture) return '';
+  const pct=v=>Math.round(v*100);
+  const rows=SHOT_POSTURES.map(p=>{
+    const r=res.byPosture[p]; if(!r) return '';
+    const on=(p===res.posture);
+    const off=Math.abs(r.latYd)>=1?` · ${Math.abs(r.latYd)}${r.latYd<0?'L':'R'}`:'';
+    const note=(window.RISK_NOTE&&window.RISK_NOTE[p])?window.RISK_NOTE[p].replace(/<[^>]+>/g,''):'';
+    return `<div class="sh-strat-row${on?' on':''}" onclick="stratSetPosture('${p}')" title="${escapeHtml(note)}">
+      <span class="ss-name">${on?'● ':''}${SHOT_POSTURE_LABEL[p]}</span>
+      <span class="ss-play">${r.shot.label} · ${Math.round(r.geoYd)} yd${off}</span>
+      <span class="ss-exp">${r.mean.toFixed(2)}</span>
+      <span class="ss-pen${r.penaltyRate>0.08?' sh-warn':''}">${pct(r.penaltyRate)}%</span>
+    </div>`;
+  }).join('');
+  return `<div class="sh-alt-h">Strategy comparison — tap to switch</div>
+    <div class="sh-strat-hd"><span>Stance</span><span>Play</span><span>Exp</span><span>Pen</span></div>
+    <div class="sh-strat-tbl">${rows}</div>`;
 }
 
 /* One shot drawn on the hole: shot line, dispersion ellipse, aim marker and its yardages. */
@@ -442,6 +491,9 @@ function buildHoleOverlay(){
         <button type="button" class="strat-mode-btn${S.mode==='approach'?' active':''}" onclick="stratSetShotMode('approach')">Approach</button>
         <button type="button" class="strat-mode-btn${S.mode==='best'?' active':''}" onclick="stratSetShotMode('best')">Best play</button>
       </span>
+      <select class="strat-select" data-strat="riskPosture" style="max-width:150px" title="Risk posture — the same setting as Strategy Preferences" onchange="stratSetPosture(this.value)">
+        ${SHOT_POSTURES.map(p=>`<option value="${p}"${p===stratPosture()?' selected':''}>${SHOT_POSTURE_LABEL[p]}</option>`).join('')}
+      </select>
     </div>`;
   if(!hole){ wrap.innerHTML=head+`<div class="lvl-soon-note">This course has no holes yet.</div>`; return; }
   if(!cfHasScale(hole) || !hole.tee || !hole.pin){
@@ -483,7 +535,8 @@ function buildHoleOverlay(){
         ${b.recoveryRate>0.01?`<div class="sh-row"><span>Back in the trees</span><b class="${b.recoveryRate>0.1?'sh-warn':''}">${pct(b.recoveryRate)}%</b></div>`:''}
         ${res.naive&&gain>0.004?`<div class="sh-gain">Saves <b>${gain.toFixed(2)}</b> strokes vs taking everything you have at the flag (${res.naive.mean.toFixed(2)})</div>`:''}
         <div class="sh-mix">${mixHTML(b.lieMix)}</div>
-        <div class="sh-alt-h">Next best options</div>${alts}`;
+        ${stratPostureTable(res)}
+        <div class="sh-alt-h">Next best options — ${SHOT_POSTURE_LABEL[res.posture]}</div>${alts}`;
     }
     wrap.innerHTML=head+`
       <div class="strat-hole-grid">
@@ -589,8 +642,9 @@ Object.assign(window, {
   aimSigmaLat, aimSigmaDist, aimSamples, aimObjective, aimTail, aimScore, aimClubs,
   optimiseAim, stratSetCourse, stratSetHole, buildHoleOverlay,
   APPROACH_LIE, approachSituation, approachLieCostYd, approachShotName, optimiseApproach,
-  AIM_AVOID, AIM_AVOID_EPS, aimAvoidance, optimiseShot,
-  SHOT_LAT_MAX, SHOT_LAT_STEP, SHOT_RECOVERY_MAX_YD,
+  AIM_AVOID, AIM_AVOID_EPS, aimAvoidance, optimiseShot, shotScoreFor, stratPostureTable,
+  SHOT_LAT_MAX, SHOT_LAT_STEP, SHOT_RECOVERY_MAX_YD, SHOT_POSTURES, SHOT_POSTURE_LABEL,
+  stratSetPosture,
   SHOT_COL, stratSetShotMode, stratSetActive, stratPosture, stratCurrent, stratOptimal,
   stratGreenMid, stratClearAims, stratResetAim, stratScoreAim, stratEnsureAims,
   stratShotSVG, stratOverlay, stratDragInit
