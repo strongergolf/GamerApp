@@ -9,7 +9,12 @@ const MAX_CARRY = 270;
    1σ L/R ≈ 4yd@100, 5@125, 6.5@150, 8@175, 9.5@200, 11.5@230, 14@260.
    sigma1 (1σ) = this × 0.608. Refine from the player's own multi-session data. */
 function getDispersion(carry){
-  if(carry<=75)  return 4.9;
+  /* Below 75 yd, taper linearly to the origin instead of holding flat. A flat 4.9 meant a
+     30-yard pitch was modelled as wide as a 75-yard shot, which is not how a face works:
+     lateral miss is an ANGLE, so it shrinks with the shot. This line is the same 2.3° of
+     face/path error the 75-yd value implies, carried down, with a small floor so a chip
+     still has some spread. It joins the old curve exactly at 75. */
+  if(carry<=75)  return Math.max(1.2, carry*(4.9/75));
   if(carry<=100) return 4.9 + (carry-75)/25  * 1.7;   // → 6.6
   if(carry<=125) return 6.6 + (carry-100)/25 * 1.6;   // → 8.2
   if(carry<=150) return 8.2 + (carry-125)/25 * 2.5;   // → 10.7
@@ -44,7 +49,12 @@ function disp86(carry){ return Math.round(getDispersion(carry)*0.90*10)/10; }
    multi-session launch-monitor carry data — that promotes it to Captured. */
 function getDepthDispersion(carry){
   carry=+carry||0;
-  if(carry<=50)  return 6.2;
+  /* Same correction on the depth axis. Holding 6.2 flat below 50 implied a 30-yard pitch
+     with a 1σ of 3.8 yd — finishing anywhere from 22 to 38 — because a fixed yardage turns
+     into a runaway PERCENTAGE as the shot shortens. Tapering to the origin keeps it at a
+     constant ~7.5% of the shot, which is what controlling swing length actually looks like.
+     Joins the old curve exactly at 50. */
+  if(carry<=50)  return Math.max(1.5, carry*(6.2/50));
   if(carry<=75)  return 6.2 + (carry-50)/25  * 0.6;   // → 6.8
   if(carry<=100) return 6.8 + (carry-75)/25  * 0.6;   // → 7.4
   if(carry<=125) return 7.4 + (carry-100)/25 * 0.4;   // → 7.8
