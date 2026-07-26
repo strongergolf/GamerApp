@@ -912,8 +912,8 @@ body.theme-dark .sh-tbl .sg-pos{color:var(--green2)} body.theme-dark .sh-tbl .sg
 /* Line colours: the bright SHOT_COL values are tuned for the dark green hole map and fail
    contrast on a light panel, so panel text uses darkened twins and only flips bright in the
    dark theme. */
-.ln-A{color:#8a5e00} .ln-B{color:#0a6294} .ln-O{color:#00693a}
-body.theme-dark .ln-A{color:#ffd24a} body.theme-dark .ln-B{color:#5ad1ff} body.theme-dark .ln-O{color:#79e08d}
+.ln-S{color:#8a5e00} .ln-O{color:#00693a}
+body.theme-dark .ln-S{color:#ffd24a} body.theme-dark .ln-O{color:#79e08d}
 .sh-col .sh-club{font-size:1.1rem;margin-top:1px}
 .sh-col .sh-loft{font-size:.58rem;margin-left:5px}
 .sh-col .sh-row{padding:2px 0}

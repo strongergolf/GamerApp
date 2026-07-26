@@ -59,6 +59,9 @@ function showPage(id,tab){
   /* the D-Plane viewer's viewBox is fitted to its host width, which is 0 while the
      page is hidden — refit on first show */
   if(id==='dplane'&&typeof dpRenderScene==='function') setTimeout(dpRenderScene,0);
+  /* the overlay depends on the bag, the handicap and the courses — any of which may have
+     changed on another tab — so rebuild it on show rather than serving a stale render */
+  if(id==='gameplan'&&typeof buildHoleOverlay==='function') setTimeout(buildHoleOverlay,0);
 }
 let toastTimer;
 function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),1900); }

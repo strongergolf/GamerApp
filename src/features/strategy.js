@@ -409,7 +409,7 @@ function optimiseShot(hole, from, opts){
    Line O is the optimiser's own chain, recomputed from the tee. Lines A and B are yours:
    drag either one and every number moves, including the shots that follow it. */
 window.stratSel = window.stratSel || { cIdx:0, hIdx:0 };
-window.stratShot = window.stratShot || { shotNum:1, lines:{A:[],B:[]}, active:'A' };
+window.stratShot = window.stratShot || { shotNum:1, lines:{S:[]}, active:'S' };
 window.stratOptCache = null;
 /* Map view: centre + zoom, so the hole can be scrolled into like the D-Plane viewer. */
 window.stratView = window.stratView || { cx:CF_W/2, cy:CF_H/2, z:1 };
@@ -434,8 +434,10 @@ function stratSetSkill(v){
   STATE.strategy=STATE.strategy||{}; STATE.strategy.skillHcp=(v===''?null:v);
   saveState(); window.stratOptCache=null; buildHoleOverlay();
 }
-const SHOT_LINES = ['A','B','O'];
-const SHOT_COL = { A:'#ffd24a', B:'#5ad1ff', O:'#79e08d' };
+/* Two lines is enough: O is the optimiser's answer, S is whatever you select against it. */
+const SHOT_LINES = ['S','O'];
+const SHOT_COL = { S:'#ffd24a', O:'#79e08d' };
+const SHOT_LABEL = { S:'S (Selected)', O:'O (Optimal)' };
 const SHOT_MAX = 6;
 
 function stratPosture(){ return (STATE.strategy||{}).riskPosture||'balanced'; }
@@ -451,7 +453,7 @@ function stratGreenMid(hole){
   let x=0,y=0; g.forEach(p=>{x+=p.x;y+=p.y;});
   return {x:x/g.length, y:y/g.length};
 }
-function stratClearLines(){ window.stratShot.lines={A:[],B:[]}; window.stratShot.shotNum=1; window.stratOptCache=null; }
+function stratClearLines(){ window.stratShot.lines={S:[]}; window.stratShot.shotNum=1; window.stratOptCache=null; }
 function stratSetCourse(i){ window.stratSel.cIdx=+i; window.stratSel.hIdx=0; stratClearLines(); buildHoleOverlay(); }
 function stratSetHole(i){ window.stratSel.hIdx=+i; stratClearLines(); buildHoleOverlay(); }
 function stratSetShotNum(n){ window.stratShot.shotNum=Math.max(1,Math.min(SHOT_MAX,+n)); buildHoleOverlay(); }
@@ -551,11 +553,9 @@ function stratLineAim(hole, line, n){
   if(line==='O') return (step&&step.aim)?step.aim:null;
   const arr=window.stratShot.lines[line]||[];
   if(arr[n-1]) return arr[n-1];
+  /* An unselected S starts on the naive play — straight at the flag, capped by what the
+     player can hit and by what the lie allows — so there is a real contrast to drag from. */
   const from=stratBallFor(hole,line,n); if(!from||!hole.pin) return null;
-  if(line==='A'){
-    const r=optimiseShot(hole, from, {posture:stratPosture(), hcp:stratSkill()});
-    return (r&&!r.blocked)?{x:Math.round(r.best.aim.x), y:Math.round(r.best.aim.y)}:null;
-  }
   const ypu=cfYardsPerUnit(hole); if(ypu==null) return null;
   const dx=hole.pin.x-from.x, dy=hole.pin.y-from.y, L=Math.hypot(dx,dy)||1;
   const clubs=aimClubs(); if(!clubs.length) return null;
@@ -584,8 +584,9 @@ function stratShotSVG(hole, r, line, n, dim){
         fill="${col}" fill-opacity="0.18" stroke="${col}" stroke-opacity="0.95" stroke-width="3.5"/></g>`}
     <circle cx="${aim.x.toFixed(1)}" cy="${aim.y.toFixed(1)}" r="${dim?5:9}" fill="none" stroke="#fff" stroke-width="${dim?2:3}" opacity="${op}"/>
     <circle cx="${aim.x.toFixed(1)}" cy="${aim.y.toFixed(1)}" r="3" fill="#fff" opacity="${op}"/>
-    ${lbl(`${line}-${n} · ${r.shot.label} · ${Math.round(r.geoYd)} yd`, -ry-40, 31)}
-    ${r.toPinYd!=null?lbl(`${Math.round(r.toPinYd)} to pin`, -ry-14, 27):''}`;
+    ${lbl(`${line}-${n} · ${r.shot.label} · ${Math.round(r.geoYd)} yd`, -ry-64, 31)}
+    ${r.sg!=null?lbl(`SG ${r.sg>0?'+':''}${r.sg.toFixed(2)}`, -ry-38, 29):''}
+    ${r.toPinYd!=null?lbl(`${Math.round(r.toPinYd)} to pin · ${r.mean.toFixed(2)} rem`, -ry-13, 26):''}`;
 }
 function stratOverlay(hole, shots, n){
   const S=window.stratShot;
@@ -696,7 +697,7 @@ function buildHoleOverlay(){
   const shotBtns=Array.from({length:maxShot},(_,i)=>i+1).map(i=>
     `<button type="button" class="strat-pick${i===n?' active':''}" onclick="stratSetShotNum(${i})">Shot ${i}</button>`).join('');
   const lineBtns=SHOT_LINES.map(l=>
-    `<button type="button" class="strat-pick${l===S.active?' active':''}" style="--pick:${SHOT_COL[l]}" onclick="stratSetLine('${l}')">${l}${l==='O'?' (best)':''}</button>`).join('');
+    `<button type="button" class="strat-pick${l===S.active?' active':''}" style="--pick:${SHOT_COL[l]}" onclick="stratSetLine('${l}')">${SHOT_LABEL[l]}</button>`).join('');
 
   /* One table, metrics down the side and the three lines across — far less vertical space
      than three stacked cards, and it lines the numbers up for comparison, which is the
@@ -710,19 +711,17 @@ function buildHoleOverlay(){
   /* Ordered by what actually matters when you look up: how far the shot is and what it is
      worth, then where it leaves you and what that costs. Length and from-tee are one line —
      on the tee shot they are the same number, so the second only appears when it differs. */
+  /* The four numbers that matter — shot length, its strokes gained, what it leaves to the
+     pin and the expected shots from there — now live on the overlay itself. What stays here
+     is the supporting detail that would clutter the map. */
   const TBL_ROWS=[
-    ['Club',        r=>`<b>${r.shot.label}</b>${r.shot.detail?` <span class="tsub">${r.shot.detail}</span>`:''}`],
-    ['Shot',        r=>`<b>${Math.round(r.geoYd)}</b> yd${
-        (r.fromTeeYd!=null&&Math.abs(r.fromTeeYd-r.geoYd)>2)?`<span class="tsub"> · ${Math.round(r.fromTeeYd)} from tee</span>`:''}`, null, 'big'],
-    ['Strokes gained', r=>r.sg==null?'—':`<span class="${r.sg>0.005?'sg-pos':r.sg<-0.005?'sg-neg':''}">${r.sg>0?'+':''}${r.sg.toFixed(2)}</span>`, null, 'big'],
-    ['Leaves · to pin', r=>r.toPinYd!=null?`<b>${Math.round(r.toPinYd)}</b> yd`:'—', null, 'big'],
-    ['Exp · remaining', r=>r.mean.toFixed(2), null, 'big'],
     ['Plays',       r=>r.lieCost?Math.round(r.playsYd)+' yd':'—', 'lieCost'],
+    ['From tee',    r=>r.fromTeeYd!=null?Math.round(r.fromTeeYd)+' yd':'—'],
     ['To middle',   r=>r.toMidYd!=null?Math.round(r.toMidYd)+' yd':'—'],
     ['Exp · on target', r=>r.expAtAim!=null?r.expAtAim.toFixed(2):'—']
   ];
   const anyLieCost=SHOT_LINES.some(l=>shots[l]&&!shots[l].blocked&&shots[l].lieCost);
-  const th=SHOT_LINES.map(l=>`<th class="ln-${l}${l===S.active?' on':''}">${l}-${n}${l==='O'?'<span class="tsub"> best</span>':''}</th>`).join('');
+  const th=SHOT_LINES.map(l=>`<th class="ln-${l}${l===S.active?' on':''}">${l}-${n}${l==='O'?'<span class="tsub"> optimal</span>':''}</th>`).join('');
   const body=TBL_ROWS.filter(row=>row[2]!=='lieCost'||anyLieCost).map(row=>{
     const cells=SHOT_LINES.map(l=>{
       const r=shots[l];
@@ -743,10 +742,14 @@ function buildHoleOverlay(){
   if(live.length>1){
     /* Compare every line to the BEST, not to the runner-up — with two lines tied at the top
        a runner-up comparison reports "level" while a third sits 0.7 strokes adrift. */
+    /* Anything inside the avoidance tie-break band is noise, not a difference. O optimises
+       a score that includes that term, so without this a line could read as "beating" the
+       optimal one by 0.02 — which is the tie-break working, not a better shot. */
+    const LEVEL=0.03;
     const sorted=live.slice().sort((a,b)=>shots[a].mean-shots[b].mean);
     const bestMean=shots[sorted[0]].mean;
-    const tied=sorted.filter(l=>shots[l].mean-bestMean<0.005);
-    const worse=sorted.filter(l=>shots[l].mean-bestMean>=0.005);
+    const tied=sorted.filter(l=>shots[l].mean-bestMean<LEVEL);
+    const worse=sorted.filter(l=>shots[l].mean-bestMean>=LEVEL);
     const tag=l=>`<b class="ln-${l}">${l}-${n}</b>`;
     verdict = worse.length===0
       ? `<div class="sh-gain">These lines are level on expected strokes.</div>`
@@ -846,7 +849,7 @@ Object.assign(window, {
   stratSetPosture, SHOT_HOLE_SD, SHOT_POS_SD, SHOT_TARGET_MIN_GAIN, normCdf, tournamentCtx, shotZ,
   stratTourInputs, stratSetTour,
   STRAT_SKILLS, stratSkill, stratSetSkill, stratViewBox, stratResetView,
-  SHOT_COL, SHOT_LINES, SHOT_MAX, stratPosture, stratCurrent, stratGreenMid,
+  SHOT_COL, SHOT_LINES, SHOT_LABEL, SHOT_MAX, stratPosture, stratCurrent, stratGreenMid,
   stratClearLines, stratResetAim, stratSetShotNum, stratSetLine,
   stratScoreShot, stratOChain, stratBallFor, stratLineAim,
   stratShotSVG, stratOverlay, stratDragInit
