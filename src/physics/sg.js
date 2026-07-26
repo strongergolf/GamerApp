@@ -6,11 +6,35 @@
    ============================================================ */
 
 /* Strokes remaining table (scratch baseline, from Broadie).
-   Fairway/rough/sand: yards. Green: feet. */
+   Fairway/rough/sand: yards. Green: feet.
+
+   RECALIBRATED 2026-07. The previous fairway/rough/sand values were understated by roughly
+   0.3–0.4 strokes, which was provable from the app's own two tables without any outside
+   data: "expected from X yards" = 1 shot + putts, so reading the leftover putts back through
+   the GREEN table said what proximity the fairway table was implicitly claiming. It claimed
+   inside 3 ft from 50 yd, 6 ft from 100 and 12 ft from 150 — proximities nobody achieves.
+   The consequence was app-wide: every expected-strokes number read optimistic, and approach
+   strokes-gained came out systematically negative because the baseline was unreachable.
+
+   These are the PGA Tour benchmark values. NOTE: reconstructed from the published figures
+   rather than transcribed from the book — the shape and magnitude are well established
+   (fairway ≈ 2.80 at 100 yd, ≈ 2.98 at 160, ≈ 3.19 at 200) but Mark should check them
+   against his copy of Every Shot Counts before they are treated as final.
+
+   Entries beyond ~300 yd (fairway) and ~260 (rough) are EXTRAPOLATED along the established
+   slope, not published values. Without them both tables clamped at their last entry, which
+   made every distance past it score identically — on a 601-yard hole the optimiser saw no
+   difference between laying up 47 yards and hitting driver, because both landed on the
+   plateau, and picked arbitrarily. A sloped extrapolation is plainly better than a flat
+   line here, but treat the far end as indicative. */
 const SR = {
-  fairway:[[15,1.87],[25,2.01],[50,2.17],[75,2.31],[100,2.45],[125,2.58],[150,2.70],[175,2.82],[200,2.93],[225,3.02],[250,3.11],[275,3.19],[300,3.27]],
-  rough:  [[15,2.04],[25,2.18],[50,2.32],[75,2.46],[100,2.62],[125,2.76],[150,2.90],[175,3.03],[200,3.16],[225,3.27],[250,3.38]],
-  sand:   [[10,2.08],[15,2.13],[20,2.22],[30,2.33],[50,2.52],[75,2.68],[100,2.83]],
+  fairway:[[10,2.18],[20,2.40],[30,2.52],[40,2.60],[50,2.66],[60,2.70],[80,2.75],[100,2.80],
+           [120,2.85],[140,2.91],[160,2.98],[180,3.08],[200,3.19],[220,3.32],[240,3.45],
+           [260,3.58],[280,3.70],[300,3.82],[340,4.00],[380,4.16],[420,4.30],[500,4.55]],
+  rough:  [[10,2.34],[20,2.59],[30,2.70],[40,2.78],[50,2.84],[60,2.91],[80,2.99],[100,3.05],
+           [120,3.11],[140,3.17],[160,3.25],[180,3.35],[200,3.45],[220,3.57],[240,3.70],
+           [260,3.83],[300,4.05],[350,4.28],[420,4.55],[500,4.80]],
+  sand:   [[10,2.43],[20,2.53],[30,2.66],[40,2.82],[50,2.92],[60,3.15],[80,3.27],[100,3.36]],
   green:  [[3,1.20],[5,1.35],[8,1.56],[10,1.65],[15,1.81],[20,1.92],[25,2.02],[30,2.11],[40,2.25],[50,2.37],[60,2.50],[80,2.63]],
   atg:    [[5,1.97],[10,2.07],[15,2.15],[20,2.22],[30,2.34],[40,2.46],[55,2.58]],
   /* TEE — expected strokes to hole out from the TEE by hole length (yards), scratch.

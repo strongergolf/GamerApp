@@ -702,21 +702,24 @@ function buildHoleOverlay(){
      than three stacked cards, and it lines the numbers up for comparison, which is the
      whole point. Penalty risk is NOT a row: it already lives in the outcome badges
      alongside fairway, rough and bunker, where it belongs. */
-  const CHIP_SHORT={fairway:'FW',green:'GRN',rough:'RGH',sand:'SND',trees:'TRE',water:'PEN',oob:'OB'};
+  const CHIP_SHORT={fairway:'FWY',green:'GRN',rough:'RGH',sand:'SND',trees:'TRE',water:'PA',oob:'OB'};
   const chipsFor=m=>mixOrder.filter(k=>m[k]>0.004)
     .map(k=>`<span class="mix-chip mix-${k}">${CHIP_SHORT[k]} ${pct(m[k])}</span>`).join('');
   const blockedTxt=r=> r.blocked==='putt' ? `${Math.round((r.toPinFrom||0)*3)} ft putt`
       : r.blocked==='penalty' ? 'take relief' : r.blocked==='tap' ? 'tap-in' : 'no shot';
+  /* Ordered by what actually matters when you look up: how far the shot is and what it is
+     worth, then where it leaves you and what that costs. Length and from-tee are one line —
+     on the tee shot they are the same number, so the second only appears when it differs. */
   const TBL_ROWS=[
     ['Club',        r=>`<b>${r.shot.label}</b>${r.shot.detail?` <span class="tsub">${r.shot.detail}</span>`:''}`],
-    ['Length',      r=>Math.round(r.geoYd)+' yd'],
+    ['Shot',        r=>`<b>${Math.round(r.geoYd)}</b> yd${
+        (r.fromTeeYd!=null&&Math.abs(r.fromTeeYd-r.geoYd)>2)?`<span class="tsub"> · ${Math.round(r.fromTeeYd)} from tee</span>`:''}`, null, 'big'],
+    ['Strokes gained', r=>r.sg==null?'—':`<span class="${r.sg>0.005?'sg-pos':r.sg<-0.005?'sg-neg':''}">${r.sg>0?'+':''}${r.sg.toFixed(2)}</span>`, null, 'big'],
+    ['Leaves · to pin', r=>r.toPinYd!=null?`<b>${Math.round(r.toPinYd)}</b> yd`:'—', null, 'big'],
+    ['Exp · remaining', r=>r.mean.toFixed(2), null, 'big'],
     ['Plays',       r=>r.lieCost?Math.round(r.playsYd)+' yd':'—', 'lieCost'],
-    ['From tee',    r=>r.fromTeeYd!=null?Math.round(r.fromTeeYd):'—'],
-    ['To pin',      r=>r.toPinYd!=null?Math.round(r.toPinYd):'—'],
-    ['To middle',   r=>r.toMidYd!=null?Math.round(r.toMidYd):'—'],
-    ['Exp · on target', r=>r.expAtAim!=null?r.expAtAim.toFixed(2):'—'],
-    ['Exp · remaining', r=>r.mean.toFixed(2), null, 'key'],
-    ['Strokes gained',  r=>r.sg==null?'—':`<span class="${r.sg>0.005?'sg-pos':r.sg<-0.005?'sg-neg':''}">${r.sg>0?'+':''}${r.sg.toFixed(2)}</span>`, null, 'key']
+    ['To middle',   r=>r.toMidYd!=null?Math.round(r.toMidYd)+' yd':'—'],
+    ['Exp · on target', r=>r.expAtAim!=null?r.expAtAim.toFixed(2):'—']
   ];
   const anyLieCost=SHOT_LINES.some(l=>shots[l]&&!shots[l].blocked&&shots[l].lieCost);
   const th=SHOT_LINES.map(l=>`<th class="ln-${l}${l===S.active?' on':''}">${l}-${n}${l==='O'?'<span class="tsub"> best</span>':''}</th>`).join('');
@@ -728,7 +731,7 @@ function buildHoleOverlay(){
       if(r.blocked) return `<td${cls}>${row[0]==='Club'?`<i>${blockedTxt(r)}</i>`:'—'}</td>`;
       return `<td${cls}>${row[1](r)}</td>`;
     }).join('');
-    return `<tr class="${row[3]==='key'?'sh-tbl-key':''}"><th scope="row">${row[0]}</th>${cells}</tr>`;
+    return `<tr class="${row[3]==='big'?'sh-tbl-big':row[3]==='key'?'sh-tbl-key':''}"><th scope="row">${row[0]}</th>${cells}</tr>`;
   }).join('');
   const chipRow=`<tr class="sh-tbl-chips"><th scope="row">Outcome</th>${
     SHOT_LINES.map(l=>{const r=shots[l];

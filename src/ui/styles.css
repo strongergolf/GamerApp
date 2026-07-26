@@ -849,8 +849,9 @@ body.theme-dark .cf-hole-tab.active{color:#0C2340}
 .strat-mode-btn{font-family:ui-monospace,monospace;font-size:.56rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);background:var(--bg2);border:1px solid var(--border2);border-radius:6px;padding:7px 11px;cursor:pointer}
 .strat-mode-btn.active{background:var(--panel);color:var(--gold2);border-color:var(--panel)}
 .strat-mode-btn:hover:not(.active){color:var(--ink);border-color:var(--gold)}
-.strat-hole-grid{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap}
-.strat-hole-map{flex:1 1 300px;min-width:260px;max-width:420px;touch-action:none;cursor:crosshair}
+/* stretch so the info card matches the hole map's height rather than hugging its content */
+.strat-hole-grid{display:flex;gap:12px;align-items:stretch;flex-wrap:wrap}
+.strat-hole-map{flex:1 1 300px;min-width:260px;max-width:420px;touch-action:none;cursor:crosshair;align-self:flex-start}
 .sh-cost{margin-top:8px;font-family:Arial,sans-serif;font-size:.72rem;line-height:1.4;color:var(--c-wood);background:var(--gold-pale);border:1px solid rgba(217,96,112,.3);border-radius:6px;padding:5px 8px}
 /* two-shot comparison */
 .strat-picks{display:flex;gap:4px;flex-wrap:wrap;margin:8px 0}
@@ -892,6 +893,12 @@ body.theme-dark .sh-strat-row .ss-pen.sh-warn{color:var(--c-wood)}
 .sh-tbl td.on{background:var(--bg2)}
 .sh-tbl thead th.on{background:var(--bg2)}
 .sh-tbl tr.sh-tbl-key td{font-weight:800;color:var(--ink);font-size:.72rem}
+/* the four rows worth reading first: shot length, what it gained, where it leaves you,
+   and what that costs from there */
+.sh-tbl tr.sh-tbl-big td{font-size:1.02rem;font-weight:800;color:var(--ink);padding:5px 4px}
+.sh-tbl tr.sh-tbl-big td b{font-size:1.02rem}
+.sh-tbl tr.sh-tbl-big th[scope=row]{font-size:.56rem;color:var(--ink2);font-weight:700}
+.sh-tbl tr.sh-tbl-big .tsub{font-size:.52rem;display:block;line-height:1.3;font-weight:400}
 .sh-tbl .sg-pos{color:#00693a} .sh-tbl .sg-neg{color:#b8455a}
 body.theme-dark .sh-tbl .sg-pos{color:var(--green2)} body.theme-dark .sh-tbl .sg-neg{color:var(--c-wood)}
 .sh-tbl tr.sh-tbl-key th[scope=row]{color:var(--ink2)}
@@ -913,7 +920,8 @@ body.theme-dark .ln-A{color:#ffd24a} body.theme-dark .ln-B{color:#5ad1ff} body.t
 .sh-col .sh-row span{font-size:.5rem}
 .sh-col .sh-row b{font-size:.72rem}
 @media(max-width:420px){.sh-two{flex-direction:column}.sh-col{width:100%}}
-.strat-hole-panel{flex:1 1 250px;min-width:230px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:11px 13px}
+.strat-hole-panel{flex:1 1 320px;min-width:290px;display:flex;flex-direction:column;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
+.strat-hole-panel .sh-tbl{flex:1}
 .sh-head{font-family:ui-monospace,monospace;font-size:.58rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
 .sh-club{font-family:Arial,sans-serif;font-size:1.5rem;font-weight:800;color:var(--ink);line-height:1.1;margin-top:2px}
 .sh-club .sh-loft{font-family:ui-monospace,monospace;font-size:.68rem;font-weight:500;color:var(--muted);margin-left:7px}
