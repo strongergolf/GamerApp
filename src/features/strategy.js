@@ -616,7 +616,7 @@ function buildHoleOverlay(){
   const courses=(STATE.courses||[]);
   if(!courses.length){
     wrap.innerHTML=`<div class="section-label">Hole Overlays <span class="proto-badge">prototype</span></div>
-      <div class="lvl-soon-note">Import a course first (Course Editor below, or the OpenStreetMap importer) — then this shows each hole with your dispersion pattern and the expected-strokes aim point.</div>`;
+      <div class="lvl-soon-note">Import a course first — see the <b>My Courses</b> tab, where you can pull one from OpenStreetMap or trace it by hand. Then this shows each hole with your dispersion pattern, the recommended line and the alternatives.</div>`;
     return;
   }
   const ci=Math.min(window.stratSel.cIdx, courses.length-1), course=courses[ci];

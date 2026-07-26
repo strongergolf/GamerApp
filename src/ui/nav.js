@@ -11,8 +11,16 @@ const GROUPS={
     {id:'shortgame',label:'Short Game'},
     {id:'putting',  label:'Putting'}
   ],
+  /* Gameplan follows the round arc, one sub-tab per phase — Strategy leads because the
+     Hole Overlay is the tool actually used, not a reference section. */
+  gameplan:[
+    {id:'gameplan',  label:'Strategy'},
+    {id:'preshot',   label:'Pre-Shot'},
+    {id:'postshot',  label:'Post-Shot'},
+    {id:'postround', label:'Post-Round'},
+    {id:'gpcourses', label:'My Courses'}
+  ],
   dplane:[{id:'dplane',label:'The Lab'},{id:'dpshots',label:'Shot Presets'}],
-  gameplan:[{id:'gameplan',label:'Gameplan'}],
   diagnose:[
     {id:'chain',label:'The Chain'},
     {id:'ch1',label:'1 Score'},{id:'ch2',label:'2 Ball Flight'},{id:'ch3',label:'3 Forces'},

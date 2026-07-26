@@ -23,9 +23,9 @@
 
 <nav class="nav-groups">
   <div class="ngroup active" data-group="play" onclick="showGroup('play',this)">Play</div>
+  <div class="ngroup" data-group="gameplan" onclick="showGroup('gameplan',this)">Gameplan</div>
   <div class="ngroup" data-group="dplane" onclick="showGroup('dplane',this)">D-Plane Lab</div>
   <div class="ngroup" data-group="diagnose" onclick="showGroup('diagnose',this)">The Chain</div>
-  <div class="ngroup" data-group="gameplan" onclick="showGroup('gameplan',this)">Gameplan</div>
   <div class="ngroup" data-group="setup" onclick="showGroup('setup',this)">Locker Room</div>
 </nav>
 <nav class="nav-sub" id="nav-sub"></nav>
@@ -269,32 +269,34 @@
   </details>
 </div>
 
-<!-- GAMEPLAN — the former Plan group folded into one Play sub-tab, ordered as the round arc -->
+<!-- GAMEPLAN — the round arc, one sub-tab per phase. The Hole Overlay leads: it is the
+     tool you actually reach for, so it opens the tab rather than sitting three levels deep
+     inside a collapsed dropdown. -->
 <div id="page-gameplan" class="page">
-  <p class="intro-note"><strong>Gameplan</strong> — the whole round arc in one place: prep the course, plan each shot, review each shot honestly, then close out the round. Pre-Shot stays open — it's the one you use mid-round.</p>
+  <div id="hole-overlay-wrap"></div>
+  <div id="course-strategy-wrap" style="margin-top:24px"></div>
+</div>
 
-  <details class="defs-dropdown"><summary>Pre-Round — Course Strategy &amp; Tracking</summary>
-    <div id="course-strategy-wrap" style="margin-top:10px"></div>
-    <div class="section-label" style="margin-top:22px">Round Strategy &amp; Live Tracking</div>
-    <div id="round-tracker-wrap"></div>
-    <div class="section-label" style="margin-top:22px">Course Editor</div>
-    <div id="course-editor-wrap"></div>
-  </details>
+<div id="page-preshot" class="page">
+  <p class="intro-note">First <b>Plan</b> the shot — read the situation, pick a target, build the true number. Then <b>Execute</b> your physical routine the same way every time. The effective-yardage equation is live — tap any term to open its detail and inputs.</p>
+  <div id="planshot-wrap"></div>
+</div>
 
-  <details class="defs-dropdown" open style="margin-top:12px"><summary>Pre-Shot — Plan &amp; Execute</summary>
-    <p class="intro-note" style="margin-top:10px">First <b>Plan</b> the shot — read the situation, pick a target, build the true number. Then <b>Execute</b> your physical routine the same way every time. The effective-yardage equation is live — tap any term to open its detail and inputs.</p>
-    <div id="planshot-wrap"></div>
-  </details>
+<div id="page-postshot" class="page">
+  <p class="intro-note">After the ball stops, run a quick, honest review — in order: what happened, how you executed, whether the plan fit, and what to adjust next time. Separating result from execution from plan is how you learn from a shot instead of just reacting to it.</p>
+  <div id="postshot-wrap"></div>
+</div>
 
-  <details class="defs-dropdown" style="margin-top:12px"><summary>Post-Shot — Review</summary>
-    <p class="intro-note" style="margin-top:10px">After the ball stops, run a quick, honest review — in order: what happened, how you executed, whether the plan fit, and what to adjust next time. Separating result from execution from plan is how you learn from a shot instead of just reacting to it.</p>
-    <div id="postshot-wrap"></div>
-  </details>
+<div id="page-postround" class="page">
+  <p class="intro-note">Close the loop on the round you just played — log the numbers that drive strokes-gained, then a short structured debrief while it's fresh. Honest, consistent post-round data is what turns rounds into trend lines.</p>
+  <div id="postround-wrap"></div>
+</div>
 
-  <details class="defs-dropdown" style="margin-top:12px"><summary>Post-Round — Debrief</summary>
-    <p class="intro-note" style="margin-top:10px">Close the loop on the round you just played — log the numbers that drive strokes-gained, then a short structured debrief while it's fresh. Honest, consistent post-round data is what turns rounds into trend lines.</p>
-    <div id="postround-wrap"></div>
-  </details>
+<div id="page-gpcourses" class="page">
+  <p class="intro-note">The courses you play. Import one from OpenStreetMap or trace it by hand — greens, fairways, bunkers, water and trees become the geometry every recommendation on the Strategy tab is computed against.</p>
+  <div id="course-editor-wrap"></div>
+  <div class="section-label" style="margin-top:24px">Round Strategy &amp; Live Tracking</div>
+  <div id="round-tracker-wrap"></div>
 </div>
 
 <!-- D-PLANE LAB — top-level page (content built by buildDplaneLab in diagnose.js) -->

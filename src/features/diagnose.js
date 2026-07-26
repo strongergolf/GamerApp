@@ -840,7 +840,9 @@ function buildCourseStrategy(){
     <p class="intro-note" style="margin-top:18px">Your bag plays <strong>${predominant}</strong>. These per-club ball-flight tendencies (set in the D-Plane Lab) are the foundation for hole-by-hole aim points — favouring the side your stock shape works <em>away</em> from trouble.</p>
     <div class="section-label">Predominant Ball Flight by Club</div>
     <div class="cs-grid">${rows}</div>
-    <div id="hole-overlay-wrap"></div>`;
+    <div class="chain-caption" style="margin-top:6px">The live hole-by-hole recommendation now leads this tab, above — these preferences feed it.</div>`;
+  /* The overlay lives in its own container above this one now, but this is still the
+     "course data changed" signal (import, trace, delete), so it must refresh with us. */
   if(typeof buildHoleOverlay==='function') buildHoleOverlay();
 }
 

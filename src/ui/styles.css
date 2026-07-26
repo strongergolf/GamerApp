@@ -591,7 +591,9 @@ table.chip-matrix tr:hover td{background:var(--surface2)}
 .sgv-slider-row{display:flex;align-items:center;gap:10px}
 .sgv-range{flex:1;min-width:90px;accent-color:var(--accent,#3a7d5c)}
 .sgv-cur{font-family:Arial,sans-serif;font-size:.74rem;font-weight:700;color:var(--ink);white-space:nowrap;min-width:96px;text-align:right}
-.sgv-prov{font-family:ui-monospace,monospace;font-size:.52rem;font-weight:600;color:var(--gold);margin-left:4px;letter-spacing:.02em}
+/* brand pink is too light on the panel in light theme (2.96:1) — darken it there */
+.sgv-prov{font-family:ui-monospace,monospace;font-size:.52rem;font-weight:600;color:#b8455a;margin-left:4px;letter-spacing:.02em}
+body.theme-dark .sgv-prov{color:var(--gold)}
 .sgv-eff{font-family:ui-monospace,monospace;font-size:.62rem;color:var(--muted);margin-top:5px;letter-spacing:.02em}
 .sgv-tbd{color:var(--gold);opacity:.85;font-style:italic}
 .sgv-readout{background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:12px 14px;margin-bottom:18px}
@@ -742,7 +744,9 @@ table.chip-matrix tr:hover td{background:var(--surface2)}
 .cf-name{flex:1;min-width:120px;font-weight:600}
 .cf-hole-tabs{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px}
 .cf-hole-tab{font-family:Arial,sans-serif;font-weight:800;font-size:.82rem;min-width:30px;padding:5px 8px;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;color:var(--ink2);cursor:pointer}
+/* --green brightens in dark theme, so white-on-green drops to 2.6:1 — flip to navy there */
 .cf-hole-tab.active{background:var(--green);color:#fff;border-color:var(--green)}
+body.theme-dark .cf-hole-tab.active{color:#0C2340}
 .cf-hole-tab.add{color:var(--green);font-weight:800}
 .cf-hole-meta{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:10px;font-family:ui-monospace,monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
 .cf-hole-meta input{font-family:Arial,sans-serif;font-size:.85rem;font-weight:700;padding:4px 6px;background:var(--bg2);border:1px solid var(--border2);border-radius:5px;color:var(--ink);outline:none;margin-left:4px}
