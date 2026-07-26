@@ -584,8 +584,8 @@ function stratShotSVG(hole, r, line, n, dim){
         fill="${col}" fill-opacity="0.18" stroke="${col}" stroke-opacity="0.95" stroke-width="3.5"/></g>`}
     <circle cx="${aim.x.toFixed(1)}" cy="${aim.y.toFixed(1)}" r="${dim?5:9}" fill="none" stroke="#fff" stroke-width="${dim?2:3}" opacity="${op}"/>
     <circle cx="${aim.x.toFixed(1)}" cy="${aim.y.toFixed(1)}" r="3" fill="#fff" opacity="${op}"/>
-    ${lbl(`${line}-${n} · ${r.shot.label} · ${Math.round(r.geoYd)} yd`, -ry-20, 31)}
-    ${r.toPinYd!=null?lbl(`${Math.round(r.toPinYd)} to pin${r.toMidYd!=null?' · '+Math.round(r.toMidYd)+' to mid':''}`, ry+44, 27):''}`;
+    ${lbl(`${line}-${n} · ${r.shot.label} · ${Math.round(r.geoYd)} yd`, -ry-40, 31)}
+    ${r.toPinYd!=null?lbl(`${Math.round(r.toPinYd)} to pin`, -ry-14, 27):''}`;
 }
 function stratOverlay(hole, shots, n){
   const S=window.stratShot;
