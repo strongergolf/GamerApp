@@ -664,7 +664,6 @@ function buildHoleOverlay(){
   const hOpts=holes.map((h,i)=>`<option value="${i}"${i===hi?' selected':''}>Hole ${h.num||i+1} · par ${h.par||4}</option>`).join('');
   const S=window.stratShot;
   const head=`<div class="section-label">Hole Overlays <span class="proto-badge">prototype</span></div>
-    <div class="chain-caption" style="margin-top:4px">A hole is a sequence, not one decision. <b class="ln-O">Line O</b> is the optimiser's path through it; <b class="ln-A">A</b> and <b class="ln-B">B</b> are yours. Pick a shot number and a line, then drag anywhere on the hole — <b>A-2</b> is the second shot played from wherever <b>A-1</b> finished.</div>
     <div class="strat-hole-row">
       <select class="strat-select" style="max-width:200px" onchange="stratSetCourse(this.value)">${cOpts}</select>
       <select class="strat-select" style="max-width:160px" onchange="stratSetHole(this.value)">${hOpts}</select>
@@ -764,7 +763,6 @@ function buildHoleOverlay(){
         ${oRes&&oRes.best.category?`<div class="sh-cat">${oRes.best.category}</div>`:''}
         ${table}
         ${verdict}
-        <div class="sh-note">Dragging moves <b>${S.active}-${n}</b> · scroll to zoom, middle-drag to pan${window.stratView.z>1.01?` · <a href="#" onclick="stratResetView();return false">reset view</a>`:''}<br>Strokes gained is measured against a <b>${(STRAT_SKILLS.find(s=>s[0]===String((STATE.strategy||{}).skillHcp??''))||STRAT_SKILLS[0])[1]}</b> baseline.</div>
       </div>
     </div>`;
   stratDragInit(wrap);
