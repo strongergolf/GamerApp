@@ -892,6 +892,8 @@ body.theme-dark .sh-strat-row .ss-pen.sh-warn{color:var(--c-wood)}
 .sh-tbl td.on{background:var(--bg2)}
 .sh-tbl thead th.on{background:var(--bg2)}
 .sh-tbl tr.sh-tbl-key td{font-weight:800;color:var(--ink);font-size:.72rem}
+.sh-tbl .sg-pos{color:#00693a} .sh-tbl .sg-neg{color:#b8455a}
+body.theme-dark .sh-tbl .sg-pos{color:var(--green2)} body.theme-dark .sh-tbl .sg-neg{color:var(--c-wood)}
 .sh-tbl tr.sh-tbl-key th[scope=row]{color:var(--ink2)}
 .sh-tbl tr.sh-tbl-chips td{padding-top:5px}
 .sh-tbl tr.sh-tbl-chips .mix-chip{display:inline-block;margin:1px 0 1px 2px;font-size:.44rem;padding:1px 3px}

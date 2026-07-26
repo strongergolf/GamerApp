@@ -123,8 +123,11 @@ function renderHoleSVG(hole, opts){
     draftSVG+=e.calib.map(p=>`<circle cx="${p.x}" cy="${p.y}" r="7" fill="var(--sky)" stroke="#fff" stroke-width="2"/>`).join('');
   }
   const click=interactive?'onclick="cfCanvasClick(event)" style="width:100%;display:block;cursor:crosshair;touch-action:none;border-radius:10px"':'style="width:100%;display:block;border-radius:10px"';
-  return `<svg viewBox="0 0 ${CF_W} ${CF_H}" ${click} xmlns="http://www.w3.org/2000/svg">
-    <rect width="${CF_W}" height="${CF_H}" fill="#2f7a3f"/>${bg}
+  /* opts.viewBox lets a caller zoom/pan the same geometry (the strategy overlay does).
+     The turf rect is oversized so panning never exposes the page behind it. */
+  const vb=opts.viewBox||{x:0,y:0,w:CF_W,h:CF_H};
+  return `<svg viewBox="${vb.x.toFixed(1)} ${vb.y.toFixed(1)} ${vb.w.toFixed(1)} ${vb.h.toFixed(1)}" ${click} xmlns="http://www.w3.org/2000/svg">
+    <rect x="${-CF_W}" y="${-CF_H}" width="${CF_W*3}" height="${CF_H*3}" fill="#2f7a3f"/>${bg}
     ${fairway}${green}${hazards}${centerline}${(opts.overlay||'')}${tee}${pin}${draftSVG}
   </svg>`;
 }

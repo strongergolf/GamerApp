@@ -411,6 +411,29 @@ function optimiseShot(hole, from, opts){
 window.stratSel = window.stratSel || { cIdx:0, hIdx:0 };
 window.stratShot = window.stratShot || { shotNum:1, lines:{A:[],B:[]}, active:'A' };
 window.stratOptCache = null;
+/* Map view: centre + zoom, so the hole can be scrolled into like the D-Plane viewer. */
+window.stratView = window.stratView || { cx:CF_W/2, cy:CF_H/2, z:1 };
+const STRAT_ZMIN = 1, STRAT_ZMAX = 8;
+function stratViewBox(){
+  const v=window.stratView, w=CF_W/v.z, h=CF_H/v.z;
+  /* keep the hole on screen — the centre can only roam by what the zoom hides */
+  const mx=Math.max(0,(CF_W-w)/2), my=Math.max(0,(CF_H-h)/2);
+  v.cx=Math.max(CF_W/2-mx, Math.min(CF_W/2+mx, v.cx));
+  v.cy=Math.max(CF_H/2-my, Math.min(CF_H/2+my, v.cy));
+  return { x:v.cx-w/2, y:v.cy-h/2, w, h };
+}
+function stratResetView(){ window.stratView={cx:CF_W/2, cy:CF_H/2, z:1}; buildHoleOverlay(); }
+/* Which skill level the expected strokes and strokes-gained are measured against.
+   null = the golfer's own handicap from their profile. */
+const STRAT_SKILLS = [['','My handicap'],['-6','Tour (+6)'],['0','Scratch'],['6','6 hcp'],['12','12 hcp'],['18','18 hcp'],['24','24 hcp']];
+function stratSkill(){
+  const s=(STATE.strategy||{}).skillHcp;
+  return (s===''||s==null) ? cfHcp() : parseFloat(s);
+}
+function stratSetSkill(v){
+  STATE.strategy=STATE.strategy||{}; STATE.strategy.skillHcp=(v===''?null:v);
+  saveState(); window.stratOptCache=null; buildHoleOverlay();
+}
 const SHOT_LINES = ['A','B','O'];
 const SHOT_COL = { A:'#ffd24a', B:'#5ad1ff', O:'#79e08d' };
 const SHOT_MAX = 6;
@@ -458,7 +481,7 @@ function stratScoreShot(hole, from, aim){
   if(geo<8) return {blocked:'tap', lie, from, toPinFrom};
   const mult=APPROACH_LIE[lie]||APPROACH_LIE.fairway, cost=approachLieCostYd(lie);
   const sig={sigmaYd:geo+cost, latMult:mult.lat, depthMult:mult.depth};
-  const r=aimScore(hole,from,aim,cfHcp(),stratPosture(),sig);
+  const r=aimScore(hole,from,aim,stratSkill(),stratPosture(),sig);
   if(!r) return null;
   const mid=stratGreenMid(hole);
   r.shot=approachShotName(geo+cost); r.from=from; r.aim=aim; r.sig=sig; r.lie=lie; r.lieCost=cost;
@@ -470,19 +493,34 @@ function stratScoreShot(hole, from, aim){
        expAtAim — strokes left if the ball finishes exactly on the target spot
        mean     — strokes left once the whole pattern is accounted for, fairway and rough
                   and bunker and penalty in their real proportions */
-  r.expAtAim=cfExpectedStrokes(hole,aim,cfHcp());
+  r.expAtAim=cfExpectedStrokes(hole,aim,stratSkill());
   r.dispersionCost=(r.expAtAim!=null)?(r.mean-r.expAtAim):null;
+  /* STROKES GAINED for this shot, against the baseline for the selected skill level:
+       SG = (expected from where the ball is) − (expected after the shot) − 1
+     Positive means the shot beats what a player of that level averages from here; negative
+     means it loses ground. Unlike the raw expected number it says whether the shot is good
+     in absolute terms, not merely better than the other option on screen. */
+  /* From the TEE the baseline is the hole itself, not a distance lookup — the fairway/rough
+     tables clamp at 300/250 yd, which understated a full-length hole badly enough to make
+     every good drive read as a loss. */
+  const onTee = hole.tee && Math.abs(from.x-hole.tee.x)<2 && Math.abs(from.y-hole.tee.y)<2;
+  const holeYd = cfDistYd(hole,hole.tee,hole.pin);
+  r.expBefore = (onTee && holeYd!=null && typeof srForPlayer==='function')
+    ? srForPlayer('tee', holeYd, stratSkill())
+    : cfExpectedStrokes(hole,from,stratSkill());
+  r.sg=(r.expBefore!=null)?(r.expBefore-r.mean-1):null;
+  r.sgFromTee=!!onTee;
   return r;
 }
 
 /* The optimiser's whole path through the hole, tee to green. Cached per hole/posture so
    dragging a user line never re-solves it. */
 function stratOChain(hole){
-  const key=window.stratSel.cIdx+'|'+window.stratSel.hIdx+'|'+stratPosture()+'|'+cfHcp();
+  const key=window.stratSel.cIdx+'|'+window.stratSel.hIdx+'|'+stratPosture()+'|'+stratSkill();
   if(window.stratOptCache&&window.stratOptCache.key===key) return window.stratOptCache.chain;
   const chain=[]; let from={x:hole.tee.x, y:hole.tee.y};
   for(let n=1;n<=SHOT_MAX;n++){
-    const res=optimiseShot(hole, from, {posture:stratPosture()});
+    const res=optimiseShot(hole, from, {posture:stratPosture(), hcp:stratSkill()});
     if(!res){ break; }
     if(res.blocked){ chain.push({n, from, blocked:res.blocked, toPin:res.toPin, lie:res.lie}); break; }
     const aim={x:Math.round(res.best.aim.x), y:Math.round(res.best.aim.y)};
@@ -515,7 +553,7 @@ function stratLineAim(hole, line, n){
   if(arr[n-1]) return arr[n-1];
   const from=stratBallFor(hole,line,n); if(!from||!hole.pin) return null;
   if(line==='A'){
-    const r=optimiseShot(hole, from, {posture:stratPosture()});
+    const r=optimiseShot(hole, from, {posture:stratPosture(), hcp:stratSkill()});
     return (r&&!r.blocked)?{x:Math.round(r.best.aim.x), y:Math.round(r.best.aim.y)}:null;
   }
   const ypu=cfYardsPerUnit(hole); if(ypu==null) return null;
@@ -630,8 +668,8 @@ function buildHoleOverlay(){
     <div class="strat-hole-row">
       <select class="strat-select" style="max-width:200px" onchange="stratSetCourse(this.value)">${cOpts}</select>
       <select class="strat-select" style="max-width:160px" onchange="stratSetHole(this.value)">${hOpts}</select>
-      <select class="strat-select" data-strat="riskPosture" style="max-width:140px" title="Risk posture — the same setting as Strategy Preferences" onchange="stratSetPosture(this.value)">
-        ${SHOT_POSTURES.map(p=>`<option value="${p}"${p===stratPosture()?' selected':''}>${SHOT_POSTURE_LABEL[p]}</option>`).join('')}
+      <select class="strat-select" style="max-width:140px" title="Skill level the expected strokes and strokes-gained are measured against" onchange="stratSetSkill(this.value)">
+        ${STRAT_SKILLS.map(([v,l])=>`<option value="${v}"${String((STATE.strategy||{}).skillHcp??'')===v?' selected':''}>${l}</option>`).join('')}
       </select>
     </div>`;
   if(!hole){ wrap.innerHTML=head+`<div class="lvl-soon-note">This course has no holes yet.</div>`; return; }
@@ -677,8 +715,9 @@ function buildHoleOverlay(){
     ['From tee',    r=>r.fromTeeYd!=null?Math.round(r.fromTeeYd):'—'],
     ['To pin',      r=>r.toPinYd!=null?Math.round(r.toPinYd):'—'],
     ['To middle',   r=>r.toMidYd!=null?Math.round(r.toMidYd):'—'],
-    ['Exp · on target', r=>r.expAtAim!=null?r.expAtAim.toFixed(2):'—', null, 'key'],
-    ['Exp · remaining', r=>r.mean.toFixed(2), null, 'key']
+    ['Exp · on target', r=>r.expAtAim!=null?r.expAtAim.toFixed(2):'—'],
+    ['Exp · remaining', r=>r.mean.toFixed(2), null, 'key'],
+    ['Strokes gained',  r=>r.sg==null?'—':`<span class="${r.sg>0.005?'sg-pos':r.sg<-0.005?'sg-neg':''}">${r.sg>0?'+':''}${r.sg.toFixed(2)}</span>`, null, 'key']
   ];
   const anyLieCost=SHOT_LINES.some(l=>shots[l]&&!shots[l].blocked&&shots[l].lieCost);
   const th=SHOT_LINES.map(l=>`<th class="ln-${l}${l===S.active?' on':''}">${l}-${n}${l==='O'?'<span class="tsub"> best</span>':''}</th>`).join('');
@@ -717,7 +756,7 @@ function buildHoleOverlay(){
   const oRes=(oStep&&oStep.res)?oStep.res:null;
   wrap.innerHTML=head+`
     <div class="strat-hole-grid">
-      <div class="strat-hole-map">${renderHoleSVG(hole,{overlay:`<g id="strat-overlay">${stratOverlay(hole,shots,n)}</g>`})}</div>
+      <div class="strat-hole-map">${renderHoleSVG(hole,{viewBox:stratViewBox(), overlay:`<g id="strat-overlay">${stratOverlay(hole,shots,n)}</g>`})}</div>
       <div class="strat-hole-panel">
         <div class="sh-head">Hole ${hole.num||hi+1} · par ${hole.par||4} · ${Math.round(holeYd)} yd${ballLie?` · ball in the ${CF_LIE_LABEL[ballLie].toLowerCase()}`:''}</div>
         <div class="strat-picks">${shotBtns}</div>
@@ -725,9 +764,7 @@ function buildHoleOverlay(){
         ${oRes&&oRes.best.category?`<div class="sh-cat">${oRes.best.category}</div>`:''}
         ${table}
         ${verdict}
-        ${stratPostureTable(oRes)}
-        ${stratTourInputs()}
-        <div class="sh-note">Dragging moves <b>${S.active}-${n}</b> · posture <b>${stratPosture()}</b> · handicap ${cfHcp()}</div>
+        <div class="sh-note">Dragging moves <b>${S.active}-${n}</b> · scroll to zoom, middle-drag to pan${window.stratView.z>1.01?` · <a href="#" onclick="stratResetView();return false">reset view</a>`:''}<br>Strokes gained is measured against a <b>${(STRAT_SKILLS.find(s=>s[0]===String((STATE.strategy||{}).skillHcp??''))||STRAT_SKILLS[0])[1]}</b> baseline.</div>
       </div>
     </div>`;
   stratDragInit(wrap);
@@ -739,32 +776,63 @@ function buildHoleOverlay(){
    position that no longer exists. */
 function stratDragInit(wrap){
   if(!wrap||wrap._stratDrag) return; wrap._stratDrag=true;
-  let dragging=false, last=0;
+  let mode=null, last=0, panFrom=null;
+  /* Client pixels → field units THROUGH the live viewBox, so aiming stays accurate at any
+     zoom. Reading the viewBox off the element means it is always the one on screen. */
   const ptOf=e=>{
     const svg=wrap.querySelector('.strat-hole-map svg'); if(!svg) return null;
     const r=svg.getBoundingClientRect(); if(!r.width||!r.height) return null;
-    return { x:Math.round(Math.max(0,Math.min(CF_W,(e.clientX-r.left)/r.width*CF_W))),
-             y:Math.round(Math.max(0,Math.min(CF_H,(e.clientY-r.top)/r.height*CF_H))) };
+    const vb=(svg.getAttribute('viewBox')||'').split(/\s+/).map(Number);
+    const bx=vb.length===4?vb[0]:0, by=vb.length===4?vb[1]:0;
+    const bw=vb.length===4?vb[2]:CF_W, bh=vb.length===4?vb[3]:CF_H;
+    return { x:Math.round(bx+(e.clientX-r.left)/r.width*bw),
+             y:Math.round(by+(e.clientY-r.top)/r.height*bh) };
   };
-  const apply=(e,force)=>{
+  const setAim=(e,force)=>{
     const p=ptOf(e); if(!p) return;
     const now=Date.now(); if(!force && now-last<50) return; last=now;
     const S=window.stratShot;
     if(S.active==='O') return;                       // the optimiser's line is not draggable
-    const arr=window.stratShot.lines[S.active]||(window.stratShot.lines[S.active]=[]);
+    const arr=S.lines[S.active]||(S.lines[S.active]=[]);
     arr[S.shotNum-1]=p; arr.length=S.shotNum;        // later shots stemmed from the old spot
+    buildHoleOverlay();
+  };
+  const panBy=(e)=>{
+    if(!panFrom) return;
+    const now=Date.now(); if(now-last<50) return; last=now;
+    const svg=wrap.querySelector('.strat-hole-map svg'); if(!svg) return;
+    const r=svg.getBoundingClientRect(); const v=window.stratView;
+    v.cx-=(e.clientX-panFrom.x)/r.width*(CF_W/v.z);
+    v.cy-=(e.clientY-panFrom.y)/r.height*(CF_H/v.z);
+    panFrom={x:e.clientX,y:e.clientY};
     buildHoleOverlay();
   };
   wrap.addEventListener('pointerdown',e=>{
     if(!e.target.closest||!e.target.closest('.strat-hole-map')) return;
-    if(window.stratShot.active==='O') return;
-    dragging=true; try{ wrap.setPointerCapture(e.pointerId); }catch(_){}
-    apply(e,true); e.preventDefault();
+    if(e.pointerType==='mouse'&&e.button===1){ mode='pan'; panFrom={x:e.clientX,y:e.clientY}; }
+    else { if(window.stratShot.active==='O') return; mode='aim'; }
+    try{ wrap.setPointerCapture(e.pointerId); }catch(_){}
+    if(mode==='aim') setAim(e,true);
+    e.preventDefault();
   });
-  wrap.addEventListener('pointermove',e=>{ if(dragging) apply(e,false); });
-  const end=e=>{ if(!dragging) return; dragging=false; apply(e,true); };
+  wrap.addEventListener('pointermove',e=>{
+    if(mode==='aim') setAim(e,false); else if(mode==='pan') panBy(e);
+  });
+  const end=e=>{ if(!mode) return; if(mode==='aim') setAim(e,true); mode=null; panFrom=null; };
   wrap.addEventListener('pointerup',end);
   wrap.addEventListener('pointercancel',end);
+  /* Scroll to zoom, anchored on the cursor so the point under the pointer stays put. */
+  wrap.addEventListener('wheel',e=>{
+    const map=e.target.closest&&e.target.closest('.strat-hole-map'); if(!map) return;
+    e.preventDefault();
+    const before=ptOf(e); const v=window.stratView;
+    const z=Math.max(STRAT_ZMIN, Math.min(STRAT_ZMAX, v.z*Math.exp(-e.deltaY*0.0015)));
+    if(Math.abs(z-v.z)<1e-6) return;
+    v.z=z;
+    const after=ptOf(e);
+    if(before&&after){ v.cx+=before.x-after.x; v.cy+=before.y-after.y; }
+    buildHoleOverlay();
+  },{passive:false});
 }
 
 Object.assign(window, {
@@ -776,6 +844,7 @@ Object.assign(window, {
   SHOT_LAT_MAX, SHOT_LAT_STEP, SHOT_RECOVERY_MAX_YD, SHOT_POSTURES, SHOT_POSTURE_LABEL,
   stratSetPosture, SHOT_HOLE_SD, SHOT_POS_SD, SHOT_TARGET_MIN_GAIN, normCdf, tournamentCtx, shotZ,
   stratTourInputs, stratSetTour,
+  STRAT_SKILLS, stratSkill, stratSetSkill, stratViewBox, stratResetView,
   SHOT_COL, SHOT_LINES, SHOT_MAX, stratPosture, stratCurrent, stratGreenMid,
   stratClearLines, stratResetAim, stratSetShotNum, stratSetLine,
   stratScoreShot, stratOChain, stratBallFor, stratLineAim,

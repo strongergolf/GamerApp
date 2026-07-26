@@ -12,7 +12,16 @@ const SR = {
   rough:  [[15,2.04],[25,2.18],[50,2.32],[75,2.46],[100,2.62],[125,2.76],[150,2.90],[175,3.03],[200,3.16],[225,3.27],[250,3.38]],
   sand:   [[10,2.08],[15,2.13],[20,2.22],[30,2.33],[50,2.52],[75,2.68],[100,2.83]],
   green:  [[3,1.20],[5,1.35],[8,1.56],[10,1.65],[15,1.81],[20,1.92],[25,2.02],[30,2.11],[40,2.25],[50,2.37],[60,2.50],[80,2.63]],
-  atg:    [[5,1.97],[10,2.07],[15,2.15],[20,2.22],[30,2.34],[40,2.46],[55,2.58]]
+  atg:    [[5,1.97],[10,2.07],[15,2.15],[20,2.22],[30,2.34],[40,2.46],[55,2.58]],
+  /* TEE — expected strokes to hole out from the TEE by hole length (yards), scratch.
+     The fairway/rough tables stop at 300/250 yd and clamp, so using them from the tee of a
+     full-length hole reported ~3.4 strokes to play a 442-yard hole and made every good
+     drive read as LOSING half a shot. A tee shot also has advantages those tables do not
+     model (teed ball, driver, a fairway to aim at), so it needs its own baseline.
+     Anchored to familiar scratch outcomes: ~3.0 on a 150-yd par 3, ~4.05 on a 400-yd par 4,
+     ~4.5 on a 500-yd par 5. PRESUMED — replace with measured tee data when it exists. */
+  tee:    [[100,2.80],[150,2.98],[200,3.20],[250,3.45],[300,3.71],[350,3.88],[400,4.05],
+           [450,4.25],[500,4.48],[550,4.75],[600,5.02]]
 };
 function srInterp(lie,dist){
   const t=SR[lie]; if(!t) return null;
