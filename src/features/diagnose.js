@@ -342,7 +342,7 @@ const PRACTICE_AREAS=[
        <div class="chain-caption">Where every level above cashes out into a real decision on a real hole. Strategy synthesises ball-flight data (L2), dispersion patterns, and scoring tendencies (L1) into optimal targets, shot shapes, and risk/reward choices. The eventual home for course overlays and hole-by-hole planning.</div>
 
        ${buildStrategyPrefs()}
-       <div class="chain-caption" style="margin-top:6px">These are the same preferences shown on the <strong>Gameplan</strong> tab (Pre-Round — Course Strategy) — editing here updates there.</div>`,
+       <div class="chain-caption" style="margin-top:6px">These are the same preferences that place line <strong>S</strong> on the Hole Overlay (<strong>Gameplan → Strategy</strong>) — editing here moves it there.</div>`,
      improve:()=>`
        <div class="lvl-subhead" style="margin-top:0">Strokes Gained — Decision Quality</div>
        <div class="lvl-soon-note">Future: flag shots where club or target selection cost strokes vs. the optimal decision, separate from execution error. A bad decision with a good swing still costs shots.</div>
@@ -837,13 +837,16 @@ function buildCourseStrategy(){
     return `<div class="cs-club"><span class="cs-club-lbl">${c.label}</span><span class="cs-shape" style="color:${col}">${sh.shape}${curveTxt}</span></div>`;
   }).join('');
   const predominant = draws>fades&&draws>=straight?'a predominant draw' : fades>draws&&fades>=straight?'a predominant fade' : 'a mostly straight ball flight';
+  /* The Strategy Preferences used to render here as well. They now place line S on the Hole
+     Overlay directly above, which carries its own copy of the same five controls — two sets
+     of identical selects on one page is a bug, not a convenience. The Chain L7 copy stays:
+     that is a different tab, and the data-strat sync keeps all of them in step. */
   wrap.innerHTML=`
     <div class="section-label" style="margin-top:0">Course Strategy <span class="proto-badge">prototype</span></div>
-    ${buildStrategyPrefs()}
-    <p class="intro-note" style="margin-top:18px">Your bag plays <strong>${predominant}</strong>. These per-club ball-flight tendencies (set in the D-Plane Lab) are the foundation for hole-by-hole aim points — favouring the side your stock shape works <em>away</em> from trouble.</p>
+    <p class="intro-note">Your bag plays <strong>${predominant}</strong>. These per-club ball-flight tendencies (set in the D-Plane Lab) are the foundation for hole-by-hole aim points — favouring the side your stock shape works <em>away</em> from trouble.</p>
     <div class="section-label">Predominant Ball Flight by Club</div>
     <div class="cs-grid">${rows}</div>
-    <div class="chain-caption" style="margin-top:6px">The live hole-by-hole recommendation now leads this tab, above — these preferences feed it.</div>`;
+    <div class="chain-caption" style="margin-top:6px">Not yet wired into the optimiser — the aim points above assume a straight ball. Your targeting preferences live with the map, under <strong>My strategy</strong>.</div>`;
   /* The overlay lives in its own container above this one now, but this is still the
      "course data changed" signal (import, trace, delete), so it must refresh with us. */
   if(typeof buildHoleOverlay==='function') buildHoleOverlay();

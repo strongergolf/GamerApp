@@ -850,8 +850,21 @@ body.theme-dark .cf-hole-tab.active{color:#0C2340}
 .strat-mode-btn.active{background:var(--panel);color:var(--gold2);border-color:var(--panel)}
 .strat-mode-btn:hover:not(.active){color:var(--ink);border-color:var(--gold)}
 /* stretch so the info card matches the hole map's height rather than hugging its content */
-.strat-hole-grid{display:flex;gap:12px;align-items:stretch;flex-wrap:wrap}
-.strat-hole-map{flex:1 1 300px;min-width:260px;max-width:420px;touch-action:none;cursor:crosshair;align-self:flex-start}
+/* The hole map is the page — but the hole FIELD is portrait (1000x1400), so handing it the
+   full width just letterboxes it: measured 868px of box holding 401px of hole. What actually
+   makes it bigger is height, so the map is sized off the VIEWPORT height and takes only the
+   width that aspect ratio implies. The width left over goes to the notes, which used to be
+   squeezed into 320px while 467px sat empty beside the map.
+   (The real prize is drawing the hole left-to-right so a landscape screen fits it — see the
+   note in strategy.js. That is a renderer change, not a stylesheet one.) */
+.strat-hole-grid{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap}
+.strat-hole-map{flex:0 0 auto;width:min(100%, max(320px, calc(82vh * 1000 / 1400)));touch-action:none;cursor:crosshair}
+.strat-hole-map svg{display:block;width:100%;height:auto}
+/* control bar: hole facts on the left, everything you click on the right */
+.sh-bar{display:flex;gap:10px 16px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;margin:2px 0 8px}
+.sh-bar-ctl{display:flex;gap:2px 10px;align-items:center;flex-wrap:wrap}
+.sh-bar-ctl .strat-picks{margin:3px 0}
+.sh-bar .sh-head{padding-top:7px}
 .sh-cost{margin-top:8px;font-family:Arial,sans-serif;font-size:.72rem;line-height:1.4;color:var(--c-wood);background:var(--gold-pale);border:1px solid rgba(217,96,112,.3);border-radius:6px;padding:5px 8px}
 /* two-shot comparison */
 .strat-picks{display:flex;gap:4px;flex-wrap:wrap;margin:8px 0}
@@ -941,11 +954,38 @@ body.theme-dark .sh-row b.sh-warn{color:var(--c-wood)}
 .sh-mix{display:flex;flex-wrap:wrap;gap:4px;margin-top:9px}
 .mix-chip{font-family:ui-monospace,monospace;font-size:.5rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;border-radius:4px;padding:2px 6px;border:1px solid currentColor;opacity:.95}
 /* --green2 is too light on the panel in light theme (2.6:1) — darken it there */
-.mix-fairway{color:var(--green)} .mix-green{color:#00693a} .mix-rough{color:var(--muted)}
+/* --green and --dp-loft measure 4.42:1 and 4.09:1 on the light panel — darkened twins here,
+   brand tones restored in the dark theme where they pass comfortably. */
+.mix-fairway{color:#0f6b35} .mix-green{color:#00693a} .mix-rough{color:var(--muted)}
+body.theme-dark .mix-fairway{color:var(--green)}
 body.theme-dark .mix-green{color:var(--green2)}
-.mix-sand{color:var(--dp-loft)} .mix-water{color:var(--sky)} .mix-oob{color:var(--c-wood)}
+.mix-sand{color:#8a5e00} .mix-water{color:var(--sky)} .mix-oob{color:var(--c-wood)}
+body.theme-dark .mix-sand{color:var(--dp-loft)}
 .mix-trees{color:#1e6b38} body.theme-dark .mix-trees{color:#4fbf7a}
 .sh-note{font-family:ui-monospace,monospace;font-size:.5rem;color:var(--muted);margin-top:9px;line-height:1.5}
+/* Below the map: one line per shot line. Not a table — a table invites you to fill it, and
+   the point of this strip is that almost everything already lives on the map. */
+/* Capped: on a wide screen the map is height-bound and cannot grow into the leftover, but
+   letting prose run to 850px is worse than leaving the margin empty. */
+.sh-side{flex:1 1 300px;min-width:280px;max-width:620px;display:flex;flex-direction:column;gap:10px}
+.sh-strip{display:flex;flex-direction:column;gap:5px}
+.sh-below-notes .sh-cat{margin-top:0}
+.sh-strip-line{display:flex;gap:5px 10px;align-items:baseline;flex-wrap:wrap;padding:6px 9px;border:1px solid var(--border);border-radius:8px;background:var(--surface)}
+.sh-strip-line.on{border-color:var(--border2);background:var(--surface2)}
+.sh-strip-line .ss-ln{font-family:ui-monospace,monospace;font-size:.78rem;font-weight:800}
+.sh-strip-line .ss-sub{font-family:ui-monospace,monospace;font-size:.5rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-left:-6px}
+.sh-strip-line .ss-none{font-family:ui-monospace,monospace;font-size:.62rem;color:var(--muted)}
+.ss-pair{display:inline-flex;gap:4px;align-items:baseline}
+.ss-pair b{font-family:ui-monospace,monospace;font-size:.86rem;font-weight:800;color:var(--ink)}
+.ss-pair span{font-family:ui-monospace,monospace;font-size:.5rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+/* the gap between "if perfect" and "in practice" is what dispersion costs — name it */
+.ss-gap{font-family:ui-monospace,monospace;font-size:.52rem;font-weight:700;letter-spacing:.04em;color:#8a5e00;background:var(--gold-pale);border:1px solid rgba(217,96,112,.25);border-radius:5px;padding:2px 6px;cursor:help}
+body.theme-dark .ss-gap{color:var(--gold2);background:rgba(255,210,74,.12);border-color:rgba(255,210,74,.3)}
+/* full opacity here: these sit on --surface rather than the old panel, and the inherited
+   .95 dropped the fairway chip to 4.42:1 in the light theme */
+.ss-chips{display:inline-flex;flex-wrap:wrap;gap:3px;margin-left:auto}
+.ss-chips .mix-chip{opacity:1}
+@media(max-width:520px){.ss-chips{margin-left:0;width:100%}}
 /* Anchor a shot: the point where it stops being an intention and becomes a record. */
 .sh-anchor-row{align-items:center}
 .sh-anchor-row .strat-mode-btn.on{border-color:#8a5e00;color:#8a5e00;background:rgba(255,210,74,.14)}

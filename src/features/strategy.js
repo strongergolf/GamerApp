@@ -922,28 +922,27 @@ function buildHoleOverlay(){
   /* The four numbers that matter — shot length, its strokes gained, what it leaves to the
      pin and the expected shots from there — now live on the overlay itself. What stays here
      is the supporting detail that would clutter the map. */
-  const TBL_ROWS=[
-    ['Plays',       r=>r.lieCost?Math.round(r.playsYd)+' yd':'—', 'lieCost'],
-    ['From tee',    r=>r.fromTeeYd!=null?Math.round(r.fromTeeYd)+' yd':'—'],
-    ['To middle',   r=>r.toMidYd!=null?Math.round(r.toMidYd)+' yd':'—'],
-    ['Exp · on target', r=>r.expAtAim!=null?r.expAtAim.toFixed(2):'—']
-  ];
-  const anyLieCost=SHOT_LINES.some(l=>shots[l]&&!shots[l].blocked&&shots[l].lieCost);
-  const th=SHOT_LINES.map(l=>`<th class="ln-${l}${l===S.active?' on':''}">${l}-${n}${l==='O'?'<span class="tsub"> optimal</span>':''}</th>`).join('');
-  const body=TBL_ROWS.filter(row=>row[2]!=='lieCost'||anyLieCost).map(row=>{
-    const cells=SHOT_LINES.map(l=>{
-      const r=shots[l];
-      const cls=(l===S.active?' class="on"':'');
-      if(!r) return `<td${cls}>—</td>`;
-      if(r.blocked) return `<td${cls}>${row[0]==='Club'?`<i>${blockedTxt(r)}</i>`:'—'}</td>`;
-      return `<td${cls}>${row[1](r)}</td>`;
-    }).join('');
-    return `<tr class="${row[3]==='big'?'sh-tbl-big':row[3]==='key'?'sh-tbl-key':''}"><th scope="row">${row[0]}</th>${cells}</tr>`;
+  /* The map owns the numbers now — shot length, strokes gained, what it leaves and what that
+     costs are all printed beside the ball. What is left below is the two things a map cannot
+     say legibly:
+       1. the OUTCOME MIX, which is the honest summary of the risk being taken;
+       2. expected-if-perfect against expected-in-practice. The GAP between those two IS the
+          cost of your dispersion, and until now it was only ever implicit. */
+  const strip=SHOT_LINES.map(l=>{
+    const r=shots[l], on=(l===S.active);
+    const head=`<span class="ss-ln ln-${l}">${l}-${n}</span>${l==='O'?'<span class="ss-sub">optimal</span>':''}`;
+    if(!r) return `<div class="sh-strip-line${on?' on':''}">${head}<span class="ss-none">—</span></div>`;
+    if(r.blocked) return `<div class="sh-strip-line${on?' on':''}">${head}<span class="ss-none"><i>${blockedTxt(r)}</i></span></div>`;
+    const gap=(r.expAtAim!=null)?(r.mean-r.expAtAim):null;
+    const perfect=r.sgActual
+      ? `<span class="ss-pair"><b>${r.expAfter.toFixed(2)}</b> <span>from where it finished</span></span>`
+      : `<span class="ss-pair"><b>${r.expAtAim!=null?r.expAtAim.toFixed(2):'—'}</b> <span>if perfect</span></span>
+         <span class="ss-pair"><b>${r.mean.toFixed(2)}</b> <span>in practice</span></span>
+         ${gap!=null?`<span class="ss-gap" title="What your dispersion costs: the difference between finishing exactly on the target and the whole pattern of where the ball actually goes">+${gap.toFixed(2)} dispersion</span>`:''}`;
+    return `<div class="sh-strip-line${on?' on':''}">${head}${perfect}
+      <span class="ss-chips">${chipsFor(r.lieMix)}</span></div>`;
   }).join('');
-  const chipRow=`<tr class="sh-tbl-chips"><th scope="row">Outcome</th>${
-    SHOT_LINES.map(l=>{const r=shots[l];
-      return `<td${l===S.active?' class="on"':''}>${(r&&!r.blocked)?chipsFor(r.lieMix):'—'}</td>`;}).join('')}</tr>`;
-  const table=`<table class="sh-tbl"><thead><tr><th></th>${th}</tr></thead><tbody>${body}${chipRow}</tbody></table>`;
+  const table=`<div class="sh-strip">${strip}</div>`;
   /* verdict across the three lines that actually produced a shot */
   const live=SHOT_LINES.filter(l=>shots[l]&&!shots[l].blocked);
   let verdict='';
@@ -1012,19 +1011,34 @@ function buildHoleOverlay(){
       </div>
       <div class="sh-pref-foot">The first four place <b class="ln-S">S</b>. The risk posture is <b class="ln-O">O</b>'s objective — it changes what the optimiser is trying to do, not where you aim.</div>
     </details>`;
+  /* Controls span the top, where you reach for them and where they cost the map nothing.
+     The map then takes the width its portrait aspect can actually use, and everything else
+     goes beside it — which is where the 467px of empty letterbox used to be.
+
+     NOTE for the next pass: the hole is drawn bottom-to-top in a 1000x1400 field, so on a
+     landscape screen the picture is height-bound and most of the row is unusable no matter
+     how the boxes are arranged. Drawing the hole LEFT-TO-RIGHT would roughly double it. That
+     is a renderHoleSVG change — one rotation transform on the scene, counter-rotations on
+     the labels and the flag, and the inverse in stratDragInit's ptOf. */
   wrap.innerHTML=head+`
-    <div class="strat-hole-grid">
-      <div class="strat-hole-map">${renderHoleSVG(hole,{viewBox:stratViewBox(), overlay:`<g id="strat-overlay">${stratOverlay(hole,chains,n)}</g>`})}</div>
-      <div class="strat-hole-panel">
-        <div class="sh-head">Hole ${hole.num||hi+1} · par ${hole.par||4} · ${Math.round(holeYd)} yd${ballWhere}</div>
+    <div class="sh-bar">
+      <div class="sh-head">Hole ${hole.num||hi+1} · par ${hole.par||4} · ${Math.round(holeYd)} yd${ballWhere}</div>
+      <div class="sh-bar-ctl">
         <div class="strat-picks">${shotBtns}</div>
         <div class="strat-picks">${lineBtns}<button type="button" class="strat-mode-btn" onclick="stratResetAim()">↺ reset</button></div>
         ${S.active==='S'?anchorRow:''}
-        ${oRes&&oRes.best.category?`<div class="sh-cat">${oRes.best.category}</div>`:''}
+      </div>
+    </div>
+    <div class="strat-hole-grid">
+      <div class="strat-hole-map">${renderHoleSVG(hole,{viewBox:stratViewBox(), overlay:`<g id="strat-overlay">${stratOverlay(hole,chains,n)}</g>`})}</div>
+      <div class="sh-side">
         ${table}
-        ${verdict}
-        <div class="sh-pref-note">${prefWhy}</div>
-        ${prefBox}
+        <div class="sh-below-notes">
+          ${oRes&&oRes.best.category?`<div class="sh-cat">${oRes.best.category}</div>`:''}
+          ${verdict}
+          <div class="sh-pref-note">${prefWhy}</div>
+          ${prefBox}
+        </div>
       </div>
     </div>`;
   stratDragInit(wrap);
