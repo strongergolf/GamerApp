@@ -280,6 +280,20 @@ function cfLieAt(hole,pt){
   if(cfPointInPoly(pt,hole.fairway)) return 'fairway';
   return 'rough';
 }
+/* The lie a SHOT is played from, which is not always the lie the map reports. Teeing grounds
+   are not traced as a surface — OSM has them, but only the tee MARKER is kept — so a ball on
+   the tee falls outside every mapped polygon and cfLieAt calls it rough. Left alone that
+   charged six yards of effective distance and a 1.20x/1.35x dispersion penalty to every tee
+   shot on every hole, which is why "driver as often as possible" came out shorter than a
+   driver. Ask this, not cfLieAt, whenever the question is "what is the ball sitting on". */
+const CF_TEE_TOL = 3;   // field units — stratBallFor hands back hole.tee verbatim
+function cfShotLie(hole,pt){
+  if(hole&&hole.tee&&pt&&Math.abs(pt.x-hole.tee.x)<CF_TEE_TOL&&Math.abs(pt.y-hole.tee.y)<CF_TEE_TOL){
+    const l=cfLieAt(hole,pt);
+    return (l==='fairway'||l==='green')?l:'fairway';   // a tee plays at least as well as fairway
+  }
+  return cfLieAt(hole,pt);
+}
 /* Mapped lie -> the strokes-gained baseline lie used by srForPlayer(). */
 function cfSgLie(lie){ return lie==='green'?'green' : lie==='fairway'?'fairway' : lie==='sand'?'sand' : 'rough'; }
 function cfIsPenalty(lie){ return lie==='water'||lie==='oob'; }
@@ -625,7 +639,7 @@ Object.assign(window, {
   cfClearFeature, cfLoadBg, cfClearBg, renderHoleSVG, buildCourses, cfModeHint, cfRefreshCanvas,
   cfYardsPerUnit, cfHasScale, cfDistYd, cfDistToPinYd, cfDistFromTeeYd,
   cfFieldToLatLon, cfLatLonToField, cfPointInPoly, cfDistPtSeg, cfDistToPoly,
-  cfLieAt, cfSgLie, cfIsPenalty, cfIsRecovery, CF_LIE_LABEL, CF_LIE_ORDER, CF_RECOVERY_ADV,
+  cfLieAt, cfShotLie, CF_TEE_TOL, cfSgLie, cfIsPenalty, cfIsRecovery, CF_LIE_LABEL, CF_LIE_ORDER, CF_RECOVERY_ADV,
   osmSpanM, osmTreeCircle, cfDistToHazardYd, cfHcp,
   cfSegHit, cfSegPolyFirstHit, cfRunwayYd, cfRunwayAdj, CF_RUNWAY_MAX,
   cfExpectedStrokes, cfShotContext,

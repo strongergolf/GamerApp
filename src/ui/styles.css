@@ -946,6 +946,27 @@ body.theme-dark .mix-green{color:var(--green2)}
 .mix-sand{color:var(--dp-loft)} .mix-water{color:var(--sky)} .mix-oob{color:var(--c-wood)}
 .mix-trees{color:#1e6b38} body.theme-dark .mix-trees{color:#4fbf7a}
 .sh-note{font-family:ui-monospace,monospace;font-size:.5rem;color:var(--muted);margin-top:9px;line-height:1.5}
+/* Anchor a shot: the point where it stops being an intention and becomes a record. */
+.sh-anchor-row{align-items:center}
+.sh-anchor-row .strat-mode-btn.on{border-color:#8a5e00;color:#8a5e00;background:rgba(255,210,74,.14)}
+body.theme-dark .sh-anchor-row .strat-mode-btn.on{border-color:#ffd24a;color:#ffd24a;background:rgba(255,210,74,.16)}
+.sh-anchor-hint{font-family:ui-monospace,monospace;font-size:.5rem;color:var(--muted);letter-spacing:.03em}
+/* Why line S sits where it does, and the five answers that put it there. */
+.sh-pref-note{margin-top:7px;font-family:Arial,sans-serif;font-size:.7rem;line-height:1.45;color:var(--ink2)}
+.sh-pref-note b{font-weight:800}
+.sh-pref-note a{color:var(--green);text-decoration:underline}
+body.theme-dark .sh-pref-note a{color:var(--green2)}
+.sh-prefs{margin-top:7px;border:1px solid var(--border);border-radius:7px;background:var(--surface)}
+.sh-prefs>summary{cursor:pointer;list-style:none;padding:6px 9px;font-family:ui-monospace,monospace;font-size:.55rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.sh-prefs>summary::-webkit-details-marker{display:none}
+.sh-prefs>summary::before{content:'▸ ';color:var(--green)}
+.sh-prefs[open]>summary::before{content:'▾ '}
+.sh-prefs>summary:hover{color:var(--ink2)}
+.sh-pref-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:7px;padding:2px 9px 8px}
+.sh-pref-grid label{display:block}
+.sh-pref-grid label>span{display:block;font-family:ui-monospace,monospace;font-size:.5rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:3px}
+.sh-pref-grid .strat-select{font-size:.72rem;padding:5px 7px}
+.sh-pref-foot{padding:0 9px 8px;font-family:Arial,sans-serif;font-size:.64rem;line-height:1.45;color:var(--muted)}
 .strat-select:focus{border-color:var(--green)}
 .strat-note{font-family:Arial,sans-serif;font-size:.78rem;line-height:1.5;color:var(--ink2);background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:9px 12px}
 .strat-note b{color:var(--ink)}

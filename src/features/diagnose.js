@@ -792,6 +792,9 @@ function setStrategy(key,val){ STATE.strategy=STATE.strategy||{}; STATE.strategy
   document.querySelectorAll('[data-strat="'+key+'"]').forEach(s=>{ if(s.value!==val) s.value=val; });
   document.querySelectorAll('.strat-summary').forEach(s=>s.innerHTML=stratSummary());
   if(key==='riskPosture'){ const n=RISK_NOTE[val]||''; document.querySelectorAll('.strat-risk-note').forEach(e=>e.innerHTML=n); }
+  /* These answers are no longer just stored — the first four place line S on the Hole
+     Overlay and the posture is O's objective, so changing one has to redraw the hole. */
+  if(typeof buildHoleOverlay==='function'&&document.getElementById('hole-overlay-wrap')) buildHoleOverlay();
 }
 function stratLabel(key){ const cur=(STATE.strategy||{})[key]; const o=(STRAT_OPTS[key]||[]).find(x=>x[0]===cur); return o?o[1]:'—'; }
 function stratSelect(key){

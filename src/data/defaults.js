@@ -49,6 +49,11 @@ const DEFAULT_DATA = {
     approachDistance: 'middle',   // pin-high|middle|fat|pin-seek
     riskPosture: 'balanced'       // balanced|chase|protect|match — the aim-optimizer's objective
   },
+  /* Shots ANCHORED on the Hole Overlay: where the ball actually finished, as opposed to where
+     it was aimed. anchors is keyed "<course name>|<hole number>" -> [ {x,y}|null per shot ].
+     A finish is what turns modelled strokes gained into measured strokes gained, so this is
+     deliberately the shape a full round record needs — one finish per shot, per hole. */
+  play: { anchors: {} },
   /* each course: {id, name, holes:[ {num, par, yards, scaleYpu, bg(dataURL|null),
        tee:{x,y}|null, pin:{x,y}|null, green:[{x,y}], fairway:[{x,y}],
        hazards:[{type:'sand|water|oob', pts:[{x,y}]}] } ]} */
