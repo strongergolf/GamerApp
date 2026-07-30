@@ -459,37 +459,77 @@ function stratClearLines(){ window.stratShot.lines={S:[]}; window.stratShot.shot
    Remembered as a course ID and a hole NUMBER, never as list indices: indices shift the
    moment a course is imported, pruned or deleted, and an index that silently points at a
    different hole is worse than no memory at all. Same key shape the anchors use. */
-function stratSaveSel(){
+/* byHand marks a selection the user made from the picker, which is honoured on the way back
+   in whatever state that hole is in — you are allowed to look at a half-traced hole. A
+   selection the app resolved for itself carries no such licence and is re-checked. */
+function stratSaveSel(byHand){
   const c=(STATE.courses||[])[window.stratSel.cIdx]; if(!c) return;
   const h=(c.holes||[])[window.stratSel.hIdx];
   STATE.play=STATE.play||{};
-  STATE.play.sel={ courseId:(c.id||c.name), holeNum:h?(h.num||window.stratSel.hIdx+1):1 };
+  STATE.play.sel={ courseId:(c.id||c.name), holeNum:h?(h.num||window.stratSel.hIdx+1):1, byHand:!!byHand };
   saveState();
 }
-/* Is this hole one the optimiser can actually work on? */
-function stratHoleReady(h){ return !!(h && h.tee && h.pin && cfHasScale(h)); }
+/* How well mapped a hole is, which is NOT the same question as whether it has a tee, a pin
+   and a scale. A hole can pass that test and still be useless: with no green there is
+   nothing to aim at, and with no fairway every tee shot lands in undifferentiated rough, so
+   the picture and the numbers are both worthless. That weaker test is why the overlay opened
+   on a hole with no fairway drawn on it. */
+function stratHoleScore(h){
+  if(!h || !h.tee || !h.pin || !cfHasScale(h)) return 0;
+  if(!((h.green||[]).length>2)) return 1;                      // nothing to aim at
+  const par3=(h.par||4)<=3;                                     // a par 3 has no fairway to map
+  if(!((h.fairway||[]).length>2) && !par3) return 2;
+  return 3 + ((h.hazards||[]).length?1:0);
+}
+function stratHoleReady(h){ return stratHoleScore(h)>=3; }
+/* Of everything imported, which course is worth opening on? The one with the most properly
+   mapped holes — a principled answer that needs no course to be named in the code, and that
+   moves by itself as courses are imported or traced. */
+function stratBestCourseIdx(cs){
+  let bi=-1, bReady=-1, bTotal=-1;
+  (cs||[]).forEach((c,i)=>{
+    const scores=(c.holes||[]).map(stratHoleScore);
+    const ready=scores.filter(s=>s>=3).length;
+    const total=scores.reduce((a,b)=>a+b,0);
+    if(ready>bReady || (ready===bReady && total>bTotal)){ bi=i; bReady=ready; bTotal=total; }
+  });
+  return bReady>0 ? bi : -1;
+}
 function stratRestoreSel(){
   const cs=STATE.courses||[]; if(!cs.length) return;
   const sel=(STATE.play||{}).sel;
   if(sel){
     const ci=cs.findIndex(c=>(c.id||c.name)===sel.courseId);
     if(ci>=0){
-      const hi=(cs[ci].holes||[]).findIndex(h=>(h.num||0)===sel.holeNum);
-      window.stratSel={cIdx:ci, hIdx:hi>=0?hi:0};
-      return;
+      const hs=cs[ci].holes||[];
+      const hi=hs.findIndex(h=>(h.num||0)===sel.holeNum);
+      /* Honour a remembered hole only if it is worth opening on. An earlier build picked the
+         default with a weaker test and then SAVED it, so a bad landing spot became sticky —
+         re-resolve rather than serve it again. A hole the user chose by hand is honoured
+         whatever its state; only an unusable one is overridden. */
+      if(hi>=0 && (stratHoleReady(hs[hi]) || sel.byHand)){
+        window.stratSel={cIdx:ci, hIdx:hi};
+        return;
+      }
     }
   }
-  /* Nothing remembered, or that course is gone. Open the first course that can actually be
-     optimised rather than the first in the list — landing on a hole with no tee, pin or
-     scale shows an error card where the whole point of the tab should be. */
-  const ci=cs.findIndex(c=>(c.holes||[]).some(stratHoleReady));
-  if(ci<0) return;
-  const hi=(cs[ci].holes||[]).findIndex(stratHoleReady);
-  window.stratSel={cIdx:ci, hIdx:Math.max(0,hi)};
+  /* Nothing remembered, that course is gone, or what was remembered is not worth showing. */
+  const ci=stratBestCourseIdx(cs); if(ci<0) return;
+  const hs=cs[ci].holes||[];
+  let hi=0, best=-1;
+  hs.forEach((h,i)=>{ const s=stratHoleScore(h); if(s>best){ best=s; hi=i; } });
+  window.stratSel={cIdx:ci, hIdx:hi};
   stratSaveSel();   // remember what we resolved to, so it is a choice from here on
 }
-function stratSetCourse(i){ window.stratSel.cIdx=+i; window.stratSel.hIdx=0; stratClearLines(); stratSaveSel(); buildHoleOverlay(); }
-function stratSetHole(i){ window.stratSel.hIdx=+i; stratClearLines(); stratSaveSel(); buildHoleOverlay(); }
+function stratSetCourse(i){
+  window.stratSel.cIdx=+i;
+  /* land on the best-mapped hole of the course just chosen, not blindly on its first */
+  const hs=((STATE.courses||[])[window.stratSel.cIdx]||{}).holes||[];
+  let hi=0,best=-1; hs.forEach((h,k)=>{ const s=stratHoleScore(h); if(s>best){best=s;hi=k;} });
+  window.stratSel.hIdx=hi;
+  stratClearLines(); stratSaveSel(true); buildHoleOverlay();
+}
+function stratSetHole(i){ window.stratSel.hIdx=+i; stratClearLines(); stratSaveSel(true); buildHoleOverlay(); }
 function stratSetShotNum(n){ window.stratShot.shotNum=Math.max(1,Math.min(SHOT_MAX,+n)); buildHoleOverlay(); }
 function stratSetLine(l){ window.stratShot.active=l; buildHoleOverlay(); }
 function stratResetAim(){ stratClearLines(); buildHoleOverlay(); }
@@ -1175,6 +1215,6 @@ Object.assign(window, {
   PREF_TEE_SIDE, PREF_GRN_SIDE, PREF_COMFORT_YD, PREF_FW_WINDOW,
   stratSpan, stratPrefKind, stratPrefAim, stratNaiveAim,
   stratAnchorKey, stratAnchors, stratAnchorAt, stratAnchorCount, stratToggleAnchor, stratClearAnchors,
-  stratSaveSel, stratRestoreSel, stratHoleReady,
+  stratSaveSel, stratRestoreSel, stratHoleReady, stratHoleScore, stratBestCourseIdx,
   stratShotSVG, stratOverlay, stratDragInit
 });
