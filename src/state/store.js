@@ -17,7 +17,16 @@ function deepClone(o){ return JSON.parse(JSON.stringify(o)); }
 function loadState(){
   try{
     const raw = localStorage.getItem(STORE_KEY);
-    if(raw){ window.STATE = mergeDefaults(JSON.parse(raw)); return; }
+    if(raw){
+      const parsed = JSON.parse(raw);
+      window.STATE = mergeDefaults(parsed);
+      /* If the merge dropped untouched blank courses, commit it. Pruning only in memory
+         leaves the junk in storage for ever — it would merely LOOK gone, and would come
+         back the moment anything else wrote the old array. */
+      const had = Array.isArray(parsed.courses) ? parsed.courses.length : 0;
+      if(had && window.STATE.courses.length !== had) saveState();
+      return;
+    }
   }catch(e){ /* storage unavailable — fall back to in-memory */ }
   window.STATE = deepClone(DEFAULT_DATA);
 }
@@ -43,8 +52,10 @@ function mergeDefaults(saved){
   /* Per-club D-plane tendencies: merge so new default clubs get seeded entries
      while preserving the user's edits. */
   const dplane = Object.assign({}, base.dplane, sv.dplane||{});
-  /* Courses: keep saved courses as-is (user-authored); default empty for new users. */
-  const courses = Array.isArray(sv.courses) ? sv.courses : base.courses;
+  /* Courses: keep saved courses as-is (user-authored), minus untouched "New Course" blanks —
+     see cfPruneBlankCourses. Guarded because store.js loads before courses.js. */
+  const savedCourses = Array.isArray(sv.courses) ? sv.courses : base.courses;
+  const courses = (typeof cfPruneBlankCourses==='function') ? cfPruneBlankCourses(savedCourses) : savedCourses;
   /* Strategy preferences: merge so new keys get defaults while keeping the user's picks. */
   const strategy = Object.assign({}, base.strategy, sv.strategy||{});
   /* Short Game Variables: merge so new variables get defaults while keeping the user's picks. */

@@ -11,8 +11,31 @@ function cfCur(){ const cs=cfCourses(); return cs[window.courseEdit.cIdx]||null;
 function cfHole(){ const c=cfCur(); if(!c) return null; return (c.holes||[])[window.courseEdit.hIdx]||null; }
 function cfUID(){ return 'c'+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
 
+/* A course nobody has touched: still called "New Course", and not one hole carries a mark of
+   any kind. That is exactly what cfAddCourse + cfAddHole produce and nothing else, so it is
+   safe to prune — anything renamed, traced, calibrated or imported fails the test. */
+function cfIsBlankCourse(c){
+  if(!c || c.name!=='New Course') return false;
+  return (c.holes||[]).every(h=> h && !h.tee && !h.pin && !h.bg && !h.scaleYpu && !h.geo
+    && !(h.green||[]).length && !(h.fairway||[]).length && !(h.hazards||[]).length);
+}
+/* Drop untouched blanks on load. They accumulate a click at a time — every stray "+ Course"
+   leaves one behind for ever — and a course picker with fifteen identical "New Course" rows
+   in it is unusable. Never touches a course with any content. */
+function cfPruneBlankCourses(cs){
+  if(!Array.isArray(cs)) return cs;
+  const kept=cs.filter(c=>!cfIsBlankCourse(c));
+  return kept.length?kept:cs;      // never leave the user with nothing at all
+}
 function cfAddCourse(){
   const cs=cfCourses();
+  /* Adding a second blank on top of an untouched one just makes the list longer — go to the
+     one already sitting there instead. */
+  const blank=cs.findIndex(cfIsBlankCourse);
+  if(blank>=0){
+    window.courseEdit.cIdx=blank; window.courseEdit.hIdx=0;
+    cfResetDraft(); buildCourses(); toast('Blank course is already open'); return;
+  }
   cs.push({id:cfUID(), name:'New Course', holes:[]});
   window.courseEdit.cIdx=cs.length-1; window.courseEdit.hIdx=0;
   cfAddHole(); saveState(); buildCourses(); buildCourseStrategy&&buildCourseStrategy();
@@ -635,6 +658,7 @@ function buildRoundTracker(){
 
 Object.assign(window, {
   CF_W, CF_H, cfCourses, cfCur, cfHole, cfAddCourse, cfDeleteCourse, cfSelectCourse, cfRenameCourse,
+  cfIsBlankCourse, cfPruneBlankCourses,
   cfAddHole, cfSelectHole, cfSetHoleField, cfSetMode, cfCanvasClick, cfFinishFeature, cfUndoPoint,
   cfClearFeature, cfLoadBg, cfClearBg, renderHoleSVG, buildCourses, cfModeHint, cfRefreshCanvas,
   cfYardsPerUnit, cfHasScale, cfDistYd, cfDistToPinYd, cfDistFromTeeYd,

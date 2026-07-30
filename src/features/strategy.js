@@ -454,8 +454,42 @@ function stratGreenMid(hole){
   return {x:x/g.length, y:y/g.length};
 }
 function stratClearLines(){ window.stratShot.lines={S:[]}; window.stratShot.shotNum=1; window.stratOptCache=null; }
-function stratSetCourse(i){ window.stratSel.cIdx=+i; window.stratSel.hIdx=0; stratClearLines(); buildHoleOverlay(); }
-function stratSetHole(i){ window.stratSel.hIdx=+i; stratClearLines(); buildHoleOverlay(); }
+
+/* ---- Which hole the overlay opens on ----
+   Remembered as a course ID and a hole NUMBER, never as list indices: indices shift the
+   moment a course is imported, pruned or deleted, and an index that silently points at a
+   different hole is worse than no memory at all. Same key shape the anchors use. */
+function stratSaveSel(){
+  const c=(STATE.courses||[])[window.stratSel.cIdx]; if(!c) return;
+  const h=(c.holes||[])[window.stratSel.hIdx];
+  STATE.play=STATE.play||{};
+  STATE.play.sel={ courseId:(c.id||c.name), holeNum:h?(h.num||window.stratSel.hIdx+1):1 };
+  saveState();
+}
+/* Is this hole one the optimiser can actually work on? */
+function stratHoleReady(h){ return !!(h && h.tee && h.pin && cfHasScale(h)); }
+function stratRestoreSel(){
+  const cs=STATE.courses||[]; if(!cs.length) return;
+  const sel=(STATE.play||{}).sel;
+  if(sel){
+    const ci=cs.findIndex(c=>(c.id||c.name)===sel.courseId);
+    if(ci>=0){
+      const hi=(cs[ci].holes||[]).findIndex(h=>(h.num||0)===sel.holeNum);
+      window.stratSel={cIdx:ci, hIdx:hi>=0?hi:0};
+      return;
+    }
+  }
+  /* Nothing remembered, or that course is gone. Open the first course that can actually be
+     optimised rather than the first in the list — landing on a hole with no tee, pin or
+     scale shows an error card where the whole point of the tab should be. */
+  const ci=cs.findIndex(c=>(c.holes||[]).some(stratHoleReady));
+  if(ci<0) return;
+  const hi=(cs[ci].holes||[]).findIndex(stratHoleReady);
+  window.stratSel={cIdx:ci, hIdx:Math.max(0,hi)};
+  stratSaveSel();   // remember what we resolved to, so it is a choice from here on
+}
+function stratSetCourse(i){ window.stratSel.cIdx=+i; window.stratSel.hIdx=0; stratClearLines(); stratSaveSel(); buildHoleOverlay(); }
+function stratSetHole(i){ window.stratSel.hIdx=+i; stratClearLines(); stratSaveSel(); buildHoleOverlay(); }
 function stratSetShotNum(n){ window.stratShot.shotNum=Math.max(1,Math.min(SHOT_MAX,+n)); buildHoleOverlay(); }
 function stratSetLine(l){ window.stratShot.active=l; buildHoleOverlay(); }
 function stratResetAim(){ stratClearLines(); buildHoleOverlay(); }
@@ -855,6 +889,9 @@ function buildHoleOverlay(){
       <div class="lvl-soon-note">Import a course first — see the <b>My Courses</b> tab, where you can pull one from OpenStreetMap or trace it by hand. Then this shows each hole with your dispersion pattern, the recommended line and the alternatives.</div>`;
     return;
   }
+  /* First render of the session: restore the remembered hole, or fall back to the first one
+     that is actually mapped. Once only — after that the user's clicks own the selection. */
+  if(!window.stratSelRestored){ window.stratSelRestored=true; stratRestoreSel(); }
   const ci=Math.min(window.stratSel.cIdx, courses.length-1), course=courses[ci];
   const holes=course.holes||[];
   const hi=Math.min(window.stratSel.hIdx, Math.max(0,holes.length-1)), hole=holes[hi];
@@ -1138,5 +1175,6 @@ Object.assign(window, {
   PREF_TEE_SIDE, PREF_GRN_SIDE, PREF_COMFORT_YD, PREF_FW_WINDOW,
   stratSpan, stratPrefKind, stratPrefAim, stratNaiveAim,
   stratAnchorKey, stratAnchors, stratAnchorAt, stratAnchorCount, stratToggleAnchor, stratClearAnchors,
+  stratSaveSel, stratRestoreSel, stratHoleReady,
   stratShotSVG, stratOverlay, stratDragInit
 });

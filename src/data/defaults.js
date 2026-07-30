@@ -52,8 +52,10 @@ const DEFAULT_DATA = {
   /* Shots ANCHORED on the Hole Overlay: where the ball actually finished, as opposed to where
      it was aimed. anchors is keyed "<course name>|<hole number>" -> [ {x,y}|null per shot ].
      A finish is what turns modelled strokes gained into measured strokes gained, so this is
-     deliberately the shape a full round record needs — one finish per shot, per hole. */
-  play: { anchors: {} },
+     deliberately the shape a full round record needs — one finish per shot, per hole.
+     Also holds sel — the hole the overlay opens on, as {courseId, holeNum} rather than list
+     indices, so importing or pruning a course cannot repoint it at a different hole. */
+  play: { anchors: {}, sel: null },
   /* each course: {id, name, holes:[ {num, par, yards, scaleYpu, bg(dataURL|null),
        tee:{x,y}|null, pin:{x,y}|null, green:[{x,y}], fairway:[{x,y}],
        hazards:[{type:'sand|water|oob', pts:[{x,y}]}] } ]} */
