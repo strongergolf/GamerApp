@@ -975,12 +975,17 @@ body.theme-dark .mix-sand{color:var(--dp-loft)}
 .sh-strip-line .ss-ln{font-family:ui-monospace,monospace;font-size:.78rem;font-weight:800}
 .sh-strip-line .ss-sub{font-family:ui-monospace,monospace;font-size:.5rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-left:-6px}
 .sh-strip-line .ss-none{font-family:ui-monospace,monospace;font-size:.62rem;color:var(--muted)}
+/* the club, which used to sit on the map label */
+.sh-strip-line .ss-club{font-family:ui-monospace,monospace;font-size:.72rem;font-weight:800;color:var(--ink2);border:1px solid var(--border2);border-radius:5px;padding:1px 6px}
 .ss-pair{display:inline-flex;gap:4px;align-items:baseline}
 .ss-pair b{font-family:ui-monospace,monospace;font-size:.86rem;font-weight:800;color:var(--ink)}
 .ss-pair span{font-family:ui-monospace,monospace;font-size:.5rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
 /* the gap between "if perfect" and "in practice" is what dispersion costs — name it */
 .ss-gap{font-family:ui-monospace,monospace;font-size:.52rem;font-weight:700;letter-spacing:.04em;color:#8a5e00;background:var(--gold-pale);border:1px solid rgba(217,96,112,.25);border-radius:5px;padding:2px 6px;cursor:help}
 body.theme-dark .ss-gap{color:var(--gold2);background:rgba(255,210,74,.12);border-color:rgba(255,210,74,.3)}
+/* the rare case where the spread averages better than the target itself — not a cost */
+.ss-gap.neg{color:#00693a;background:var(--green-pale);border-color:rgba(0,133,63,.25)}
+body.theme-dark .ss-gap.neg{color:var(--green2);background:rgba(0,133,63,.16);border-color:rgba(121,224,141,.3)}
 /* full opacity here: these sit on --surface rather than the old panel, and the inherited
    .95 dropped the fairway chip to 4.42:1 in the light theme */
 .ss-chips{display:inline-flex;flex-wrap:wrap;gap:3px;margin-left:auto}

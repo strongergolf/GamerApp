@@ -846,12 +846,21 @@ function stratShotSVG(hole, r, line, n, mode){
   s+=`<circle cx="${aim.x.toFixed(1)}" cy="${aim.y.toFixed(1)}" r="${dim?5:compact?7:9}" fill="none" stroke="#fff" stroke-width="${dim?2:3}" opacity="${aimOp}"/>
       <circle cx="${aim.x.toFixed(1)}" cy="${aim.y.toFixed(1)}" r="3" fill="#fff" opacity="${aimOp}"/>`;
   if(dim) return s;
-  const tag=`${line}-${n}${end?' ⚓':''}`, dist=Math.round(end?r.endYd:r.geoYd);
-  if(compact) return s+lbl(`${tag} · ${r.shot.label} · ${dist} yd`, top-8, 26);
-  s+=lbl(`${tag} · ${r.shot.label} · ${dist} yd`, top-51, 31);
-  if(r.sg!=null) s+=lbl(`SG ${r.sg>0?'+':''}${r.sg.toFixed(2)}${r.sgActual?' actual':''}`, top-25, 29);
+  /* Two lines, and only the strokes-gained story:
+         298 yd · SG +0.24          what the shot is, and what it was worth
+         123 to pin · 2.81 rem      where it leaves you, and what that costs
+     The S-1 / O-2 tag and the club are gone. The tag was doing a job the LINE COLOUR already
+     does, and repeating it above every marker crowded the picture the labels sit on; the
+     strip below still names each line. The club moved down there with it — see .sh-strip. */
+  const dist=Math.round(end?r.endYd:r.geoYd);
+  const sg = r.sg!=null ? `SG ${r.sg>0?'+':''}${r.sg.toFixed(2)}${r.sgActual?' actual':''}` : '';
+  const head = `${end?'⚓ ':''}${dist} yd${sg?' · '+sg:''}`;
+  if(compact) return s+lbl(head, top-8, 27);
+  /* 36 units apart, not the 30 the font size suggests: the halo stroke adds ~4 units to each
+     glyph box, so a gap set to the font size alone leaves the two lines touching. */
+  s+=lbl(head, top-36, 30);
   const tp=end?r.endToPinYd:r.toPinYd, rem=r.sgActual?r.expAfter:r.mean;
-  if(tp!=null&&rem!=null) s+=lbl(`${Math.round(tp)} to pin · ${rem.toFixed(2)} rem`, top, 26);
+  if(tp!=null&&rem!=null) s+=lbl(`${Math.round(tp)} to pin · ${rem.toFixed(2)} rem`, top, 27);
   return s;
 }
 function stratOverlay(hole, chains, n){
@@ -1007,6 +1016,9 @@ function buildHoleOverlay(){
           cost of your dispersion, and until now it was only ever implicit. */
   const strip=SHOT_LINES.map(l=>{
     const r=shots[l], on=(l===S.active);
+    /* The line tag lives here now that the map has dropped it, so this row is the key to
+       which colour is which. The club comes with it — it left the map in the same change and
+       this is the only other place it appears. */
     const head=`<span class="ss-ln ln-${l}">${l}-${n}</span>${l==='O'?'<span class="ss-sub">optimal</span>':''}`;
     if(!r) return `<div class="sh-strip-line${on?' on':''}">${head}<span class="ss-none">—</span></div>`;
     if(r.blocked) return `<div class="sh-strip-line${on?' on':''}">${head}<span class="ss-none"><i>${blockedTxt(r)}</i></span></div>`;
@@ -1015,8 +1027,13 @@ function buildHoleOverlay(){
       ? `<span class="ss-pair"><b>${r.expAfter.toFixed(2)}</b> <span>from where it finished</span></span>`
       : `<span class="ss-pair"><b>${r.expAtAim!=null?r.expAtAim.toFixed(2):'—'}</b> <span>if perfect</span></span>
          <span class="ss-pair"><b>${r.mean.toFixed(2)}</b> <span>in practice</span></span>
-         ${gap!=null?`<span class="ss-gap" title="What your dispersion costs: the difference between finishing exactly on the target and the whole pattern of where the ball actually goes">+${gap.toFixed(2)} dispersion</span>`:''}`;
-    return `<div class="sh-strip-line${on?' on':''}">${head}${perfect}
+         ${gap!=null?`<span class="ss-gap${gap<0?' neg':''}" title="${gap>=0
+             ? 'What your dispersion costs: the difference between finishing exactly on the target and the whole pattern of where the ball actually goes.'
+             : 'Negative: the spread around this target averages BETTER than the target itself — you are aiming at the worst point of a forgiving area.'
+           }">${gap>=0?'+':'−'}${Math.abs(gap).toFixed(2)} dispersion</span>`:''}`;
+    const swing=(r.shot.detail&&r.shot.detail!=='full swing')?` ${r.shot.detail}`:'';
+    return `<div class="sh-strip-line${on?' on':''}">${head}
+      <span class="ss-club">${r.shot.label}${swing}</span>${perfect}
       <span class="ss-chips">${chipsFor(r.lieMix)}</span></div>`;
   }).join('');
   const table=`<div class="sh-strip">${strip}</div>`;
