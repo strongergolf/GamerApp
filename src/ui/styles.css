@@ -1001,6 +1001,13 @@ body.theme-dark .sh-anchor-row .strat-mode-btn.on{border-color:#ffd24a;color:#ff
 .sh-pref-note b{font-weight:800}
 .sh-pref-note a{color:var(--green);text-decoration:underline}
 body.theme-dark .sh-pref-note a{color:var(--green2)}
+/* Shape vs fairway. Gold when the two disagree, green when they line up — a statement of
+   fit, not a verdict on the golf. */
+.sh-fit{margin-top:7px;font-family:Arial,sans-serif;font-size:.7rem;line-height:1.5;color:var(--ink2);border-left:3px solid #8a5e00;background:var(--gold-pale);border-radius:0 6px 6px 0;padding:6px 9px}
+.sh-fit.ok{border-left-color:#00693a;background:var(--green-pale)}
+.sh-fit b{color:var(--ink)}
+body.theme-dark .sh-fit{border-left-color:#ffd24a;background:rgba(255,210,74,.10)}
+body.theme-dark .sh-fit.ok{border-left-color:var(--green2);background:rgba(0,133,63,.14)}
 .sh-prefs{margin-top:7px;border:1px solid var(--border);border-radius:7px;background:var(--surface)}
 .sh-prefs>summary{cursor:pointer;list-style:none;padding:6px 9px;font-family:ui-monospace,monospace;font-size:.55rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
 .sh-prefs>summary::-webkit-details-marker{display:none}

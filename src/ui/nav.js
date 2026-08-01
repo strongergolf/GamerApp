@@ -71,6 +71,9 @@ function triggerImportFile(){ document.getElementById('import-file').click(); }
 /* Rebuild every data-dependent surface from current STATE — WITHOUT changing the active
    tab. Called after Locker Room edits so changes propagate everywhere relevant. */
 function refreshAll(){
+  /* the aim optimiser memoises the bag's shapes and club selections — drop them first, or a
+     Locker Room edit re-renders every surface against the previous swing */
+  if(typeof aimShapeReset==='function') aimShapeReset();
   buildEnvPanels();
   buildLadder();
   buildPartialsTable();

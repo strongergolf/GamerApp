@@ -27,8 +27,70 @@ function aimSigmaLat(carry){ return getDispersion(carry)/AIM_CI90; }
    long shots lateral-dominant, with the crossover near 115 yd. */
 function aimSigmaDist(carry){ return getDepthDispersion(carry)/AIM_CI90; }
 
+/* ---------- SHOT SHAPE: the direction the ball is TRAVELLING when it lands ----------
+   A curving ball does not arrive on the line it started on. Model its lateral offset through
+   the flight as a parabola in the along-distance — sidespin acts roughly steadily, so the
+   offset grows as the square — giving lateral(t) = C·t² over t in 0..1. The TANGENT at
+   landing then has slope 2C/L: twice the average deflection. That tangent is the heading the
+   ball is travelling on when it touches down, and therefore the heading it ROLLS OUT on.
+
+   Which matters for one very practical reason. A shot's distance error and its roll both run
+   along the landing heading rather than the start line, so the long axis of the landing
+   pattern is tilted by the curve. Tilt it DOWN a fairway and more of the pattern stays on
+   the short grass; tilt it ACROSS and the same shot crosses the fairway and out the far side.
+   Nothing here asserts that a draw is better than a fade — only that a shape and a fairway
+   can agree or disagree, and that the model should be able to tell which.
+
+   The sign comes from the SPIN AXIS, not the Draw/Fade label, so it is right for either
+   hand: a negative axis curves the ball left whoever is holding the club. Returned in the
+   same sense as DISP_SLANT — positive tilts the long axis LEFT.
+
+   MEASURED, and it does not do what was hoped — recorded here so nobody rebuilds it:
+     - the landing pattern is WIDER THAN IT IS DEEP at every driving distance (lateral 1σ
+       14.3 yd vs depth 8.1 yd at 290), so its long axis lies ACROSS the fairway, not along
+       it. Laying that axis down a fairway would take a 90° rotation. A 12-yard draw supplies
+       5.1°, so "align the shape with the fairway" cannot buy much, whatever the hole does;
+     - DISP_SLANT is a fixed 15° on every shot, three times what the shape contributes, so it
+       swamps the term entirely;
+     - swept ±10° across a left-running, a right-running and a straight fairway, the best
+       tilt came out identical on all three. The 5 points of fairway that sweep moves are
+       about un-slanting the pattern, not about the hole.
+   So this models a real thing correctly and is worth keeping — the landing heading is what
+   the tree/line-of-sight work will need, and it was not covered at all before — but it is
+   NOT a fairway-hitting lever, and the readout must not claim to be one. The number to fix
+   first is DISP_SLANT: a fixed 15° tilt on every club is doing more work here than the ball
+   flight is, and nothing about shape can be read honestly until it is measured. */
+function aimLandingTilt(carryYd, curveYd, spinAxis){
+  if(!carryYd || !curveYd || Math.abs(spinAxis||0) < 0.5) return 0;
+  const deg = Math.atan2(2*Math.abs(curveYd), carryYd)*180/Math.PI;
+  return spinAxis < 0 ? deg : -deg;
+}
+/* This club's stock shape, from the D-Plane Lab row the golfer has filled in. Memoised: the
+   optimiser wants it once per candidate aim and it cannot change mid-sweep. */
+window.aimShapeCache = window.aimShapeCache || {};
+function aimClubShape(clubId){
+  if(!clubId || typeof dplaneShape!=='function') return null;
+  const cache=window.aimShapeCache;
+  if(cache[clubId]!==undefined) return cache[clubId];
+  const club=(STATE.clubs||[]).find(c=>c.id===clubId);
+  if(!club) return (cache[clubId]=null);
+  const d=(STATE.dplane||{})[clubId]||{};
+  const p=(typeof perf==='function'&&perf(clubId))||{};
+  const carry=p.carry||p.total||150;
+  const vFace=(d.vFace!=null)?d.vFace:(parseFloat(club.loft)||30);
+  const sh=dplaneShape(d.hFace, d.hPath, vFace, d.aoa, carry);
+  return (cache[clubId]={ id:clubId, label:club.label, shape:sh.shape, curve:sh.curve,
+    spinAxis:sh.spinAxis, carry, tilt:aimLandingTilt(carry, sh.curve, sh.spinAxis) });
+}
+/* Both caches key off the bag, the D-Plane rows and the performance table, so anything that
+   edits those has to drop them — otherwise the optimiser keeps solving yesterday's swing. */
+function aimShapeReset(){
+  window.aimShapeCache={}; window.aimShotNameCache={}; window.stratOptCache=null;
+}
+
 /* Weighted landing samples (field units) for a shot from `from` aimed at `aim`.
-   The error ellipse is lateral × depth, tilted DISP_SLANT° long-left / short-right.
+   The error ellipse is lateral × depth, tilted DISP_SLANT° long-left / short-right, plus
+   opt.tiltDeg for the club's own landing heading (see aimLandingTilt).
    opt.sigmaYd overrides the length the sigmas are looked up at (an approach from rough
    needs more club, so it disperses like the longer shot it really is); opt.latMult /
    opt.depthMult apply the lie's dispersion penalty. */
@@ -40,7 +102,7 @@ function aimSamples(hole, from, aim, opt){
   const vx=dx/L, vy=dy/L, ux=-vy, uy=vx;          // along-shot and lateral unit vectors
   const shotYd=(opt.sigmaYd!=null)?opt.sigmaYd:L*ypu;
   const sLat=aimSigmaLat(shotYd)*(opt.latMult||1), sDist=aimSigmaDist(shotYd)*(opt.depthMult||1);
-  const th=(window.DISP_SLANT||15)*Math.PI/180, ct=Math.cos(th), st=Math.sin(th);
+  const th=((window.DISP_SLANT||15)+(opt.tiltDeg||0))*Math.PI/180, ct=Math.cos(th), st=Math.sin(th);
   const out=[];
   for(let i=0;i<AIM_Z.length;i++) for(let j=0;j<AIM_Z.length;j++){
     const el=AIM_Z[i]*sLat, ed=AIM_Z[j]*sDist;     // ellipse frame, then rotate by the slant
@@ -175,18 +237,36 @@ function approachLieCostYd(lie){
 }
 /* Name the shot for a required (effective) yardage — reuses the Approach tab's own
    club+swing engine so the wording matches the rest of the app; falls back to the
-   nearest full club when the distance is outside that engine's window. */
+   nearest full club when the distance is outside that engine's window.
+   Carries the club's ID as well as its label, because the optimiser needs to look up that
+   club's stock shape (aimClubShape) to tilt the landing pattern. Memoised on the rounded
+   yardage: the aim sweep asks for the same distances over and over. */
+window.aimShotNameCache = window.aimShotNameCache || {};
 function approachShotName(effYd){
+  const key=Math.round(effYd);
+  const cache=window.aimShotNameCache;
+  if(cache[key]) return cache[key];
+  let out=null;
   if(typeof calcSuggestions==='function'){
-    const s=calcSuggestions(Math.round(effYd));
+    const s=calcSuggestions(key);
     if(s&&s.length){
       const sw=s[0].sw.key==='full'?'full':s[0].sw.key==='tq'?'¾':'½';
-      return { label:s[0].club.label, detail:sw+' swing', effort:s[0].effort };
+      out={ id:s[0].club.id, label:s[0].club.label, detail:sw+' swing', effort:s[0].effort };
     }
   }
-  let best=null,bd=1e9;
-  aimClubs().forEach(c=>{ const d=Math.abs(c.total-effYd); if(d<bd){bd=d;best=c;} });
-  return best?{label:best.label, detail:'full swing', effort:null}:{label:'—',detail:'',effort:null};
+  if(!out){
+    let best=null,bd=1e9;
+    aimClubs().forEach(c=>{ const d=Math.abs(c.total-effYd); if(d<bd){bd=d;best=c;} });
+    out = best?{id:best.id, label:best.label, detail:'full swing', effort:null}
+              :{id:null, label:'—', detail:'', effort:null};
+  }
+  return (cache[key]=out);
+}
+/* The landing-pattern tilt for whatever club plays this distance, in the DISP_SLANT sense. */
+function aimTiltFor(effYd){
+  const shot=approachShotName(effYd);
+  const sh=shot&&shot.id?aimClubShape(shot.id):null;
+  return sh?sh.tilt:0;
 }
 const APPROACH_LAT = 24, APPROACH_LONG = 12, APPROACH_SHORT = 24, APPROACH_STEP = 4;
 
@@ -215,7 +295,7 @@ function optimiseApproach(hole, from, opts){
       const geo=Math.hypot(aim.x-from.x,aim.y-from.y)*ypu;      // real yards to the spot
       const eff=geo+cost;                                        // what you must club for
       if(eff>longest+10) continue;                               // out of range
-      const r=aimScore(hole,from,aim,hcp,posture,{sigmaYd:eff,latMult:mult.lat,depthMult:mult.depth});
+      const r=aimScore(hole,from,aim,hcp,posture,{sigmaYd:eff,latMult:mult.lat,depthMult:mult.depth,tiltDeg:aimTiltFor(eff)});
       if(!r) continue;
       r.latYd=lat; r.depthYd=dep; r.geoYd=geo; r.effYd=eff;
       r.greenRate=r.lieMix.green||0;
@@ -346,7 +426,7 @@ function optimiseShot(hole, from, opts){
       const geo=Math.hypot(aim.x-from.x,aim.y-from.y)*ypu;
       const eff=geo+cost;
       if(eff>longest+10) continue;
-      const r=aimScore(hole,from,aim,hcp,posture,{sigmaYd:eff,latMult:mult.lat,depthMult:mult.depth});
+      const r=aimScore(hole,from,aim,hcp,posture,{sigmaYd:eff,latMult:mult.lat,depthMult:mult.depth,tiltDeg:aimTiltFor(eff)});
       if(!r) continue;
       r.geoYd=geo; r.effYd=eff; r.latYd=lat; r.alongYd=along;
       r.shot=approachShotName(eff);
@@ -395,7 +475,7 @@ function optimiseShot(hole, from, opts){
      allowed to pick (from the trees that made the punch-out look worse than a fantasy). */
   const naiveAlong=Math.min(Math.max(30,longest-cost), toPin, maxGeo);
   const naiveAim={ x:from.x+vx*(naiveAlong/ypu), y:from.y+vy*(naiveAlong/ypu) };
-  const naive=aimScore(hole,from,naiveAim,hcp,posture,{sigmaYd:naiveAlong+cost,latMult:mult.lat,depthMult:mult.depth});
+  const naive=aimScore(hole,from,naiveAim,hcp,posture,{sigmaYd:naiveAlong+cost,latMult:mult.lat,depthMult:mult.depth,tiltDeg:aimTiltFor(naiveAlong+cost)});
   if(naive){ naive.geoYd=naiveAlong; naive.shot=approachShotName(naiveAlong+cost); }
   return { best, naive, byPosture, tourCtx, ranked:results.slice(0,5), lie, toPin, cost, mult, posture, hcp, recovery };
 }
@@ -601,7 +681,7 @@ function stratScoreShot(hole, from, aim, end){
   const geo=Math.hypot(aim.x-from.x,aim.y-from.y)*ypu;
   if(geo<8) return {blocked:'tap', lie, from, toPinFrom};
   const mult=APPROACH_LIE[lie]||APPROACH_LIE.fairway, cost=approachLieCostYd(lie);
-  const sig={sigmaYd:geo+cost, latMult:mult.lat, depthMult:mult.depth};
+  const sig={sigmaYd:geo+cost, latMult:mult.lat, depthMult:mult.depth, tiltDeg:aimTiltFor(geo+cost)};
   const r=aimScore(hole,from,aim,stratSkill(),stratPosture(),sig);
   if(!r) return null;
   const mid=stratGreenMid(hole);
@@ -698,19 +778,37 @@ const PREF_COMFORT_YD = 140;
    spans half the map and its average width would mean nothing. */
 const PREF_FW_WINDOW = 25;
 
-/* Lateral extent of a polygon in a shot frame, optionally restricted to a window along the
-   shot line. Yards, relative to `origin`. Null when too little of the shape is in view. */
+/* Lateral extent of a polygon ACROSS the shot line at a given along-distance — a true
+   cross-section, taken where each polygon EDGE crosses the along = const line.
+
+   It used to collect VERTICES within a window of that distance, which fails badly on a
+   sparse shape: a hand-traced fairway can be four points, none of them anywhere near the
+   landing zone, and the window then returns nothing at all. Edges are always there.
+   Falls back to the whole shape's extent when the line misses the polygon entirely. */
 function stratSpan(pts, origin, ypu, f, alongYd, windowYd){
   if(!pts||pts.length<3) return null;
-  let lo=Infinity, hi=-Infinity;
-  for(let i=0;i<pts.length;i++){
-    const ax=(pts[i].x-origin.x)*ypu, ay=(pts[i].y-origin.y)*ypu;
-    if(windowYd!=null && Math.abs(ax*f.vx+ay*f.vy-alongYd)>windowYd) continue;
-    const lat=ax*f.ux+ay*f.uy;
-    if(lat<lo) lo=lat; if(lat>hi) hi=lat;
+  const P=pts.map(p=>{ const ax=(p.x-origin.x)*ypu, ay=(p.y-origin.y)*ypu;
+    return { a:ax*f.vx+ay*f.vy, t:ax*f.ux+ay*f.uy }; });
+  const span=(lo,hi)=> (isFinite(lo)&&hi-lo>=4) ? {lo,hi,mid:(lo+hi)/2,half:(hi-lo)/2} : null;
+  if(alongYd!=null){
+    const xs=[];
+    for(let i=0;i<P.length;i++){
+      const A=P[i], B=P[(i+1)%P.length];
+      if((A.a-alongYd)*(B.a-alongYd)>0) continue;        // this edge does not straddle the line
+      const d=B.a-A.a;
+      xs.push(Math.abs(d)<1e-9 ? A.t : A.t+(B.t-A.t)*((alongYd-A.a)/d));
+    }
+    if(xs.length>=2){
+      const s=span(Math.min.apply(null,xs), Math.max.apply(null,xs));
+      if(s) return s;
+    }
   }
-  if(!isFinite(lo)||hi-lo<4) return null;
-  return { lo, hi, mid:(lo+hi)/2, half:(hi-lo)/2 };
+  let lo=Infinity, hi=-Infinity;
+  for(let i=0;i<P.length;i++){
+    if(windowYd!=null && alongYd!=null && Math.abs(P[i].a-alongYd)>windowYd) continue;
+    if(P[i].t<lo) lo=P[i].t; if(P[i].t>hi) hi=P[i].t;
+  }
+  return span(lo,hi);
 }
 
 /* Which pair of preferences governs a shot played from `from`. A par-3 tee shot is an
@@ -791,6 +889,62 @@ function stratPrefAim(hole, from, n){
   }
   return mk(along, lat);
 }
+/* ---------- DOES YOUR SHAPE FIT THIS FAIRWAY? ----------
+   The fairway has a direction of its own, and near the landing zone it is rarely the
+   direction you are standing on. Read its centreline by taking the lateral midpoint of the
+   polygon a little short of the landing zone and a little long of it: the line between those
+   two midpoints IS the local axis. Returned in the DISP_SLANT sense — positive means the
+   fairway runs LEFT as it goes away from you, the same sign a draw's landing tilt carries,
+   so the two numbers can simply be compared. */
+const FIT_STEP_YD  = 35;    // how far either side of the landing zone to read the axis
+const FIT_MAX_DEG  = 20;    // past this the reading is a dogleg corner, not a landing-zone axis
+const FIT_TURN_MAX = 12;    // if the axis swings more than this THROUGH the zone, say nothing
+const FIT_LEAN     = 0.6;   // lean toward the hole's line; never try to trace it
+const FIT_TOL_DEG  = 2;     // below this a fairway is straight enough to call straight
+
+/* The fairway's own axis through the landing zone, in the DISP_SLANT sense (positive = the
+   fairway runs LEFT as it goes away from you), so it can be compared with a shape's tilt.
+
+   Read at three cross-sections rather than two, because the failure mode here is geometric:
+   at the corner of a sharp dogleg, or on a lumpy traced edge, an axis fitted across the
+   whole span is a line through a bend and means nothing. Comparing the back half against
+   the front half detects exactly that, and the answer is then to say nothing rather than
+   something confident and wrong. What survives is clamped, because no landing zone is
+   genuinely angled 40° to the shot you are hitting into it. */
+function stratFairwayTilt(hole, from, aim){
+  if(!hole||!from||!aim||((hole.fairway||[]).length<3)) return null;
+  const ypu=cfYardsPerUnit(hole); if(ypu==null) return null;
+  const dx=aim.x-from.x, dy=aim.y-from.y, L=Math.hypot(dx,dy); if(L<1e-6) return null;
+  const f={ vx:dx/L, vy:dy/L, ux:-dy/L, uy:dx/L };
+  const along=L*ypu;
+  const near=stratSpan(hole.fairway, from, ypu, f, along-FIT_STEP_YD, PREF_FW_WINDOW);
+  const mid =stratSpan(hole.fairway, from, ypu, f, along,             PREF_FW_WINDOW);
+  const far =stratSpan(hole.fairway, from, ypu, f, along+FIT_STEP_YD, PREF_FW_WINDOW);
+  if(!near||!mid||!far) return null;
+  /* lateral is +right, so a fairway drifting right slopes positive — negate for the tilt sense */
+  const deg=(a,b,d)=> -Math.atan2(b.mid-a.mid, d)*180/Math.PI;
+  if(Math.abs(deg(near,mid,FIT_STEP_YD)-deg(mid,far,FIT_STEP_YD))>FIT_TURN_MAX) return null;
+  return Math.max(-FIT_MAX_DEG, Math.min(FIT_MAX_DEG, deg(near,far,2*FIT_STEP_YD)));
+}
+/* Does the shot's landing heading work WITH this fairway or against it?
+   Deliberately a question about SIGN first and magnitude second. Matching the fairway's angle
+   is the wrong target — the ball has to work with the hole, not trace it — and on a bending
+   hole an exact-match test would call a perfectly good draw "wrong" for out-curving the
+   bend. So the suggested amount is only a fraction of the fairway's own angle (FIT_LEAN),
+   and it is offered as a lean rather than a number to hit. */
+function stratShapeFit(hole, r){
+  if(!r || r.blocked || !r.sig) return null;
+  const tilt=r.sig.tiltDeg||0;
+  if(Math.abs(tilt)<0.5) return null;                    // a straight ball has no story here
+  const fw=stratFairwayTilt(hole, r.from, r.aim);
+  if(fw==null) return null;
+  const shot=approachShotName(r.sig.sigmaYd), sh=shot&&shot.id?aimClubShape(shot.id):null;
+  const straight=Math.abs(fw)<FIT_TOL_DEG;
+  return { tilt, fairway:fw, want:FIT_LEAN*fw, straight,
+           withHole: !straight && ((tilt>0)===(fw>0)),
+           shape:sh?sh.shape:'', curve:sh?sh.curve:0, club:shot?shot.label:'' };
+}
+
 /* Everything you have, straight at the flag — the fallback when a hole has no mapped
    fairway or green for the preferences to read. */
 function stratNaiveAim(hole, from){
@@ -830,7 +984,8 @@ function stratShotSVG(hole, r, line, n, mode){
   const ux=-dy/L, uy=dx/L;
   const rx=(aimSigmaLat(r.sig.sigmaYd)*(r.sig.latMult||1)*AIM_CI90)/ypu;
   const ry=(aimSigmaDist(r.sig.sigmaYd)*(r.sig.depthMult||1)*AIM_CI90)/ypu;
-  const ang=Math.atan2(uy,ux)*180/Math.PI+(window.DISP_SLANT||15);
+  /* Same tilt the SAMPLING used, or the drawn oval would be a picture of a different shot. */
+  const ang=Math.atan2(uy,ux)*180/Math.PI+(window.DISP_SLANT||15)+(r.sig.tiltDeg||0);
   /* An ANCHORED shot has no dispersion left to draw — the ball is where it is. The ellipse
      gives way to a solid line to the recorded finish, and the dashed intention stays behind
      it at low opacity so the gap between aim and result is the thing you see. */
@@ -1090,6 +1245,32 @@ function buildHoleOverlay(){
     : kind==='tee'      ? `<b class="ln-S">S-${n}</b> plays your tee preferences: <b>${stratLabel('teeTarget').toLowerCase()}</b>, ${stratLabel('teeClub').toLowerCase()}.`
     : kind==='recovery' ? `<b class="ln-S">S-${n}</b> is a punch-out — no preference applies from the trees.`
     : `<b class="ln-S">S-${n}</b> follows your strategy preferences.`;
+  /* Does the shape fit the fairway? The practical half of the landing-heading model, and the
+     one number that settles it: re-score the SAME shot with the tilt taken out, and the
+     difference in fairway rate is what this club's curve is worth on this hole. */
+  const fit=stratShapeFit(hole, shots.S);
+  let fitNote='';
+  if(fit){
+    const rS=shots.S;
+    const flat=aimScore(hole, rS.from, rS.aim, stratSkill(), stratPosture(),
+                        Object.assign({}, rS.sig, {tiltDeg:0}));
+    const dFwy = flat ? ((rS.lieMix.fairway||0)-(flat.lieMix.fairway||0))*100 : null;
+    /* Descriptive, not advisory. The measured worth is the claim; the with/against reading is
+       only a description of the geometry. An earlier draft here said an aligned shape "keeps
+       more of the pattern on the short grass" — the app's own numbers do not support that
+       (see the note on aimLandingTilt), and a readout must not out-run its model. */
+    const side=t=>t>0?'left':'right', mag=v=>Math.abs(v).toFixed(1);
+    const fwTxt = fit.straight
+      ? 'The fairway runs straight through the landing zone, so the shape crosses it.'
+      : `The fairway bends <b>${mag(fit.fairway)}° ${side(fit.fairway)}</b> through the landing zone, so the shape works <b>${fit.withHole?'with':'against'}</b> the hole.`;
+    const worth = dFwy==null ? ''
+      : Math.abs(dFwy)<0.5
+        ? ` Against the same shot hit straight it is worth <b>less than half a point</b> of fairway from here.`
+        : ` Against the same shot hit straight it is worth <b>${dFwy>0?'+':'−'}${Math.abs(dFwy).toFixed(1)}</b> points of fairway from here.`;
+    fitNote=`<div class="sh-fit${fit.withHole?' ok':''}">Your <b>${fit.club}</b> ${
+      fit.shape.toLowerCase()}s about <b>${fit.curve} yd</b>, landing <b>${mag(fit.tilt)}° ${side(fit.tilt)}</b> of its start line. ${
+      fwTxt}${worth}</div>`;
+  }
   /* Closed by default: the panel is sized to match the map, and the caption above already
      names the pair in play. Open it only when you want to change one — and since changing
      one rebuilds this whole panel, the open state has to survive that rebuild or the box
@@ -1131,6 +1312,7 @@ function buildHoleOverlay(){
           ${oRes&&oRes.best.category?`<div class="sh-cat">${oRes.best.category}</div>`:''}
           ${verdict}
           <div class="sh-pref-note">${prefWhy}</div>
+          ${fitNote}
           ${prefBox}
         </div>
       </div>
@@ -1231,6 +1413,8 @@ Object.assign(window, {
   stratScoreShot, stratOChain, stratBallFor, stratLineAim,
   PREF_TEE_SIDE, PREF_GRN_SIDE, PREF_COMFORT_YD, PREF_FW_WINDOW,
   stratSpan, stratPrefKind, stratPrefAim, stratNaiveAim,
+  aimLandingTilt, aimClubShape, aimShapeReset, aimTiltFor,
+  FIT_STEP_YD, FIT_MAX_DEG, FIT_TURN_MAX, FIT_LEAN, FIT_TOL_DEG, stratFairwayTilt, stratShapeFit,
   stratAnchorKey, stratAnchors, stratAnchorAt, stratAnchorCount, stratToggleAnchor, stratClearAnchors,
   stratSaveSel, stratRestoreSel, stratHoleReady, stratHoleScore, stratBestCourseIdx,
   stratShotSVG, stratOverlay, stratDragInit

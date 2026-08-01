@@ -57,6 +57,9 @@ function setDplaneCell(id,field,value){
   if(String(value).trim()==='') delete STATE.dplane[id][field];
   else STATE.dplane[id][field]=parseFloat(value)||0;
   if(id===window.dpVisClub) window.dpSand=null;   // grid is authoritative → reseed the sandbox
+  /* this club's stock shape now tilts its landing pattern on the Hole Overlay, so the aim
+     optimiser's memo of it is stale the moment a cell here changes */
+  if(typeof aimShapeReset==='function') aimShapeReset();
   if(typeof buildCourseStrategy==='function') buildCourseStrategy();
   if(typeof renderDPlaneVisual==='function') renderDPlaneVisual();
   saveState();
