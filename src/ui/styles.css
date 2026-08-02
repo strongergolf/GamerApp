@@ -1024,3 +1024,32 @@ body.theme-dark .sh-fit.ok{border-left-color:var(--green2);background:rgba(0,133
 .strat-note b{color:var(--ink)}
 .strat-risk-note{font-family:Arial,sans-serif;font-size:.72rem;line-height:1.45;color:var(--ink2);margin-top:7px;padding:7px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:7px}
 .strat-risk-note b{color:var(--ink)}
+
+/* ---- My App → My Data: a growing list of what feeds the model ---- */
+.card-sub{font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;letter-spacing:.05em;color:var(--muted);text-transform:none}
+.src-list{display:flex;flex-direction:column;gap:8px}
+.src-card{border:1px solid var(--border);border-radius:9px;background:var(--surface)}
+.src-card[open]{border-color:var(--border2);background:var(--surface2)}
+.src-card>summary{cursor:pointer;list-style:none;padding:10px 12px;display:flex;flex-wrap:wrap;align-items:center;gap:6px 9px}
+.src-card>summary::-webkit-details-marker{display:none}
+.src-card>summary::before{content:'▸';color:var(--green);font-size:.7rem;line-height:1}
+.src-card[open]>summary::before{content:'▾'}
+.src-name{font-family:Arial,sans-serif;font-size:.86rem;font-weight:700;color:var(--ink)}
+.src-drives{flex:1 1 100%;font-family:Arial,sans-serif;font-size:.7rem;line-height:1.45;color:var(--muted);padding-left:16px}
+.src-body{padding:2px 12px 12px;border-top:1px dashed var(--border)}
+.src-body>div{padding-top:10px}
+/* units switch */
+.unit-toggle{display:inline-flex;border:1px solid var(--border2);border-radius:7px;overflow:hidden}
+.unit-btn{font-family:ui-monospace,monospace;font-size:.6rem;font-weight:700;letter-spacing:.04em;padding:7px 11px;background:var(--bg2);color:var(--muted);border:none;cursor:pointer}
+.unit-btn.on{background:var(--panel);color:var(--gold2)}
+.unit-btn:not(.on):hover{color:var(--ink)}
+/* strike correlation editor */
+.strike-grid{display:flex;flex-direction:column;gap:9px;margin:10px 0}
+.strike-row{display:grid;grid-template-columns:minmax(96px,1fr) minmax(90px,1.4fr) auto auto auto;gap:6px 10px;align-items:center}
+.strike-lbl{font-family:Arial,sans-serif;font-size:.76rem;font-weight:700;color:var(--ink)}
+.strike-row input[type=range]{width:100%;accent-color:var(--green)}
+.strike-val{font-family:ui-monospace,monospace;font-size:.68rem;font-weight:800;color:var(--ink)}
+.strike-lean{font-family:ui-monospace,monospace;font-size:.6rem;color:var(--muted)}
+.strike-lean b{color:var(--ink2)}
+@media(max-width:520px){.strike-row{grid-template-columns:1fr auto;grid-auto-flow:row dense}
+  .strike-row input[type=range]{grid-column:1/-1}}

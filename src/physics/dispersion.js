@@ -67,6 +67,60 @@ function getDepthDispersion(carry){
 }
 /* 86% depth half-width — the depth twin of disp86(), for the overhead oval. */
 function depth86(carry){ return Math.round(getDepthDispersion(carry)*0.90*10)/10; }
+
+/* ---------- WHY THE PATTERN LEANS: strike correlation ----------
+   A landing pattern is not axis-aligned, because hitting one long and hitting it left are
+   not independent events — one miss causes both. A toe strike gears the ball into a draw and
+   takes spin off it, so it flies further AND finishes left; a heel strike does the mirror,
+   shorter and right. That is a single mechanism, and its strength scales with how much gear
+   effect the head can produce: a great deal for a driver, almost none for a wedge.
+
+   So the model is the CORRELATION between the depth error and the lateral error — which is
+   what this actually is, a bivariate normal — rather than an angle. The lean then follows
+   from the correlation and the two sigmas, so it varies club by club on its own, out of
+   sigmas that are already calibrated, instead of being asserted club by club:
+        tan θ = ρ · σdep / σlat
+
+   That is the first-order lean, NOT the principal axis of the correlation ellipse. The
+   textbook principal-axis angle, ½·atan2(2ρσlσd, σl²−σd²), is ill-conditioned exactly where
+   this bag lives: as the pattern approaches circular the angle is barely determined, and it
+   was measured swinging from +24° to −3.3° across a few yards of carry either side of the
+   lateral/depth crossover — which is the middle of the wedges. The form above is monotone in
+   ρ, bounded by atan(ρ), and agrees with the principal axis where the pattern is elongated
+   enough for that to mean anything.
+
+   This replaces a flat DISP_SLANT = 15°, applied identically to every club in the bag. That
+   constant was never measured, and at driver distance it came to three times the size of the
+   real ball-flight landing angle sitting underneath it — so it silently decided the answer
+   to every question the app could ask about shot shape.
+
+   PRESUMED, and editable in Locker Room → My App. ρ is the one number here a golfer can
+   actually measure: track shots, regress lateral miss on distance miss, and the slope is it.
+   ρ = 0 gives an upright pattern with no lean at all, which is the right answer for anyone
+   who has no evidence of one. */
+const STRIKE_CORR = { wood:0.35, hybrid:0.28, iron:0.18, wedge:0.08, putter:0 };
+const DISP_TILT_MAX = 24;          // deg — a near-circular pattern would otherwise swing wildly
+function strikeCorr(type){
+  const s=(window.STATE&&STATE.dispersion&&STATE.dispersion.strikeCorr)||{};
+  const v=s[type];
+  if(typeof v==='number'&&isFinite(v)) return Math.max(-0.9, Math.min(0.9, v));
+  return STRIKE_CORR[type]!=null ? STRIKE_CORR[type] : 0.2;
+}
+/* Lean of the landing pattern in degrees, POSITIVE = long-and-left (the right-handed
+   pattern; mirrored for a left-hander, because the gear effect causing it mirrors too). */
+function dispTilt(type, sigmaLat, sigmaDep){
+  const rho=strikeCorr(type);
+  if(!rho || !(sigmaLat>0) || !(sigmaDep>0)) return 0;
+  let deg=Math.atan2(rho*sigmaDep, sigmaLat)*180/Math.PI;
+  deg=Math.max(-DISP_TILT_MAX, Math.min(DISP_TILT_MAX, deg));
+  const lh=((window.STATE&&STATE.profile&&STATE.profile.handedness)||'RH')==='LH';
+  return lh?-deg:deg;
+}
+/* The lean for a club, straight from its carry — the form both the ladder ovals and the aim
+   optimiser want. `type` falls back to iron for anything unrecognised. */
+function dispTiltFor(type, carry){
+  return dispTilt(type||'iron', getDispersion(carry), getDepthDispersion(carry));
+}
 function typeLabel(t){ return t==='wood'?'Woods & Hybrids':t==='iron'?'Irons':t==='wedge'?'Wedges':'Putter'; }
 function typeHex(t){ return t==='wood'?'#d96070':t==='iron'?'#1a5aaa':t==='wedge'?'#00853F':t==='putter'?'#6b7280':'#6b7280'; }
 function perf(id){ return STATE.performance[id] || {}; }
@@ -74,4 +128,5 @@ function perf(id){ return STATE.performance[id] || {}; }
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { MAX_CARRY, getDispersion, disp86, getDepthDispersion, depth86, perf, typeHex, typeLabel });
+Object.assign(window, { MAX_CARRY, getDispersion, disp86, getDepthDispersion, depth86, perf, typeHex, typeLabel,
+  STRIKE_CORR, DISP_TILT_MAX, strikeCorr, dispTilt, dispTiltFor });

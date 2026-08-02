@@ -64,7 +64,6 @@
   <!-- 3. Shot options -->
   <div class="calc-results" id="calc-results"></div>
 
-  <div id="env-approach" style="margin:6px 0 16px"></div>
 
   <!-- 4. Distance Matrix — at-a-glance, very bottom of the tab -->
   <div class="section-label" style="display:flex;align-items:center;justify-content:space-between;gap:10px">Distance Matrix — Total &amp; Carry <button class="print-btn" onclick="printMatrix('approach')">⎙ Print</button></div>
@@ -341,18 +340,14 @@
       <div><div class="set-label">Dark mode</div><div class="set-sub">Easier on the eyes indoors / at night.</div></div>
       <label class="set-switch"><input type="checkbox" id="set-dark" onchange="sgToggleTheme(this.checked)"><span class="set-slider"></span></label>
     </div>
-  </div>
-  <div class="profile-card">
-    <h3>Data Imports <span style="font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;letter-spacing:.05em;color:var(--muted);text-transform:none">launch monitor, TPI, 3D motion — verify to earn Captured</span></h3>
-    <p class="gen-note">Connect a source, confirm it's your account, and StrongerGolf folds the session into your data with a <span class="sg-prov" style="color:var(--green);background:rgba(0,133,63,.12)">Captured</span> badge. Sessions are weighted (a 50-ball block on one club ≠ 50 independent shots) and tracked over time for trends.</p>
-    <div class="prov-legend" style="margin-bottom:10px">
-      <div class="prov-legend-item"><b style="color:var(--ink)">Trackman / Foresight / FlightScope</b> — shot-by-shot ball &amp; club data</div>
-      <div class="prov-legend-item"><b style="color:var(--ink)">TPI screen</b> — physical-screen results</div>
-      <div class="prov-legend-item"><b style="color:var(--ink)">MindTrak</b> — focus / arousal data</div>
-      <div class="prov-legend-item"><b style="color:var(--ink)">GEARS / 3D motion</b> — kinematic-sequence capture</div>
+    <div class="set-row">
+      <div><div class="set-label">Units</div><div class="set-sub">Temperature, altitude and pressure. Stored values never change — only what you see.</div></div>
+      <div class="unit-toggle" id="unit-toggle"></div>
     </div>
-    <div class="btn-row"><button class="btn" disabled style="opacity:.55;cursor:not-allowed">Connect a source — coming soon</button></div>
   </div>
+  <!-- One page that answers "what is feeding the model, and how good is that data". Built in
+       JS (buildMyData) because the list of sources is going to keep growing. -->
+  <div id="mydata-wrap"></div>
   <div class="profile-card">
     <h3>Data</h3>
     <p class="gen-note">Your bag, performance numbers, swing data and profile are saved in this browser. Export a backup, import it on another device, or reset to the original demo bag.</p>

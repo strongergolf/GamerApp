@@ -5,23 +5,34 @@
 /* ============================================================
    BAG / LADDER
    ============================================================ */
-/* ---- Environmental Adjustment: one STATE-driven panel rendered into any host (Stock Shots
-   + Approach). Both panels read/write the single set of today's conditions (STATE.baseline)
-   + density K, and seed every carry across the app via carryFactor(). ---- */
-const ENV_HOSTS=['env-bag','env-approach'];
+/* ---- Environmental Adjustment: one STATE-driven panel, on STOCK SHOTS only.
+   It used to render on Approach as well. Two copies of one setting is a liability rather
+   than a convenience — Approach numbers already inherit the adjustment through
+   carryFactor(), so the panel there was a second place to change a thing, not a second
+   thing. Values are held canonical (°F / ft / inHg) and converted at the edge, so switching
+   units never touches the stored conditions. ---- */
+const ENV_HOSTS=['env-bag'];
+/* canonical key -> which unit family converts it; humidity and k are unitless */
+const ENV_UNITS={ tempF:'temp', altitudeFt:'altitude', pressureInHg:'pressure' };
+function envFieldDp(kind){ return kind==='pressure' ? (isMetric()?0:2) : (kind==='temp'&&isMetric()?1:0); }
 function envPanelHTML(pfx){
   const b=STATE.baseline;
-  const fld=(key,label,attrs,val)=>`<div class="cond-field"><label>${label}</label><input id="${pfx}-${key}" type="number" ${attrs} value="${val}" oninput="onEnvInput('${key}',this.value)"></div>`;
+  const fld=(key,label,attrs,val)=>`<div class="cond-field"><label>${label}</label><input id="${pfx}-${key}" type="number" inputmode="decimal" ${attrs} value="${val}" oninput="onEnvInput('${key}',this.value)"></div>`;
+  const conv=key=>{
+    const kind=ENV_UNITS[key], d=unitDef(kind);
+    return fld(key, ({tempF:'Temp',altitudeFt:'Altitude',pressureInHg:'Pressure'})[key]+' '+d.label,
+               `step="${d.step}"`, toDisplay(kind, b[key], envFieldDp(kind)));
+  };
   return `<div class="cond-strip">
     <div class="cond-head">
       <div class="cond-title">Environmental Adjustment</div>
       <label class="cond-toggle"><input type="checkbox" id="${pfx}-adj" ${window.adjustOn?'checked':''} onchange="onEnvToggle(this.checked)"> Adjust carries</label>
     </div>
     <div class="cond-body">
-      ${fld('tempF','Temp °F','step="1"',b.tempF)}
-      ${fld('altitudeFt','Altitude ft','step="50"',b.altitudeFt)}
+      ${conv('tempF')}
+      ${conv('altitudeFt')}
       ${fld('humidity','Humidity %','min="0" max="100" step="1"',b.humidity)}
-      ${fld('pressureInHg','Pressure inHg','step="0.01"',b.pressureInHg)}
+      ${conv('pressureInHg')}
       ${fld('densityK','Air Density (k)','step="0.05" min="0" max="2"',STATE.densityK)}
     </div>
     <div class="cond-summary" id="${pfx}-sum"></div>
@@ -48,9 +59,16 @@ function envRefreshDeps(){
 function onEnvInput(key,val){
   const v=parseFloat(val);
   if(key==='densityK'){ if(!isNaN(v)) STATE.densityK=Math.max(0,Math.min(2,v)); }
-  else if(!isNaN(v)){ STATE.baseline[key]=v; }
+  else if(!isNaN(v)){
+    /* what was typed is in the DISPLAYED unit; storage stays canonical */
+    STATE.baseline[key] = ENV_UNITS[key] ? fromDisplay(ENV_UNITS[key], v) : v;
+  }
   saveState();
-  ENV_HOSTS.forEach(pfx=>{ const el=document.getElementById(pfx+'-'+key); if(el && el!==document.activeElement) el.value=(key==='densityK'?STATE.densityK:STATE.baseline[key]); });
+  ENV_HOSTS.forEach(pfx=>{ const el=document.getElementById(pfx+'-'+key); if(el && el!==document.activeElement){
+    el.value = key==='densityK' ? STATE.densityK
+             : ENV_UNITS[key] ? toDisplay(ENV_UNITS[key], STATE.baseline[key], envFieldDp(ENV_UNITS[key]))
+             : STATE.baseline[key];
+  }});
   envSyncSummary(); envRefreshDeps();
 }
 function onEnvToggle(on){
@@ -279,13 +297,17 @@ function fairwayPath(cx,top,bot,halfPx){
    LENGTH, so depth dominates and the oval reads TALL/vertical; full-swing shots (irons,
    fairway woods/hybrids) have lateral spread that outgrows depth past ~115 yd, so the oval
    flips to wider-than-deep / horizontally slanted. Both axes come from physics/dispersion.js. */
-const DISP_SLANT = 15;   /* deg; tilts the oval long-left / short-right (mirrored) */
+/* The oval's lean is no longer a constant. It comes from the club's strike correlation and
+   its own two sigmas — see dispTilt in physics/dispersion.js, which explains why a flat 15°
+   on every club was wrong. Kept as a name only so nothing else breaks reaching for it. */
+const DISP_SLANT = 15;   /* DEPRECATED — use dispTiltFor(club.type, carry) */
 function buildTopSVG(c,p,opts){
   opts=opts||{};
   const drag=!!opts.draggable;                 // Approach tab: drag the aim oval over the green
   const W=120,H=112,cx=W/2,cy=H/2+3,tc=typeHex(c.type);
   const carry=p.carry||100;
   const dispYd=disp86(carry);             // single 86% L/R lateral half-width, yards (matches badges)
+  const slant=dispTiltFor(c.type, carry);  // per-club lean, from this club's strike correlation
   const depthYd=depth86(carry);            // depth (distance control) — per-club, same 86% basis as lateral
   const isWood=c.type==='wood';
 
@@ -316,7 +338,7 @@ function buildTopSVG(c,p,opts){
     <text x="${cx}" y="12" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9" font-weight="bold" fill="var(--ink2)">${carry} yd</text>
     ${bg}
     <text x="${cx}" y="21" text-anchor="middle" font-family="ui-monospace,monospace" font-size="5" fill="var(--green)" opacity="0.8">${ctxLabel}</text>
-    <g transform="rotate(${DISP_SLANT} ${cx} ${cy})">
+    <g transform="rotate(${slant.toFixed(1)} ${cx} ${cy})">
       <ellipse cx="${cx}" cy="${cy}" rx="${ovW.toFixed(1)}" ry="${ovH.toFixed(1)}" fill="${tc}" fill-opacity="0.28" stroke="${tc}" stroke-opacity="0.75" stroke-width="1.1"/>
     </g>
     <circle cx="${cx}" cy="${cy}" r="1.6" fill="var(--ink)"/>
@@ -332,7 +354,7 @@ function buildTopSVG(c,p,opts){
   window.aimOffsets=window.aimOffsets||{};
   const off=window.aimOffsets[uid]||(window.aimOffsets[uid]={dx:0,dy:0});
   return `<svg id="aim-svg-${uid}" class="aim-svg" data-pz viewBox="0 0 ${W} ${H}" style="width:100%;display:block;overflow:visible;touch-action:pan-y"
-      data-uid="${uid}" data-cx="${cx}" data-cy="${cy}" data-gx="${gx}" data-gy="${gy}" data-scale="${scale.toFixed(4)}" data-disp="${ovW.toFixed(2)}" data-depth="${ovH.toFixed(2)}" data-shape="${shape}"
+      data-uid="${uid}" data-cx="${cx}" data-cy="${cy}" data-gx="${gx}" data-gy="${gy}" data-scale="${scale.toFixed(4)}" data-disp="${ovW.toFixed(2)}" data-depth="${ovH.toFixed(2)}" data-shape="${shape}" data-slant="${slant.toFixed(2)}"
       xmlns="http://www.w3.org/2000/svg">
     <text x="${cx}" y="12" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9" font-weight="bold" fill="var(--ink2)">${carry} yd</text>
     ${bg}
@@ -357,7 +379,7 @@ function buildTopSVG(c,p,opts){
           stroke="var(--surface)" stroke-width="1.8" paint-order="stroke"></text>
     <!-- draggable aim group -->
     <g class="aim-group" style="cursor:grab;touch-action:none" transform="translate(${off.dx.toFixed(1)},${off.dy.toFixed(1)})">
-      <g transform="rotate(${DISP_SLANT} ${cx} ${cy})">
+      <g transform="rotate(${slant.toFixed(1)} ${cx} ${cy})">
         <ellipse cx="${cx}" cy="${cy}" rx="${ovW.toFixed(1)}" ry="${ovH.toFixed(1)}" fill="${tc}" fill-opacity="0.28" stroke="${tc}" stroke-opacity="0.75" stroke-width="1.1"/>
       </g>
       <circle cx="${cx}" cy="${cy}" r="11" fill="transparent"/>
@@ -396,9 +418,12 @@ function wireAimDrag(svg){
   const clampX=x=>Math.max(4,Math.min(116,x));
   const clampY=y=>Math.max(27,Math.min(106,y));
   const isGreen=shape==='green';
-  /* SLANT-EXACT geometry of the rotated oval (rx lateral, ry depth, tilted DISP_SLANT°).
-     Hx/Hy = true lateral/depth reach; the matching cross-axis offset places each extreme. */
-  const TH=DISP_SLANT*Math.PI/180, cosT=Math.cos(TH), sinT=Math.sin(TH);
+  /* SLANT-EXACT geometry of the rotated oval (rx lateral, ry depth, tilted by the club's own
+     lean — see dispTilt). Hx/Hy = true lateral/depth reach; the matching cross-axis offset
+     places each extreme. The lean rides in on the dataset because this runs long after the
+     SVG was built and has no other way back to the club. */
+  const slant=+svg.dataset.slant||0;
+  const TH=slant*Math.PI/180, cosT=Math.cos(TH), sinT=Math.sin(TH);
   const rx=dispPx, ry=depthPx;
   const Hx=Math.hypot(rx*cosT, ry*sinT), Hy=Math.hypot(rx*sinT, ry*cosT);
   const kxy=(rx*rx-ry*ry)*sinT*cosT;

@@ -386,6 +386,109 @@ function generateFromSwingSpeed(){
   STATE.profile.driverSwingSpeed=target;
   saveState(); refreshAll(); toast('Ladder generated — refine from real data');
 }
+/* ============================================================
+   MY DATA — one page answering "what is feeding the model?"
+   ============================================================
+   Every number in this app comes from somewhere: a connected launch monitor, a block of
+   shots typed in by hand, or an app default. That distinction is already the provenance
+   system; what was missing was a single place to SEE it and act on it. Calibration used to
+   be buried at the bottom of the Short Game tab, which meant only one model area had a home
+   and nobody would find it.
+
+   Built as a list of SOURCES rather than a hand-laid page, because the list is going to keep
+   growing — full-swing carries, putting, on-course tracking, and every device that turns up
+   after them. Adding one is a single entry in MY_DATA_SOURCES. */
+const MY_DATA_SOURCES = [
+  { id:'shortgame', title:'Short game — launch, spin, rollout',
+    drives:'Every carry, rollout and club suggestion on the Short Game tab.',
+    host:'sg-cal-wrap',
+    status:()=> (typeof chipCalibrated==='function'&&chipCalibrated())?'captured':'presumed',
+    render:()=>{ if(typeof renderSgCal==='function') renderSgCal(); } },
+  { id:'strike', title:'Dispersion — how your pattern leans',
+    drives:'The shape of every dispersion oval, and the aim optimiser behind the Hole Overlay.',
+    host:'strike-cal-wrap',
+    status:()=> Object.keys((STATE.dispersion&&STATE.dispersion.strikeCorr)||{}).length?'input':'presumed',
+    render:()=>{ if(typeof renderStrikeCal==='function') renderStrikeCal(); } }
+];
+function buildMyData(){
+  const wrap=document.getElementById('mydata-wrap'); if(!wrap) return;
+  const prov=k=>(typeof sgProv==='function')?sgProv(k):'';
+  const cards=MY_DATA_SOURCES.map(src=>`
+    <details class="src-card" id="src-${src.id}">
+      <summary>
+        <span class="src-name">${src.title}</span>
+        ${prov(src.status())}
+        <span class="src-drives">${src.drives}</span>
+      </summary>
+      <div class="src-body"><div id="${src.host}"></div></div>
+    </details>`).join('');
+  wrap.innerHTML=`
+    <div class="profile-card">
+      <h3>My Data <span class="card-sub">what is feeding the model, and how good it is</span></h3>
+      <p class="gen-note">Anything measured earns <span class="sg-prov" style="color:var(--green);background:rgba(0,133,63,.12)">Captured</span>; anything typed in earns <span class="sg-prov" style="color:var(--sky);background:rgba(26,90,170,.12)">Input</span>. Everything else is an app default, and says so. Calibrating a source replaces a default with your own golf.</p>
+      <div class="src-list">${cards}</div>
+    </div>
+    <div class="profile-card">
+      <h3>Connected Sources <span class="card-sub">launch monitor, TPI, 3D motion — verify to earn Captured</span></h3>
+      <p class="gen-note">Connect a source, confirm it's your account, and StrongerGolf folds the session into your data with a <span class="sg-prov" style="color:var(--green);background:rgba(0,133,63,.12)">Captured</span> badge. Sessions are weighted (a 50-ball block on one club ≠ 50 independent shots) and tracked over time for trends.</p>
+      <div class="prov-legend" style="margin-bottom:10px">
+        <div class="prov-legend-item"><b style="color:var(--ink)">Trackman / Foresight / FlightScope</b> — shot-by-shot ball &amp; club data</div>
+        <div class="prov-legend-item"><b style="color:var(--ink)">TPI screen</b> — physical-screen results</div>
+        <div class="prov-legend-item"><b style="color:var(--ink)">MindTrak</b> — focus / arousal data</div>
+        <div class="prov-legend-item"><b style="color:var(--ink)">GEARS / 3D motion</b> — kinematic-sequence capture</div>
+      </div>
+      <div class="btn-row"><button class="btn" disabled style="opacity:.55;cursor:not-allowed">Connect a source — coming soon</button></div>
+    </div>`;
+  MY_DATA_SOURCES.forEach(src=>{ try{ src.render(); }catch(e){} });
+  buildUnitToggle();
+}
+function buildUnitToggle(){
+  const el=document.getElementById('unit-toggle'); if(!el) return;
+  const cur=(typeof unitSys==='function')?unitSys():'imperial';
+  el.innerHTML=[['imperial','°F · ft · yd'],['metric','°C · m · m']].map(([v,l])=>
+    `<button type="button" class="unit-btn${v===cur?' on':''}" onclick="setUnits('${v}')">${l}</button>`).join('');
+}
+
+/* ---- Strike correlation: the one number that decides how a landing pattern leans ----
+   Exposed as the correlation itself rather than as an angle, because the correlation is what
+   a golfer can measure: take a block of tracked shots, plot lateral miss against distance
+   miss, and the strength of that relationship is ρ. The resulting lean is shown live beside
+   it so the abstract number has something concrete attached. */
+function renderStrikeCal(){
+  const wrap=document.getElementById('strike-cal-wrap'); if(!wrap) return;
+  STATE.dispersion=STATE.dispersion||{strikeCorr:{}};
+  const set=STATE.dispersion.strikeCorr||(STATE.dispersion.strikeCorr={});
+  const TYPES=[['wood','Woods & hybrids',270],['iron','Irons',175],['wedge','Wedges',95]];
+  const rows=TYPES.map(([t,label,carry])=>{
+    const cur=(typeof set[t]==='number')?set[t]:(window.STRIKE_CORR?STRIKE_CORR[t]:0.2);
+    const lean=(typeof dispTiltFor==='function')?dispTiltFor(t,carry):0;
+    const own=(typeof set[t]==='number');
+    return `<div class="strike-row">
+      <span class="strike-lbl">${label}</span>
+      <input type="range" min="0" max="0.9" step="0.05" value="${cur}" oninput="setStrikeCorr('${t}',this.value)">
+      <span class="strike-val">ρ ${(+cur).toFixed(2)}</span>
+      <span class="strike-lean">leans <b>${lean.toFixed(1)}°</b> at ${carry} yd</span>
+      ${own?`<button class="sgcal-del" title="Back to the app default" onclick="setStrikeCorr('${t}',null)">✕</button>`:'<span></span>'}
+    </div>`;
+  }).join('');
+  wrap.innerHTML=`
+    <p class="gen-note" style="margin-top:0">Hitting one long and hitting it left are not independent — the same strike causes both. A toe hit gears the ball into a draw and takes spin off it, so it flies further <em>and</em> finishes left; a heel hit does the mirror. How strongly the two move together is <b>ρ</b>, and it is bigger for a driver than a wedge because a bigger head produces more gear effect.</p>
+    <p class="gen-note">To measure it: take a block of tracked shots on one club, and compare each shot's distance miss with its lateral miss. If long shots reliably finish left, ρ is high. If there is no relationship, set it to <b>0</b> — an upright pattern is the honest answer when there is no evidence of a lean.</p>
+    <div class="strike-grid">${rows}</div>
+    <p class="gen-note" style="margin-bottom:0">This replaced a fixed 15° lean applied to every club in the bag, which was never measured and was large enough to decide the answer to every question the app asked about shot shape.</p>`;
+}
+function setStrikeCorr(type,val){
+  STATE.dispersion=STATE.dispersion||{strikeCorr:{}};
+  const set=STATE.dispersion.strikeCorr||(STATE.dispersion.strikeCorr={});
+  if(val===null||val===''||val===undefined) delete set[type];
+  else { const v=parseFloat(val); if(!isNaN(v)) set[type]=Math.max(0,Math.min(0.9,v)); }
+  saveState();
+  if(typeof aimShapeReset==='function') aimShapeReset();
+  renderStrikeCal();
+  if(typeof buildLadder==='function') buildLadder();
+  if(typeof buildHoleOverlay==='function') buildHoleOverlay();
+}
+
 function exportData(){
   const blob=new Blob([JSON.stringify(STATE,null,2)],{type:'application/json'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
@@ -452,4 +555,4 @@ function logHcpSnapshot(){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { buildProfile, buildSpecs, clearBallForm, estimatePerfForLoft, exportData, generateFromSwingSpeed, hcpTrendHtml, importData, logHcpSnapshot, pfDirtyInit, pfMaybeSave, repMatches, resetData, saveCalibration, saveClub, saveProfile, sel, selectReplacement, toggleSpecs });
+Object.assign(window, { MY_DATA_SOURCES, buildMyData, buildUnitToggle, renderStrikeCal, setStrikeCorr, buildProfile, buildSpecs, clearBallForm, estimatePerfForLoft, exportData, generateFromSwingSpeed, hcpTrendHtml, importData, logHcpSnapshot, pfDirtyInit, pfMaybeSave, repMatches, resetData, saveCalibration, saveClub, saveProfile, sel, selectReplacement, toggleSpecs });

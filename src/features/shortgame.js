@@ -50,10 +50,8 @@ function buildShortGame(){
     <div class="section-label" style="margin-top:22px">Short Game Setup Adjustment Options</div>
     <div id="sg-vars-wrap"></div>
 
-    <!-- 5. Calibrate to your own launch-monitor short-game data -->
-    <details class="defs-dropdown" style="margin-top:16px"><summary>Calibrate to My Data</summary>
-      <div id="sg-cal-wrap"></div>
-    </details>
+    <!-- Calibrate to My Data now lives in Locker Room -> My App, with every other data
+         source, so there is one place that answers "what is feeding the model". -->
 
     <!-- 6. Chip Matrix — at-a-glance, very bottom of the tab -->
     <div class="section-label" style="margin-top:22px;display:flex;align-items:center;justify-content:space-between;gap:10px">Chip Reference Matrix — Total Distance by Club &amp; Carry <button class="print-btn" onclick="printMatrix('chip')">⎙ Print</button></div>

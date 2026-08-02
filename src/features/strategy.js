@@ -50,16 +50,19 @@ function aimSigmaDist(carry){ return getDepthDispersion(carry)/AIM_CI90; }
        14.3 yd vs depth 8.1 yd at 290), so its long axis lies ACROSS the fairway, not along
        it. Laying that axis down a fairway would take a 90° rotation. A 12-yard draw supplies
        5.1°, so "align the shape with the fairway" cannot buy much, whatever the hole does;
-     - DISP_SLANT is a fixed 15° on every shot, three times what the shape contributes, so it
-       swamps the term entirely;
+     - the pattern's own lean was a fixed 15° on every shot, three times what the shape
+       contributes, so it swamped the term entirely. That has since been replaced by a
+       per-club strike correlation (dispTilt, physics/dispersion.js) — the driver now leans
+       ~11° and a wedge ~4°, derived rather than asserted — but the ordering still holds:
+       the pattern's lean is the larger term, and it is the one worth measuring;
      - swept ±10° across a left-running, a right-running and a straight fairway, the best
        tilt came out identical on all three. The 5 points of fairway that sweep moves are
        about un-slanting the pattern, not about the hole.
    So this models a real thing correctly and is worth keeping — the landing heading is what
    the tree/line-of-sight work will need, and it was not covered at all before — but it is
    NOT a fairway-hitting lever, and the readout must not claim to be one. The number to fix
-   first is DISP_SLANT: a fixed 15° tilt on every club is doing more work here than the ball
-   flight is, and nothing about shape can be read honestly until it is measured. */
+   first was that fixed tilt, and it now is: see STRIKE_CORR in physics/dispersion.js, whose
+   ρ is the one quantity here a golfer can genuinely measure from tracked shots. */
 function aimLandingTilt(carryYd, curveYd, spinAxis){
   if(!carryYd || !curveYd || Math.abs(spinAxis||0) < 0.5) return 0;
   const deg = Math.atan2(2*Math.abs(curveYd), carryYd)*180/Math.PI;
@@ -102,7 +105,11 @@ function aimSamples(hole, from, aim, opt){
   const vx=dx/L, vy=dy/L, ux=-vy, uy=vx;          // along-shot and lateral unit vectors
   const shotYd=(opt.sigmaYd!=null)?opt.sigmaYd:L*ypu;
   const sLat=aimSigmaLat(shotYd)*(opt.latMult||1), sDist=aimSigmaDist(shotYd)*(opt.depthMult||1);
-  const th=((window.DISP_SLANT||15)+(opt.tiltDeg||0))*Math.PI/180, ct=Math.cos(th), st=Math.sin(th);
+  /* Pattern lean (strike correlation, per club) + the ball's own landing heading. Both are
+     now derived rather than asserted; opt.slantDeg lets the caller pass the club's lean so
+     this does not have to guess which club is being hit. */
+  const slant=(opt.slantDeg!=null)?opt.slantDeg:dispTiltFor(opt.clubType||'iron', shotYd);
+  const th=(slant+(opt.tiltDeg||0))*Math.PI/180, ct=Math.cos(th), st=Math.sin(th);
   const out=[];
   for(let i=0;i<AIM_Z.length;i++) for(let j=0;j<AIM_Z.length;j++){
     const el=AIM_Z[i]*sLat, ed=AIM_Z[j]*sDist;     // ellipse frame, then rotate by the slant
@@ -262,12 +269,16 @@ function approachShotName(effYd){
   }
   return (cache[key]=out);
 }
-/* The landing-pattern tilt for whatever club plays this distance, in the DISP_SLANT sense. */
-function aimTiltFor(effYd){
+/* Everything the sampler needs to know about the club that plays this distance: how the
+   ball CURVES (its landing heading) and what KIND of club it is (which sets the pattern's
+   own lean, via its strike correlation). Two different mechanisms, both per-club. */
+function aimShotSig(effYd){
   const shot=approachShotName(effYd);
+  const club=shot&&shot.id?(STATE.clubs||[]).find(c=>c.id===shot.id):null;
   const sh=shot&&shot.id?aimClubShape(shot.id):null;
-  return sh?sh.tilt:0;
+  return { tiltDeg:sh?sh.tilt:0, clubType:club?club.type:'iron' };
 }
+function aimTiltFor(effYd){ return aimShotSig(effYd).tiltDeg; }
 const APPROACH_LAT = 24, APPROACH_LONG = 12, APPROACH_SHORT = 24, APPROACH_STEP = 4;
 
 /* Optimise an approach played from `from`. Returns the best aim SPOT relative to the pin
@@ -295,7 +306,7 @@ function optimiseApproach(hole, from, opts){
       const geo=Math.hypot(aim.x-from.x,aim.y-from.y)*ypu;      // real yards to the spot
       const eff=geo+cost;                                        // what you must club for
       if(eff>longest+10) continue;                               // out of range
-      const r=aimScore(hole,from,aim,hcp,posture,{sigmaYd:eff,latMult:mult.lat,depthMult:mult.depth,tiltDeg:aimTiltFor(eff)});
+      const r=aimScore(hole,from,aim,hcp,posture,Object.assign({sigmaYd:eff,latMult:mult.lat,depthMult:mult.depth}, aimShotSig(eff)));
       if(!r) continue;
       r.latYd=lat; r.depthYd=dep; r.geoYd=geo; r.effYd=eff;
       r.greenRate=r.lieMix.green||0;
@@ -426,7 +437,7 @@ function optimiseShot(hole, from, opts){
       const geo=Math.hypot(aim.x-from.x,aim.y-from.y)*ypu;
       const eff=geo+cost;
       if(eff>longest+10) continue;
-      const r=aimScore(hole,from,aim,hcp,posture,{sigmaYd:eff,latMult:mult.lat,depthMult:mult.depth,tiltDeg:aimTiltFor(eff)});
+      const r=aimScore(hole,from,aim,hcp,posture,Object.assign({sigmaYd:eff,latMult:mult.lat,depthMult:mult.depth}, aimShotSig(eff)));
       if(!r) continue;
       r.geoYd=geo; r.effYd=eff; r.latYd=lat; r.alongYd=along;
       r.shot=approachShotName(eff);
@@ -475,7 +486,7 @@ function optimiseShot(hole, from, opts){
      allowed to pick (from the trees that made the punch-out look worse than a fantasy). */
   const naiveAlong=Math.min(Math.max(30,longest-cost), toPin, maxGeo);
   const naiveAim={ x:from.x+vx*(naiveAlong/ypu), y:from.y+vy*(naiveAlong/ypu) };
-  const naive=aimScore(hole,from,naiveAim,hcp,posture,{sigmaYd:naiveAlong+cost,latMult:mult.lat,depthMult:mult.depth,tiltDeg:aimTiltFor(naiveAlong+cost)});
+  const naive=aimScore(hole,from,naiveAim,hcp,posture,Object.assign({sigmaYd:naiveAlong+cost,latMult:mult.lat,depthMult:mult.depth}, aimShotSig(naiveAlong+cost)));
   if(naive){ naive.geoYd=naiveAlong; naive.shot=approachShotName(naiveAlong+cost); }
   return { best, naive, byPosture, tourCtx, ranked:results.slice(0,5), lie, toPin, cost, mult, posture, hcp, recovery };
 }
@@ -681,7 +692,7 @@ function stratScoreShot(hole, from, aim, end){
   const geo=Math.hypot(aim.x-from.x,aim.y-from.y)*ypu;
   if(geo<8) return {blocked:'tap', lie, from, toPinFrom};
   const mult=APPROACH_LIE[lie]||APPROACH_LIE.fairway, cost=approachLieCostYd(lie);
-  const sig={sigmaYd:geo+cost, latMult:mult.lat, depthMult:mult.depth, tiltDeg:aimTiltFor(geo+cost)};
+  const sig=Object.assign({sigmaYd:geo+cost, latMult:mult.lat, depthMult:mult.depth}, aimShotSig(geo+cost));
   const r=aimScore(hole,from,aim,stratSkill(),stratPosture(),sig);
   if(!r) return null;
   const mid=stratGreenMid(hole);
@@ -985,7 +996,8 @@ function stratShotSVG(hole, r, line, n, mode){
   const rx=(aimSigmaLat(r.sig.sigmaYd)*(r.sig.latMult||1)*AIM_CI90)/ypu;
   const ry=(aimSigmaDist(r.sig.sigmaYd)*(r.sig.depthMult||1)*AIM_CI90)/ypu;
   /* Same tilt the SAMPLING used, or the drawn oval would be a picture of a different shot. */
-  const ang=Math.atan2(uy,ux)*180/Math.PI+(window.DISP_SLANT||15)+(r.sig.tiltDeg||0);
+  const slant=(r.sig.slantDeg!=null)?r.sig.slantDeg:dispTiltFor(r.sig.clubType||'iron', r.sig.sigmaYd);
+  const ang=Math.atan2(uy,ux)*180/Math.PI+slant+(r.sig.tiltDeg||0);
   /* An ANCHORED shot has no dispersion left to draw — the ball is where it is. The ellipse
      gives way to a solid line to the recorded finish, and the dashed intention stays behind
      it at low opacity so the gap between aim and result is the thing you see. */

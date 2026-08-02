@@ -16,7 +16,16 @@ const DEFAULT_DATA = {
     lmBrand:'', lmSessionDate:'', lmDriverAoA:'', lmDriverPath:'', lmDriverFace:'', lmSmash:'', lmNotes:'',
     /* course conditions */
     roughLength:'', greenGrass:'', fairwayGrass:'', roughGrass:'', bunkerSand:'' },
-  baseline: { tempF:70, altitudeFt:0, humidity:50, pressureInHg:29.92 },   /* today's playing conditions (Environmental Adjustment); standard ref = STD_COND */
+  /* Today's playing conditions (Environmental Adjustment). Starts on the same fine spring
+     day at Vancouver GC that STD_COND uses as the stock-yardage reference, so a new user
+     sees "stock" until they change something rather than a phantom adjustment. */
+  baseline: { tempF:71.6, altitudeFt:50, humidity:65, pressureInHg:30.05 },
+  /* 'imperial' (°F / ft / inHg / yd) or 'metric' (°C / m / hPa / m). Stored values stay
+     canonical-imperial; only what is displayed converts. */
+  units: 'imperial',
+  /* Correlation between hitting one long and hitting it left, per club type — what makes a
+     landing pattern lean. See STRIKE_CORR in physics/dispersion.js. Empty = use defaults. */
+  dispersion: { strikeCorr: {} },
   densityK: 0.65,
   lmSessions: [],   /* saved launch-monitor driver sessions (Driver Optimizer) */
   stimp: 9.5,

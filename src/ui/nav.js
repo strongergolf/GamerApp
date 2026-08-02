@@ -103,6 +103,7 @@ function refreshAll(){
   buildSpecs();
   buildGapping();
   buildProfile();
+  buildMyData();
   renderCalc(95);
   updateDriverOpt();
 }
