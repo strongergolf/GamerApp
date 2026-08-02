@@ -43,14 +43,14 @@
 
   <!-- 1. Distance slider -->
   <div class="calc-dist-block">
-    <div class="calc-yardage-display"><div class="calc-yardage-num" id="calc-display">95</div><div class="calc-yardage-label">total yd</div></div>
+    <div class="calc-yardage-display"><div class="calc-yardage-num" id="calc-display">95</div><div class="calc-yardage-label" id="ap-total-lbl">total yd</div></div>
     <div class="calc-slider-col">
-      <div class="calc-slider-limits"><span>37 yd</span><span>200 yd</span></div>
+      <div class="calc-slider-limits"><span id="ap-lim-lo">37 yd</span><span id="ap-lim-hi">200 yd</span></div>
       <input type="range" class="yard-slider" id="yard-slider" min="37" max="200" value="95" step="1"
-        oninput="document.getElementById('calc-display').textContent=this.value;document.getElementById('yard-input').value=this.value;renderCalc(parseInt(this.value));renderExpectedShots('es-150',parseInt(this.value),approachLie())">
+        oninput="apSetDist(this.value)">
     </div>
-    <div class="calc-manual-col"><label for="yard-input">Yards</label><input type="number" id="yard-input" min="37" max="200" value="95"
-      oninput="const v=Math.max(37,Math.min(200,parseInt(this.value)||95));document.getElementById('yard-slider').value=v;document.getElementById('calc-display').textContent=v;renderCalc(v);renderExpectedShots('es-150',v,approachLie())"></div>
+    <div class="calc-manual-col"><label for="yard-input" id="ap-manual-lbl">Yards</label><input type="number" id="yard-input" min="37" max="200" value="95"
+      oninput="apSetDist(fromDisplay('distance',this.value))"></div>
     <!-- Expected shots + strokes gained, folded into the distance box -->
     <div id="es-150" class="expected-shots-strip"></div>
   </div>
@@ -250,13 +250,13 @@
         <div class="edit-field"><label>Swing Wt</label><input id="nc-swt" placeholder="e.g. D2"></div>
         <div class="edit-field"><label>Overall Weight (g)</label><input id="nc-weight" type="number" placeholder="e.g. 315"></div>
         <div class="edit-subhead" style="display:flex;align-items:center;gap:10px">Stock Shot <button type="button" class="print-btn" onclick="estimateNewClubPerf()">✎ Estimate from loft</button></div>
-        <div class="edit-field"><label>Carry (yd)</label><input id="nc-carry" type="number"></div>
-        <div class="edit-field"><label>Total (yd)</label><input id="nc-total" type="number"></div>
-        <div class="edit-field"><label>Ball Speed (mph)</label><input id="nc-bspd" type="number"></div>
-        <div class="edit-field"><label>Club Speed (mph)</label><input id="nc-cspd" type="number"></div>
+        <div class="edit-field"><label id="nc-lbl-carry">Carry (yd)</label><input id="nc-carry" type="number"></div>
+        <div class="edit-field"><label id="nc-lbl-total">Total (yd)</label><input id="nc-total" type="number"></div>
+        <div class="edit-field"><label id="nc-lbl-bspd">Ball Speed (mph)</label><input id="nc-bspd" type="number"></div>
+        <div class="edit-field"><label id="nc-lbl-cspd">Club Speed (mph)</label><input id="nc-cspd" type="number"></div>
         <div class="edit-field"><label>Launch (°)</label><input id="nc-launch" type="number" step="0.1"></div>
         <div class="edit-field"><label>Spin (rpm)</label><input id="nc-spin" type="number"></div>
-        <div class="edit-field"><label>Max Height (ft)</label><input id="nc-ht" type="number"></div>
+        <div class="edit-field"><label id="nc-lbl-ht">Max Height (ft)</label><input id="nc-ht" type="number"></div>
         <div class="edit-field"><label>Land Angle (°)</label><input id="nc-land" type="number" step="0.1"></div>
       </div>
       <div class="btn-row">

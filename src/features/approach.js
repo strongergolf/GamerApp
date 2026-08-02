@@ -4,6 +4,27 @@
    PARTIALS / LOOKUP / CALCULATOR  (single-source)
    ============================================================ */
 const PARTIAL_CLUBS=['7i','8i','9i','P','W','S','X'];
+/* Approach distance is held in YARDS whatever is displayed — renderCalc and the whole
+   club/swing engine read yards. Only the readouts convert. */
+function apSetDist(v){
+  const yd=Math.max(37, Math.min(200, Math.round(parseFloat(v)||95)));
+  const sl=document.getElementById('yard-slider'); if(sl) sl.value=yd;
+  const disp=document.getElementById('calc-display'); if(disp) disp.textContent=ydNum(yd);
+  const inp=document.getElementById('yard-input');
+  if(inp && inp!==document.activeElement){ inp.value=ydNum(yd); inp.min=ydNum(37); inp.max=ydNum(200); }
+  renderCalc(yd); renderExpectedShots('es-150', yd, approachLie());
+}
+/* Unit labels around that control live in static HTML, so they are synced here. */
+function apSyncUnitLabels(){
+  const set=(id,txt)=>{ const e=document.getElementById(id); if(e) e.textContent=txt; };
+  set('ap-total-lbl','total '+ydUnit());
+  set('ap-lim-lo', fmtYd(37)); set('ap-lim-hi', fmtYd(200));
+  set('ap-manual-lbl', isMetric()?'Metres':'Yards');
+  const inp=document.getElementById('yard-input');
+  if(inp){ inp.min=ydNum(37); inp.max=ydNum(200); if(inp!==document.activeElement) inp.value=ydNum(parseInt(document.getElementById('yard-slider')?.value)||95); }
+  const disp=document.getElementById('calc-display');
+  if(disp) disp.textContent=ydNum(parseInt(document.getElementById('yard-slider')?.value)||95);
+}
 function buildPartialsTable(){
   const t=document.getElementById('partials-table');
   const rows=[{label:'11:00 — Full',key:'full',ci:0},{label:'10:00 — ¾',key:'tq',ci:1},{label:'9:00 — ½',key:'half',ci:2}];
@@ -200,7 +221,7 @@ function renderCalc(target){
       <div class="calc-card-header">
         <div class="calc-club-badge">${o.club.label}<small>${o.club.loft}</small></div>
         <div style="flex:1;min-width:0">
-          <div class="calc-swing-label">${swingDesc}<span style="font-family:ui-monospace,monospace;font-size:.75rem;font-weight:600;color:var(--ink);letter-spacing:.01em"> — Carry ${estCarry} · Roll ${estRoll} · Total ${target} yd</span></div>
+          <div class="calc-swing-label">${swingDesc}<span style="font-family:ui-monospace,monospace;font-size:.75rem;font-weight:600;color:var(--ink);letter-spacing:.01em"> — Carry ${ydNum(estCarry)} · Roll ${ydNum(estRoll)} · Total ${fmtYd(target)}</span></div>
         </div>
       </div>
       <div class="calc-card-body">
@@ -231,4 +252,4 @@ function initCalc(){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { PARTIAL_CLUBS, SWINGS, buildLookupTable, buildPartialsTable, calcSuggestions, effortColor, initCalc, interpFlight, renderCalc, selectApproachResult, wedgeModel });
+Object.assign(window, { apSetDist, apSyncUnitLabels, PARTIAL_CLUBS, SWINGS, buildLookupTable, buildPartialsTable, calcSuggestions, effortColor, initCalc, interpFlight, renderCalc, selectApproachResult, wedgeModel });

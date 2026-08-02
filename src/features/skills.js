@@ -45,12 +45,12 @@ function wedgeTestCard(){
   const last=latestScore('wedge');
   const inputs=WEDGE_STATIONS.map(d=>`
     <div style="text-align:center">
-      <div style="font-family:ui-monospace,monospace;font-size:.62rem;font-weight:700;color:var(--ink2)">${d} yd</div>
-      <input id="wt-${d}" type="number" step="0.5" min="0" placeholder="ft" style="width:100%;text-align:center;font-family:Arial,sans-serif;font-size:.9rem;font-weight:700;padding:6px 4px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--ink);outline:none;margin-top:3px">
+      <div style="font-family:ui-monospace,monospace;font-size:.62rem;font-weight:700;color:var(--ink2)">${fmtYd(d)}</div>
+      <input id="wt-${d}" type="number" step="0.5" min="0" placeholder="${ftUnit()}" style="width:100%;text-align:center;font-family:Arial,sans-serif;font-size:.9rem;font-weight:700;padding:6px 4px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--ink);outline:none;margin-top:3px">
     </div>`).join('');
   return `<div class="profile-card" style="margin-bottom:14px">
     <h3>Wedge Ladder Test ${last!=null?`<span style="float:right;font-size:1.1rem;font-weight:800;color:${scoreColor(last)}">${last}</span>`:''}</h3>
-    <p class="gen-note">Hit a handful of shots at each distance and log your <strong>average proximity to the hole</strong> (feet). Score is 0–100 — closer is higher. Tracks over time below.</p>
+    <p class="gen-note">Hit a handful of shots at each distance and log your <strong>average proximity to the hole</strong> (${isMetric()?"metres":"feet"}). Score is 0–100 — closer is higher. Tracks over time below.</p>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:10px 0">${inputs}</div>
     <div class="btn-row"><button class="btn btn-primary" onclick="logWedgeTest()">Save Result</button></div>
     ${testTrendSpark('wedge')}
@@ -63,11 +63,11 @@ function driverTestCard(){
   const lbl='font-family:ui-monospace,monospace;font-size:.58rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em';
   return `<div class="profile-card" style="margin-bottom:14px">
     <h3>Driver Test ${last!=null?`<span style="float:right;font-size:1.1rem;font-weight:800;color:${scoreColor(last)}">${last}</span>`:''}</h3>
-    <p class="gen-note">Hit a set and log your best/typical numbers against your optimizer windows. Score blends carry distance with accuracy (offline). ${pf.driverSwingSpeed?`Reference clubhead speed: <strong>${pf.driverSwingSpeed} mph</strong>.`:''}</p>
+    <p class="gen-note">Hit a set and log your best/typical numbers against your optimizer windows. Score blends carry distance with accuracy (offline). ${pf.driverSwingSpeed?`Reference clubhead speed: <strong>${fmtMph(pf.driverSwingSpeed)}</strong>.`:''}</p>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:10px 0">
-      <div><label style="${lbl}">Carry (yd)</label><input id="dt-carry" type="number" style="${f}" placeholder="e.g. 265"></div>
-      <div><label style="${lbl}">Ball Speed (mph)</label><input id="dt-bspd" type="number" style="${f}" placeholder="e.g. 165"></div>
-      <div><label style="${lbl}">Avg Offline (yd)</label><input id="dt-offline" type="number" style="${f}" placeholder="e.g. 18"></div>
+      <div><label style="${lbl}">Carry (${ydUnit()})</label><input id="dt-carry" type="number" style="${f}" placeholder="e.g. ${ydNum(265)}"></div>
+      <div><label style="${lbl}">Ball Speed (${mphUnit()})</label><input id="dt-bspd" type="number" style="${f}" placeholder="e.g. ${mphNum(165)}"></div>
+      <div><label style="${lbl}">Avg Offline (${ydUnit()})</label><input id="dt-offline" type="number" style="${f}" placeholder="e.g. ${ydNum(18)}"></div>
     </div>
     <div class="btn-row"><button class="btn btn-primary" onclick="logDriverTest()">Save Result</button></div>
     ${testTrendSpark('driver')}
@@ -92,7 +92,8 @@ function buildTests(){
   wrap.innerHTML=wedgeTestCard()+driverTestCard()+testHistory();
 }
 function logWedgeTest(){
-  const stations=WEDGE_STATIONS.map(d=>{const v=document.getElementById('wt-'+d)?.value;return {dist:d,prox:(v===''||v==null)?null:parseFloat(v)};});
+  /* stations are yards and proximity is feet in STORAGE; the fields show the user's units */
+  const stations=WEDGE_STATIONS.map(d=>{const v=document.getElementById('wt-'+d)?.value;return {dist:d,prox:(v===''||v==null)?null:fromDisplay('short',parseFloat(v))};});
   const score=skillScoreWedge(stations);
   if(score==null){ toast('Enter at least one proximity'); return; }
   STATE.skillsTests.unshift({id:'st_'+Date.now(),date:new Date().toISOString().slice(0,10),type:'wedge',score,detail:{stations}});

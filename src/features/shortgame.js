@@ -5,24 +5,35 @@ function fmtChipSlope(deg){
   if(n===0) return 'Level';
   return `${Math.abs(n)}° ${n>0?'up':'down'}`;
 }
+/* The distance control is held in YARDS whatever the display says — renderChipDial and the
+   whole chip model read yards, and converting the control itself would push metres into the
+   physics. So this converts only what is drawn, in one place. */
+function sgSetChipDist(v, fromInput){
+  const yd=Math.max(5, Math.min(55, Math.round(parseFloat(v)||20)));
+  const sl=document.getElementById('chip-slider'); if(sl && !fromInput) sl.value=yd; else if(sl) sl.value=yd;
+  const disp=document.getElementById('chip-display'); if(disp) disp.textContent=ydNum(yd);
+  const inp=document.getElementById('chip-input');
+  if(inp && inp!==document.activeElement) inp.value=ydNum(yd);
+  renderChipDial();
+}
 function buildShortGame(){
   const wrap=document.getElementById('shortgame-wrap'); if(!wrap) return;
   wrap.innerHTML=`
     <!-- 1. Distance slider + stimp dropdown -->
     <div class="calc-dist-block">
       <div class="calc-yardage-display">
-        <div class="calc-yardage-num" id="chip-display">20</div>
-        <div class="calc-yardage-label">yd total</div>
+        <div class="calc-yardage-num" id="chip-display">${ydNum(20)}</div>
+        <div class="calc-yardage-label">${ydUnit()} total</div>
       </div>
       <div class="calc-slider-col">
-        <div class="calc-slider-limits"><span>5 yd</span><span>55 yd</span></div>
+        <div class="calc-slider-limits"><span>${fmtYd(5)}</span><span>${fmtYd(55)}</span></div>
         <input type="range" class="yard-slider" id="chip-slider" min="5" max="55" value="20" step="1"
-          oninput="document.getElementById('chip-display').textContent=this.value;document.getElementById('chip-input').value=this.value;renderChipDial()">
+          oninput="sgSetChipDist(this.value)">
       </div>
       <div class="calc-manual-col">
-        <label for="chip-input">Yards</label>
-        <input type="number" id="chip-input" min="5" max="55" value="20"
-          oninput="const v=Math.max(5,Math.min(55,parseInt(this.value)||20));document.getElementById('chip-slider').value=v;document.getElementById('chip-display').textContent=v;renderChipDial()">
+        <label for="chip-input">${isMetric()?'Metres':'Yards'}</label>
+        <input type="number" id="chip-input" min="${ydNum(5)}" max="${ydNum(55)}" value="${ydNum(20)}"
+          oninput="sgSetChipDist(fromDisplay('distance',this.value),true)">
       </div>
       <div class="calc-manual-col calc-stimp-col">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
@@ -93,10 +104,10 @@ function renderSgCal(){
     <p class="gen-note" style="margin-top:0">Enter a few measured short-game shots from your launch monitor. The app fits your own <b>launch</b>, <b>spin</b> and <b>rollout</b> — capturing your release style and any manual adjustments the model doesn't account for — and applies them to every number on this tab. Measure on a flat lie at a known green speed; fill in whichever of launch / spin / total you have.</p>
     <div class="edit-grid">
       <div class="edit-field"><label>Club</label><select id="sgcal-club">${opts}</select></div>
-      <div class="edit-field"><label>Carry (yd)</label><input id="sgcal-carry" type="number" inputmode="decimal" placeholder="req'd"></div>
+      <div class="edit-field"><label>Carry (${ydUnit()})</label><input id="sgcal-carry" type="number" inputmode="decimal" placeholder="req'd"></div>
       <div class="edit-field"><label>Launch (°)</label><input id="sgcal-launch" type="number" inputmode="decimal"></div>
       <div class="edit-field"><label>Spin (rpm)</label><input id="sgcal-spin" type="number" inputmode="decimal"></div>
-      <div class="edit-field"><label>Total (yd)</label><input id="sgcal-total" type="number" inputmode="decimal"></div>
+      <div class="edit-field"><label>Total (${ydUnit()})</label><input id="sgcal-total" type="number" inputmode="decimal"></div>
       <div class="edit-field"><label>Stimp</label><input id="sgcal-stimp" type="number" inputmode="decimal" value="${(STATE.stimp||9.5).toFixed(1)}"></div>
     </div>
     <div class="btn-row"><button class="btn btn-primary" onclick="sgCalAddShot()">Add measured shot</button>${(cal.shots||[]).length?`<button class="btn" onclick="sgCalReset()">Reset calibration</button>`:''}</div>
@@ -251,7 +262,7 @@ function renderChipDial(){
       const ctxLine = `${fm.check} · ${firmName} green · ${slopeTxt} @ stimp ${stimp.toFixed(1)}${elevTxt}${stanceAdj?` · stance ${stanceAdj>0?'+':''}${stanceAdj}° launch`:''}`;
       flightHTML=`<div class="calc-traj-drop" style="grid-template-columns:1fr">
         <div class="traj-panel traj-main">
-          <div class="traj-panel-title">${c.label} (${c.loft})${effNote} — carry ${carry.toFixed(1)} → roll ${roll.toFixed(1)} yd · launch ${launch.toFixed(0)}° · ~${spin.toLocaleString()} rpm · ${chipArchetype(loft)}</div>
+          <div class="traj-panel-title">${c.label} (${c.loft})${effNote} — carry ${ydNum(carry,1)} → roll ${ydNum(roll,1)} ${ydUnit()} · launch ${launch.toFixed(0)}° · ~${spin.toLocaleString()} rpm · ${chipArchetype(loft)}</div>
           <div style="font-family:ui-monospace,monospace;font-size:.6rem;color:var(--muted);margin:1px 0 3px">${ctxLine}</div>
           ${buildChipSVG(carry,roll,loft,{launch,slopeDeg:slope,firmKey:fk})}
         </div>
@@ -339,9 +350,9 @@ function buildChipSVG(carryYd, rollYd, loftDeg, opts){
 
   /* Labels */
   const peakY=groundY-peakH;
-  const carryLabel=`<text x="${landX.toFixed(1)}" y="${Math.max(7,peakY-4)}" text-anchor="middle" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="7" fill="var(--c-wedge)">${carryYd.toFixed(1)}yd carry</text>`;
+  const carryLabel=`<text x="${landX.toFixed(1)}" y="${Math.max(7,peakY-4)}" text-anchor="middle" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="7" fill="var(--c-wedge)">${ydNum(carryYd,1)}${ydUnit()} carry</text>`;
   const rollMidY=Math.min(H+10, groundAt(landX+rollPx/2)+14);
-  const rollLabel=rollPx>22?`<text x="${(landX+rollPx/2).toFixed(1)}" y="${rollMidY.toFixed(1)}" text-anchor="middle" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="7" fill="var(--green)">${rollYd.toFixed(1)}yd roll</text>`:'';
+  const rollLabel=rollPx>22?`<text x="${(landX+rollPx/2).toFixed(1)}" y="${rollMidY.toFixed(1)}" text-anchor="middle" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="7" fill="var(--green)">${ydNum(rollYd,1)}${ydUnit()} roll</text>`:'';
 
   /* Flag at the (tilted) resting point */
   const fScale=Math.max(0.7, Math.min(1.7, 1.8 - total*0.02));
@@ -373,7 +384,7 @@ function buildChipMatrix(){
   const stimp=STATE.stimp, slope=chipSlopeVal();
   const typeColor=c=>c.type==='wedge'?'var(--c-wedge)':c.type==='iron'?'var(--c-iron)':c.type==='putter'?'var(--c-putter)':'var(--c-wood)';
   /* Clubs as rows, carry distances as columns */
-  let html=`<thead><tr><th>Club</th>${carries.map(carry=>`<th>${carry} yd<br><span style="font-size:.42rem;font-weight:400;color:var(--muted)">carry</span></th>`).join('')}</tr></thead><tbody>`;
+  let html=`<thead><tr><th>Club</th>${carries.map(carry=>`<th>${ydNum(carry)} ${ydUnit()}<br><span style="font-size:.42rem;font-weight:400;color:var(--muted)">carry</span></th>`).join('')}</tr></thead><tbody>`;
   clubs.forEach(c=>{
     const loft=parseFloat(c.loft);
     html+=`<tr><td style="padding-left:12px"><span style="font-family:Arial,sans-serif;font-weight:800;font-size:.95rem;color:${typeColor(c)}">${c.label}</span> <span style="font-family:ui-monospace,monospace;font-size:.6rem;font-weight:600;color:var(--ink2)">${c.loft}</span></td>`;
@@ -391,4 +402,4 @@ function buildChipMatrix(){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { buildChipMatrix, buildChipSVG, buildShortGame, fmtChipSlope, renderChipDial, renderSgVars, renderSgCal, sgCalAddShot, sgCalRemove, sgCalReset });
+Object.assign(window, { sgSetChipDist, buildChipMatrix, buildChipSVG, buildShortGame, fmtChipSlope, renderChipDial, renderSgVars, renderSgCal, sgCalAddShot, sgCalRemove, sgCalReset });

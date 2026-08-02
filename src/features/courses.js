@@ -385,7 +385,7 @@ function buildCourses(){
   const courseOpts=cs.map((x,i)=>`<option value="${i}"${i===e.cIdx?' selected':''}>${escapeHtml(x.name||'Course')}</option>`).join('');
   const holeTabs=(c.holes||[]).map((x,i)=>`<button class="cf-hole-tab${i===e.hIdx?' active':''}" onclick="cfSelectHole(${i})">${x.num}</button>`).join('');
   const modeBtn=(m,lbl)=>`<button class="cf-mode${e.mode===m?' active':''}" onclick="cfSetMode('${m}')">${lbl}</button>`;
-  const scaleTxt = h&&h.scaleYpu ? `${h.scaleYpu.toFixed(2)} yd/unit (calibrated)` : (h&&h.tee&&h.pin&&h.yards ? `${(h.yards/Math.hypot(h.pin.x-h.tee.x,h.pin.y-h.tee.y)).toFixed(2)} yd/unit (from tee→pin)` : 'not set');
+  const scaleTxt = h&&h.scaleYpu ? `${ydNum(h.scaleYpu,3)} ${ydUnit()}/unit (calibrated)` : (h&&h.tee&&h.pin&&h.yards ? `${ydNum(h.yards/Math.hypot(h.pin.x-h.tee.x,h.pin.y-h.tee.y),3)} ${ydUnit()}/unit (from tee→pin)` : 'not set');
   wrap.innerHTML=`
     <div class="section-label" style="margin-top:0">Course Editor <span class="proto-badge">prototype</span></div>
     ${cfImportBox()}
@@ -400,7 +400,7 @@ function buildCourses(){
     <div class="cf-hole-meta">
       <label>Hole <input type="number" min="1" max="18" value="${h.num}" onchange="cfSetHoleField('num',this.value)" style="width:48px"></label>
       <label>Par <input type="number" min="3" max="6" value="${h.par}" onchange="cfSetHoleField('par',this.value)" style="width:48px"></label>
-      <label>Yards <input type="number" min="40" max="700" value="${h.yards}" onchange="cfSetHoleField('yards',this.value)" style="width:64px"></label>
+      <label>${isMetric()?'Metres':'Yards'} <input type="number" min="${ydNum(40)}" max="${ydNum(700)}" value="${ydNum(h.yards)}" onchange="cfSetHoleField('yards',fromDisplay('distance',this.value))" style="width:64px"></label>
       <span class="cf-scale">scale: ${scaleTxt}</span>
     </div>
     <div class="cf-tools">

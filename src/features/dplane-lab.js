@@ -216,7 +216,7 @@ function dpRenderScene(){
     const gz=yd/ydPerUnit;
     far+=line({x:-GX,y:0,z:gz},{x:GX,y:0,z:gz},'#eef6ee',0.9,0.65);
     const gq=P({x:GX,y:0,z:gz});
-    far+=`<text x="${(gq.x+3).toFixed(1)}" y="${(gq.y+2).toFixed(1)}" font-family="ui-monospace,monospace" font-size="6.5" font-weight="700" fill="#2f6a40" stroke="#fff" stroke-width="1.8" paint-order="stroke" opacity="0.9">${yd}${yd===step?' yd':''}</text>`;
+    far+=`<text x="${(gq.x+3).toFixed(1)}" y="${(gq.y+2).toFixed(1)}" font-family="ui-monospace,monospace" font-size="6.5" font-weight="700" fill="#2f6a40" stroke="#fff" stroke-width="1.8" paint-order="stroke" opacity="0.9">${ydNum(yd)}${yd===step?' '+ydUnit():''}</text>`;
   }
   far+=line({x:-GX,y:0,z:0},{x:GX,y:0,z:0},'#eef6ee',0.9,0.5);            // tee line
   far+=line({x:0,y:0,z:GZ0+0.4},{x:0,y:0,z:GZ1},'#f2f7f2',1.4,0.8);       // centre / target line
@@ -259,13 +259,15 @@ function dpRenderScene(){
 
   /* landing / rest markers: carry at the landing dot; total + roll (and how far
      offline of the centre line, when it matters) at the resting ball */
-  const fmtYd=v=>v<25?v.toFixed(1):''+Math.round(v);
+  /* local short-form number (no unit); renamed off fmtYd, which is now the global unit
+     formatter in physics/conditions.js and means something different */
+  const dpNum=v=>{const d=ydNum(v,v<25?1:0); return ''+d;};
   const mtxt=(pt,txt,col,mdy)=>{const q=P(pt);
     return `<text x="${q.x.toFixed(1)}" y="${(q.y+mdy).toFixed(1)}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="7" font-weight="700" fill="${col}" stroke="#fff" stroke-width="2.2" paint-order="stroke" opacity="0.95">${txt}</text>`;};
   const offYd=rend.x*ydPerUnit, totalShow=carryShow+rollYd;
-  let markers=mtxt({x:la.x,y:0,z:la.z},`carry ${fmtYd(carryShow)}`,'#111',-7);
-  markers+=mtxt(rend,`total ${fmtYd(totalShow)} · roll ${rollYd.toFixed(1)}`,'#111',12);
-  if(Math.abs(offYd)>=1) markers+=mtxt(rend,`${fmtYd(Math.abs(offYd))} yd ${offYd<0?'left':'right'} of line`,'#cc2a2a',21);
+  let markers=mtxt({x:la.x,y:0,z:la.z},`carry ${dpNum(carryShow)}`,'#111',-7);
+  markers+=mtxt(rend,`total ${dpNum(totalShow)} · roll ${ydNum(rollYd,1)}`,'#111',12);
+  if(Math.abs(offYd)>=1) markers+=mtxt(rend,`${dpNum(Math.abs(offYd))} ${ydUnit()} ${offYd<0?'left':'right'} of line`,'#cc2a2a',21);
   const oq=P(wv.O);
   add([wv.O], `<circle cx="${oq.x.toFixed(1)}" cy="${oq.y.toFixed(1)}" r="4" fill="#fff" stroke="#333" stroke-width="1.4"/>`, 0.3);
 
@@ -310,15 +312,15 @@ function dpRenderScene(){
       +((st.th||st.hl)?row('Gear Shift',dplFmt(gearAxis)+'° axis','var(--dp-axis)'):'')
       +`<div class="dpv-info-h" style="margin-top:9px">Ball Flight — Simulated</div>`
       +row('Shape',fl,'var(--ink)')
-      +row('Ball Speed',Math.round(bspd)+' mph')
+      +row('Ball Speed',fmtMph(bspd))
       +row('Vert. Launch',r.vLaunch.toFixed(1)+'°')
       +row('Horiz. Launch',dplFmt(r.hLaunch)+'°')
-      +row('Carry',fmt1(carryShow)+' yd')
-      +row('Apex',Math.round(apexShow)+' ft')
+      +row('Carry',fmtYd(carryShow,1))
+      +row('Apex',fmtFt(apexShow))
       +row('Land Angle',Math.round(sim.land)+'°')
-      +row('Finish',Math.abs(curveShow)<0.3?'on line':fmt1(Math.abs(curveShow))+' yd '+(curveShow<0?'L':'R'))
-      +row('Roll',rollYd.toFixed(1)+' yd')
-      +row('Total',fmt1(carryShow+rollYd)+' yd')
+      +row('Finish',Math.abs(curveShow)<0.3?'on line':fmtYd(Math.abs(curveShow),1)+' '+(curveShow<0?'L':'R'))
+      +row('Roll',fmtYd(rollYd,1))
+      +row('Total',fmtYd(carryShow+rollYd,1))
       +(calStrained.length?`<div class="dpv-cal-warn">⚠ <b>Calibration strained</b> — this club's captured ${calStrained.join(' + ')} sit${calStrained.length>1?'':'s'} outside the model's window, so the sim is running against a saturated clamp. Re-check the Bag capture for ${c.label||'this club'}.</div>`:'');
   }
 }
@@ -335,7 +337,7 @@ function dpSeedSand(id){
 }
 function dpSandFmt(field,v){
   v=parseFloat(v)||0;
-  if(field==='bspd') return Math.round(v)+' mph';
+  if(field==='bspd') return fmtMph(v);
   return field==='vFace'?v.toFixed(1)+'°':dplFmt(v)+'°';
 }
 function dpSetSand(field,val){
@@ -415,7 +417,7 @@ function dpShotParamsTxt(s){
   const sgn=v=>(v>=0?'+':'')+v;
   const vf=s.vFAbs!=null?'loft'+sgn(s.vFAbs)+'°':sgn(s.vF)+'° vs stock';
   const ao=s.aoaAbs!=null?sgn(s.aoaAbs)+'°':sgn(s.aoa)+'° vs stock';
-  const bs=s.bs!=null?s.bs+' mph':(s.bsMult?Math.round(s.bsMult*100)+'% ball speed':'stock speed');
+  const bs=s.bs!=null?fmtMph(s.bs):(s.bsMult?Math.round(s.bsMult*100)+'% ball speed':'stock speed');
   return 'vert. face '+vf+' · vert. path '+ao+' · '+bs;
 }
 /* ---- SHOT PRESETS — its own sub-page under the D-Plane Lab tab (#page-dpshots).

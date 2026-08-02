@@ -21,8 +21,8 @@ const PRACTICE_AREAS=[
        <div class="lvl-subhead">Scenario Calculator</div>
        <div class="chain-caption" style="margin-top:4px">Expected strokes to hole out from any position, calibrated to your handicap. Uses Broadie baseline data adjusted linearly per handicap stroke.</div>
        <div class="sg-scen-row">
-         <div class="sg-scen-field"><label>Distance (yd / ft if green)</label><input id="sg-scen-dist" type="number" min="1" placeholder="e.g. 150" oninput="sgScenario()"></div>
-         <div class="sg-scen-field"><label>Lie / Position</label><select id="sg-scen-lie" onchange="sgScenario()"><option value="fairway">Fairway</option><option value="rough">Rough</option><option value="sand">Sand / Bunker</option><option value="green">Green (feet)</option></select></div>
+         <div class="sg-scen-field"><label>Distance (${ydUnit()} / ${ftUnit()} if green)</label><input id="sg-scen-dist" type="number" min="1" placeholder="e.g. ${ydNum(150)}" oninput="sgScenario()"></div>
+         <div class="sg-scen-field"><label>Lie / Position</label><select id="sg-scen-lie" onchange="sgScenario()"><option value="fairway">Fairway</option><option value="rough">Rough</option><option value="sand">Sand / Bunker</option><option value="green">Green (${isMetric()?"metres":"feet"})</option></select></div>
          <div class="sg-scen-field"><label>Handicap</label><input id="sg-scen-hcp" type="text" placeholder="${escapeHtml(STATE.profile.handicap||'0')}" value="${escapeHtml(STATE.profile.handicap||'0')}" oninput="sgScenario()"></div>
        </div>
        <div id="sg-scen-out"><span style="color:var(--muted);font-style:italic;font-size:.82rem">Enter a distance above.</span></div>
@@ -257,7 +257,7 @@ const PRACTICE_AREAS=[
        <div class="edit-grid">
          <div class="edit-field"><label>Handedness</label>${sel('pf-hand',['','RH','LH'],STATE.profile.handedness||'')}</div>
          <div class="edit-field"><label>Age Range</label>${sel('pf-age',['','Under 20','20s','30s','40s','50s','60s','70+'],STATE.profile.ageRange||'')}</div>
-         <div class="edit-field"><label>Height — ft</label><input id="pf-htft" type="number" min="3" max="8" value="${escapeHtml(STATE.profile.heightFt||'')}"></div>
+         <div class="edit-field"><label>Height — ${isMetric()?"cm":"ft"}</label><input id="pf-htft" type="number" min="3" max="8" value="${escapeHtml(STATE.profile.heightFt||'')}"></div>
          <div class="edit-field"><label>Height — in</label><input id="pf-htin" type="number" min="0" max="11" value="${escapeHtml(STATE.profile.heightIn||'')}"></div>
          <div class="edit-field"><label>Arm-to-Floor (in)</label><input id="pf-atf" type="number" step="0.25" value="${escapeHtml(STATE.profile.armToFloor||'')}" placeholder="wrist-to-floor at address"></div>
          <div class="edit-field"><label>Glove Size</label>${sel('pf-glove',[
@@ -631,7 +631,7 @@ function psychResources(){
 function ballRefHtml(){
   /* pull a compact read-only summary from the bag performance data */
   const ids=['D','7i','P','S'];
-  const stats=ids.map(id=>{const c=STATE.clubs.find(x=>x.id===id);const p=perf(id);if(!c||!p)return '';return `<span class="lvl-ref-stat">${c.label}: <b>${p.carry}</b>yd · ${p.spin?p.spin.toLocaleString()+'rpm':'—'} · ${p.land!=null?p.land+'°':'—'} land</span>`;}).join('');
+  const stats=ids.map(id=>{const c=STATE.clubs.find(x=>x.id===id);const p=perf(id);if(!c||!p)return '';return `<span class="lvl-ref-stat">${c.label}: <b>${ydNum(p.carry)}</b>${ydUnit()} · ${p.spin?p.spin.toLocaleString()+'rpm':'—'} · ${p.land!=null?p.land+'°':'—'} land</span>`;}).join('');
   return `<div class="chain-caption">What the ball did — carry, launch, spin, height, descent and dispersion. This is the most directly measurable cause of score, and it's already captured in full on the <strong>Bag</strong> tab. A sample:</div>
     <div>${stats}</div>
     <div class="lvl-soon-note" style="margin-top:10px">Open the Bag tab to edit every club's full ball-flight profile and see trajectory &amp; dispersion plots.</div>`;

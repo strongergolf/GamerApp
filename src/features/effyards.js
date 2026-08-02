@@ -14,7 +14,10 @@ const EY = {
    as an incline in degrees — cross-calculated through the shot length. Base unit ↔ degrees:
      run = horizontal distance in the base unit (yards for approach; yards×3 = feet for short game)
      rise_base = run · tan(deg)     deg = atan(rise_base / run). */
-function elevBaseUnit(ctx){ return ctx==='shortgame'?'ft':'yd'; }
+/* The elevation adjuster works in the SHOT's own base unit — feet around the green,
+   yards on approach — so it follows the display preference like everything else. Note the
+   underlying maths still runs on the canonical feet/yards; only the label changes. */
+function elevBaseUnit(ctx){ return ctx==='shortgame'?ftUnit():ydUnit(); }
 function elevRun(ctx,S){ return ctx==='shortgame' ? (S||0)*3 : (S||0); }   // horizontal dist in the base unit
 function elevBaseVal(ctx,S){
   const u=EY[ctx].elevUnit||elevBaseUnit(ctx), v=EY[ctx].elev||0;
@@ -177,7 +180,7 @@ function eyTermValLabel(ctx,term){
 function eySummaryHTML(ctx,S){
   const tot=eyTotal(ctx,S)+eyDifficulty(ctx), eff=Math.round(S+tot), air=eyDelta(ctx,'air',S);
   return `<span class="ey-meas">${Math.round(S)}</span><span class="ey-arrow">plays</span>`
-    +`<span class="ey-eff">${eff} yd</span><span class="ey-adj" style="color:${eyColor(tot)}">${eyFmt(tot)} yd</span>`
+    +`<span class="ey-eff">${fmtYd(eff)}</span><span class="ey-adj" style="color:${eyColor(tot)}">${eyFmt(ydNum(tot))} ${ydUnit()}</span>`
     +`<span class="ey-air">air ${eyFmt(air)} (auto)</span>`;
 }
 function buildEyPanel(ctx){
@@ -194,7 +197,7 @@ function buildEyPanel(ctx){
       control=`<input type="range" min="${term.min}" max="${term.max}" step="${term.step}" value="${EY[ctx][term.key]}" oninput="eySet('${ctx}','${term.key}',this.value)">`;
     }
     const toggle = term.unitToggle
-      ? `<button type="button" class="ey-unit-toggle" title="Switch feet/yards ↔ degrees" onclick="eyToggleElevUnit('${ctx}')">${(EY[ctx].elevUnit==='deg')?'°':elevBaseUnit(ctx)}</button>` : '';
+      ? `<button type="button" class="ey-unit-toggle" title="Switch distance ↔ degrees" onclick="eyToggleElevUnit('${ctx}')">${(EY[ctx].elevUnit==='deg')?'°':elevBaseUnit(ctx)}</button>` : '';
     return `<div class="ey-term">
       <div class="ey-term-head">
         <span class="ey-term-label">${term.label}${toggle}</span>

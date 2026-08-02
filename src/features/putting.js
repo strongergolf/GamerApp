@@ -1,23 +1,34 @@
 // Putting tab: AimPoint controls, cone-of-valid-combos SVG, Expected Putts calculator.
 
+/* Putt distance is held in FEET whatever is displayed — renderPutt, the SG tables and the
+   expected-shots panel all read feet. Only the readouts convert. */
+function puttSetDist(v){
+  const ft=Math.max(2, Math.min(60, Math.round(parseFloat(v)||15)));
+  const sl=document.getElementById('putt-dist'); if(sl) sl.value=ft;
+  const disp=document.getElementById('putt-dist-display'); if(disp) disp.textContent=ftNum(ft);
+  const inp=document.getElementById('putt-dist-input');
+  if(inp && inp!==document.activeElement) inp.value=ftNum(ft);
+  if(sl){ const p=((ft-2)/58)*100; sl.style.background='linear-gradient(90deg,var(--ink) '+p+'%,var(--bg2) '+p+'%)'; }
+  renderPutt(); renderExpectedShots('es-putting', ft, 'green');
+}
 function buildPutting(){
   const wrap=document.getElementById('putting-wrap'); if(!wrap) return;
   wrap.innerHTML=`
     <!-- 1. Distance slider + Stimp (matches Short Game) -->
     <div class="calc-dist-block">
       <div class="calc-yardage-display">
-        <div class="calc-yardage-num" id="putt-dist-display">15</div>
-        <div class="calc-yardage-label">feet from cup</div>
+        <div class="calc-yardage-num" id="putt-dist-display">${ftNum(15)}</div>
+        <div class="calc-yardage-label">${isMetric()?'metres':'feet'} from cup</div>
       </div>
       <div class="calc-slider-col">
-        <div class="calc-slider-limits"><span>2 ft</span><span>60 ft</span></div>
+        <div class="calc-slider-limits"><span>${fmtFt(2)}</span><span>${fmtFt(60)}</span></div>
         <input type="range" class="yard-slider" id="putt-dist" min="2" max="60" step="1" value="15"
-          oninput="const _v=parseInt(this.value);document.getElementById('putt-dist-display').textContent=_v;document.getElementById('putt-dist-input').value=_v;renderPutt();renderExpectedShots('es-putting',_v,'green');const _p=((_v-2)/58)*100;this.style.background='linear-gradient(90deg,var(--ink) '+_p+'%,var(--bg2) '+_p+'%)'">
+          oninput="puttSetDist(this.value)">
       </div>
       <div class="calc-manual-col">
-        <label for="putt-dist-input">Feet</label>
-        <input type="number" id="putt-dist-input" min="2" max="60" value="15"
-          oninput="const _v=Math.max(2,Math.min(60,parseInt(this.value)||15));document.getElementById('putt-dist').value=_v;document.getElementById('putt-dist-display').textContent=_v;renderPutt();renderExpectedShots('es-putting',_v,'green')">
+        <label for="putt-dist-input">${isMetric()?'Metres':'Feet'}</label>
+        <input type="number" id="putt-dist-input" min="${ftNum(2)}" max="${ftNum(60)}" step="${isMetric()?0.5:1}" value="${ftNum(15)}"
+          oninput="puttSetDist(fromDisplay('short',this.value))">
       </div>
       <div class="calc-manual-col calc-stimp-col">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
@@ -178,7 +189,7 @@ function renderPutt(){
   const cupW=edgeOffsetIn/4.25;
   const res=document.getElementById('putt-result-wrap'); if(!res) return;
   const eff=(typeof puttEffDist==='function')?puttEffDist(dist,elevIn,stimp,pace):null;
-  const effVal=eff?(eff.ok?`${eff.ft.toFixed(1)} ft`:`<span style="color:#e88494">won’t stop</span>`):'—';
+  const effVal=eff?(eff.ok?fmtFt(eff.ft,1):`<span style="color:#e88494">won’t stop</span>`):'—';
   /* Putt Summary — two labelled rows:
      distance · stimp · up/downhill amount · sidehill %  /  pace past · effective distance · break to centre */
   const sumCell=(l,v)=>`<div class="putt-sum-cell"><div class="putt-sum-val">${v}</div><div class="putt-sum-lbl">${l}</div></div>`;
@@ -191,7 +202,7 @@ function renderPutt(){
       </div>
       <div class="putt-sum">
         <div class="putt-sum-row" style="grid-template-columns:repeat(4,1fr)">
-          ${sumCell('Distance',`${dist} ft`)}
+          ${sumCell('Distance',fmtFt(dist))}
           ${sumCell('Stimp',stimp.toFixed(1))}
           ${sumCell('Up / Downhill',fmtSlopeElev(elevIn))}
           ${sumCell('Sidehill',`${grade}%`)}
@@ -246,7 +257,7 @@ function renderPuttSG(){
       <div style="width:100%;background:var(--bg2);border-radius:3px;height:60px;display:flex;align-items:flex-end;padding:0 1px">
         <div style="width:100%;height:${pct}%;background:${col};border-radius:2px;transition:height .3s"></div>
       </div>
-      <div style="font-family:ui-monospace,monospace;font-size:.42rem;color:${textCol};white-space:nowrap">${d}ft</div>
+      <div style="font-family:ui-monospace,monospace;font-size:.42rem;color:${textCol};white-space:nowrap">${ftNum(d)}${ftUnit()}</div>
     </div>`;
   }).join('');
   chart.innerHTML=`<div style="display:flex;gap:3px;align-items:flex-end;padding:10px 14px 12px">${bars}</div>`;
@@ -262,7 +273,7 @@ function buildPuttSVG(distFt,breakIn,dir,slope,pace){
   /* #4 lag finish "leave" halo around the cup (long putts) + #5 explicit aim target */
   const isLag=distFt>=18, leaveFt=(typeof puttLeave==='function')?puttLeave(distFt):Math.round((0.3+distFt*0.06)*10)/10;
   const fzRx=Math.min(52,10+leaveFt*9), fzRy=Math.min(26,6+leaveFt*5);
-  const finishZone = isLag ? `<ellipse cx="${cx}" cy="${holeY}" rx="${fzRx.toFixed(1)}" ry="${fzRy.toFixed(1)}" fill="rgba(120,210,150,0.12)" stroke="rgba(150,230,175,0.5)" stroke-width="1" stroke-dasharray="3,3"/><text x="${cx}" y="${(holeY+fzRy+10).toFixed(1)}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="rgba(185,235,200,0.92)">leave ≈ ${leaveFt} ft</text>` : '';
+  const finishZone = isLag ? `<ellipse cx="${cx}" cy="${holeY}" rx="${fzRx.toFixed(1)}" ry="${fzRy.toFixed(1)}" fill="rgba(120,210,150,0.12)" stroke="rgba(150,230,175,0.5)" stroke-width="1" stroke-dasharray="3,3"/><text x="${cx}" y="${(holeY+fzRy+10).toFixed(1)}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="rgba(185,235,200,0.92)">leave ≈ ${fmtFt(leaveFt)}</text>` : '';
   const aimMark = aimPx>2 ? `<circle cx="${aimX.toFixed(1)}" cy="${holeY}" r="5.5" fill="none" stroke="#f4d47a" stroke-width="2"/><text x="${aimX.toFixed(1)}" y="${(holeY-9).toFixed(1)}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" font-weight="700" fill="#f4d47a">aim</text>` : '';
 
   /* Central path bezier */
@@ -375,7 +386,7 @@ function buildPuttProfileSVG(distFt, elevIn, pace, stimp){
   const fs=Math.max(0.55, Math.min(1.35, 1.4-distFt*0.014));
   const flag=`<line x1="${holeX}" y1="${holeY.toFixed(1)}" x2="${holeX}" y2="${(holeY-30*fs).toFixed(1)}" stroke="#d0c090" stroke-width="${(1.3*fs).toFixed(2)}"/><polygon points="${holeX},${(holeY-30*fs).toFixed(1)} ${(holeX+11*fs).toFixed(1)},${(holeY-25*fs).toFixed(1)} ${holeX},${(holeY-20*fs).toFixed(1)}" fill="var(--gold2)" opacity="0.92"/>`;
   const ball=`<circle cx="${ballX}" cy="${ballY.toFixed(1)}" r="5" fill="#f5f1e8" stroke="#666" stroke-width="1"/>`;
-  const distLabel=`<text x="${((ballX+holeX)/2).toFixed(1)}" y="${H-4}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="var(--muted)">${distFt} ft</text>`;
+  const distLabel=`<text x="${((ballX+holeX)/2).toFixed(1)}" y="${H-4}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="var(--muted)">${fmtFt(distFt)}</text>`;
   const riseTxt=Math.abs(elevIn)<0.5?'level':`${fmtSlopeElev(elevIn)} · ${Math.abs(angleDeg).toFixed(1)}°`;
   const slopeLabel=`<text x="${W-6}" y="12" text-anchor="end" font-family="ui-monospace,monospace" font-size="8" font-weight="700" fill="${elevIn>0.5?'#5fcf8f':elevIn<-0.5?'#e88494':'var(--muted)'}">${riseTxt}</text>`;
   /* effective distance: the flat-equivalent stroke that produces the chosen pace */
@@ -386,7 +397,7 @@ function buildPuttProfileSVG(distFt, elevIn, pace, stimp){
     else{
       const delta=eff.ft-distFt;
       const deltaTxt=Math.abs(delta)<0.25?'':` (${delta>0?'+':''}${delta.toFixed(1)})`;
-      effLabel=`<text x="8" y="12" font-family="ui-monospace,monospace" font-size="7.5" font-weight="700" fill="#f4d47a">stroke it as ${eff.ft.toFixed(1)} ft${deltaTxt}</text>`;
+      effLabel=`<text x="8" y="12" font-family="ui-monospace,monospace" font-size="7.5" font-weight="700" fill="#f4d47a">stroke it as ${ftNum(eff.ft,1)} ${ftUnit()}${deltaTxt}</text>`;
     }
   }
   return `<svg data-pz viewBox="0 0 ${W} ${H}" style="width:100%;display:block" xmlns="http://www.w3.org/2000/svg">
@@ -400,4 +411,4 @@ function buildPuttProfileSVG(distFt, elevIn, pace, stimp){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { buildPuttSVG, buildPuttProfileSVG, buildPutting, renderPutt, renderPuttSG, fmtSlopeElev, fmtPuttSlopeDeg, slopeCategoryFromElev, PUTT_BREAKS, puttBreakId, onPuttBreakSlider, onPuttGradeInput, puttSlopeTermHTML, onPuttSlopeInput, togglePuttSlopeUnit, puttElevIn, puttMakePct, puttLeave, puttComeback });
+Object.assign(window, { puttSetDist, buildPuttSVG, buildPuttProfileSVG, buildPutting, renderPutt, renderPuttSG, fmtSlopeElev, fmtPuttSlopeDeg, slopeCategoryFromElev, PUTT_BREAKS, puttBreakId, onPuttBreakSlider, onPuttGradeInput, puttSlopeTermHTML, onPuttSlopeInput, togglePuttSlopeUnit, puttElevIn, puttMakePct, puttLeave, puttComeback });

@@ -102,24 +102,26 @@ function buildLadder(){
     const dcRGB={wood:'217,96,112',iron:'26,90,170',wedge:'0,133,63',putter:'107,114,128'}[c.type]||'107,114,128';
     const dc={ color:`var(--c-${['wood','iron','wedge','putter'].includes(c.type)?c.type:'putter'})`, bg:`rgba(${dcRGB},.12)`, border:`rgba(${dcRGB},.34)` };
     /* Lateral miss as % of total yardage now lives in Locker Room → My Bag (buildLateralGapping). */
+    /* Bare numbers: the unit lives in the column heading, so these must still convert or
+       the ladder would quietly show yards under a metric heading. */
     const adjBit = window.adjustOn && shown!==stock
-      ? `<span class="adj">${shown}</span><span class="stock-sm">stock ${stock}</span>`
-      : `${stock}`;
+      ? `<span class="adj">${ydNum(shown)}</span><span class="stock-sm">stock ${ydNum(stock)}</span>`
+      : `${ydNum(stock)}`;
     const row=document.createElement('div');
     row.className='ladder-row';
     row.innerHTML=`
       <div class="club-label ${c.type}">${c.label}<small>${c.loft}</small></div>
       <div class="bar-area">
         <div class="bar-meta">
-          <span class="bar-carry">${adjBit} <span style="font-size:.62rem;color:var(--ink2);font-family:ui-monospace,monospace;font-weight:500">carry</span></span>
-          <span class="bar-total">${stockTot?`<strong>${shownTot}</strong>${(window.adjustOn&&shownTot!==stockTot)?`<span class="stock-sm">stock ${stockTot}</span>`:''} <span style="font-weight:400;font-size:.75rem">total</span>`:'—'}</span>
+          <span class="bar-carry">${adjBit} <span style="font-size:.62rem;color:var(--ink2);font-family:ui-monospace,monospace;font-weight:500">${ydUnit()} carry</span></span>
+          <span class="bar-total">${stockTot?`<strong>${ydNum(shownTot)}</strong>${(window.adjustOn&&shownTot!==stockTot)?`<span class="stock-sm">stock ${ydNum(stockTot)}</span>`:''} <span style="font-weight:400;font-size:.75rem">total</span>`:'—'}</span>
         </div>
         <div class="bar-track"><div class="bar-fill ${c.type}" style="width:${Math.min(100,pct)}%"></div></div>
       </div>
       <div class="disp-badge-wrap">
         <div class="disp-badge-row">
           <span class="disp-ci-label">86%</span>
-          <span class="disp-badge" style="background:${dc.bg};color:${dc.color};border:1px solid ${dc.border}">${d86} L/R</span>
+          <span class="disp-badge" style="background:${dc.bg};color:${dc.color};border:1px solid ${dc.border}">${ydNum(d86,1)} L/R</span>
         </div>
       </div>
       <div class="ladder-chevron">▾</div>`;
@@ -133,7 +135,7 @@ function buildGapping(){
   /* The per-club gap distances render inline in the Clubs list (see buildSpecs);
      this slot carries the one-line legend decoding the gap-chip colours. */
   const wrap=document.getElementById('gapping-wrap');
-  if(wrap) wrap.innerHTML=`<div style="font-family:ui-monospace,monospace;font-size:.56rem;color:var(--muted);margin:0 0 6px 2px">gap chips between rows = difference to the next club · carry gap: <span style="color:#c4427a;font-weight:700">pink &gt;15 yd wide</span> · <span style="color:#d96070;font-weight:700">red &lt;8 yd tight</span> · grey = healthy</div>`;
+  if(wrap) wrap.innerHTML=`<div style="font-family:ui-monospace,monospace;font-size:.56rem;color:var(--muted);margin:0 0 6px 2px">gap chips between rows = difference to the next club · carry gap: <span style="color:#c4427a;font-weight:700">pink &gt;${ydNum(15)} ${ydUnit()} wide</span> · <span style="color:#d96070;font-weight:700">red &lt;${ydNum(8)} ${ydUnit()} tight</span> · grey = healthy</div>`;
 }
 function toggleDetail(c,row,group,inner){
   const open=group.classList.contains('open');
@@ -150,10 +152,10 @@ function toggleDetail(c,row,group,inner){
       <div style="margin-left:auto;align-self:center" title="Data provenance for this club's stock numbers">${typeof sgProv==='function'?sgProv(p.prov||'input'):''}</div>
     </div>
     <div class="detail-stats">
-      ${statCell('Carry',p.carry,'yd','hl-carry')}
-      ${statCell('Total',p.total||'—','yd','')}
-      ${statCell('Ball Speed',p.bspd,'mph','hl-speed')}
-      ${statCell('Club Speed',p.cspd,'mph','hl-speed')}
+      ${statCell('Carry',ydNum(p.carry),ydUnit(),'hl-carry')}
+      ${statCell('Total',p.total?ydNum(p.total):'—',ydUnit(),'')}
+      ${statCell('Ball Speed',mphNum(p.bspd),mphUnit(),'hl-speed')}
+      ${statCell('Club Speed',mphNum(p.cspd),mphUnit(),'hl-speed')}
       ${statCell('Vert. Launch',(p.launch!=null?p.launch:'—'),'°','')}
       ${statCell('Spin Rate',(p.spin!=null?p.spin.toLocaleString():'—'),'rpm','hl-spin')}
       ${statCell('Max Height',p.ht,'ft','')}
@@ -244,7 +246,7 @@ function buildSideSVG(c,p){
     const rc=rollout<0?'#d96070':tc;
     roll+=`<line x1="${bx.toFixed(1)}" y1="${groundY}" x2="${totalX}" y2="${groundY}" stroke="${rc}" stroke-width="1.5" opacity="0.6"/>`;
     roll+=`<circle cx="${totalX}" cy="${groundY}" r="2" fill="${rc}" opacity="0.7"/>`;
-    roll+=`<text x="${(totalX-2).toFixed(1)}" y="${groundY+9}" text-anchor="end" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="6" fill="${rc}" opacity="0.8">${rollout<0?total+'yd (checks back)':total+'yd total'}</text>`;
+    roll+=`<text x="${(totalX-2).toFixed(1)}" y="${groundY+9}" text-anchor="end" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="6" fill="${rc}" opacity="0.8">${rollout<0?ydNum(total)+ydUnit()+' (checks back)':ydNum(total)+ydUnit()+' total'}</text>`;
   }
   const lx2=x0+24*Math.cos(launchRad),ly2=y0-24*Math.sin(launchRad);
   const rx2=carryX-24*Math.cos(landRad),ry2=y3-24*Math.sin(landRad);
@@ -256,7 +258,7 @@ function buildSideSVG(c,p){
     <line x1="4" y1="${groundY}" x2="${W-4}" y2="${groundY}" stroke="#c0d8cf" stroke-width="0.8"/>
     <line x1="${pk.x.toFixed(1)}" y1="${(pk.y+2).toFixed(1)}" x2="${pk.x.toFixed(1)}" y2="${groundY}" stroke="#c0d8cf" stroke-width="0.6" stroke-dasharray="3,2"/>
     <text x="${htLX.toFixed(1)}" y="${htLY.toFixed(1)}" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="6.5" fill="#3a5a7a">${p.ht||'—'}ft</text>
-    <text x="${((PAD_L+carryX)/2).toFixed(1)}" y="${H+10}" text-anchor="middle" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="6" fill="#3a5a7a">${carry}yd carry</text>
+    <text x="${((PAD_L+carryX)/2).toFixed(1)}" y="${H+10}" text-anchor="middle" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="6" fill="#3a5a7a">${ydNum(carry)}${ydUnit()} carry</text>
     <path d="${flight}" fill="none" stroke="${tc}" stroke-width="1.8" opacity="0.9"/>
     ${roll}
     <line x1="${x0}" y1="${y0}" x2="${lx2.toFixed(1)}" y2="${ly2.toFixed(1)}" stroke="#1a5aaa" stroke-width="1.2" opacity="0.7"/>
@@ -335,14 +337,14 @@ function buildTopSVG(c,p,opts){
 
   if(!drag){
     return `<svg data-pz viewBox="0 0 ${W} ${H}" style="width:100%;display:block;overflow:visible" xmlns="http://www.w3.org/2000/svg">
-    <text x="${cx}" y="12" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9" font-weight="bold" fill="var(--ink2)">${carry} yd</text>
+    <text x="${cx}" y="12" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9" font-weight="bold" fill="var(--ink2)">${fmtYd(carry)}</text>
     ${bg}
     <text x="${cx}" y="21" text-anchor="middle" font-family="ui-monospace,monospace" font-size="5" fill="var(--green)" opacity="0.8">${ctxLabel}</text>
     <g transform="rotate(${slant.toFixed(1)} ${cx} ${cy})">
       <ellipse cx="${cx}" cy="${cy}" rx="${ovW.toFixed(1)}" ry="${ovH.toFixed(1)}" fill="${tc}" fill-opacity="0.28" stroke="${tc}" stroke-opacity="0.75" stroke-width="1.1"/>
     </g>
     <circle cx="${cx}" cy="${cy}" r="1.6" fill="var(--ink)"/>
-    <text x="${cx}" y="${H-3}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="6.5" fill="${tc}">±${dispYd.toFixed(1)} yd L/R · 86%</text>
+    <text x="${cx}" y="${H-3}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="6.5" fill="${tc}">±${ydNum(dispYd,1)} ${ydUnit()} L/R · 86%</text>
   </svg>`;
   }
 
@@ -356,7 +358,7 @@ function buildTopSVG(c,p,opts){
   return `<svg id="aim-svg-${uid}" class="aim-svg" data-pz viewBox="0 0 ${W} ${H}" style="width:100%;display:block;overflow:visible;touch-action:pan-y"
       data-uid="${uid}" data-cx="${cx}" data-cy="${cy}" data-gx="${gx}" data-gy="${gy}" data-scale="${scale.toFixed(4)}" data-disp="${ovW.toFixed(2)}" data-depth="${ovH.toFixed(2)}" data-shape="${shape}" data-slant="${slant.toFixed(2)}"
       xmlns="http://www.w3.org/2000/svg">
-    <text x="${cx}" y="12" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9" font-weight="bold" fill="var(--ink2)">${carry} yd</text>
+    <text x="${cx}" y="12" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9" font-weight="bold" fill="var(--ink2)">${fmtYd(carry)}</text>
     ${bg}
     <text x="${cx}" y="21" text-anchor="middle" font-family="ui-monospace,monospace" font-size="5" fill="var(--green)" opacity="0.8">${ctxLabel}</text>
     <!-- live readout (shown within 8 yd of the edge): pin headline + L/R/long/short edges -->
@@ -386,7 +388,7 @@ function buildTopSVG(c,p,opts){
       <circle cx="${cx}" cy="${cy}" r="1.6" fill="var(--ink)"/>
     </g>
     <text class="aim-hint" x="${cx}" y="${H-11}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="5" fill="var(--muted)" opacity="0.8">drag the dot to aim</text>
-    <text x="${cx}" y="${H-3}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="6.5" fill="${tc}">±${dispYd.toFixed(1)} yd L/R · 86%</text>
+    <text x="${cx}" y="${H-3}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="6.5" fill="${tc}">±${ydNum(dispYd,1)} ${ydUnit()} L/R · 86%</text>
   </svg>`;
 }
 /* Wire up dragging + live edge readout for every draggable overhead-dispersion view in the DOM
@@ -485,12 +487,12 @@ function wireAimDrag(svg){
     /* PIN-SHEET headline: pin off nearest side + nearer of front/back (green edges at the dot) */
     const glxD=isGreen?cx-gW(dotY):cx-gx, grxD=isGreen?cx+gW(dotY):cx+gx;
     const nearLeft=dotX<=cx, sideVal=(nearLeft?(dotX-glxD):(grxD-dotX))/scale, sideLbl=nearLeft?'left':'right';
-    roT2.textContent = sideVal>=0 ? `${sideVal.toFixed(1)} yd from ${sideLbl}` : `${Math.abs(sideVal).toFixed(1)} yd past ${sideLbl}`;
+    roT2.textContent = sideVal>=0 ? `${ydNum(sideVal,1)} ${ydUnit()} from ${sideLbl}` : `${ydNum(Math.abs(sideVal),1)} ${ydUnit()} past ${sideLbl}`;
     roT2.setAttribute('fill', sideVal>=0?'var(--ink)':R);
     if(depthOn){
       const gtyD=cy-gHt(dotX), gbyD=cy+gHt(dotX);
       const nearBack=dotY<=cy, depthVal=(nearBack?(dotY-gtyD):(gbyD-dotY))/scale, depthLbl=nearBack?'back':'front';
-      roT.style.display=''; roT.textContent = depthVal>=0 ? `${depthVal.toFixed(1)} yd from ${depthLbl}` : `${Math.abs(depthVal).toFixed(1)} yd past ${depthLbl}`;
+      roT.style.display=''; roT.textContent = depthVal>=0 ? `${ydNum(depthVal,1)} ${ydUnit()} from ${depthLbl}` : `${ydNum(Math.abs(depthVal),1)} ${ydUnit()} past ${depthLbl}`;
       roT.setAttribute('fill', depthVal>=0?'var(--ink)':R);
     } else { roT.style.display='none'; }   /* fairway corridor has no front/back to quote */
     /* L / R edge labels + ticks at the true (slanted) extremes */

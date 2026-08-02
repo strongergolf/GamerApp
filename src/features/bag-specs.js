@@ -46,8 +46,8 @@ function buildSpecs(){
       `<div class="sc-id"><span class="sc-name">${c.make} ${c.model}</span></div>`+   /* year · shaft moved into the dropdown (Physical Spec) for a tighter mobile row */
       mini('Length',c.length,'sm-w-len')+mini('Loft',c.loft,'sm-w-deg')+mini('Lie',c.lie,'sm-w-deg')+
       `<div class="sc-sep"></div>`+
-      mini('Carry',hasC?carry:'—','sm-w-yd')+mini('Total',total||'—','sm-w-yd')+
-      mini('86% L/R',d86!=null?d86:'—','sm-w-lr')+
+      mini('Carry '+ydUnit(),hasC?ydNum(carry):'—','sm-w-yd')+mini('Total '+ydUnit(),total?ydNum(total):'—','sm-w-yd')+
+      mini('86% L/R',d86!=null?ydNum(d86,1):'—','sm-w-lr')+
       `<div class="specs-chevron">▾</div>`;
     const group=document.createElement('div'); group.className='specs-rep-group';
     row.addEventListener('click',()=>toggleSpecs(c,row,group));
@@ -71,7 +71,7 @@ function buildSpecs(){
         const lieDiff=lieA&&lieB?(lieA===lieB?'=':'↕ '+(Math.round(Math.abs(lieA-lieB)*10)/10)+'°'):'—';
         /* 86% L/R diff */
         const d86N=carryN>0?disp86(carryN):null;
-        const d86Diff=d86!=null&&d86N!=null?'↕ '+(Math.round(Math.abs(d86-d86N)*10)/10):'—';
+        const d86Diff=d86!=null&&d86N!=null?'↕ '+ydNum(Math.abs(d86-d86N),1):'—';
         /* carry colour */
         let cBg='var(--bg2)', cCol='var(--muted)';
         if(gap>15){cBg='rgba(196,66,122,.12)'; cCol='var(--gold2,#c4427a)';}
@@ -85,8 +85,8 @@ function buildSpecs(){
           gb(loftDiff,'sm-w-deg','var(--bg2)','var(--muted)')+
           gb(lieDiff,'sm-w-deg','var(--bg2)','var(--muted)')+
           `<div class="sc-sep" style="visibility:hidden"></div>`+
-          gb('↕ '+gap,'sm-w-yd',cBg,cCol)+
-          gb(totalGap!=null?'↕ '+totalGap:'—','sm-w-yd','var(--bg2)','var(--muted)')+
+          gb('↕ '+ydNum(gap),'sm-w-yd',cBg,cCol)+
+          gb(totalGap!=null?'↕ '+ydNum(totalGap):'—','sm-w-yd','var(--bg2)','var(--muted)')+
           gb(d86Diff,'sm-w-lr','var(--bg2)','var(--muted)')+
           `<div class="specs-chevron" style="visibility:hidden">▾</div>`;
         wrap.appendChild(gapRow);
@@ -165,7 +165,14 @@ function toggleSpecs(c,row,group){
   if(open) return;
   row.classList.add('selected');
   const p=perf(c.id);
-  const sf=(label,key,val,kind)=>`<div class="edit-field"><label>${label}</label><input data-club="${c.id}" data-kind="${kind}" data-key="${key}" value="${escapeHtml(val==null?'':val)}"></div>`;
+  /* `u` names a unit family (distance / short / speed). The label then shows the CURRENT
+     unit, the value is converted for display, and data-unit tells saveClub how to convert it
+     back — so storage stays canonical however the field is labelled. */
+  const sf=(label,key,val,kind,u)=>{
+    const shown = u&&val!=null&&val!=='' ? toDisplay(u, val, u==='short'&&isMetric()?1:0) : (val==null?'':val);
+    const lbl = u ? `${label} (${unitLabel(u)})` : label;
+    return `<div class="edit-field"><label>${lbl}</label><input data-club="${c.id}" data-kind="${kind}" data-key="${key}"${u?` data-unit="${u}"`:''} value="${escapeHtml(shown)}"></div>`;
+  };
   const putterExtra = c.type==='putter'
     ? `${sf('Grip','grip',c.grip||'','spec')}${sf('Weight (oz)','weightOz',c.weightOz||'','spec')}`
     : '';
@@ -178,9 +185,9 @@ function toggleSpecs(c,row,group){
         ${sf('Orig. Loft','origLoft',c.origLoft,'spec')}${sf('Swing Wt','swt',c.swt,'spec')}${sf('Year','year',c.year,'spec')}
         ${putterExtra}
         ${c.type!=='putter'?`<div class="edit-subhead">Stock Shot</div>
-        ${sf('Carry (yd)','carry',p.carry,'perf')}${sf('Total (yd)','total',p.total,'perf')}${sf('Ball Spd (mph)','bspd',p.bspd,'perf')}
-        ${sf('Club Spd (mph)','cspd',p.cspd,'perf')}${sf('Launch (°)','launch',p.launch,'perf')}${sf('Spin (rpm)','spin',p.spin,'perf')}
-        ${sf('Max Ht (ft)','ht',p.ht,'perf')}${sf('Land (°)','land',p.land,'perf')}`:''}
+        ${sf('Carry','carry',p.carry,'perf','distance')}${sf('Total','total',p.total,'perf','distance')}${sf('Ball Spd','bspd',p.bspd,'perf','speed')}
+        ${sf('Club Spd','cspd',p.cspd,'perf','speed')}${sf('Launch (°)','launch',p.launch,'perf')}${sf('Spin (rpm)','spin',p.spin,'perf')}
+        ${sf('Max Ht','ht',p.ht,'perf','short')}${sf('Land (°)','land',p.land,'perf')}`:''}
       </div>
       <div class="btn-row"><button class="btn btn-primary" onclick="saveClub('${c.id}')">Save ${c.label}</button></div>
     </div>`;
@@ -222,8 +229,20 @@ function saveClub(id){
   const club=STATE.clubs.find(c=>c.id===id); const p=STATE.performance[id]=STATE.performance[id]||{};
   document.querySelectorAll(`[data-club="${id}"]`).forEach(el=>{
     const key=el.getAttribute('data-key'), kind=el.getAttribute('data-kind'); let v=el.value.trim();
+    const u=el.getAttribute('data-unit');
     if(kind==='spec'){ club[key]= key==='year'?(parseInt(v)||club[key]):v; }
-    else{ p[key]= v===''? null : (isNaN(parseFloat(v))?v:parseFloat(v)); }
+    else if(v===''){ p[key]=null; }
+    else if(isNaN(parseFloat(v))){ p[key]=v; }
+    else {
+      const n=parseFloat(v);
+      /* A field the user did not touch must not be written back. Converting out to metric and
+         straight back in does not land on the same number — 163 mph shows as 262 km/h and
+         returns as 162.8 — so an untouched club would drift a little every time it was
+         saved in the other unit system, and keep drifting. Compare what is IN the box against
+         what the stored value would DISPLAY as: if they agree, the user changed nothing. */
+      if(u && p[key]!=null && String(toDisplay(u, p[key], u==='short'&&isMetric()?1:0))===String(n)) return;
+      p[key]= u ? Math.round(fromDisplay(u,n)*10)/10 : n;
+    }
   });
   p.prov='input';   /* user entered/confirmed these numbers → clears any Presumed (estimated) flag */
   syncPartialsForClub(id);
@@ -259,9 +278,9 @@ function buildProfile(){
       'Women\'s Cadet S','Women\'s Cadet M','Women\'s Cadet M/L','Women\'s Cadet L'
     ],pf.gloveSize||'')}</div>
     <div class="edit-subhead">Swing Speed</div>
-    <div class="edit-field" style="grid-column:1/-1"><label>Driver Swing Speed (mph)</label>
+    <div class="edit-field" style="grid-column:1/-1"><label>Driver Swing Speed (${unitLabel('speed')})</label>
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-        <input id="pf-ss" type="number" style="width:90px" value="${pf.driverSwingSpeed||''}">
+        <input id="pf-ss" type="number" style="width:90px" value="${pf.driverSwingSpeed?mphNum(pf.driverSwingSpeed):''}">
         <button class="btn btn-accent" onclick="generateFromSwingSpeed()" style="white-space:nowrap;padding:5px 10px;font-size:.74rem">Re-generate Ladder</button>
         <span style="font-family:ui-monospace,monospace;font-size:.52rem;color:var(--muted)">scales all carries proportionally — refine from real data after</span>
       </div>
@@ -315,7 +334,9 @@ function saveProfile(){
   const pf=STATE.profile;
   pf.name=document.getElementById('pf-name').value;
   pf.handicap=document.getElementById('pf-hcp').value;
-  pf.driverSwingSpeed=parseFloat(document.getElementById('pf-ss').value)||pf.driverSwingSpeed;
+  /* typed in the displayed unit; stored in mph */
+  { const _ss=parseFloat(document.getElementById('pf-ss').value);
+    if(!isNaN(_ss)) pf.driverSwingSpeed=Math.round(fromDisplay('speed',_ss)); }
   /* pf-handed = the profile's own control; the Assess swing card has a pf-hand twin —
      both read/write STATE.profile.handedness ('RH'/'LH') and stay in sync via rebuilds */
   pf.handedness=document.getElementById('pf-handed')?.value??pf.handedness;
@@ -467,7 +488,7 @@ function renderStrikeCal(){
       <span class="strike-lbl">${label}</span>
       <input type="range" min="0" max="0.9" step="0.05" value="${cur}" oninput="setStrikeCorr('${t}',this.value)">
       <span class="strike-val">ρ ${(+cur).toFixed(2)}</span>
-      <span class="strike-lean">leans <b>${lean.toFixed(1)}°</b> at ${carry} yd</span>
+      <span class="strike-lean">leans <b>${lean.toFixed(1)}°</b> at ${fmtYd(carry)}</span>
       ${own?`<button class="sgcal-del" title="Back to the app default" onclick="setStrikeCorr('${t}',null)">✕</button>`:'<span></span>'}
     </div>`;
   }).join('');

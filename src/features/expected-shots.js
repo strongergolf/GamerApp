@@ -37,8 +37,8 @@ function esGreenSR(ft, hcp){
 function esResultLabel(res,lie){
   res=+res||0;
   if(res<=0) return 'holed';
-  const n=res<10?res.toFixed(1):Math.round(res).toString();
-  return `${n} ft ${lie==='green'?'left':'from pin'}`;
+  const n=ftNum(res, res<10?1:0);
+  return `${n} ${ftUnit()} ${lie==='green'?'left':'from pin'}`;
 }
 /* Live-update the SG number + result label + equation without rebuilding the whole strip
    (so the result slider keeps focus while dragging). */

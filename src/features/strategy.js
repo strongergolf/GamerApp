@@ -1021,13 +1021,13 @@ function stratShotSVG(hole, r, line, n, mode){
      strip below still names each line. The club moved down there with it — see .sh-strip. */
   const dist=Math.round(end?r.endYd:r.geoYd);
   const sg = r.sg!=null ? `SG ${r.sg>0?'+':''}${r.sg.toFixed(2)}${r.sgActual?' actual':''}` : '';
-  const head = `${end?'⚓ ':''}${dist} yd${sg?' · '+sg:''}`;
+  const head = `${end?'⚓ ':''}${ydNum(dist)} ${ydUnit()}${sg?' · '+sg:''}`;
   if(compact) return s+lbl(head, top-8, 27);
   /* 36 units apart, not the 30 the font size suggests: the halo stroke adds ~4 units to each
      glyph box, so a gap set to the font size alone leaves the two lines touching. */
   s+=lbl(head, top-36, 30);
   const tp=end?r.endToPinYd:r.toPinYd, rem=r.sgActual?r.expAfter:r.mean;
-  if(tp!=null&&rem!=null) s+=lbl(`${Math.round(tp)} to pin · ${rem.toFixed(2)} rem`, top, 27);
+  if(tp!=null&&rem!=null) s+=lbl(`${ydNum(tp)} to pin · ${rem.toFixed(2)} rem`, top, 27);
   return s;
 }
 function stratOverlay(hole, chains, n){
@@ -1280,7 +1280,7 @@ function buildHoleOverlay(){
         ? ` Against the same shot hit straight it is worth <b>less than half a point</b> of fairway from here.`
         : ` Against the same shot hit straight it is worth <b>${dFwy>0?'+':'−'}${Math.abs(dFwy).toFixed(1)}</b> points of fairway from here.`;
     fitNote=`<div class="sh-fit${fit.withHole?' ok':''}">Your <b>${fit.club}</b> ${
-      fit.shape.toLowerCase()}s about <b>${fit.curve} yd</b>, landing <b>${mag(fit.tilt)}° ${side(fit.tilt)}</b> of its start line. ${
+      fit.shape.toLowerCase()}s about <b>${fmtYd(fit.curve)}</b>, landing <b>${mag(fit.tilt)}° ${side(fit.tilt)}</b> of its start line. ${
       fwTxt}${worth}</div>`;
   }
   /* Closed by default: the panel is sized to match the map, and the caption above already
@@ -1309,7 +1309,7 @@ function buildHoleOverlay(){
      the labels and the flag, and the inverse in stratDragInit's ptOf. */
   wrap.innerHTML=head+`
     <div class="sh-bar">
-      <div class="sh-head">Hole ${hole.num||hi+1} · par ${hole.par||4} · ${Math.round(holeYd)} yd${ballWhere}</div>
+      <div class="sh-head">Hole ${hole.num||hi+1} · par ${hole.par||4} · ${fmtYd(holeYd)}${ballWhere}</div>
       <div class="sh-bar-ctl">
         <div class="strat-picks">${shotBtns}</div>
         <div class="strat-picks">${lineBtns}<button type="button" class="strat-mode-btn" onclick="stratResetAim()">↺ reset</button></div>

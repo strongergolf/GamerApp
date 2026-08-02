@@ -107,7 +107,7 @@ function pseEffText(v){
   const n=pseGet(v.key)-2;
   if(n===0) return '<span style="opacity:.7">neutral — no change</span>';
   const nm={face:'face',path:'path',aoa:'AoA',dynLoft:'loft',speed:'speed',lowPt:'low-pt'};
-  const unit={face:'°',path:'°',aoa:'°',dynLoft:'°',speed:' mph',lowPt:'″'};
+  const unit={face:'°',path:'°',aoa:'°',dynLoft:'°',speed:' '+mphUnit(),lowPt:'″'};
   const word={ face:f=>f<0?'closes':'opens', path:p=>p<0?'out-to-in':'in-to-out', aoa:a=>a<0?'steeper':'shallower',
     dynLoft:d=>d<0?'delofts':'adds loft', speed:s=>s>0?'faster':'slower', lowPt:l=>l>0?'fwd':'back' };
   const parts=[]; let primary=null;
@@ -134,7 +134,7 @@ function pseReadoutInner(){
       <span>Attack <b>${sg(a.aoa,1,'°')}</b></span>
       <span>Dyn loft <b>${sg(a.dynLoft,1,'°')}</b></span>
       <span>Low point <b>${sg(a.lowPt,1,'″')}</b></span>
-      <span>Speed <b>${sg(a.speed,1,' mph')}</b></span>
+      <span>Speed <b>${sg(a.speed,1,' '+mphUnit())}</b></span>
     </div>
     <div class="sgv-shot">
       <div class="sgv-shot-cell"><span class="sgv-k">Start line</span><span class="sgv-v">${startTxt}</span></div>
@@ -143,7 +143,7 @@ function pseReadoutInner(){
       <div class="sgv-shot-cell"><span class="sgv-k">Spin loft Δ</span><span class="sgv-v">${sg(net.dSpinLoft,1,'°')}</span></div>
     </div>
     <div style="font-family:Arial,sans-serif;font-size:.76rem;color:var(--ink2);line-height:1.5;margin-top:10px">${bits.join(' · ')}.</div>
-    <div class="sgv-readout-foot">vs. a neutral setup on a reference mid-iron (30° dyn loft, −4° attack, 160 yd). <button type="button" class="sgv-reset" onclick="pseResetSetup()">Reset to neutral</button></div>`;
+    <div class="sgv-readout-foot">vs. a neutral setup on a reference mid-iron (30° dyn loft, −4° attack, ${fmtYd(160)}). <button type="button" class="sgv-reset" onclick="pseResetSetup()">Reset to neutral</button></div>`;
 }
 function pseRow(v){ const idx=pseGet(v.key);
   return `<div class="sgv-row">
@@ -408,7 +408,7 @@ const psContrib=(key)=>{ const d=Math.round(psDelta(key)); const c=d>0?'var(--go
 
 function psDetailHTML(key){
   switch(key){
-    case 'static': return psField('Measured yardage to target (yd)',
+    case 'static': return psField('Measured distance to target (${ydUnit()})',
       `<input id="ps-static" type="number" value="${escapeHtml(psShot.static)}" oninput="psSet('static',this.value)" placeholder="e.g. 155">`)
       +psNote('The base, dead-flat, no-wind, baseline-air number to your target.');
     case 'lie': return psField('Ball lie', psSel('lie',[
