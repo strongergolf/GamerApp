@@ -1100,3 +1100,31 @@ body.theme-dark .pg-cell.cut{border-color:var(--c-wood)}
 .pg-fields input:focus{border-color:var(--green)}
 .pg-note{margin-top:4px;font-family:ui-monospace,monospace;font-size:.5rem;color:var(--muted);letter-spacing:.03em}
 .pg-note b{color:var(--ink2)}
+
+/* ---- The round: eighteen holes, one number ---- */
+.rt-tot{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:9px}
+.rt-tot-cell{flex:1 1 130px;min-width:118px;padding:8px 11px;border:1px solid var(--border);border-radius:8px;background:var(--bg2)}
+.rt-tot-cell span{display:block;font-family:ui-monospace,monospace;font-size:.5rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.rt-tot-cell b{display:block;font-family:Arial,sans-serif;font-size:1.5rem;font-weight:800;color:var(--ink);line-height:1.15;margin-top:1px}
+.rt-tot-cell i{display:block;font-family:ui-monospace,monospace;font-size:.55rem;font-style:normal;color:var(--muted)}
+.rt-tot-gap{border-color:var(--border2);background:var(--surface2)}
+.rt-note{font-family:Arial,sans-serif;font-size:.7rem;line-height:1.5;color:var(--ink2);margin-bottom:9px}
+.rt-note b{color:var(--ink)}
+.rt-scroll{overflow-x:auto}
+.rt-tbl{width:100%;border-collapse:collapse;font-family:ui-monospace,monospace;font-size:.66rem;min-width:430px}
+.rt-tbl th,.rt-tbl td{padding:4px 6px;text-align:right;border-bottom:1px solid var(--border);white-space:nowrap}
+.rt-tbl thead th{font-size:.5rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:700}
+.rt-tbl td:first-child,.rt-tbl th:first-child{text-align:left}
+.rt-tbl .rt-cutcell{text-align:left;color:var(--ink2);font-size:.58rem}
+.rt-cut{color:var(--muted)}
+.rt-tbl .rt-h{font-weight:800;color:var(--ink)}
+.rt-tbl .rt-num{font-weight:700;color:var(--ink)}
+.rt-tbl .rt-worse{color:#9c3348} .rt-tbl .rt-better{color:#00693a}
+body.theme-dark .rt-tbl .rt-worse{color:var(--c-wood)} body.theme-dark .rt-tbl .rt-better{color:var(--green2)}
+.rt-tbl .rt-m{color:var(--muted);cursor:help;text-align:center}
+.rt-tbl tr.rt-baseline td{opacity:.82}
+.rt-tbl tr.rt-none td{opacity:.5}
+.rt-tbl tfoot th{border-top:2px solid var(--border2);border-bottom:none;font-size:.72rem;color:var(--ink);padding-top:6px}
+.rt-foot{margin-top:8px;font-family:Arial,sans-serif;font-size:.66rem;line-height:1.5;color:var(--muted)}
+.rt-foot b{color:var(--ink2)}
+.rt-tbl .rt-level{color:var(--muted);font-size:.58rem;font-weight:400}

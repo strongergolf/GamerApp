@@ -103,7 +103,7 @@ function aimClubShape(clubId){
 /* Both caches key off the bag, the D-Plane rows and the performance table, so anything that
    edits those has to drop them — otherwise the optimiser keeps solving yesterday's swing. */
 function aimShapeReset(){
-  window.aimShapeCache={}; window.aimShotNameCache={}; window.stratOptCache=null;
+  window.aimShapeCache={}; window.aimShotNameCache={}; window.stratCacheEpoch=(window.stratCacheEpoch||0)+1;
 }
 
 /* Weighted landing samples (field units) for a shot from `from` aimed at `aim`.
@@ -458,12 +458,37 @@ function optimiseShot(hole, from, opts){
   const minGeo = Math.min(recovery?15:25, maxGeo);
   const dx=cfPin(hole).x-from.x, dy=cfPin(hole).y-from.y, L=Math.hypot(dx,dy)||1;
   const vx=dx/L, vy=dy/L, ux=-vy, uy=vx;
-  const results=[];
+  /* An evenly-spaced sweep alone is too coarse where it matters most. On a 165-yard par 3
+     the eleven steps land 16.5 yd apart — more than a club — and none of them is 165, so the
+     optimiser could not aim at the flag at all. It lost to the preference line, which can.
+     The distances a golfer would actually name are therefore always candidates: the pin, and
+     the middle of the green. Everything else stays a sweep. */
+  /* An evenly-spaced sweep is too coarse where it matters most. On a 165-yard par 3 the
+     eleven along-steps land 16.5 yd apart — more than a club — and none of them is 165, so
+     the optimiser could not aim at the flag at all and lost to a line that could. The
+     lateral sweep has the same problem: at 8-yard steps it cannot land on the middle of a
+     green that sits 12 yards off the pin line.
+
+     So the two aims every golfer actually considers — the flag, and the middle of the green
+     — are added as explicit POINTS, not as distances paired with a coarse lateral grid. */
+  const cand=[];
   for(let i=0;i<=SHOT_ALONG_STEPS;i++){
     const along=minGeo+(maxGeo-minGeo)*i/SHOT_ALONG_STEPS;
-    for(let lat=-SHOT_LAT_MAX; lat<=SHOT_LAT_MAX; lat+=SHOT_LAT_STEP){
-      const aim={ x:from.x+(vx*along+ux*lat)/ypu, y:from.y+(vy*along+uy*lat)/ypu };
+    for(let lat=-SHOT_LAT_MAX; lat<=SHOT_LAT_MAX; lat+=SHOT_LAT_STEP)
+      cand.push({ x:from.x+(vx*along+ux*lat)/ypu, y:from.y+(vy*along+uy*lat)/ypu });
+  }
+  const named=[cfPin(hole), (typeof cfGreenMid==='function')?cfGreenMid(hole):null];
+  named.forEach(p=>{
+    if(!p) return;
+    const d=Math.hypot(p.x-from.x,p.y-from.y)*ypu;
+    if(d>=minGeo && d<=maxGeo) cand.push({x:p.x, y:p.y});
+  });
+  const results=[];
+  for(let i=0;i<cand.length;i++){
+    {
+      const aim=cand[i];
       const geo=Math.hypot(aim.x-from.x,aim.y-from.y)*ypu;
+      const along=geo, lat=((aim.x-from.x)*ux+(aim.y-from.y)*uy)*ypu;
       const eff=geo+cost;
       if(eff>longest+10) continue;
       const r=aimScore(hole,from,aim,hcp,posture,Object.assign({sigmaYd:eff,latMult:mult.lat,depthMult:mult.depth}, aimShotSig(eff)));
@@ -530,7 +555,10 @@ function optimiseShot(hole, from, opts){
    drag either one and every number moves, including the shots that follow it. */
 window.stratSel = window.stratSel || { cIdx:0, hIdx:0 };
 window.stratShot = window.stratShot || { shotNum:1, lines:{S:[]}, active:'S' };
-window.stratOptCache = null;
+/* Solved chains, per hole. An epoch counter invalidates them all at once — cheaper and
+   less error-prone than hunting down every cache entry when the bag or a pin changes. */
+let STRAT_CHAINS = new WeakMap();
+window.stratCacheEpoch = 0;
 /* Map view: centre + zoom, so the hole can be scrolled into like the D-Plane viewer. */
 window.stratView = window.stratView || { cx:CF_W/2, cy:CF_H/2, z:1 };
 const STRAT_ZMIN = 1, STRAT_ZMAX = 8;
@@ -567,7 +595,7 @@ function stratPinMode(on){
 function stratSetPinAt(pt){
   const cur=stratCurrent(); if(!cur) return;
   cfSetPin(cur.course.id||cur.course.name, cur.hole.num||cur.hi+1, pt);
-  window.stratOptCache=null; stratClearLines(); buildHoleOverlay();
+  window.stratCacheEpoch=(window.stratCacheEpoch||0)+1; stratClearLines(); buildHoleOverlay();
 }
 function stratSetPinPaces(which, val){
   const cur=stratCurrent(); if(!cur) return;
@@ -580,19 +608,19 @@ function stratSetPinPaces(which, val){
 function stratPinReset(){
   const cur=stratCurrent(); if(!cur) return;
   cfSetPin(cur.course.id||cur.course.name, cur.hole.num||cur.hi+1, null);
-  window.stratOptCache=null; stratClearLines(); buildHoleOverlay();
+  window.stratCacheEpoch=(window.stratCacheEpoch||0)+1; stratClearLines(); buildHoleOverlay();
 }
 function stratSheetSet(id){
   const cur=stratCurrent(); if(!cur) return;
   if(id==='__new'){ const n=prompt('Name this pin sheet (e.g. "Round 1 — Thu"):',''); if(n===null) { buildHoleOverlay(); return; } cfSheetAdd(cur.course.id||cur.course.name, n||undefined); }
   else cfSheetSelect(cur.course.id||cur.course.name, id||null);
-  window.stratOptCache=null; stratClearLines(); buildHoleOverlay();
+  window.stratCacheEpoch=(window.stratCacheEpoch||0)+1; stratClearLines(); buildHoleOverlay();
 }
 function stratSheetDelete(){
   const cur=stratCurrent(); if(!cur) return;
   const key=cur.course.id||cur.course.name, s=cfActiveSheet(key); if(!s) return;
   if(!confirm(`Delete the pin sheet "${s.name}" and every pin on it?`)) return;
-  cfSheetDelete(key, s.id); window.stratOptCache=null; stratClearLines(); buildHoleOverlay();
+  cfSheetDelete(key, s.id); window.stratCacheEpoch=(window.stratCacheEpoch||0)+1; stratClearLines(); buildHoleOverlay();
 }
 /* How many of this course's holes the active sheet has a cut for — the progress a golfer
    transcribing a sheet actually wants to see. */
@@ -627,7 +655,7 @@ function stratPinThumbClick(ev, holeNum){
   if(!pt) return;
   if(!cfPointInPoly(pt, hole.green)){ toast('That is off the green'); return; }
   cfSetPin(cur.course.id||cur.course.name, holeNum, pt);
-  window.stratOptCache=null; buildHoleOverlay();
+  window.stratCacheEpoch=(window.stratCacheEpoch||0)+1; buildHoleOverlay();
 }
 function stratSheetPaces(holeNum, which, val){
   const cur=stratCurrent(); if(!cur) return;
@@ -636,12 +664,12 @@ function stratSheetPaces(holeNum, which, val){
   const front = which==='front' ? fromDisplay('distance', val) : p.fromFront;
   const left  = which==='left'  ? fromDisplay('distance', val) : p.fromLeft;
   const pt=cfPinFromPaces(hole, front, left);
-  if(pt){ cfSetPin(cur.course.id||cur.course.name, holeNum, pt); window.stratOptCache=null; buildHoleOverlay(); }
+  if(pt){ cfSetPin(cur.course.id||cur.course.name, holeNum, pt); window.stratCacheEpoch=(window.stratCacheEpoch||0)+1; buildHoleOverlay(); }
 }
 function stratSheetClearHole(holeNum){
   const cur=stratCurrent(); if(!cur) return;
   cfSetPin(cur.course.id||cur.course.name, holeNum, null);
-  window.stratOptCache=null; buildHoleOverlay();
+  window.stratCacheEpoch=(window.stratCacheEpoch||0)+1; buildHoleOverlay();
 }
 function stratPinSheetGrid(){
   const cur=stratCurrent(); if(!cur) return '';
@@ -676,6 +704,131 @@ function stratPinSheetGrid(){
       :'<b>No sheet selected</b> — every hole is playing the middle of the green. Type a cut below and one is started for you.'}</div>
     ${pat}<div class="pg-grid">${cells}</div>`;
 }
+/* ============================================================
+   THE ROUND: eighteen holes, one number
+   ============================================================
+   Every other surface answers one hole. This answers "what does this course cost me, and
+   where does my own strategy cost me against the model" — which is what a gameplan is for,
+   and what makes today's pin sheet worth transcribing: change the cuts and the total moves.
+
+   Written to survive whatever an import drags in. Courses arrive half-traced, with par 3s
+   that have no fairway, holes with no green, hand-entered holes with a yardage and nothing
+   else, nine-hole layouts, and 27-hole facilities. So each hole falls down a ladder and says
+   which rung it landed on, rather than the whole view failing because hole 7 has no green:
+
+     model     fully mapped — solved against the real geometry, hazards and today's cut
+     baseline  yardage only — the handicap-adjusted expected score for a hole that long
+     none      not even a yardage — counted, excluded, and named
+
+   A total built partly from baselines is still worth having; a total that silently drops
+   three holes is not. So the method counts are always shown next to it. */
+const ROUND_METHODS = { model:'from the map', baseline:'from yardage', none:'not enough data' };
+/* How finely this model can actually tell two lines apart, per hole.
+   MEASURED: hold the club, the sigma and the lean constant and walk the aim across a few
+   field units. On a 420-yard hole the estimate moves 0.021; on a 92-yard shot it moves
+   0.082, stepping rather than sliding. The cause is the sample grid, not the search — at
+   wedge range the outermost ring of the 7x7 pattern (±2.4σ ≈ 11 yd) sits almost exactly on
+   a 13-yard green half-width, so a fraction of a yard flips a whole row of samples between
+   "on the green" and "just off it", which is half a stroke each.
+   So differences below this are the instrument, not the golf, and are reported as level.
+   The fix is a finer sample grid on short shots; it is not made here because it touches every
+   surface in the app and deserves its own change with its own verification. */
+const ROUND_RES = 0.05;
+function stratRoundHole(hole, hcp){
+  const par=+hole.par||4;
+  const out={ num:hole.num||0, par, method:'none', o:null, s:null, yards:null, zone:null, cutYd:0 };
+  /* how far this hole plays: mapped tee→pin if we have it, else whatever was typed */
+  const mapped = hole.tee && cfHasScale(hole) && cfPin(hole);
+  out.yards = mapped ? cfDistYd(hole, hole.tee, cfPin(hole)) : (+hole.yards||null);
+  if(mapped && (hole.green||[]).length>2){
+    const tee={x:hole.tee.x, y:hole.tee.y};
+    const res=optimiseShot(hole, tee, {posture:stratPosture(), hcp});
+    if(res && !res.blocked && res.best && res.best.mean!=null){
+      /* one shot played, then the expected strokes left from the pattern it lands in */
+      out.o=1+res.best.mean;
+      const sAim=stratPrefAim(hole, tee, 1);
+      const sr=sAim?stratScoreShot(hole, tee, sAim):null;
+      if(sr && !sr.blocked && sr.mean!=null) out.s=1+sr.mean;
+      out.method='model';
+      out.zone=stratPinZone(hole);
+      const mid=cfGreenMid(hole), cut=cfPin(hole);
+      if(mid&&cut) out.cutYd=cfDistYd(hole,hole.tee,cut)-cfDistYd(hole,hole.tee,mid);
+      return out;
+    }
+  }
+  if(out.yards>0 && typeof srForPlayer==='function'){
+    out.o=srForPlayer('tee', out.yards, hcp);   // a hole that long, played to the baseline
+    out.method='baseline';
+  }
+  return out;
+}
+/* Solving eighteen holes is ~100k point-in-polygon tests, so it is done on demand and kept
+   until something it depends on changes. */
+let STRAT_ROUND=null;
+function stratRoundKey(course){
+  const k=course.id||course.name;
+  return [k, (course.holes||[]).length, stratPosture(), stratSkill(),
+          (cfActiveSheet(k)||{}).id||'-', window.stratCacheEpoch||0,
+          JSON.stringify(STATE.strategy||{})].join('|');
+}
+function stratRound(){
+  const cur=stratCurrent(); if(!cur) return null;
+  const key=stratRoundKey(cur.course);
+  if(STRAT_ROUND && STRAT_ROUND.key===key) return STRAT_ROUND;
+  const hcp=stratSkill();
+  const rows=(cur.course.holes||[]).map(h=>stratRoundHole(h,hcp));
+  const counts={model:0,baseline:0,none:0};
+  let par=0,o=0,s=0,sFallback=0,scored=0;
+  rows.forEach(r=>{
+    counts[r.method]++;
+    if(r.o==null) return;
+    scored++; par+=r.par; o+=r.o;
+    if(r.s!=null) s+=r.s; else { s+=r.o; sFallback++; }
+  });
+  STRAT_ROUND={ key, rows, counts, par, o, s, scored, sFallback,
+                holes:(cur.course.holes||[]).length, course:cur.course.name };
+  return STRAT_ROUND;
+}
+function stratRoundTable(){
+  const R=stratRound();
+  if(!R) return '';
+  if(!R.scored) return `<div class="lvl-soon-note">No hole on this course has enough detail to score yet — a hole needs a yardage at minimum, and a traced green to be modelled properly.</div>`;
+  const f=v=>v==null?'—':v.toFixed(2);
+  const rows=R.rows.map(r=>{
+    const d=(r.s!=null&&r.o!=null)?r.s-r.o:null;
+    const cut=r.zone?`${r.zone.depth} ${r.zone.side}${Math.abs(r.cutYd)>=1?` <span class="rt-cut">${r.cutYd>0?'+':'−'}${ydNum(Math.abs(r.cutYd))}</span>`:''}`:'—';
+    return `<tr class="rt-${r.method}">
+      <td class="rt-h">${r.num||'—'}</td><td>${r.par}</td>
+      <td>${r.yards?ydNum(r.yards):'—'}</td>
+      <td class="rt-cutcell">${cut}</td>
+      <td class="rt-num">${f(r.o)}</td>
+      <td class="rt-num">${f(r.s)}</td>
+      <td class="rt-num ${d==null||Math.abs(d)<ROUND_RES?'':d>0?'rt-worse':'rt-better'}">${
+        d==null?'—':Math.abs(d)<ROUND_RES?'<span class="rt-level">level</span>':(d>0?'+':'')+d.toFixed(2)}</td>
+      <td class="rt-m" title="${ROUND_METHODS[r.method]}">${r.method==='model'?'●':r.method==='baseline'?'◐':'○'}</td>
+    </tr>`;
+  }).join('');
+  const vsPar=v=>{const d=v-R.par; return (d>0?'+':'')+d.toFixed(1);};
+  const note=[];
+  if(R.counts.model) note.push(`<b>${R.counts.model}</b> from the map`);
+  if(R.counts.baseline) note.push(`<b>${R.counts.baseline}</b> from yardage only`);
+  if(R.counts.none) note.push(`<b>${R.counts.none}</b> with too little data to score`);
+  const sNote = R.sFallback ? ` Your line could not be solved on ${R.sFallback} hole${R.sFallback===1?'':'s'}, which fall back to the optimal one.` : '';
+  return `<div class="rt-tot">
+      <div class="rt-tot-cell"><span>Optimal</span><b>${R.o.toFixed(1)}</b><i>${vsPar(R.o)} vs par ${R.par}</i></div>
+      <div class="rt-tot-cell"><span>Your strategy</span><b>${R.s.toFixed(1)}</b><i>${vsPar(R.s)} vs par ${R.par}</i></div>
+      <div class="rt-tot-cell rt-tot-gap"><span>Costs you</span><b>${Math.abs(R.s-R.o)<ROUND_RES*2?'level':((R.s-R.o)>0?'+':'')+(R.s-R.o).toFixed(2)}</b><i>over ${R.scored} hole${R.scored===1?'':'s'}</i></div>
+    </div>
+    <div class="rt-note">Scored ${R.scored} of ${R.holes} holes — ${note.join(' · ')}.${sNote}</div>
+    <div class="rt-scroll"><table class="rt-tbl">
+      <thead><tr><th>Hole</th><th>Par</th><th>${ydUnit()}</th><th>Cut</th><th>Optimal</th><th>Yours</th><th>Δ</th><th></th></tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr><th>Total</th><th>${R.par}</th><th></th><th></th>
+        <th class="rt-num">${R.o.toFixed(1)}</th><th class="rt-num">${R.s.toFixed(1)}</th>
+        <th class="rt-num">${(R.s-R.o)>0?'+':''}${(R.s-R.o).toFixed(2)}</th><th></th></tr></tfoot>
+    </table></div>
+    <div class="rt-foot">Each hole is one tee shot played to plan, then the expected strokes from wherever it finishes — so the total already assumes ordinary play after the tee, and today's cuts move it. <b>Optimal</b> is the model's line; <b>Yours</b> is what your Strategy Preferences play. Differences under <b>${ROUND_RES.toFixed(2)}</b> a hole are inside what this model can resolve and read as <i>level</i>.</div>`;
+}
 function stratSheetProgress(){
   const cur=stratCurrent(); if(!cur) return null;
   const s=cfActiveSheet(cur.course.id||cur.course.name); if(!s) return null;
@@ -691,7 +844,7 @@ function stratSkill(){
 }
 function stratSetSkill(v){
   STATE.strategy=STATE.strategy||{}; STATE.strategy.skillHcp=(v===''?null:v);
-  saveState(); window.stratOptCache=null; buildHoleOverlay();
+  saveState(); window.stratCacheEpoch=(window.stratCacheEpoch||0)+1; buildHoleOverlay();
 }
 /* Two lines is enough: O is the optimiser's answer, S is whatever you select against it. */
 const SHOT_LINES = ['S','O'];
@@ -712,7 +865,7 @@ function stratGreenMid(hole){
   let x=0,y=0; g.forEach(p=>{x+=p.x;y+=p.y;});
   return {x:x/g.length, y:y/g.length};
 }
-function stratClearLines(){ window.stratShot.lines={S:[]}; window.stratShot.shotNum=1; window.stratOptCache=null; }
+function stratClearLines(){ window.stratShot.lines={S:[]}; window.stratShot.shotNum=1; window.stratCacheEpoch=(window.stratCacheEpoch||0)+1; }
 
 /* ---- Which hole the overlay opens on ----
    Remembered as a course ID and a hole NUMBER, never as list indices: indices shift the
@@ -795,12 +948,12 @@ function stratResetAim(){ stratClearLines(); buildHoleOverlay(); }
 function stratSetPosture(p){
   if(typeof setStrategy==='function') setStrategy('riskPosture',p);
   else { STATE.strategy=STATE.strategy||{}; STATE.strategy.riskPosture=p; saveState(); }
-  window.stratOptCache=null; buildHoleOverlay();
+  window.stratCacheEpoch=(window.stratCacheEpoch||0)+1; buildHoleOverlay();
 }
 function stratSetTour(field,val){
   STATE.tournament=STATE.tournament||{};
   STATE.tournament[field]= (val===''||val==null) ? null : (field==='target'?parseFloat(val):parseInt(val)||0);
-  saveState(); window.stratOptCache=null; buildHoleOverlay();
+  saveState(); window.stratCacheEpoch=(window.stratCacheEpoch||0)+1; buildHoleOverlay();
 }
 
 /* ---------- ANCHORS: where the ball ACTUALLY finished ----------
@@ -906,8 +1059,13 @@ function stratScoreShot(hole, from, aim, end){
 /* The optimiser's whole path through the hole, tee to green. Cached per hole/posture so
    dragging a user line never re-solves it. */
 function stratOChain(hole){
-  const key=window.stratSel.cIdx+'|'+window.stratSel.hIdx+'|'+stratPosture()+'|'+stratSkill();
-  if(window.stratOptCache&&window.stratOptCache.key===key) return window.stratOptCache.chain;
+  /* Keyed by the HOLE OBJECT, not by the selected index. The old key was
+     "cIdx|hIdx|posture|skill", which is only correct while the hole being solved is the hole
+     on screen — the moment anything iterates the course (the round walkthrough does) it
+     hands back the selected hole's plan for every hole in turn. */
+  const key=stratPosture()+'|'+stratSkill()+'|'+(window.stratCacheEpoch||0);
+  const hit=STRAT_CHAINS.get(hole);
+  if(hit && hit.key===key) return hit.chain;
   const chain=[]; let from={x:hole.tee.x, y:hole.tee.y};
   for(let n=1;n<=SHOT_MAX;n++){
     const res=optimiseShot(hole, from, {posture:stratPosture(), hcp:stratSkill()});
@@ -917,7 +1075,7 @@ function stratOChain(hole){
     chain.push({n, from, res, aim});
     from=aim;
   }
-  window.stratOptCache={key, chain};
+  STRAT_CHAINS.set(hole,{key, chain});
   return chain;
 }
 /* Where shot n on a line is played from: the tee, or wherever that line's previous shot
@@ -1533,6 +1691,10 @@ function buildHoleOverlay(){
         </div>
       </div>
     </div>
+    <details class="pg-wrap"${window.stratRoundOpen?' open':''} ontoggle="window.stratRoundOpen=this.open;if(this.open)buildHoleOverlay()">
+      <summary>The round — every hole, one number</summary>
+      <div class="pg-body">${window.stratRoundOpen?stratRoundTable():''}</div>
+    </details>
     <details class="pg-wrap"${window.stratSheetOpen?' open':''} ontoggle="window.stratSheetOpen=this.open;if(this.open)buildHoleOverlay()">
       <summary>Pin sheet — every green on one screen</summary>
       <div class="pg-body">${window.stratSheetOpen?stratPinSheetGrid():''}</div>
@@ -1641,6 +1803,7 @@ Object.assign(window, {
   stratSaveSel, stratRestoreSel, stratHoleReady, stratHoleScore, stratBestCourseIdx,
   stratZoomGreen, stratPinMode, stratSetPinAt, stratSetPinPaces, stratPinReset,
   stratPinSheetHoles, stratPinZone, stratPinThumbClick, stratSheetPaces, stratSheetClearHole, stratPinSheetGrid,
+  ROUND_METHODS, ROUND_RES, stratRoundHole, stratRound, stratRoundTable,
   stratSheetSet, stratSheetDelete, stratSheetProgress,
   stratShotSVG, stratOverlay, stratDragInit
 });
