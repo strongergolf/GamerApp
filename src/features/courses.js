@@ -135,8 +135,9 @@ function renderHoleSVG(hole, opts){
   const green = cfPoly(hole.green,'#5ec77a','#2e7d44',0.95);
   const hazards = (hole.hazards||[]).map(z=>cfPoly(z.pts,hz[z.type]||'#999',null,z.type==='oob'?0.5:0.85)).join('');
   const tee = hole.tee?`<rect x="${hole.tee.x-10}" y="${hole.tee.y-10}" width="20" height="20" rx="4" fill="#222" stroke="#fff" stroke-width="2"/>`:'';
-  const pin = hole.pin?`<line x1="${hole.pin.x}" y1="${hole.pin.y}" x2="${hole.pin.x}" y2="${hole.pin.y-46}" stroke="#fff" stroke-width="2.5"/><polygon points="${hole.pin.x},${hole.pin.y-46} ${hole.pin.x+26},${hole.pin.y-38} ${hole.pin.x},${hole.pin.y-30}" fill="#d33"/><circle cx="${hole.pin.x}" cy="${hole.pin.y}" r="6" fill="#fff" stroke="#333"/>`:'';
-  const centerline = (hole.tee&&hole.pin)?`<line x1="${hole.tee.x}" y1="${hole.tee.y}" x2="${hole.pin.x}" y2="${hole.pin.y}" stroke="rgba(255,255,255,0.4)" stroke-width="2" stroke-dasharray="10,8"/>`:'';
+  const _pin = (typeof cfPin==='function'?cfPin(hole):null)||hole.pin;   // today's cut, not the map anchor
+  const pin = _pin?`<line x1="${_pin.x}" y1="${_pin.y}" x2="${_pin.x}" y2="${_pin.y-46}" stroke="#fff" stroke-width="2.5"/><polygon points="${_pin.x},${_pin.y-46} ${_pin.x+26},${_pin.y-38} ${_pin.x},${_pin.y-30}" fill="#d33"/><circle cx="${_pin.x}" cy="${_pin.y}" r="6" fill="#fff" stroke="#333"/>`:'';
+  const centerline = (hole.tee&&_pin)?`<line x1="${hole.tee.x}" y1="${hole.tee.y}" x2="${_pin.x}" y2="${_pin.y}" stroke="rgba(255,255,255,0.4)" stroke-width="2" stroke-dasharray="10,8"/>`:'';
   let draftSVG='';
   if(interactive && e.draft && e.draft.length){
     draftSVG=`<polyline points="${e.draft.map(p=>p.x+','+p.y).join(' ')}" fill="rgba(255,255,255,0.15)" stroke="var(--gold)" stroke-width="3"/>`+
@@ -186,7 +187,168 @@ function cfDistYd(hole,a,b){
   const ypu=cfYardsPerUnit(hole); if(ypu==null||!a||!b) return null;
   return Math.hypot(b.x-a.x, b.y-a.y)*ypu;
 }
-function cfDistToPinYd(hole,pt){ return (hole&&hole.pin)?cfDistYd(hole,pt,hole.pin):null; }
+/* ---------- WHERE THE HOLE IS CUT TODAY ----------
+   `hole.pin` is the MAPPED pin — the anchor OSM or the tracing tool put roughly at the middle
+   of the green. It is also the far end of the tee→pin line that infers the hole's scale, so
+   it must never move: shifting it would silently rescale the whole hole.
+
+   The pin a shot is actually played TO is a different thing, and it changes daily. It
+   resolves, in order:
+       the active pin sheet's position for this hole   (a real cut, typed off a pin sheet)
+       the middle of the green                          (the honest default)
+       the mapped pin                                   (a hole with no green traced)
+
+   Pin sheets are grouped per course and named, because that is how they arrive — one sheet
+   per round, often days ahead of a tournament, which is exactly when the preparation this
+   feeds is worth doing.
+
+   Cached in a WeakMap because cfDistToPinYd runs inside the optimiser's 49-sample loop and
+   this would otherwise re-resolve a few thousand times per aim candidate. */
+let CF_PIN_CACHE = new WeakMap();
+function cfPinCacheClear(){ CF_PIN_CACHE = new WeakMap(); }
+function cfGreenMid(hole){
+  const g=hole&&hole.green;
+  if(!g||g.length<3) return null;
+  let x=0,y=0; g.forEach(p=>{x+=p.x;y+=p.y;});
+  return {x:x/g.length, y:y/g.length};
+}
+function cfPinSheets(courseId){
+  STATE.play=STATE.play||{}; STATE.play.pinSheets=STATE.play.pinSheets||{};
+  return (STATE.play.pinSheets[courseId] = STATE.play.pinSheets[courseId] || {active:null, sheets:[]});
+}
+function cfActiveSheet(courseId){
+  const ps=cfPinSheets(courseId);
+  return ps.active ? (ps.sheets||[]).find(s=>s.id===ps.active)||null : null;
+}
+/* Which course does this hole belong to? Only called on a cache miss. */
+function cfCourseOf(hole){
+  const cs=STATE.courses||[];
+  for(let i=0;i<cs.length;i++) if((cs[i].holes||[]).indexOf(hole)>=0) return cs[i];
+  return null;
+}
+function cfPin(hole){
+  if(!hole) return null;
+  if(CF_PIN_CACHE.has(hole)) return CF_PIN_CACHE.get(hole);
+  let p=null;
+  const c=cfCourseOf(hole);
+  if(c){
+    const sheet=cfActiveSheet(c.id||c.name);
+    const cut=sheet && sheet.pins && sheet.pins[String(hole.num||0)];
+    if(cut && cut.x!=null) p={x:cut.x, y:cut.y};
+  }
+  if(!p) p=cfGreenMid(hole)||hole.pin||null;
+  CF_PIN_CACHE.set(hole,p);
+  return p;
+}
+/* Distances are measured to the pin that is actually cut, not the mapping anchor. */
+function cfDistToPinYd(hole,pt){ const p=cfPin(hole); return p?cfDistYd(hole,pt,p):null; }
+
+/* ---------- THE GREEN IN PIN-SHEET TERMS ----------
+   A pin sheet does not give coordinates, it gives paces: "8 on, 5 from the left". So the
+   green needs a front/back/left/right frame to translate into, oriented along the line you
+   play INTO it — tee → green centre. That is the orientation pin sheets are printed in, and
+   it is stable, which matters more here than being exactly the approach angle on a dogleg. */
+function cfGreenFrame(hole){
+  const ypu=cfYardsPerUnit(hole), mid=cfGreenMid(hole);
+  if(ypu==null||!mid||!hole.tee||!(hole.green||[]).length) return null;
+  const dx=mid.x-hole.tee.x, dy=mid.y-hole.tee.y, L=Math.hypot(dx,dy)||1;
+  const f={vx:dx/L, vy:dy/L, ux:-dy/L, uy:dx/L};
+  let dMin=Infinity,dMax=-Infinity,tMin=Infinity,tMax=-Infinity;
+  hole.green.forEach(p=>{
+    const ax=(p.x-mid.x)*ypu, ay=(p.y-mid.y)*ypu;
+    const d=ax*f.vx+ay*f.vy, t=ax*f.ux+ay*f.uy;
+    if(d<dMin)dMin=d; if(d>dMax)dMax=d; if(t<tMin)tMin=t; if(t>tMax)tMax=t;
+  });
+  return {mid, f, ypu, dMin, dMax, tMin, tMax, depth:dMax-dMin, width:tMax-tMin};
+}
+/* The green's extent across ONE axis at a given position on the other — a true cross-section
+   of the polygon, not its bounding box. A sheet saying "5 on, 3 from the left" means five
+   paces past the front edge WHERE THE PIN IS, and three in from the left edge AT THAT DEPTH.
+   On a rounded green the bounding-box corner is off the putting surface entirely, which is
+   how the first version of this put a front-left pin in the rough. */
+function cfGreenCross(hole, fr, axis, at){
+  const P=hole.green.map(p=>{ const ax=(p.x-fr.mid.x)*fr.ypu, ay=(p.y-fr.mid.y)*fr.ypu;
+    return { d:ax*fr.f.vx+ay*fr.f.vy, t:ax*fr.f.ux+ay*fr.f.uy }; });
+  const A=axis==='t'?'t':'d', B=axis==='t'?'d':'t';       // slice along A, measure B
+  const xs=[];
+  for(let i=0;i<P.length;i++){
+    const a=P[i], b=P[(i+1)%P.length];
+    if((a[A]-at)*(b[A]-at)>0) continue;
+    const den=b[A]-a[A];
+    xs.push(Math.abs(den)<1e-9 ? a[B] : a[B]+(b[B]-a[B])*((at-a[A])/den));
+  }
+  if(xs.length<2) return null;
+  return { lo:Math.min.apply(null,xs), hi:Math.max.apply(null,xs) };
+}
+/* Where today's pin sits, as a pin sheet would state it (yards). */
+function cfPinPaces(hole, pt){
+  const fr=cfGreenFrame(hole), p=pt||cfPin(hole);
+  if(!fr||!p) return null;
+  const ax=(p.x-fr.mid.x)*fr.ypu, ay=(p.y-fr.mid.y)*fr.ypu;
+  const d=ax*fr.f.vx+ay*fr.f.vy, t=ax*fr.f.ux+ay*fr.f.uy;
+  /* depth measured at the pin's own lateral line, width at the pin's own depth */
+  const dc=cfGreenCross(hole,fr,'t',t) || {lo:fr.dMin, hi:fr.dMax};
+  const tc=cfGreenCross(hole,fr,'d',d) || {lo:fr.tMin, hi:fr.tMax};
+  return { fromFront:d-dc.lo, fromBack:dc.hi-d, fromLeft:t-tc.lo, fromRight:tc.hi-t,
+           depth:dc.hi-dc.lo, width:tc.hi-tc.lo,
+           maxDepth:fr.depth, maxWidth:fr.width,
+           onGreen:cfPointInPoly(p,hole.green) };
+}
+/* The inverse — type the sheet's two numbers, get the point.
+   The two axes are coupled (how far "from the left" you are changes where the front edge is,
+   and vice versa), so this settles them together rather than solving once. Four passes is
+   plenty; greens are convex enough that it converges immediately. */
+const CF_PIN_INSET = 0.5;      // yards kept inside the edge — no pin is ever cut ON the line
+function cfPinFromPaces(hole, fromFront, fromLeft){
+  const fr=cfGreenFrame(hole); if(!fr) return null;
+  /* Clamp to the green's overall size FIRST. Without this a wild entry drives the iteration
+     into a corner where the cross-section is a point, and it settles somewhere meaningless
+     rather than at the edge the golfer asked for. */
+  const front=Math.max(0, Math.min(fr.depth, +fromFront||0));
+  const left =Math.max(0, Math.min(fr.width, +fromLeft ||0));
+  /* Never sit exactly on the boundary: the clamp would otherwise put a "26 on" pin on a
+     25.8-deep green precisely on the edge, where a point-in-polygon test is a coin flip and
+     the panel would tell the golfer their own pin sheet is off the green. */
+  const fit=(lo,hi,want)=>{ const span=hi-lo, in_=Math.min(CF_PIN_INSET, span/4);
+    return lo+Math.max(in_, Math.min(span-in_, want)); };
+  let t=fit(fr.tMin, fr.tMax, left), d=fit(fr.dMin, fr.dMax, front);
+  for(let i=0;i<4;i++){
+    const dc=cfGreenCross(hole,fr,'t',t); if(dc&&dc.hi-dc.lo>1) d=fit(dc.lo,dc.hi,front);
+    const tc=cfGreenCross(hole,fr,'d',d); if(tc&&tc.hi-tc.lo>1) t=fit(tc.lo,tc.hi,left);
+  }
+  return { x: Math.round(fr.mid.x + (fr.f.vx*d + fr.f.ux*t)/fr.ypu),
+           y: Math.round(fr.mid.y + (fr.f.vy*d + fr.f.uy*t)/fr.ypu) };
+}
+/* ---- sheet management ---- */
+function cfSheetAdd(courseId, name){
+  const ps=cfPinSheets(courseId);
+  const s={ id:'ps'+Date.now().toString(36), name:name||('Sheet '+((ps.sheets||[]).length+1)), pins:{} };
+  ps.sheets.push(s); ps.active=s.id; cfPinCacheClear(); saveState(); return s;
+}
+function cfSheetSelect(courseId, id){
+  const ps=cfPinSheets(courseId); ps.active = id||null; cfPinCacheClear(); saveState();
+}
+function cfSheetDelete(courseId, id){
+  const ps=cfPinSheets(courseId);
+  ps.sheets=(ps.sheets||[]).filter(s=>s.id!==id);
+  if(ps.active===id) ps.active=null;
+  cfPinCacheClear(); saveState();
+}
+function cfSheetRename(courseId, id, name){
+  const s=(cfPinSheets(courseId).sheets||[]).find(x=>x.id===id);
+  if(s){ s.name=name; saveState(); }
+}
+/* Set (or clear) this hole's cut on the active sheet. Creates a sheet if none is active,
+   because the first thing a golfer does is place a pin, not name a document. */
+function cfSetPin(courseId, holeNum, pt){
+  const ps=cfPinSheets(courseId);
+  let s=cfActiveSheet(courseId);
+  if(!s) s=cfSheetAdd(courseId, 'Pin sheet 1');
+  s.pins=s.pins||{};
+  if(pt) s.pins[String(holeNum)]={x:pt.x, y:pt.y};
+  else delete s.pins[String(holeNum)];
+  cfPinCacheClear(); saveState();
+}
 function cfDistFromTeeYd(hole,pt){ return (hole&&hole.tee)?cfDistYd(hole,hole.tee,pt):null; }
 
 /* ---- Georeference: field <-> lat/lon (OSM-imported holes only) ----
@@ -257,12 +419,13 @@ function cfSegPolyFirstHit(from,to,poly){
 }
 /* Runway in yards. null when already on the green, or the hole has no green mapped. */
 function cfRunwayYd(hole,pt){
-  if(!hole||!hole.pin||!(hole.green||[]).length||!pt) return null;
+  const _p=cfPin(hole);
+  if(!hole||!_p||!(hole.green||[]).length||!pt) return null;
   const ypu=cfYardsPerUnit(hole); if(ypu==null) return null;
   if(cfPointInPoly(pt,hole.green)) return null;
-  const e=cfSegPolyFirstHit(pt,hole.pin,hole.green);
+  const e=cfSegPolyFirstHit(pt,_p,hole.green);
   if(!e) return 0;                                   // line never reaches green → nothing to work with
-  return Math.hypot(hole.pin.x-e.x, hole.pin.y-e.y)*ypu;
+  return Math.hypot(_p.x-e.x, _p.y-e.y)*ypu;
 }
 /* Difficulty of a greenside recovery RELATIVE to the baseline, from runway alone. The SR
    tables already encode an average up-and-down for the distance; runway only says whether
@@ -659,6 +822,8 @@ function buildRoundTracker(){
 Object.assign(window, {
   CF_W, CF_H, cfCourses, cfCur, cfHole, cfAddCourse, cfDeleteCourse, cfSelectCourse, cfRenameCourse,
   cfIsBlankCourse, cfPruneBlankCourses,
+  cfPin, cfPinCacheClear, cfGreenMid, cfPinSheets, cfActiveSheet, cfCourseOf,
+  cfGreenFrame, cfGreenCross, cfPinPaces, cfPinFromPaces, cfSheetAdd, cfSheetSelect, cfSheetDelete, cfSheetRename, cfSetPin,
   cfAddHole, cfSelectHole, cfSetHoleField, cfSetMode, cfCanvasClick, cfFinishFeature, cfUndoPoint,
   cfClearFeature, cfLoadBg, cfClearBg, renderHoleSVG, buildCourses, cfModeHint, cfRefreshCanvas,
   cfYardsPerUnit, cfHasScale, cfDistYd, cfDistToPinYd, cfDistFromTeeYd,

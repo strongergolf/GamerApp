@@ -228,9 +228,9 @@ function aimClubs(){
    club, so the UI can show what the AIMING alone is worth. */
 function optimiseAim(hole, from, opts){
   opts=opts||{};
-  const ypu=cfYardsPerUnit(hole); if(ypu==null||!from||!hole.pin) return null;
+  const ypu=cfYardsPerUnit(hole); if(ypu==null||!from||!cfPin(hole)) return null;
   const hcp=cfHcp(opts.hcp), posture=opts.posture||'balanced';
-  const dx=hole.pin.x-from.x, dy=hole.pin.y-from.y, L=Math.hypot(dx,dy);
+  const dx=cfPin(hole).x-from.x, dy=cfPin(hole).y-from.y, L=Math.hypot(dx,dy);
   if(L<1e-6) return null;
   const vx=dx/L, vy=dy/L, ux=-vy, uy=vx;
   const clubs=(opts.clubs||aimClubs());
@@ -314,7 +314,7 @@ const APPROACH_LAT = 24, APPROACH_LONG = 12, APPROACH_SHORT = 24, APPROACH_STEP 
    plus the shot that plays it, or a {blocked} reason when there is nothing to optimise. */
 function optimiseApproach(hole, from, opts){
   opts=opts||{};
-  const ypu=cfYardsPerUnit(hole); if(ypu==null||!from||!hole.pin) return null;
+  const ypu=cfYardsPerUnit(hole); if(ypu==null||!from||!cfPin(hole)) return null;
   const lie=cfShotLie(hole,from);
   if(cfIsPenalty(lie)) return {blocked:'penalty', lie};
   if(lie==='green')   return {blocked:'green', lie, toPin:cfDistToPinYd(hole,from)};
@@ -326,12 +326,12 @@ function optimiseApproach(hole, from, opts){
   const cost=approachLieCostYd(lie);
   const longest=Math.max(...aimClubs().map(c=>c.total), 0);
   /* shot frame: v along ball→pin, u lateral */
-  const dx=hole.pin.x-from.x, dy=hole.pin.y-from.y, L=Math.hypot(dx,dy);
+  const dx=cfPin(hole).x-from.x, dy=cfPin(hole).y-from.y, L=Math.hypot(dx,dy);
   const vx=dx/L, vy=dy/L, ux=-vy, uy=vx;
   const results=[];
   for(let lat=-APPROACH_LAT; lat<=APPROACH_LAT; lat+=APPROACH_STEP){
     for(let dep=-APPROACH_SHORT; dep<=APPROACH_LONG; dep+=APPROACH_STEP){
-      const aim={ x:hole.pin.x+ux*(lat/ypu)+vx*(dep/ypu), y:hole.pin.y+uy*(lat/ypu)+vy*(dep/ypu) };
+      const aim={ x:cfPin(hole).x+ux*(lat/ypu)+vx*(dep/ypu), y:cfPin(hole).y+uy*(lat/ypu)+vy*(dep/ypu) };
       const geo=Math.hypot(aim.x-from.x,aim.y-from.y)*ypu;      // real yards to the spot
       const eff=geo+cost;                                        // what you must club for
       if(eff>longest+10) continue;                               // out of range
@@ -440,7 +440,7 @@ function shotZ(r, ctx){
 
 function optimiseShot(hole, from, opts){
   opts=opts||{};
-  const ypu=cfYardsPerUnit(hole); if(ypu==null||!from||!hole.pin) return null;
+  const ypu=cfYardsPerUnit(hole); if(ypu==null||!from||!cfPin(hole)) return null;
   const lie=cfShotLie(hole,from);
   const toPin=cfDistToPinYd(hole,from);
   if(cfIsPenalty(lie)) return {blocked:'penalty', lie, toPin};
@@ -456,7 +456,7 @@ function optimiseShot(hole, from, opts){
   const maxGeo = recovery ? Math.min(SHOT_RECOVERY_MAX_YD, toPin+10)
                           : Math.min(Math.max(30,longest-cost)+10, toPin+25);
   const minGeo = Math.min(recovery?15:25, maxGeo);
-  const dx=hole.pin.x-from.x, dy=hole.pin.y-from.y, L=Math.hypot(dx,dy)||1;
+  const dx=cfPin(hole).x-from.x, dy=cfPin(hole).y-from.y, L=Math.hypot(dx,dy)||1;
   const vx=dx/L, vy=dy/L, ux=-vy, uy=vx;
   const results=[];
   for(let i=0;i<=SHOT_ALONG_STEPS;i++){
@@ -543,6 +543,65 @@ function stratViewBox(){
   return { x:v.cx-w/2, y:v.cy-h/2, w, h };
 }
 function stratResetView(){ window.stratView={cx:CF_W/2, cy:CF_H/2, z:1}; buildHoleOverlay(); }
+
+/* ---------- PIN MODE: put the flag where the sheet says ----------
+   A pin sheet arrives days before a tournament and is the most concrete piece of preparation
+   a golfer gets. Placing it needs the green filling the screen — a 30-yard green is 3% of a
+   420-yard hole, and no amount of care with a mouse at that scale is worth anything. */
+function stratZoomGreen(hole){
+  const g=hole&&hole.green; if(!g||g.length<3) return false;
+  let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;
+  g.forEach(p=>{ if(p.x<x0)x0=p.x; if(p.x>x1)x1=p.x; if(p.y<y0)y0=p.y; if(p.y>y1)y1=p.y; });
+  const span=Math.max(x1-x0, (y1-y0)*CF_W/CF_H, 40)*1.9;   // margin so the surrounds show
+  window.stratView={ cx:(x0+x1)/2, cy:(y0+y1)/2, z:Math.max(1, Math.min(STRAT_ZMAX, CF_W/span)) };
+  return true;
+}
+function stratPinMode(on){
+  const cur=stratCurrent(); if(!cur) return;
+  window.stratShot.pinMode=!!on;
+  if(on){ if(!stratZoomGreen(cur.hole)) { window.stratShot.pinMode=false; toast('Trace this green first'); return; } }
+  else { window.stratView={cx:CF_W/2, cy:CF_H/2, z:1}; }
+  buildHoleOverlay();
+}
+/* Drag or type — both land here. */
+function stratSetPinAt(pt){
+  const cur=stratCurrent(); if(!cur) return;
+  cfSetPin(cur.course.id||cur.course.name, cur.hole.num||cur.hi+1, pt);
+  window.stratOptCache=null; stratClearLines(); buildHoleOverlay();
+}
+function stratSetPinPaces(which, val){
+  const cur=stratCurrent(); if(!cur) return;
+  const p=cfPinPaces(cur.hole); if(!p) return;
+  const front = which==='front' ? fromDisplay('distance', val) : p.fromFront;
+  const left  = which==='left'  ? fromDisplay('distance', val) : p.fromLeft;
+  const pt=cfPinFromPaces(cur.hole, front, left);
+  if(pt) stratSetPinAt(pt);
+}
+function stratPinReset(){
+  const cur=stratCurrent(); if(!cur) return;
+  cfSetPin(cur.course.id||cur.course.name, cur.hole.num||cur.hi+1, null);
+  window.stratOptCache=null; stratClearLines(); buildHoleOverlay();
+}
+function stratSheetSet(id){
+  const cur=stratCurrent(); if(!cur) return;
+  if(id==='__new'){ const n=prompt('Name this pin sheet (e.g. "Round 1 — Thu"):',''); if(n===null) { buildHoleOverlay(); return; } cfSheetAdd(cur.course.id||cur.course.name, n||undefined); }
+  else cfSheetSelect(cur.course.id||cur.course.name, id||null);
+  window.stratOptCache=null; stratClearLines(); buildHoleOverlay();
+}
+function stratSheetDelete(){
+  const cur=stratCurrent(); if(!cur) return;
+  const key=cur.course.id||cur.course.name, s=cfActiveSheet(key); if(!s) return;
+  if(!confirm(`Delete the pin sheet "${s.name}" and every pin on it?`)) return;
+  cfSheetDelete(key, s.id); window.stratOptCache=null; stratClearLines(); buildHoleOverlay();
+}
+/* How many of this course's holes the active sheet has a cut for — the progress a golfer
+   transcribing a sheet actually wants to see. */
+function stratSheetProgress(){
+  const cur=stratCurrent(); if(!cur) return null;
+  const s=cfActiveSheet(cur.course.id||cur.course.name); if(!s) return null;
+  const holes=(cur.course.holes||[]).length||18;
+  return { name:s.name, set:Object.keys(s.pins||{}).length, holes };
+}
 /* Which skill level the expected strokes and strokes-gained are measured against.
    null = the golfer's own handicap from their profile. */
 const STRAT_SKILLS = [['','My handicap'],['-6','Tour (+6)'],['0','Scratch'],['6','6 hcp'],['12','12 hcp'],['18','18 hcp'],['24','24 hcp']];
@@ -856,7 +915,7 @@ function stratSpan(pts, origin, ypu, f, alongYd, windowYd){
    shot number is this" but "is the green in range". Shared by the aim itself and by the
    caption that tells the player which preferences they are watching. */
 function stratPrefKind(hole, from){
-  const clubs=aimClubs(); if(!clubs.length||!from||!hole.pin) return null;
+  const clubs=aimClubs(); if(!clubs.length||!from||!cfPin(hole)) return null;
   const lie=cfShotLie(hole,from);
   if(cfIsRecovery(lie)) return 'recovery';
   const toPin=cfDistToPinYd(hole,from);
@@ -868,10 +927,10 @@ function stratPrefKind(hole, from){
 /* The aim the stored preferences imply for a shot played from `from`. Null when the hole or
    the bag can't support one, in which case the caller falls back to the naive line. */
 function stratPrefAim(hole, from, n){
-  const ypu=cfYardsPerUnit(hole); if(ypu==null||!from||!hole.pin) return null;
+  const ypu=cfYardsPerUnit(hole); if(ypu==null||!from||!cfPin(hole)) return null;
   const clubs=aimClubs(); if(!clubs.length) return null;
   const P=STATE.strategy||{};
-  const dx=hole.pin.x-from.x, dy=hole.pin.y-from.y, L=Math.hypot(dx,dy)||1;
+  const dx=cfPin(hole).x-from.x, dy=cfPin(hole).y-from.y, L=Math.hypot(dx,dy)||1;
   const f={ vx:dx/L, vy:dy/L, ux:-dy/L, uy:dx/L };
   const toPin=L*ypu, longest=clubs[0].total;             // aimClubs() sorts longest first
   const lie=cfShotLie(hole,from), cost=approachLieCostYd(lie);
@@ -888,7 +947,7 @@ function stratPrefAim(hole, from, n){
   /* ---- APPROACH: the green is in range, so the preferences pick a SPOT on it. ---- */
   let gLatLo=Infinity,gLatHi=-Infinity,gDepLo=Infinity,gDepHi=-Infinity;
   (hole.green||[]).forEach(p=>{
-    const ax=(p.x-hole.pin.x)*ypu, ay=(p.y-hole.pin.y)*ypu;
+    const ax=(p.x-cfPin(hole).x)*ypu, ay=(p.y-cfPin(hole).y)*ypu;
     const d=ax*f.vx+ay*f.vy, t=ax*f.ux+ay*f.uy;
     if(d<gDepLo)gDepLo=d; if(d>gDepHi)gDepHi=d;
     if(t<gLatLo)gLatLo=t; if(t>gLatHi)gLatHi=t;
@@ -988,9 +1047,9 @@ function stratShapeFit(hole, r){
 /* Everything you have, straight at the flag — the fallback when a hole has no mapped
    fairway or green for the preferences to read. */
 function stratNaiveAim(hole, from){
-  const ypu=cfYardsPerUnit(hole); if(ypu==null||!from||!hole.pin) return null;
+  const ypu=cfYardsPerUnit(hole); if(ypu==null||!from||!cfPin(hole)) return null;
   const clubs=aimClubs(); if(!clubs.length) return null;
-  const dx=hole.pin.x-from.x, dy=hole.pin.y-from.y, L=Math.hypot(dx,dy)||1;
+  const dx=cfPin(hole).x-from.x, dy=cfPin(hole).y-from.y, L=Math.hypot(dx,dy)||1;
   const longest=clubs[0].total;
   const cap=cfIsRecovery(cfShotLie(hole,from))?SHOT_RECOVERY_MAX_YD:longest;  // no full shots out of trees
   const d=Math.min(L*ypu, longest, cap);
@@ -1153,7 +1212,7 @@ function buildHoleOverlay(){
       </select>
     </div>`;
   if(!hole){ wrap.innerHTML=head+`<div class="lvl-soon-note">This course has no holes yet.</div>`; return; }
-  if(!cfHasScale(hole) || !hole.tee || !hole.pin){
+  if(!cfHasScale(hole) || !hole.tee || !cfPin(hole)){
     wrap.innerHTML=head+`<div class="lvl-soon-note">Hole ${hole.num||hi+1} needs a tee, a pin and a scale before it can be optimised. Holes imported from OpenStreetMap get all three automatically; a hand-traced hole needs the <b>calibrate</b> tool (or just a tee, a pin and the hole yardage).</div>`;
     return;
   }
@@ -1279,6 +1338,35 @@ function buildHoleOverlay(){
       ${nAnch?`<button type="button" class="strat-mode-btn" onclick="stratClearAnchors()">clear all ${nAnch}</button>`:''}
       <span class="sh-anchor-hint">${anchored?'Drag to where the ball actually finished.':'Drag to move the aim.'}</span>
     </div>`;
+  /* ---- PIN ROW: which sheet is live, and the two numbers a pin sheet actually gives ----
+     A sheet states a cut as paces on and paces from a side, so those are the fields — typed
+     straight off the paper — with dragging as the alternative for anyone working from a
+     picture. The green's own depth and width sit beside them, because "8 on" means nothing
+     without knowing the green is 32 deep. */
+  const pinOn=!!S.pinMode;
+  const paces=cfPinPaces(hole);
+  const prog=stratSheetProgress();
+  const key=course.id||course.name;
+  const sheets=cfPinSheets(key).sheets||[];
+  const activeId=(cfActiveSheet(key)||{}).id||'';
+  const cut=!!(cfActiveSheet(key)&&(cfActiveSheet(key).pins||{})[String(hole.num||hi+1)]);
+  const sheetSel=`<select class="strat-select" style="max-width:170px" onchange="stratSheetSet(this.value)">
+      <option value=""${activeId?'':' selected'}>Middle of the green</option>
+      ${sheets.map(s=>`<option value="${s.id}"${s.id===activeId?' selected':''}>${escapeHtml(s.name)}</option>`).join('')}
+      <option value="__new">+ New pin sheet…</option>
+    </select>`;
+  const pinFields = (pinOn&&paces) ? `<div class="pin-fields">
+      <label>On<input type="number" step="1" min="0" max="${ydNum(paces.maxDepth)}" value="${ydNum(paces.fromFront)}" oninput="stratSetPinPaces('front',this.value)"></label>
+      <label>From left<input type="number" step="1" min="0" max="${ydNum(paces.maxWidth)}" value="${ydNum(paces.fromLeft)}" oninput="stratSetPinPaces('left',this.value)"></label>
+      <span class="pin-green-dim">green here: ${ydNum(paces.depth)} deep · ${ydNum(paces.width)} wide ${ydUnit()}${paces.onGreen?'':' · <b class="pin-off">off the green</b>'}</span>
+    </div>` : '';
+  const pinRow=`<div class="strat-picks sh-pin-row">
+      ${sheetSel}
+      <button type="button" class="strat-mode-btn${pinOn?' on':''}" onclick="stratPinMode(${pinOn?'false':'true'})" title="${pinOn?'Back to the whole hole':'Zoom to the green and place the cut for this round'}">⛳ ${pinOn?'done':'place pin'}</button>
+      ${cut?`<button type="button" class="strat-mode-btn" onclick="stratPinReset()" title="Back to the middle of the green for this hole">↺ middle</button>`:''}
+      ${activeId?`<button type="button" class="strat-mode-btn" onclick="stratSheetDelete()" title="Delete this pin sheet">✕ sheet</button>`:''}
+      ${prog?`<span class="sh-anchor-hint">${escapeHtml(prog.name)} · ${prog.set}/${prog.holes} holes</span>`:'<span class="sh-anchor-hint">No sheet — playing the middle</span>'}
+    </div>${pinFields}`;
   const prefWhy = anchored
     ? `<b class="ln-S">S-${n}</b> is anchored — its strokes gained is measured off where the ball finished, and S-${n+1} plays from there.`
     : dragged
@@ -1305,10 +1393,15 @@ function buildHoleOverlay(){
     const fwTxt = fit.straight
       ? 'The fairway runs straight through the landing zone, so the shape crosses it.'
       : `The fairway bends <b>${mag(fit.fairway)}° ${side(fit.fairway)}</b> through the landing zone, so the shape works <b>${fit.withHole?'with':'against'}</b> the hole.`;
-    const worth = dFwy==null ? ''
+    /* Say the two rates rather than the difference. "+2.4 points of fairway" was my own
+       shorthand for percentage points of fairways hit, and it reads just as easily as
+       strokes, or as a score out of 100. Two numbers need no glossary. */
+    const shaped = (rS.lieMix.fairway||0)*100;
+    const straightPct = flat ? (flat.lieMix.fairway||0)*100 : null;
+    const worth = straightPct==null ? ''
       : Math.abs(dFwy)<0.5
-        ? ` Against the same shot hit straight it is worth <b>less than half a point</b> of fairway from here.`
-        : ` Against the same shot hit straight it is worth <b>${dFwy>0?'+':'−'}${Math.abs(dFwy).toFixed(1)}</b> points of fairway from here.`;
+        ? ` It holds this fairway <b>${Math.round(shaped)}%</b> of the time — the same as hitting it straight.`
+        : ` It holds this fairway <b>${Math.round(shaped)}%</b> of the time, against <b>${Math.round(straightPct)}%</b> hit straight.`;
     fitNote=`<div class="sh-fit${fit.withHole?' ok':''}">Your <b>${fit.club}</b> ${
       fit.shape.toLowerCase()}s about <b>${fmtYd(fit.curve)}</b>, landing <b>${mag(fit.tilt)}° ${side(fit.tilt)}</b> of its start line. ${
       fwTxt}${worth}</div>`;
@@ -1344,6 +1437,7 @@ function buildHoleOverlay(){
         <div class="strat-picks">${shotBtns}</div>
         <div class="strat-picks">${lineBtns}<button type="button" class="strat-mode-btn" onclick="stratResetAim()">↺ reset</button></div>
         ${S.active==='S'?anchorRow:''}
+        ${pinRow}
       </div>
     </div>
     <div class="strat-hole-grid">
@@ -1386,6 +1480,8 @@ function stratDragInit(wrap){
     const p=ptOf(e); if(!p) return;
     const now=Date.now(); if(!force && now-last<50) return; last=now;
     const S=window.stratShot, n=S.shotNum;
+    /* In pin mode the drag is placing the flag, not aiming a shot. */
+    if(S.pinMode){ if(typeof stratSetPinAt==='function') stratSetPinAt(p); return; }
     if(S.active==='O') return;                       // the optimiser's line is not draggable
     /* One drag target at a time, and the panel says which: an anchored shot's finish is the
        thing you are specifying, so the drag moves that; release the anchor to aim again. */
@@ -1414,7 +1510,7 @@ function stratDragInit(wrap){
   wrap.addEventListener('pointerdown',e=>{
     if(!e.target.closest||!e.target.closest('.strat-hole-map')) return;
     if(e.pointerType==='mouse'&&e.button===1){ mode='pan'; panFrom={x:e.clientX,y:e.clientY}; }
-    else { if(window.stratShot.active==='O') return; mode='aim'; }
+    else { if(window.stratShot.active==='O'&&!window.stratShot.pinMode) return; mode='aim'; }
     try{ wrap.setPointerCapture(e.pointerId); }catch(_){}
     if(mode==='aim') setAim(e,true);
     e.preventDefault();
@@ -1459,5 +1555,7 @@ Object.assign(window, {
   FIT_STEP_YD, FIT_MAX_DEG, FIT_TURN_MAX, FIT_LEAN, FIT_TOL_DEG, stratFairwayTilt, stratShapeFit,
   stratAnchorKey, stratAnchors, stratAnchorAt, stratAnchorCount, stratToggleAnchor, stratClearAnchors,
   stratSaveSel, stratRestoreSel, stratHoleReady, stratHoleScore, stratBestCourseIdx,
+  stratZoomGreen, stratPinMode, stratSetPinAt, stratSetPinPaces, stratPinReset,
+  stratSheetSet, stratSheetDelete, stratSheetProgress,
   stratShotSVG, stratOverlay, stratDragInit
 });

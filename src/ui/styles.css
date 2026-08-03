@@ -1053,3 +1053,16 @@ body.theme-dark .sh-fit.ok{border-left-color:var(--green2);background:rgba(0,133
 .strike-lean b{color:var(--ink2)}
 @media(max-width:520px){.strike-row{grid-template-columns:1fr auto;grid-auto-flow:row dense}
   .strike-row input[type=range]{grid-column:1/-1}}
+
+/* ---- Pin sheet: place today's cut on the green ---- */
+.sh-pin-row{align-items:center}
+/* #b8455a on the tinted background measures 4.04:1 — darkened to clear AA */
+.sh-pin-row .strat-mode-btn.on{border-color:#9c3348;color:#9c3348;background:rgba(217,96,112,.14)}
+body.theme-dark .sh-pin-row .strat-mode-btn.on{border-color:var(--c-wood);color:var(--c-wood);background:rgba(217,96,112,.18)}
+.pin-fields{display:flex;gap:8px 12px;align-items:flex-end;flex-wrap:wrap;margin:2px 0 4px}
+.pin-fields label{display:flex;flex-direction:column;gap:3px;font-family:ui-monospace,monospace;font-size:.5rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.pin-fields input{width:72px;font-family:ui-monospace,monospace;font-size:.86rem;font-weight:800;padding:5px 7px;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;color:var(--ink);outline:none}
+.pin-fields input:focus{border-color:var(--green)}
+.pin-green-dim{font-family:ui-monospace,monospace;font-size:.55rem;color:var(--muted);padding-bottom:6px}
+.pin-off{color:#b8455a}
+body.theme-dark .pin-off{color:var(--c-wood)}
