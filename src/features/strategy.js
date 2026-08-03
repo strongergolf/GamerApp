@@ -120,6 +120,7 @@ function aimSamples(hole, from, aim, opt){
   const vx=dx/L, vy=dy/L, ux=-vy, uy=vx;          // along-shot and lateral unit vectors
   const shotYd=(opt.sigmaYd!=null)?opt.sigmaYd:L*ypu;
   const sLat=aimSigmaLat(shotYd)*(opt.latMult||1), sDist=aimSigmaDist(shotYd)*(opt.depthMult||1);
+  const roll=+opt.rollYd||0;
   /* ---- The pattern is a CORRELATION, not a rotated ellipse ----
      This used to rotate the (lateral × depth) ellipse by a lean angle, and that quietly had
      the sign backwards for most of the bag. Rotating a wide-shallow ellipse by +θ carries its
@@ -143,8 +144,10 @@ function aimSamples(hole, from, aim, opt){
     const dist=ed;
     /* +rho leans the pattern LEFT as it runs long; lateral is +right, hence the minus */
     const lat=(-rho*AIM_Z[j] + k*el)*sLat;
-    out.push({ pt:{ x:aim.x+(ux*lat+vx*dist)/ypu, y:aim.y+(uy*lat+vy*dist)/ypu },
-               w:(AIM_W[i]*AIM_W[j])/(AIM_WSUM*AIM_WSUM) });
+    const px=aim.x+(ux*lat+vx*dist)/ypu, py=aim.y+(uy*lat+vy*dist)/ypu;
+    /* where it pitched: the finish pulled back down the shot line by this club's roll */
+    const land=roll>0 ? { x:px-vx*roll/ypu, y:py-vy*roll/ypu } : null;
+    out.push({ pt:{x:px,y:py}, land, w:(AIM_W[i]*AIM_W[j])/(AIM_WSUM*AIM_WSUM) });
   }
   return out;
 }
@@ -189,8 +192,8 @@ function aimScore(hole, from, aim, hcp, posture, opt){
   const s=aimSamples(hole,from,aim,opt); if(!s.length) return null;
   let wsum=0, mean=0, pen=0, dsum=0; const rows=[], lieMix={};
   for(let i=0;i<s.length;i++){
-    const e=cfExpectedStrokes(hole,s[i].pt,hcp); if(e==null) continue;
-    const lie=cfLieAt(hole,s[i].pt), w=s[i].w;
+    const lie=cfCarryLie(hole, s[i].land, s[i].pt), w=s[i].w;
+    const e=cfExpectedStrokes(hole,s[i].pt,hcp,lie); if(e==null) continue;
     mean+=e*w; wsum+=w; if(cfIsPenalty(lie)) pen+=w;
     const dp=cfDistToPinYd(hole,s[i].pt); if(dp!=null) dsum+=dp*w;   // where it leaves you
     lieMix[lie]=(lieMix[lie]||0)+w;
@@ -305,7 +308,15 @@ function aimShotSig(effYd){
   const shot=approachShotName(effYd);
   const club=shot&&shot.id?(STATE.clubs||[]).find(c=>c.id===shot.id):null;
   const sh=shot&&shot.id?aimClubShape(shot.id):null;
-  return { tiltDeg:sh?sh.tilt:0, clubType:club?club.type:'iron' };
+  /* How much of this shot is roll, so the sampler can tell where it PITCHED from where it
+     stopped. Scaled to the shot actually being played rather than the club's stock number —
+     a three-quarter 8-iron does not release like a full one. */
+  const p=(shot&&shot.id&&typeof perf==='function')?perf(shot.id):null;
+  let roll=0;
+  if(p&&p.total>0&&p.carry>0){
+    roll=Math.max(0,p.total-p.carry)*Math.max(0.3, Math.min(1.2, (+effYd||p.total)/p.total));
+  }
+  return { tiltDeg:sh?sh.tilt:0, clubType:club?club.type:'iron', rollYd:roll };
 }
 function aimTiltFor(effYd){ return aimShotSig(effYd).tiltDeg; }
 const APPROACH_LAT = 24, APPROACH_LONG = 12, APPROACH_SHORT = 24, APPROACH_STEP = 4;
@@ -1613,6 +1624,28 @@ function buildHoleOverlay(){
     : kind==='tee'      ? `<b class="ln-S">S-${n}</b> plays your tee preferences: <b>${stratLabel('teeTarget').toLowerCase()}</b>, ${stratLabel('teeClub').toLowerCase()}.`
     : kind==='recovery' ? `<b class="ln-S">S-${n}</b> is a punch-out — no preference applies from the trees.`
     : `<b class="ln-S">S-${n}</b> follows your strategy preferences.`;
+  /* ---- COVER NUMBERS: what it takes to fly what is in the way ----
+     The yardage to the flag is not the number a golfer needs over a fronting bunker — the
+     cover number is. Shown for the shot being edited, with what this club actually carries,
+     because "168 to clear" only means something next to "you carry 163". */
+  const coverRow=(function(){
+    const r=shots.S;
+    if(!r||r.blocked||!r.from||!r.aim) return '';
+    const cov=cfCoverNumbers(hole, r.from, r.aim).filter(c=>c.cover>8 && !c.inside);
+    if(!cov.length) return '';
+    const shot=approachShotName(r.sig.sigmaYd);
+    const p=(shot&&shot.id&&typeof perf==='function')?perf(shot.id):null;
+    const carry=(p&&p.carry)?p.carry*Math.max(0.3,Math.min(1.2,(r.sig.sigmaYd)/(p.total||p.carry))):null;
+    const items=cov.slice(0,3).map(c=>{
+      const clears=(carry!=null)&&(carry>=c.cover);
+      const gap=(carry!=null)?carry-c.cover:null;
+      return `<span class="cv-item${carry==null?'':clears?' ok':' short'}">
+        <b>${ydNum(c.cover)}</b> to clear the ${c.label}
+        <i>starts ${ydNum(c.starts)}${gap==null?'':clears?` · ${ydNum(gap)} spare`:` · ${ydNum(-gap)} short`}</i></span>`;
+    }).join('');
+    return `<div class="cv-row"><span class="cv-lbl">Cover</span>${items}${
+      carry!=null?`<span class="cv-carry">${shot.label} carries <b>${fmtYd(carry)}</b></span>`:''}</div>`;
+  })();
   /* Does the shape fit the fairway? The practical half of the landing-heading model, and the
      one number that settles it: re-score the SAME shot with the tilt taken out, and the
      difference in fairway rate is what this club's curve is worth on this hole. */
@@ -1686,6 +1719,7 @@ function buildHoleOverlay(){
           ${oRes&&oRes.best.category?`<div class="sh-cat">${oRes.best.category}</div>`:''}
           ${verdict}
           <div class="sh-pref-note">${prefWhy}</div>
+          ${coverRow}
           ${fitNote}
           ${prefBox}
         </div>

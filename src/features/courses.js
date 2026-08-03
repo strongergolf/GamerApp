@@ -457,6 +457,52 @@ function cfSegPolyFirstHit(from,to,poly){
   }
   return best;
 }
+/* ---------- COVER NUMBERS: what it takes to fly a hazard ----------
+   A golfer standing over a shot with a bunker fronting the green does not want to know the
+   yardage to the pin — they want the COVER NUMBER: how far they must CARRY for that hazard
+   to stop existing. It is the distance to the FAR edge of the hazard along the line of play,
+   which is a different question from the distance to its near edge (where trouble starts)
+   and from the yardage to the flag.
+
+   Both edges are worth having: the near one says where the hazard begins, the far one says
+   what clears it, and the gap between them is how much room there is to be short and still
+   be fine. Returned in yards from `from`, or null when the line simply misses the hazard. */
+function cfSegPolyAllHits(from,to,poly){
+  if(!poly||poly.length<3) return [];
+  const hits=[];
+  for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+    const h=cfSegHit(from,to,poly[j],poly[i]);
+    if(h) hits.push(h);
+  }
+  return hits.sort((a,b)=>a.t-b.t);
+}
+function cfHazardSpan(hole, from, to, hz){
+  const ypu=cfYardsPerUnit(hole); if(ypu==null||!from||!to||!hz||!(hz.pts||[]).length) return null;
+  const L=Math.hypot(to.x-from.x, to.y-from.y); if(L<1e-6) return null;
+  const hits=cfSegPolyAllHits(from,to,hz.pts);
+  const inside=cfPointInPoly(from,hz.pts);
+  if(!hits.length) return inside?{near:0, far:L*ypu, inside:true, type:hz.type}:null;
+  const near = inside ? 0 : hits[0].t*L*ypu;
+  const far  = hits[hits.length-1].t*L*ypu;
+  /* a line that enters but never leaves within the segment: the far edge is past the target */
+  return { near, far, inside, type:hz.type, openEnded:(hits.length%2===1 && !inside) };
+}
+/* Every hazard the line of play crosses, nearest first. `to` defaults to the cut. */
+const CF_COVER_TYPES = { water:'penalty area', sand:'bunker', oob:'out of bounds' };
+function cfCoverNumbers(hole, from, to){
+  const target=to||cfPin(hole);
+  if(!hole||!from||!target) return [];
+  const out=[];
+  (hole.hazards||[]).forEach(hz=>{
+    if(!CF_COVER_TYPES[hz.type]) return;             // trees are a line-of-sight question, not a carry
+    const sp=cfHazardSpan(hole, from, target, hz);
+    if(!sp) return;
+    out.push({ type:hz.type, label:CF_COVER_TYPES[hz.type],
+               starts:sp.near, cover:sp.far, width:sp.far-sp.near,
+               inside:sp.inside, openEnded:!!sp.openEnded });
+  });
+  return out.sort((a,b)=>a.starts-b.starts);
+}
 /* Runway in yards. null when already on the green, or the hole has no green mapped. */
 function cfRunwayYd(hole,pt){
   const _p=cfPin(hole);
@@ -520,6 +566,23 @@ function cfShotLie(hole,pt){
   }
   return cfLieAt(hole,pt);
 }
+/* ---------- WHERE IT LANDED vs WHERE IT STOPPED ----------
+   A ball that comes to rest past a front bunker is only safe if it FLEW the bunker. The model
+   classified every shot by its finish, so a sample that pitched in the sand and would have
+   stayed there was scored as though it had bounced through onto the green — which is exactly
+   backwards on the holes where carry matters most.
+
+   So a penalty area or a bunker under the LANDING point wins over the finish: you do not roll
+   out of water, and you do not roll out of a greenside bunker through its lip. Everything
+   else is still decided by where the ball stops, which is correct — a ball that pitches on
+   the green and releases into a back bunker really is in that bunker. */
+function cfCarryLie(hole, landing, finish){
+  if(landing){
+    const l=cfLieAt(hole, landing);
+    if(l==='water'||l==='oob'||l==='sand') return l;
+  }
+  return cfShotLie(hole, finish);
+}
 /* Mapped lie -> the strokes-gained baseline lie used by srForPlayer(). */
 function cfSgLie(lie){ return lie==='green'?'green' : lie==='fairway'?'fairway' : lie==='sand'?'sand' : 'rough'; }
 function cfIsPenalty(lie){ return lie==='water'||lie==='oob'; }
@@ -542,10 +605,13 @@ function cfHcp(hcp){
    minimises. Green distances convert to FEET (the SR green table is in feet).
    NOTE: penalty areas are approximated as one stroke plus a rough-lie recovery at the
    same distance. Real relief (stroke-and-distance vs lateral drop) is a refinement. */
-function cfExpectedStrokes(hole,pt,hcp){
+function cfExpectedStrokes(hole,pt,hcp,lieOverride){
   if(typeof srForPlayer!=='function') return null;
   const d=cfDistToPinYd(hole,pt); if(d==null) return null;
-  const lie=cfLieAt(hole,pt), h=cfHcp(hcp);
+  /* lieOverride lets a caller price a sample by where it PITCHED rather than where it
+     stopped (see cfCarryLie). Without it the lie mix could report water while the strokes
+     were still being taken off the green the ball never legally reached. */
+  const lie=lieOverride||cfLieAt(hole,pt), h=cfHcp(hcp);
   /* Worst lies, worst first. The optimiser minimises expected strokes, so getting these
      magnitudes right IS the avoidance priority — no separate rule needed:
        OUT OF BOUNDS  stroke AND distance: you replay the shot, so two strokes on top of a
@@ -868,9 +934,9 @@ Object.assign(window, {
   cfClearFeature, cfLoadBg, cfClearBg, renderHoleSVG, buildCourses, cfModeHint, cfRefreshCanvas,
   cfYardsPerUnit, cfHasScale, cfDistYd, cfDistToPinYd, cfDistFromTeeYd,
   cfFieldToLatLon, cfLatLonToField, cfPointInPoly, cfDistPtSeg, cfDistToPoly,
-  cfLieAt, cfShotLie, CF_TEE_TOL, cfSgLie, cfIsPenalty, cfIsRecovery, CF_LIE_LABEL, CF_LIE_ORDER, CF_RECOVERY_ADV,
+  cfLieAt, cfShotLie, cfCarryLie, CF_TEE_TOL, cfSgLie, cfIsPenalty, cfIsRecovery, CF_LIE_LABEL, CF_LIE_ORDER, CF_RECOVERY_ADV,
   osmSpanM, osmTreeCircle, cfDistToHazardYd, cfHcp,
-  cfSegHit, cfSegPolyFirstHit, cfRunwayYd, cfRunwayAdj, CF_RUNWAY_MAX,
+  cfSegHit, cfSegPolyFirstHit, cfSegPolyAllHits, cfHazardSpan, cfCoverNumbers, CF_COVER_TYPES, cfRunwayYd, cfRunwayAdj, CF_RUNWAY_MAX,
   cfExpectedStrokes, cfShotContext,
   osmToMeters, osmCentroid, osmParse, osmNearestHoleIdx, osmBuildHole, osmBuildCourse, cfOsmImport, cfImportBox, cfLoadPresets,
   startRound, endRound, buildRoundTracker

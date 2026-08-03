@@ -1128,3 +1128,16 @@ body.theme-dark .rt-tbl .rt-worse{color:var(--c-wood)} body.theme-dark .rt-tbl .
 .rt-foot{margin-top:8px;font-family:Arial,sans-serif;font-size:.66rem;line-height:1.5;color:var(--muted)}
 .rt-foot b{color:var(--ink2)}
 .rt-tbl .rt-level{color:var(--muted);font-size:.58rem;font-weight:400}
+
+/* ---- Cover numbers: what it takes to fly what is in the way ---- */
+.cv-row{display:flex;flex-wrap:wrap;gap:5px 9px;align-items:center;margin-top:7px;padding:7px 9px;
+  background:var(--bg2);border:1px solid var(--border);border-radius:7px}
+.cv-lbl{font-family:ui-monospace,monospace;font-size:.5rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.cv-item{display:inline-flex;flex-direction:column;font-family:Arial,sans-serif;font-size:.72rem;color:var(--ink2)}
+.cv-item b{font-family:ui-monospace,monospace;font-weight:800;color:var(--ink)}
+.cv-item i{font-family:ui-monospace,monospace;font-style:normal;font-size:.54rem;color:var(--muted)}
+.cv-item.ok b{color:#00693a} .cv-item.short b{color:#9c3348}
+body.theme-dark .cv-item.ok b{color:var(--green2)} body.theme-dark .cv-item.short b{color:var(--c-wood)}
+.cv-carry{margin-left:auto;font-family:ui-monospace,monospace;font-size:.58rem;color:var(--muted)}
+.cv-carry b{color:var(--ink2)}
+@media(max-width:520px){.cv-carry{margin-left:0;width:100%}}
