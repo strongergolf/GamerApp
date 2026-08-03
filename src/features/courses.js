@@ -298,6 +298,46 @@ function cfPinPaces(hole, pt){
    The two axes are coupled (how far "from the left" you are changes where the front edge is,
    and vice versa), so this settles them together rather than solving once. Four passes is
    plenty; greens are convex enough that it converges immediately. */
+/* ---------- A GREEN, DRAWN THE WAY A PIN SHEET DRAWS IT ----------
+   Sheets orient every green the same way: approach from the bottom, front edge nearest you.
+   That is what makes eighteen of them scannable at once — the eye learns one orientation and
+   reads position, not shape. So the polygon is projected into the green's own frame and
+   redrawn upright, rather than shown at whatever angle the hole happens to run on the map. */
+function cfGreenThumb(hole, W, H, opts){
+  opts=opts||{};
+  const fr=cfGreenFrame(hole); if(!fr) return '';
+  const pad=7, cd=(fr.dMin+fr.dMax)/2, ct=(fr.tMin+fr.tMax)/2;
+  const s=Math.min((W-2*pad)/Math.max(1,fr.width), (H-2*pad)/Math.max(1,fr.depth));
+  const X=t=>W/2+(t-ct)*s, Y=d=>H/2-(d-cd)*s;          // d increases UP: front at the bottom
+  const proj=p=>{ const ax=(p.x-fr.mid.x)*fr.ypu, ay=(p.y-fr.mid.y)*fr.ypu;
+    return { d:ax*fr.f.vx+ay*fr.f.vy, t:ax*fr.f.ux+ay*fr.f.uy }; };
+  const poly=hole.green.map(p=>{const q=proj(p); return X(q.t).toFixed(1)+','+Y(q.d).toFixed(1);}).join(' ');
+  const pin=cfPin(hole), pq=pin?proj(pin):null;
+  /* bunkers touching the green give the eye something to place the cut against */
+  const hz=(hole.hazards||[]).filter(z=>z.type==='sand').map(z=>{
+    const pts=z.pts.map(p=>{const q=proj(p); return X(q.t).toFixed(1)+','+Y(q.d).toFixed(1);}).join(' ');
+    return `<polygon points="${pts}" fill="#d9c98a" fill-opacity="0.5"/>`; }).join('');
+  const cut=!!opts.cut;
+  return `<svg viewBox="0 0 ${W} ${H}" class="pg-svg" data-hole="${hole.num||0}" style="width:100%;display:block"
+      ${opts.click?`onclick="stratPinThumbClick(event,${hole.num||0})"`:''}>
+    <rect width="${W}" height="${H}" fill="var(--bg2)" rx="6"/>
+    ${hz}
+    <polygon points="${poly}" fill="#5ec77a" fill-opacity="0.55" stroke="#2e7d44" stroke-width="1.4"/>
+    <line x1="${pad}" y1="${H-3}" x2="${W-pad}" y2="${H-3}" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3,3" opacity="0.7"/>
+    ${pq?`<circle cx="${X(pq.t).toFixed(1)}" cy="${Y(pq.d).toFixed(1)}" r="${cut?4.2:3.4}"
+       fill="${cut?'#d33':'var(--muted)'}" stroke="#fff" stroke-width="1.4"/>`:''}
+  </svg>`;
+}
+/* Inverse of the thumb projection: where on the green did that click land? */
+function cfGreenThumbPoint(hole, W, H, px, py){
+  const fr=cfGreenFrame(hole); if(!fr) return null;
+  const pad=7, cd=(fr.dMin+fr.dMax)/2, ct=(fr.tMin+fr.tMax)/2;
+  const s=Math.min((W-2*pad)/Math.max(1,fr.width), (H-2*pad)/Math.max(1,fr.depth));
+  const t=ct+(px-W/2)/s, d=cd-(py-H/2)/s;
+  return { x: Math.round(fr.mid.x+(fr.f.vx*d+fr.f.ux*t)/fr.ypu),
+           y: Math.round(fr.mid.y+(fr.f.vy*d+fr.f.uy*t)/fr.ypu) };
+}
+
 const CF_PIN_INSET = 0.5;      // yards kept inside the edge — no pin is ever cut ON the line
 function cfPinFromPaces(hole, fromFront, fromLeft){
   const fr=cfGreenFrame(hole); if(!fr) return null;
@@ -823,7 +863,7 @@ Object.assign(window, {
   CF_W, CF_H, cfCourses, cfCur, cfHole, cfAddCourse, cfDeleteCourse, cfSelectCourse, cfRenameCourse,
   cfIsBlankCourse, cfPruneBlankCourses,
   cfPin, cfPinCacheClear, cfGreenMid, cfPinSheets, cfActiveSheet, cfCourseOf,
-  cfGreenFrame, cfGreenCross, cfPinPaces, cfPinFromPaces, cfSheetAdd, cfSheetSelect, cfSheetDelete, cfSheetRename, cfSetPin,
+  cfGreenFrame, cfGreenCross, cfPinPaces, cfPinFromPaces, cfGreenThumb, cfGreenThumbPoint, cfSheetAdd, cfSheetSelect, cfSheetDelete, cfSheetRename, cfSetPin,
   cfAddHole, cfSelectHole, cfSetHoleField, cfSetMode, cfCanvasClick, cfFinishFeature, cfUndoPoint,
   cfClearFeature, cfLoadBg, cfClearBg, renderHoleSVG, buildCourses, cfModeHint, cfRefreshCanvas,
   cfYardsPerUnit, cfHasScale, cfDistYd, cfDistToPinYd, cfDistFromTeeYd,

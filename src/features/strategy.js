@@ -596,6 +596,86 @@ function stratSheetDelete(){
 }
 /* How many of this course's holes the active sheet has a cut for — the progress a golfer
    transcribing a sheet actually wants to see. */
+/* ---------- THE WHOLE SHEET, ON ONE SCREEN ----------
+   Transcribing a pin sheet is one sitting, not eighteen visits to a hole picker. Every green
+   is drawn the same way up — approach from the bottom — so the eye reads POSITION rather than
+   re-learning each shape, which is exactly why real sheets are printed that way.
+
+   It also shows the thing a single hole cannot: the day's PATTERN. Four front-left cuts in a
+   row is a setup decision, and knowing it before the round is worth more than any one
+   yardage. */
+function stratPinSheetHoles(){
+  const cur=stratCurrent(); if(!cur) return [];
+  return (cur.course.holes||[]).filter(h=>(h.green||[]).length>2 && h.tee && cfHasScale(h));
+}
+/* Front / middle / back and left / centre / right, as thirds of each green. */
+function stratPinZone(hole){
+  const p=cfPinPaces(hole); if(!p) return null;
+  const dep=p.fromFront+p.fromBack, wid=p.fromLeft+p.fromRight;
+  if(!(dep>0)||!(wid>0)) return null;
+  const fd=p.fromFront/dep, fl=p.fromLeft/wid;
+  return { depth: fd<0.34?'front':fd<0.67?'middle':'back',
+           side:  fl<0.34?'left' :fl<0.67?'centre':'right' };
+}
+function stratPinThumbClick(ev, holeNum){
+  const cur=stratCurrent(); if(!cur) return;
+  const hole=(cur.course.holes||[]).find(h=>(h.num||0)===holeNum); if(!hole) return;
+  const svg=ev.currentTarget, r=svg.getBoundingClientRect();
+  const vb=(svg.getAttribute('viewBox')||'').split(/\s+/).map(Number);
+  const W=vb[2]||120, H=vb[3]||100;
+  const pt=cfGreenThumbPoint(hole, W, H, (ev.clientX-r.left)/r.width*W, (ev.clientY-r.top)/r.height*H);
+  if(!pt) return;
+  if(!cfPointInPoly(pt, hole.green)){ toast('That is off the green'); return; }
+  cfSetPin(cur.course.id||cur.course.name, holeNum, pt);
+  window.stratOptCache=null; buildHoleOverlay();
+}
+function stratSheetPaces(holeNum, which, val){
+  const cur=stratCurrent(); if(!cur) return;
+  const hole=(cur.course.holes||[]).find(h=>(h.num||0)===holeNum); if(!hole) return;
+  const p=cfPinPaces(hole); if(!p) return;
+  const front = which==='front' ? fromDisplay('distance', val) : p.fromFront;
+  const left  = which==='left'  ? fromDisplay('distance', val) : p.fromLeft;
+  const pt=cfPinFromPaces(hole, front, left);
+  if(pt){ cfSetPin(cur.course.id||cur.course.name, holeNum, pt); window.stratOptCache=null; buildHoleOverlay(); }
+}
+function stratSheetClearHole(holeNum){
+  const cur=stratCurrent(); if(!cur) return;
+  cfSetPin(cur.course.id||cur.course.name, holeNum, null);
+  window.stratOptCache=null; buildHoleOverlay();
+}
+function stratPinSheetGrid(){
+  const cur=stratCurrent(); if(!cur) return '';
+  const key=cur.course.id||cur.course.name, sheet=cfActiveSheet(key);
+  const holes=stratPinSheetHoles();
+  if(!holes.length) return `<div class="lvl-soon-note">No greens traced on this course yet — import or trace one and every hole appears here.</div>`;
+  const zones={front:0,middle:0,back:0,left:0,centre:0,right:0};
+  const cells=holes.map(h=>{
+    const n=h.num||0, p=cfPinPaces(h), z=stratPinZone(h);
+    if(z){ zones[z.depth]++; zones[z.side]++; }
+    const cut=!!(sheet&&(sheet.pins||{})[String(n)]);
+    /* what today's cut does to the hole, which is the number you actually play */
+    const mid=cfGreenMid(h), today=cfPin(h);
+    const dYd=(mid&&today)?cfDistYd(h,h.tee,today)-cfDistYd(h,h.tee,mid):0;
+    return `<div class="pg-cell${cut?' cut':''}">
+      <div class="pg-head"><span class="pg-num">${n}</span><span class="pg-par">par ${h.par||4}</span>
+        ${cut?`<button class="pg-clear" title="Back to the middle" onclick="stratSheetClearHole(${n})">✕</button>`:''}</div>
+      ${cfGreenThumb(h,120,104,{click:true,cut})}
+      <div class="pg-fields">
+        <label><span>on</span><input type="number" min="0" step="1" value="${p?ydNum(p.fromFront):''}" oninput="stratSheetPaces(${n},'front',this.value)"></label>
+        <label><span>from L</span><input type="number" min="0" step="1" value="${p?ydNum(p.fromLeft):''}" oninput="stratSheetPaces(${n},'left',this.value)"></label>
+      </div>
+      <div class="pg-note">${z?`${z.depth} ${z.side}`:'—'}${Math.abs(dYd)>=1?` · <b>${dYd>0?'+':'−'}${ydNum(Math.abs(dYd))}</b> ${ydUnit()}`:''}</div>
+    </div>`;
+  }).join('');
+  const n=holes.length;
+  const pat=`<div class="pg-pattern"><b>Today's pattern</b>
+    <span>${zones.front} front · ${zones.middle} middle · ${zones.back} back</span>
+    <span>${zones.left} left · ${zones.centre} centre · ${zones.right} right</span></div>`;
+  const filled=sheet?Object.keys(sheet.pins||{}).length:0;
+  return `<div class="pg-bar">${sheet?`<b>${escapeHtml(sheet.name)}</b> — ${filled} of ${n} greens set`
+      :'<b>No sheet selected</b> — every hole is playing the middle of the green. Type a cut below and one is started for you.'}</div>
+    ${pat}<div class="pg-grid">${cells}</div>`;
+}
 function stratSheetProgress(){
   const cur=stratCurrent(); if(!cur) return null;
   const s=cfActiveSheet(cur.course.id||cur.course.name); if(!s) return null;
@@ -1452,7 +1532,11 @@ function buildHoleOverlay(){
           ${prefBox}
         </div>
       </div>
-    </div>`;
+    </div>
+    <details class="pg-wrap"${window.stratSheetOpen?' open':''} ontoggle="window.stratSheetOpen=this.open;if(this.open)buildHoleOverlay()">
+      <summary>Pin sheet — every green on one screen</summary>
+      <div class="pg-body">${window.stratSheetOpen?stratPinSheetGrid():''}</div>
+    </details>`;
   stratDragInit(wrap);
 }
 
@@ -1556,6 +1640,7 @@ Object.assign(window, {
   stratAnchorKey, stratAnchors, stratAnchorAt, stratAnchorCount, stratToggleAnchor, stratClearAnchors,
   stratSaveSel, stratRestoreSel, stratHoleReady, stratHoleScore, stratBestCourseIdx,
   stratZoomGreen, stratPinMode, stratSetPinAt, stratSetPinPaces, stratPinReset,
+  stratPinSheetHoles, stratPinZone, stratPinThumbClick, stratSheetPaces, stratSheetClearHole, stratPinSheetGrid,
   stratSheetSet, stratSheetDelete, stratSheetProgress,
   stratShotSVG, stratOverlay, stratDragInit
 });
