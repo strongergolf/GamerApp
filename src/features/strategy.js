@@ -27,6 +27,20 @@ function aimSigmaLat(carry){ return getDispersion(carry)/AIM_CI90; }
    long shots lateral-dominant, with the crossover near 115 yd. */
 function aimSigmaDist(carry){ return getDepthDispersion(carry)/AIM_CI90; }
 
+/* The lean, as an angle, for DRAWING the pattern. Sampling builds the correlation directly
+   (see aimSamples) because a rotation gets the sign wrong; but an ellipse still has to be
+   drawn at some angle, and this is the principal axis of that correlated cloud:
+       tan(2φ) = −2ρ·σlat·σdep / (σlat² − σdep²)
+   Positive ρ leans the pattern long-and-left. Note this DOES swing near 45° when the pattern
+   is close to circular — that is honest for a drawing (a round cloud has no strong axis and
+   looks the same whichever way it is turned) and is exactly why it is not used for sampling. */
+function aimPatternAngle(sigLat, sigDep, rho){
+  if(!rho || !(sigLat>0) || !(sigDep>0)) return 0;
+  return 0.5*Math.atan2(-2*rho*sigLat*sigDep, sigLat*sigLat - sigDep*sigDep)*180/Math.PI;
+}
+/* The correlation a stored lean angle implies — one place, so sampling and drawing agree. */
+function aimRhoOf(slantDeg){ return Math.max(-0.95, Math.min(0.95, Math.tan((slantDeg||0)*Math.PI/180))); }
+
 /* ---------- SHOT SHAPE: the direction the ball is TRAVELLING when it lands ----------
    A curving ball does not arrive on the line it started on. Model its lateral offset through
    the flight as a parabola in the along-distance — sidespin acts roughly steadily, so the
@@ -45,24 +59,25 @@ function aimSigmaDist(carry){ return getDepthDispersion(carry)/AIM_CI90; }
    hand: a negative axis curves the ball left whoever is holding the club. Returned in the
    same sense as DISP_SLANT — positive tilts the long axis LEFT.
 
-   MEASURED, and it does not do what was hoped — recorded here so nobody rebuilds it:
-     - the landing pattern is WIDER THAN IT IS DEEP at every driving distance (lateral 1σ
-       14.3 yd vs depth 8.1 yd at 290), so its long axis lies ACROSS the fairway, not along
-       it. Laying that axis down a fairway would take a 90° rotation. A 12-yard draw supplies
-       5.1°, so "align the shape with the fairway" cannot buy much, whatever the hole does;
-     - the pattern's own lean was a fixed 15° on every shot, three times what the shape
-       contributes, so it swamped the term entirely. That has since been replaced by a
-       per-club strike correlation (dispTilt, physics/dispersion.js) — the driver now leans
-       ~11° and a wedge ~4°, derived rather than asserted — but the ordering still holds:
-       the pattern's lean is the larger term, and it is the one worth measuring;
-     - swept ±10° across a left-running, a right-running and a straight fairway, the best
-       tilt came out identical on all three. The 5 points of fairway that sweep moves are
-       about un-slanting the pattern, not about the hole.
-   So this models a real thing correctly and is worth keeping — the landing heading is what
-   the tree/line-of-sight work will need, and it was not covered at all before — but it is
-   NOT a fairway-hitting lever, and the readout must not claim to be one. The number to fix
-   first was that fixed tilt, and it now is: see STRIKE_CORR in physics/dispersion.js, whose
-   ρ is the one quantity here a golfer can genuinely measure from tracked shots. */
+   MEASURED — and the answer changed once the model was right. Recorded in full, because the
+   first pass concluded the opposite and that conclusion was wrong for two reasons at once:
+   the pattern lean was a flat 15° on every club, and the lean was applied by ROTATING the
+   error ellipse, which has the sign backwards whenever lateral spread exceeds depth (see
+   aimSamples). Both are fixed; here is what the corrected model says, on a 201x201 grid
+   rather than the 49-sample scoring grid, so the answer is not quantisation:
+
+     - the best shape DOES track the fairway. A left-bending hole wants a draw, a
+       right-bending hole wants a fade, and the preference flips sign exactly at straight;
+     - the size of it is small. Over a ±25 yd swing in curve it is worth ~2.3 points of
+       fairway on a 12° dogleg, ~2.1 on a 12° bend the other way, and ~0.1 — nothing — on a
+       straight hole. Call it 0.06 strokes a round;
+     - so the honest statement is that shape and hole can agree or disagree, it is worth
+       roughly a tenth of a stroke a round when they do, and it is not a reason to change
+       your golf swing. The readout says exactly that and no more.
+
+   The landing heading remains the piece the tree/line-of-sight work will need, where the
+   question is what the ball FLIES OVER rather than where it finishes — and there the effect
+   should be far larger than a couple of points of fairway. */
 function aimLandingTilt(carryYd, curveYd, spinAxis){
   if(!carryYd || !curveYd || Math.abs(spinAxis||0) < 0.5) return 0;
   const deg = Math.atan2(2*Math.abs(curveYd), carryYd)*180/Math.PI;
@@ -105,15 +120,29 @@ function aimSamples(hole, from, aim, opt){
   const vx=dx/L, vy=dy/L, ux=-vy, uy=vx;          // along-shot and lateral unit vectors
   const shotYd=(opt.sigmaYd!=null)?opt.sigmaYd:L*ypu;
   const sLat=aimSigmaLat(shotYd)*(opt.latMult||1), sDist=aimSigmaDist(shotYd)*(opt.depthMult||1);
-  /* Pattern lean (strike correlation, per club) + the ball's own landing heading. Both are
-     now derived rather than asserted; opt.slantDeg lets the caller pass the club's lean so
-     this does not have to guess which club is being hit. */
+  /* ---- The pattern is a CORRELATION, not a rotated ellipse ----
+     This used to rotate the (lateral × depth) ellipse by a lean angle, and that quietly had
+     the sign backwards for most of the bag. Rotating a wide-shallow ellipse by +θ carries its
+     RIGHT-hand end forward, because
+         cov(long, right) = sinθ·cosθ·(σlat² − σdep²)
+     and σlat > σdep for every wood and long iron — so a lean documented as "long-and-left"
+     delivered long-and-RIGHT exactly where it mattered most, and flipped sign again down at
+     the wedges where depth dominates. A shape-dependent sign is not a model.
+
+     Built directly instead: ρ is the correlation between hitting it long and hitting it LEFT,
+     which is what the golf actually is, and the construction below produces it with no
+     dependence on which axis happens to be longer. Marginal spreads stay exactly σlat and
+     σdep; only their relationship changes. */
   const slant=(opt.slantDeg!=null)?opt.slantDeg:dispTiltFor(opt.clubType||'iron', shotYd);
-  const th=(slant+(opt.tiltDeg||0))*Math.PI/180, ct=Math.cos(th), st=Math.sin(th);
+  /* both effects are held as angles elsewhere; convert to the correlation they imply */
+  const rho=aimRhoOf(slant+(opt.tiltDeg||0));
+  const k=Math.sqrt(Math.max(0,1-rho*rho));
   const out=[];
   for(let i=0;i<AIM_Z.length;i++) for(let j=0;j<AIM_Z.length;j++){
-    const el=AIM_Z[i]*sLat, ed=AIM_Z[j]*sDist;     // ellipse frame, then rotate by the slant
-    const lat=el*ct-ed*st, dist=el*st+ed*ct;
+    const el=AIM_Z[i], ed=AIM_Z[j]*sDist;          // el in sigmas, ed in yards
+    const dist=ed;
+    /* +rho leans the pattern LEFT as it runs long; lateral is +right, hence the minus */
+    const lat=(-rho*AIM_Z[j] + k*el)*sLat;
     out.push({ pt:{ x:aim.x+(ux*lat+vx*dist)/ypu, y:aim.y+(uy*lat+vy*dist)/ypu },
                w:(AIM_W[i]*AIM_W[j])/(AIM_WSUM*AIM_WSUM) });
   }
@@ -997,7 +1026,8 @@ function stratShotSVG(hole, r, line, n, mode){
   const ry=(aimSigmaDist(r.sig.sigmaYd)*(r.sig.depthMult||1)*AIM_CI90)/ypu;
   /* Same tilt the SAMPLING used, or the drawn oval would be a picture of a different shot. */
   const slant=(r.sig.slantDeg!=null)?r.sig.slantDeg:dispTiltFor(r.sig.clubType||'iron', r.sig.sigmaYd);
-  const ang=Math.atan2(uy,ux)*180/Math.PI+slant+(r.sig.tiltDeg||0);
+  const sLat=aimSigmaLat(r.sig.sigmaYd)*(r.sig.latMult||1), sDep=aimSigmaDist(r.sig.sigmaYd)*(r.sig.depthMult||1);
+  const ang=Math.atan2(uy,ux)*180/Math.PI+aimPatternAngle(sLat, sDep, aimRhoOf(slant+(r.sig.tiltDeg||0)));
   /* An ANCHORED shot has no dispersion left to draw — the ball is where it is. The ellipse
      gives way to a solid line to the recorded finish, and the dashed intention stays behind
      it at low opacity so the gap between aim and result is the thing you see. */
@@ -1424,7 +1454,7 @@ Object.assign(window, {
   stratClearLines, stratResetAim, stratSetShotNum, stratSetLine,
   stratScoreShot, stratOChain, stratBallFor, stratLineAim,
   PREF_TEE_SIDE, PREF_GRN_SIDE, PREF_COMFORT_YD, PREF_FW_WINDOW,
-  stratSpan, stratPrefKind, stratPrefAim, stratNaiveAim,
+  stratSpan, stratPrefKind, stratPrefAim, stratNaiveAim, aimPatternAngle, aimRhoOf,
   aimLandingTilt, aimClubShape, aimShapeReset, aimTiltFor,
   FIT_STEP_YD, FIT_MAX_DEG, FIT_TURN_MAX, FIT_LEAN, FIT_TOL_DEG, stratFairwayTilt, stratShapeFit,
   stratAnchorKey, stratAnchors, stratAnchorAt, stratAnchorCount, stratToggleAnchor, stratClearAnchors,
