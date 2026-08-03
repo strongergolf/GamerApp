@@ -15,9 +15,47 @@
 
 /* Deterministic 7-node grid per axis. Deterministic, not Monte-Carlo, so the same hole
    always scores the same (no flicker between renders) — 49 weighted samples per aim. */
-const AIM_Z = [-2.4,-1.6,-0.8,0,0.8,1.6,2.4];
-const AIM_W = AIM_Z.map(z=>Math.exp(-z*z/2));
-const AIM_WSUM = AIM_W.reduce((a,b)=>a+b,0);
+/* Node count per axis. The pattern is integrated on an n x n grid, so cost is n^2 and the
+   node SPACING in yards is 4.8*sigma/(n-1) — which is what actually limits the model, because
+   the thing being integrated is a step function: a sample is either on the green or it is not,
+   and that is half a stroke. Anywhere a lie boundary runs through the pattern, the estimate
+   can only resolve to about one node spacing.
+
+   MEASURED at 7 nodes: hold the club, sigma and lean fixed and walk the aim a few field units
+   and the estimate steps 0.021 on a 420-yard hole but 0.082 on a 92-yard one — at wedge range
+   the outer ring sits almost exactly on the green edge, so a fraction of a yard flips a whole
+   row. Gauss-Hermite would not rescue this; fast convergence needs a smooth integrand, and a
+   lie boundary is the opposite of smooth. The only lever is more nodes.
+
+   Rebuildable at runtime so the trade-off can be measured rather than guessed. */
+let AIM_NODES = 7, AIM_LIMIT = 2.4;
+let AIM_Z = [], AIM_W = [], AIM_WSUM = 0;
+function aimSetNodes(n, limit){
+  AIM_NODES=Math.max(3, Math.min(41, Math.round(n)||7));
+  AIM_LIMIT=limit||AIM_LIMIT;
+  AIM_Z=[]; AIM_W=[];
+  for(let i=0;i<AIM_NODES;i++){
+    const z=-AIM_LIMIT + 2*AIM_LIMIT*i/(AIM_NODES-1);
+    AIM_Z.push(z); AIM_W.push(Math.exp(-z*z/2));
+  }
+  AIM_WSUM=AIM_W.reduce((a,b)=>a+b,0);
+  window.AIM_Z=AIM_Z; window.AIM_W=AIM_W; window.AIM_WSUM=AIM_WSUM; window.AIM_NODES=AIM_NODES;
+  if(typeof window!=='undefined'){ window.stratCacheEpoch=(window.stratCacheEpoch||0)+1; }
+}
+/* MEASURED, 7 vs 11 vs 17 nodes, on a wedge / mid-iron / driver hole:
+     nodes   noise 165yd   noise 420yd   cold overlay   drag frame   18-hole round
+       7        0.022         0.025          15 ms         1 ms          272 ms
+      11        0.010         0.012          37 ms         3 ms          776 ms
+      17        0.009         0.006          63 ms         2 ms         1792 ms
+   Eleven halves the noise, keeps a cold overlay rebuild inside the drag handler's own 50 ms
+   throttle, and leaves the round view — which is on demand and cached — under a second.
+   Seventeen doubles the round cost again for almost nothing at the distances that matter.
+
+   One thing this did NOT fix, recorded so it is not rediscovered: wedge-range noise (~92 yd)
+   plateaus around 0.024 whatever the node count, so it is not a sampling artefact. Something
+   else steps at that scale — the carry/roll boundary and the rounded-yardage club lookup are
+   both suspects. Worth its own investigation; it is the floor on this model's resolution. */
+aimSetNodes(11);
 const AIM_CI90 = 1.645;                       // getDispersion() is a 90% CI half-width
 const AIM_LAT_SWEEP = 30, AIM_LAT_STEP = 5;   // candidate aims, yards either side of the line
 
@@ -735,16 +773,12 @@ function stratPinSheetGrid(){
    three holes is not. So the method counts are always shown next to it. */
 const ROUND_METHODS = { model:'from the map', baseline:'from yardage', none:'not enough data' };
 /* How finely this model can actually tell two lines apart, per hole.
-   MEASURED: hold the club, the sigma and the lean constant and walk the aim across a few
-   field units. On a 420-yard hole the estimate moves 0.021; on a 92-yard shot it moves
-   0.082, stepping rather than sliding. The cause is the sample grid, not the search — at
-   wedge range the outermost ring of the 7x7 pattern (±2.4σ ≈ 11 yd) sits almost exactly on
-   a 13-yard green half-width, so a fraction of a yard flips a whole row of samples between
-   "on the green" and "just off it", which is half a stroke each.
-   So differences below this are the instrument, not the golf, and are reported as level.
-   The fix is a finer sample grid on short shots; it is not made here because it touches every
-   surface in the app and deserves its own change with its own verification. */
-const ROUND_RES = 0.05;
+   MEASURED by holding the club, the sigma and the lean constant and walking the aim across a
+   few field units. At 7 nodes per axis the estimate stepped 0.022 at mid-iron range; the grid
+   is now 11 (see aimSetNodes) and it steps 0.010. Wedge range is the exception — it sits near
+   0.024 whatever the node count, so something other than sampling steps at that scale and it
+   sets the floor here. Differences under this are the instrument, not the golf. */
+const ROUND_RES = 0.03;
 function stratRoundHole(hole, hcp){
   const par=+hole.par||4;
   const out={ num:hole.num||0, par, method:'none', o:null, s:null, yards:null, zone:null, cutYd:0 };
@@ -1817,7 +1851,7 @@ function stratDragInit(wrap){
 }
 
 Object.assign(window, {
-  AIM_Z, AIM_W, AIM_CI90, AIM_LAT_SWEEP, AIM_LAT_STEP,
+  AIM_Z, AIM_W, AIM_CI90, AIM_LAT_SWEEP, AIM_LAT_STEP, AIM_NODES, aimSetNodes,
   aimSigmaLat, aimSigmaDist, aimSamples, aimObjective, aimTail, aimScore, aimClubs,
   optimiseAim, stratSetCourse, stratSetHole, buildHoleOverlay,
   APPROACH_LIE, approachSituation, approachLieCostYd, approachShotName, optimiseApproach,
