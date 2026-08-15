@@ -81,7 +81,19 @@ function ydUnit(){ return unitLabel('distance'); }
 function fmtYd(v, dp){ return v==null||v===''||isNaN(+v) ? '—' : `${ydNum(v,dp)} ${ydUnit()}`; }
 function ftNum(v, dp){ const n=toDisplay('short', v); return dp==null?(isMetric()?+n.toFixed(1):Math.round(n)):+n.toFixed(dp); }
 function ftUnit(){ return unitLabel('short'); }
-function fmtFt(v, dp){ return v==null||v===''||isNaN(+v) ? '—' : `${ftNum(v,dp)} ${ftUnit()}`; }
+/* A proximity readout wants the unit that makes it a small whole number. Under a metre,
+   "60 cm" reads and speaks better than "0.6 m" — the same reason a two-foot putt is never
+   called two thirds of a yard. Imperial already has that in feet, so only metric switches. */
+const FT_CM_CUTOFF_M = 1;
+function fmtFt(v, dp){
+  if(v==null||v===''||isNaN(+v)) return '—';
+  if(isMetric()){
+    const m=toDisplay('short', v);
+    if(Math.abs(m) < FT_CM_CUTOFF_M) return `${Math.round(m*100)} cm`;
+    return `${+m.toFixed(dp==null?1:dp)} m`;
+  }
+  return `${ftNum(v,dp)} ${ftUnit()}`;
+}
 function mphNum(v){ return Math.round(toDisplay('speed', v)); }
 function mphUnit(){ return unitLabel('speed'); }
 function fmtMph(v){ return v==null||v===''||isNaN(+v) ? '—' : `${mphNum(v)} ${mphUnit()}`; }
@@ -118,4 +130,4 @@ function adjTotal(stockCarry, stockTotal){
 // other modules can resolve them during the staged ES-module migration.
 Object.assign(window, { STD_COND, adjCarry, adjTotal, airDensity, carryFactor, currentConditions, num, satVaporPressure,
   UNIT_CONV, unitSys, isMetric, unitDef, unitLabel, toDisplay, fromDisplay, setUnits,
-  ydNum, ydUnit, fmtYd, ftNum, ftUnit, fmtFt, mphNum, mphUnit, fmtMph });
+  ydNum, ydUnit, fmtYd, ftNum, ftUnit, fmtFt, FT_CM_CUTOFF_M, mphNum, mphUnit, fmtMph });

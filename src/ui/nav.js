@@ -9,7 +9,8 @@ const GROUPS={
     {id:'bag',      label:'Stock Shots'},
     {id:'partials', label:'Approach'},
     {id:'shortgame',label:'Short Game'},
-    {id:'putting',  label:'Putting'}
+    {id:'putting',  label:'Putting'},
+    {id:'games',    label:'Games'}
   ],
   /* Gameplan follows the round arc, one sub-tab per phase — Strategy leads because the
      Hole Overlay is the tool actually used, not a reference section. */
@@ -106,6 +107,7 @@ function refreshAll(){
   buildGapping();
   buildProfile();
   buildMyData();
+  buildGames();
   renderCalc(95);
   updateDriverOpt();
 }

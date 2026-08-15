@@ -48,6 +48,7 @@ import './features/club-form.js';
 import './features/charts.js';
 import './features/expected-shots.js';
 import './features/skills.js';
+import './features/games.js';
 
 import './ui/nav.js';
 

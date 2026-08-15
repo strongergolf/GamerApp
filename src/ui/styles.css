@@ -1141,3 +1141,68 @@ body.theme-dark .cv-item.ok b{color:var(--green2)} body.theme-dark .cv-item.shor
 .cv-carry{margin-left:auto;font-family:ui-monospace,monospace;font-size:.58rem;color:var(--muted)}
 .cv-carry b{color:var(--ink2)}
 @media(max-width:520px){.cv-carry{margin-left:0;width:100%}}
+
+/* ---- Games: the 12-shot wedge game ---- */
+.wg-players{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0 12px}
+.wg-player{flex:1 1 200px;min-width:180px;display:flex;gap:7px;align-items:flex-end}
+.wg-name{flex:1;min-width:0;font-family:Arial,sans-serif;font-size:.9rem;font-weight:700;padding:7px 9px;
+  background:var(--bg2);border:1px solid var(--border2);border-radius:6px;color:var(--ink);outline:none}
+.wg-player label{display:flex;flex-direction:column;gap:3px;font-family:ui-monospace,monospace;
+  font-size:.46rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.wg-hcp{width:74px;font-family:ui-monospace,monospace;font-size:.86rem;font-weight:800;padding:6px 8px;
+  background:var(--bg2);border:1px solid var(--border2);border-radius:6px;color:var(--ink);outline:none}
+.wg-name:focus,.wg-hcp:focus{border-color:var(--green)}
+.wg-entry-head{display:grid;grid-template-columns:64px 1fr 1fr;gap:6px;padding:0 2px 4px;
+  font-family:ui-monospace,monospace;font-size:.48rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.wg-entries{display:flex;flex-direction:column;gap:4px}
+.wg-entry{display:grid;grid-template-columns:64px 1fr 1fr;gap:6px;align-items:center}
+.wg-station{font-family:ui-monospace,monospace;font-size:.78rem;font-weight:800;color:var(--ink);text-align:right;padding-right:4px}
+.wg-entry input{width:100%;min-width:0;font-family:ui-monospace,monospace;font-size:.82rem;font-weight:700;
+  padding:5px 8px;background:var(--surface);border:1px solid var(--border2);border-radius:6px;color:var(--ink);outline:none}
+.wg-entry input:focus{border-color:var(--green)}
+.wg-scroll{overflow-x:auto;margin-top:4px}
+.wg-tbl{width:100%;border-collapse:collapse;font-family:ui-monospace,monospace;font-size:.68rem;min-width:400px}
+.wg-tbl th,.wg-tbl td{padding:4px 7px;text-align:right;border-bottom:1px solid var(--border);white-space:nowrap}
+.wg-tbl thead th{font-size:.5rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700;text-align:center}
+.wg-tbl thead th span{font-size:.44rem}
+.wg-tbl tbody th{text-align:right;font-weight:800;color:var(--ink)}
+.wg-num{color:var(--ink2)}
+.wg-net{font-weight:800;color:var(--ink)}
+.wg-win{background:var(--green-pale)}
+body.theme-dark .wg-win{background:rgba(0,133,63,.18)}
+.wg-mark{text-align:center;color:var(--muted);font-size:.6rem}
+.wg-tbl tfoot th{border-top:2px solid var(--border2);border-bottom:none;font-size:.74rem;color:var(--ink);padding-top:6px}
+.wg-tbl tfoot tr.wg-vspar th{border-top:none;padding-top:1px;font-size:.54rem;font-weight:400;color:var(--muted);text-align:center}
+.wg-tbl tfoot tr.wg-vspar th:first-child{text-align:right}
+.wg-result{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.wg-res-cell{flex:1 1 160px;min-width:150px;padding:8px 11px;border:1px solid var(--border);border-radius:8px;background:var(--bg2)}
+.wg-res-cell span{display:block;font-family:ui-monospace,monospace;font-size:.48rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.wg-res-cell b{display:block;font-family:Arial,sans-serif;font-size:.98rem;font-weight:800;color:var(--ink);line-height:1.25;margin-top:2px}
+.wg-res-cell i{display:block;font-family:ui-monospace,monospace;font-size:.52rem;font-style:normal;color:var(--muted);margin-top:1px}
+.wg-hist{display:flex;flex-direction:column;gap:5px}
+.wg-hist-row{display:grid;grid-template-columns:auto 1fr 1fr auto auto;gap:8px;align-items:center;
+  padding:6px 9px;border:1px solid var(--border);border-radius:7px;background:var(--surface);
+  font-family:ui-monospace,monospace;font-size:.6rem;color:var(--muted)}
+.wg-hist-row b{color:var(--ink);font-size:.72rem}
+.wg-hist-m{color:var(--ink2)}
+@media(max-width:480px){.wg-hist-row{grid-template-columns:1fr 1fr auto}.wg-hist-row>span:first-child{grid-column:1/-1}}
+
+/* ---- Wedge game: one grid, entry and every running result on the same row ---- */
+.wg-cell{padding:2px 4px !important}
+.wg-in{display:flex;gap:3px;align-items:center}
+.wg-in input{width:100%;min-width:44px;font-family:ui-monospace,monospace;font-size:.76rem;font-weight:700;
+  padding:4px 5px;background:var(--surface);border:1px solid var(--border2);border-radius:5px;color:var(--ink);outline:none;text-align:right}
+.wg-in input:focus{border-color:var(--green)}
+.wg-u{font-family:ui-monospace,monospace;font-size:.5rem;font-weight:700;padding:4px 4px;min-width:22px;
+  background:var(--bg2);border:1px solid var(--border2);border-radius:5px;color:var(--muted);cursor:pointer}
+.wg-u:hover{color:var(--ink);border-color:var(--green)}
+.wg-st{text-align:right !important;font-weight:800;color:var(--ink);position:sticky;left:0;background:var(--panel-bg,var(--bg));z-index:1}
+body.theme-dark .wg-st{background:var(--bg)}
+.wg-grp{border-left:1px solid var(--border2)}
+.wg-run{font-family:ui-monospace,monospace;font-size:.58rem;color:var(--muted);text-align:center !important}
+.wg-run-a{color:#00693a} .wg-run-b{color:#9c3348}
+body.theme-dark .wg-run-a{color:var(--green2)} body.theme-dark .wg-run-b{color:var(--c-wood)}
+.wg-foot-res{font-size:.58rem !important;font-weight:700;text-align:center !important;color:var(--ink2) !important;border-left:1px solid var(--border2)}
+.wg-strokes{margin-top:8px;font-family:Arial,sans-serif;font-size:.68rem;line-height:1.5;color:var(--muted)}
+.wg-strokes b{color:var(--ink)}
+.wg-u-fixed{display:inline-block;text-align:center;border-color:transparent;background:none;cursor:default}
