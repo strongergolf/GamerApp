@@ -1206,3 +1206,51 @@ body.theme-dark .wg-run-a{color:var(--green2)} body.theme-dark .wg-run-b{color:v
 .wg-strokes{margin-top:8px;font-family:Arial,sans-serif;font-size:.68rem;line-height:1.5;color:var(--muted)}
 .wg-strokes b{color:var(--ink)}
 .wg-u-fixed{display:inline-block;text-align:center;border-color:transparent;background:none;cursor:default}
+
+/* ---- On-course games: one card, several wagers ---- */
+.gr-players{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin:10px 0}
+.gr-player{display:flex;gap:6px;align-items:flex-end;flex:1 1 210px;min-width:190px}
+.gr-player .wg-name{flex:1;min-width:0}
+.gr-player label{display:flex;flex-direction:column;gap:3px;font-family:ui-monospace,monospace;font-size:.46rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.gr-opts{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+.gr-opts label{flex:1 1 150px;min-width:140px;display:flex;flex-direction:column;gap:3px}
+.gr-opts span{font-family:ui-monospace,monospace;font-size:.46rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.gr-optnote{font-family:Arial,sans-serif;font-size:.66rem;line-height:1.5;color:var(--muted);margin-bottom:10px}
+.gr-scroll,.gr-scroll2{overflow-x:auto}
+.gr-card{border-collapse:collapse;font-family:ui-monospace,monospace;font-size:.62rem;min-width:640px}
+.gr-card th,.gr-card td{border:1px solid var(--border);padding:2px 3px;text-align:center}
+.gr-card thead th{background:var(--bg2);color:var(--muted);font-size:.55rem;font-weight:700}
+.gr-card .gr-sub td{background:var(--bg2);color:var(--muted);font-size:.5rem}
+.gr-card .gr-name{text-align:left;white-space:nowrap;font-weight:800;color:var(--ink);background:var(--bg2);
+  position:sticky;left:0;z-index:1;min-width:74px;max-width:110px;overflow:hidden;text-overflow:ellipsis}
+.gr-card .gr-turn{border-right:2px solid var(--border2)}
+.gr-cell{position:relative;padding:0 !important}
+.gr-cell input{width:34px;border:none;background:transparent;text-align:center;font-family:ui-monospace,monospace;
+  font-size:.74rem;font-weight:700;color:var(--ink);padding:6px 0 3px;outline:none}
+.gr-cell input:focus{background:var(--green-pale)}
+body.theme-dark .gr-cell input:focus{background:rgba(0,133,63,.2)}
+.gr-dot{position:absolute;top:0;left:2px;font-style:normal;font-size:.5rem;line-height:1;color:#9c3348;letter-spacing:-1px}
+body.theme-dark .gr-dot{color:var(--c-wood)}
+.gr-dot.gr-half{left:auto;right:2px;color:#00693a}
+body.theme-dark .gr-dot.gr-half{color:var(--green2)}
+.gr-tot{font-weight:800;color:var(--ink);background:var(--bg2);min-width:34px}
+.gr-netot{color:#00693a} body.theme-dark .gr-netot{color:var(--green2)}
+.gr-games{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+.gr-game{flex:1 1 250px;min-width:230px;border:1px solid var(--border);border-radius:9px;padding:9px 11px;background:var(--surface)}
+.gr-game h4{margin:0 0 6px;font-family:ui-monospace,monospace;font-size:.56rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700}
+.gr-game h4 span{text-transform:none;letter-spacing:0;font-weight:400}
+.gr-res{width:100%;border-collapse:collapse;font-family:ui-monospace,monospace;font-size:.62rem}
+.gr-res th{text-align:left;font-weight:700;color:var(--ink2);padding:3px 4px 3px 0;white-space:nowrap}
+.gr-res td{padding:3px 4px;color:var(--ink)}
+.gr-res tr.gr-press th{color:var(--muted);font-weight:400;padding-left:8px}
+.gr-res .gr-x{width:18px;text-align:right}
+.gr-res .gr-num{text-align:right;font-weight:800}
+.gr-res .gr-st{color:var(--muted);font-size:.54rem}
+.gr-skins th:first-child{width:34px}
+.gr-a{color:#00693a;font-weight:700} .gr-b{color:#9c3348;font-weight:700}
+body.theme-dark .gr-a{color:var(--green2)} body.theme-dark .gr-b{color:var(--c-wood)}
+.gr-as{color:var(--muted)}
+.gr-tally{display:flex;flex-wrap:wrap;gap:4px 12px;font-family:ui-monospace,monospace;font-size:.62rem;color:var(--ink2);margin-bottom:6px}
+.gr-tally b{font-size:.86rem;color:var(--ink)}
+.gr-note{font-family:Arial,sans-serif;font-size:.64rem;line-height:1.5;color:var(--muted)}
+.gr-lost{color:var(--muted);text-decoration:line-through}

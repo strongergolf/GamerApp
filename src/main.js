@@ -49,6 +49,7 @@ import './features/charts.js';
 import './features/expected-shots.js';
 import './features/skills.js';
 import './features/games.js';
+import './features/games-round.js';
 
 import './ui/nav.js';
 
