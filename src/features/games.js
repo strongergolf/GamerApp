@@ -12,7 +12,7 @@
 
        Wedge    12 stations 10-120 yd     record proximity
        Irons    12 stations 130-212 yd    record proximity
-       Driver   12 drives                 record carry + how far offline
+       Driver   12 drives                 record total + how far offline at rest
        Putting  12 putts, 6 up 6 down     record putts taken
 
    Par is always "what scratch was expected to need", so a score under par IS strokes gained.
@@ -72,7 +72,7 @@ const GM_GAMES = {
   irons:  { key:'irons',  label:'Irons',   kind:'prox',  stations:IRON_STATIONS_YD,  parPer:WEDGE_PAR_PER,
             blurb:'One shot at each of twelve distances. Type how close it finished.' },
   driver: { key:'driver', label:'Driver',  kind:'drive', stations:null, count:12,
-            blurb:'Twelve drives, all count. Type the carry and how far offline it finished.' },
+            blurb:'Twelve drives, all count. Type the total distance and how far offline it finished.' },
   putt:   { key:'putt',   label:'Putting', kind:'putt',  stations:null, count:12,
             blurb:'Twelve putts - six uphill, six downhill. Type how many putts it took.' }
 };
@@ -135,6 +135,10 @@ function gmDriveBand(offYd){
   return DRIVE_BANDS.find(b=>o<=b.max) || DRIVE_BANDS[DRIVE_BANDS.length-1];
 }
 /* A drive's expected scratch score: the drive itself, then scratch from where it finished.
+   Distance is TOTAL, not carry, and offline is measured where the ball came to REST — the
+   next shot is played from where the ball stopped, so that is the only position that decides
+   the lie and what is left. A drive that carries the fairway and runs into the trees is a
+   recovery, and scoring it off the carry would have called it a fairway.
    Distance remaining is floored so driving it near the green cannot go negative. */
 function gmDriveScore(ydg, offYd, holeYd){
   const d=parseFloat(ydg), band=gmDriveBand(offYd);
@@ -291,7 +295,7 @@ function gmSetShot(i, k, val){
   const G=gmG(), g=gmState();
   g.shots[i]=g.shots[i]||{};
   /* Storage is canonical, always: proximity in FEET (through the per-entry unit), drive
-     carry in YARDS (through the display unit, so a metric player types metres), putts as a
+     drive total in YARDS (through the display unit, so a metric player types metres), putts as a
      plain count. Only entry and redisplay convert. */
   g.shots[i][k?'b':'a'] = (val===''?''
     : G.kind==='prox'  ? gmToFeet(val, gmShotUnit(i,k))
@@ -404,14 +408,14 @@ function buildGamesGrid(){
         + ' placeholder="-" value="'+((raw===''||raw==null)?'':raw)+'" oninput="gmSetShot('+i+','+k+',this.value)">'
         + '<span class="wg-u wg-u-fixed">putts</span></div>';
     }
-    /* drive: carry AND offline, because the band is derived from the number rather than
-       ticked — that keeps the resolution the tick-boxes on the paper card threw away.
-       Both are stored in yards and shown in the player's own unit. */
+    /* drive: TOTAL distance AND offline at rest, because the band is derived from the number
+       rather than ticked — that keeps the resolution the tick-boxes on the paper card threw
+       away. Both are stored in yards and shown in the player's own unit. */
     const off=s[(k?'b':'a')+'Off'];
     const band=gmDriveBand(off);
     const chip=band?'<span class="gm-band gm-band-'+band.key+'">'+band.label+'</span>':'<span class="gm-band">-</span>';
     return '<div class="gm-drive">'
-      + '<input type="number" step="1" min="0" inputmode="numeric" placeholder="carry" value="'+((raw===''||raw==null)?'':ydNum(raw))+'"'
+      + '<input type="number" step="1" min="0" inputmode="numeric" placeholder="total" value="'+((raw===''||raw==null)?'':ydNum(raw))+'"'
       + ' oninput="gmSetShot('+i+','+k+',this.value)">'
       + '<input type="number" step="1" min="0" inputmode="numeric" placeholder="off" value="'+((off===''||off==null)?'':ydNum(off))+'"'
       + ' oninput="gmSetOff('+i+','+k+',this.value)">'
@@ -453,7 +457,7 @@ function buildGamesGrid(){
   const done=tot.played[0]===n && tot.played[1]===n;
   const grossTot={...tot, up:tot.grossUp, holes:tot.grossHoles,
     left:n-tot.grossHoles, matchDone:Math.abs(tot.grossUp)>n-tot.grossHoles};
-  const entryHead = G.kind==='prox'?'Prox' : G.kind==='putt'?'Putts' : 'Carry / Off';
+  const entryHead = G.kind==='prox'?'Prox' : G.kind==='putt'?'Putts' : 'Total / Off';
   /* The four running games as a strip you glance at, rather than four table columns you
      have to scroll to. Gross pair first, then net, matching the card's own order.
      Solo has no match to run, so the same strip carries what a solo card IS played against:
@@ -522,8 +526,10 @@ function gmIntro(G, tot, n){
       + 'a 15-footer gains more than holing a 3-footer.';
   }
   const g=gmState();
-  return 'Twelve drives, all count. Type the <b>carry</b> and <b>how far offline</b> it finished, and each '
+  return 'Twelve drives, all count. Type the <b>total distance</b> and <b>how far offline it came to rest</b>, and each '
     + 'drive is played out on a reference hole: the drive itself, then scratch from where it left the ball. '
+    + 'Total rather than carry, and offline at rest rather than at landing, because the next shot is played from '
+    + 'where the ball <em>stopped</em> - one that carries the fairway and runs into the trees is a recovery. '
     + 'Par is what scratch was expected to shoot from the tee (<b>'+tot.par.toFixed(1)+'</b> over '+n+' drives), '
     + 'so distance and accuracy trade off against each other in real strokes rather than by tick-box.';
 }

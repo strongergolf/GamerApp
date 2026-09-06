@@ -1,4 +1,4 @@
-// D-Plane (a Hit Shots sub-tab): the rotatable 3D impact-geometry viewer, the
+// D-Plane (a Shots sub-tab): the rotatable 3D impact-geometry viewer, the
 // Shape Sandbox, the Shot Presets sub-page, the per-club stock-shot tendencies
 // grid and the gear-effect reference. Split out of diagnose.js (2026-07).
 // Physics lives in physics/dplane.js - this file is presentation + interaction;

@@ -5,7 +5,7 @@
    ============================================================ */
 /* group → ordered list of {id,label} sub-tabs */
 const GROUPS={
-  /* Hit Shots (was Play): the four stock-shot tabs plus D-Plane, which was its own main
+  /* Shots (was Play): the four stock-shot tabs plus D-Plane, which was its own main
      tab (the D-Plane Lab). Shot Presets used to be a sixth tab here and is now a section
      of the D-Plane page — five sub-tabs is the cap. */
   play:[
@@ -53,7 +53,7 @@ function showGroup(group,el){
   else { sub.innerHTML=tabs.map((t,i)=>`<div class="nav-tab${i===0?' active':''}" data-tab="${t.id}" onclick="showPage('${t.id}',this)">${t.label}</div>`).join(''); showPage(tabs[0].id); }
   updateSubScrollCue();
 }
-/* Deep-link into a specific sub-tab of another main group (e.g. The Chain → Hit Shots'
+/* Deep-link into a specific sub-tab of another main group (e.g. The Chain → Shots'
    D-Plane sub-tab) — showGroup alone always lands on that group's first sub-tab. */
 function showGroupPage(group,pageId){
   showGroup(group);
