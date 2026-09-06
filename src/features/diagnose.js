@@ -126,11 +126,11 @@ const PRACTICE_AREAS=[
        <div class="lvl-subhead">Ball Flight — from Bag Data</div>
        ${ballRefHtml()}
 
-       <div class="chain-caption" style="margin-top:14px">The interactive <strong>D-Plane Lab</strong> — the rotatable impact-geometry render, shot presets, ball-speed sandbox and per-club stock-shot tendencies — now has its own main tab: <b onclick="showGroup('dplane')" style="color:var(--sky);cursor:pointer;text-decoration:underline">open the D-Plane Lab</b>.</div>`,
+       <div class="chain-caption" style="margin-top:14px">The interactive <strong>D-Plane</strong> — the rotatable impact-geometry render, shot presets, ball-speed sandbox and per-club stock-shot tendencies — lives under <strong>Hit Shots</strong>: <b onclick="showGroupPage('play','dplane')" style="color:var(--sky);cursor:pointer;text-decoration:underline">open D-Plane</b>.</div>`,
      improve:()=>ballImprove(),
      resources:()=>`
        ${ballLawsRef()}
-       <div class="chain-caption" style="margin-top:14px">The interactive D-plane shaper — per-club impact inputs alongside the live 3D render — now lives in its own main tab: <b onclick="showGroup('dplane')" style="color:var(--sky);cursor:pointer;text-decoration:underline">the D-Plane Lab</b>.</div>
+       <div class="chain-caption" style="margin-top:14px">The interactive D-plane shaper — per-club impact inputs alongside the live 3D render — lives under <strong>Hit Shots</strong>: <b onclick="showGroupPage('play','dplane')" style="color:var(--sky);cursor:pointer;text-decoration:underline">open D-Plane</b>.</div>
        ${buildGearEffectL2()}
 
        <div class="chain-caption" style="margin-top:14px">Driver distance optimization (Foresight launch &amp; spin windows) now lives under the <strong>Driver</strong> in <strong>Stock Shots</strong>.</div>`},
@@ -342,7 +342,7 @@ const PRACTICE_AREAS=[
        <div class="chain-caption">Where every level above cashes out into a real decision on a real hole. Strategy synthesises ball-flight data (L2), dispersion patterns, and scoring tendencies (L1) into optimal targets, shot shapes, and risk/reward choices. The eventual home for course overlays and hole-by-hole planning.</div>
 
        ${buildStrategyPrefs()}
-       <div class="chain-caption" style="margin-top:6px">These are the same preferences that place line <strong>S</strong> on the Hole Overlay (<strong>Gameplan → Strategy</strong>) — editing here moves it there.</div>`,
+       <div class="chain-caption" style="margin-top:6px">These are the same preferences that place line <strong>S</strong> on the Hole Overlay (<strong>Strategy → Hole Overlay</strong>) — editing here moves it there.</div>`,
      improve:()=>`
        <div class="lvl-subhead" style="margin-top:0">Strokes Gained — Decision Quality</div>
        <div class="lvl-soon-note">Future: flag shots where club or target selection cost strokes vs. the optimal decision, separate from execution error. A bad decision with a good swing still costs shots.</div>
@@ -843,7 +843,7 @@ function buildCourseStrategy(){
      that is a different tab, and the data-strat sync keeps all of them in step. */
   wrap.innerHTML=`
     <div class="section-label" style="margin-top:0">Course Strategy <span class="proto-badge">prototype</span></div>
-    <p class="intro-note">Your bag plays <strong>${predominant}</strong>. These per-club ball-flight tendencies (set in the D-Plane Lab) are the foundation for hole-by-hole aim points — favouring the side your stock shape works <em>away</em> from trouble.</p>
+    <p class="intro-note">Your bag plays <strong>${predominant}</strong>. These per-club ball-flight tendencies (set in D-Plane, under Hit Shots) are the foundation for hole-by-hole aim points — favouring the side your stock shape works <em>away</em> from trouble.</p>
     <div class="section-label">Predominant Ball Flight by Club</div>
     <div class="cs-grid">${rows}</div>
     <div class="chain-caption" style="margin-top:6px">Not yet wired into the optimiser — the aim points above assume a straight ball. Your targeting preferences live with the map, under <strong>My strategy</strong>.</div>`;

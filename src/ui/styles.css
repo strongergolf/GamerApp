@@ -172,6 +172,7 @@ table.lookup tr:hover td{background:var(--surface2)}
 .opt-full{background:var(--green-pale);color:var(--green);border:1px solid rgba(26,102,72,.2)}
 .opt-3q{background:var(--sky-pale);color:var(--sky);border:1px solid rgba(26,74,106,.2)}
 .opt-half{background:var(--red-pale);color:var(--red);border:1px solid rgba(138,42,26,.2)}
+.opt-third{background:var(--amber-pale);color:var(--amber);border:1px solid rgba(0,133,63,.2)}
 
 /* CALCULATOR */
 .approach-traj-wrap{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:4px 0 8px}

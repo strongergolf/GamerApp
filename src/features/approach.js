@@ -27,7 +27,7 @@ function apSyncUnitLabels(){
 }
 function buildPartialsTable(){
   const t=document.getElementById('partials-table');
-  const rows=[{label:'11:00 — Full',key:'full',ci:0},{label:'10:00 — ¾',key:'tq',ci:1},{label:'9:00 — ½',key:'half',ci:2}];
+  const rows=[{label:'11:00 — Full',key:'full',ci:0},{label:'10:00 — ¾',key:'tq',ci:1},{label:'9:00 — ½',key:'half',ci:2},{label:'8:00 — ⅓',key:'third',ci:3}];
   /* Clubs as rows, swing types as columns */
   let html=`<thead><tr><th style="text-align:left;padding-left:12px;min-width:70px">Club</th>${rows.map(sw=>`<th>${sw.label}</th>`).join('')}</tr></thead><tbody>`;
   PARTIAL_CLUBS.forEach(id=>{
@@ -64,10 +64,11 @@ function buildPartialsTable(){
 function buildLookupTable(){
   const t=document.getElementById('lookup-table');
   /* derive lookup from partials: collect every (dist -> club/swing) */
-  const swingTag={full:'opt-full',tq:'opt-3q',half:'opt-half'};
-  const swingName={full:'full',tq:'10:00',half:'9:00'};
+  const swingTag={full:'opt-full',tq:'opt-3q',half:'opt-half',third:'opt-third'};
+  const swingName={full:'full',tq:'10:00',half:'9:00',third:'8:00'};
+  const swingOrder={full:0,tq:1,half:2,third:3};
   const map={};
-  PARTIAL_CLUBS.forEach(id=>{const c=STATE.clubs.find(x=>x.id===id);['full','tq','half'].forEach(k=>{const d=STATE.partials[id][k];if(d==null)return;(map[d]=map[d]||[]).push({label:`${c.label} ${swingName[k]}`,cls:swingTag[k],order:k==='full'?0:k==='tq'?1:2});});});
+  PARTIAL_CLUBS.forEach(id=>{const c=STATE.clubs.find(x=>x.id===id);['full','tq','half','third'].forEach(k=>{const d=STATE.partials[id][k];if(d==null)return;(map[d]=map[d]||[]).push({label:`${c.label} ${swingName[k]}`,cls:swingTag[k],order:swingOrder[k]});});});
   const dists=Object.keys(map).map(Number).sort((a,b)=>b-a);
   let html=`<thead><tr><th>Target Distance</th><th>Club Options</th></tr></thead><tbody>`;
   dists.forEach(d=>{const opts=map[d].sort((a,b)=>a.order-b.order);const tags=opts.map(o=>`<span class="opt-tag ${o.cls}">${o.label}</span>`).join(' ');html+=`<tr><td><span class="lookup-dist">${d} yd</span></td><td>${tags}</td></tr>`;});
@@ -75,17 +76,22 @@ function buildLookupTable(){
 }
 
 /* calculator model derived from single source */
-const SWINGS=[{key:'half',short:'9:00 ½',effort:75},{key:'tq',short:'10:00 ¾',effort:87},{key:'full',short:'11:00 Full',effort:100}];
+/* Ordered SHORTEST → FULLEST: interpFlight and calcSuggestions read SWINGS[i-1] as the
+   shorter neighbour and SWINGS[i+1] as the fuller one, so 8:00 has to lead. Effort keeps
+   the ladder's ~12-13 point step (62 · 75 · 87 · 100). */
+const SWINGS=[{key:'third',short:'8:00 ⅓',effort:62},{key:'half',short:'9:00 ½',effort:75},{key:'tq',short:'10:00 ¾',effort:87},{key:'full',short:'11:00 Full',effort:100}];
 function wedgeModel(){
   const partial=PARTIAL_CLUBS.map(id=>{
     const c=STATE.clubs.find(x=>x.id===id); if(!c) return null;
     const p=perf(id); const pr=STATE.partials[id]||{};
     const fl=p.launch||25, fs=p.spin||8000, fh=p.ht||75;
+    /* 8:00 flight numbers continue the rung-to-rung steps the ¾/½ model already uses
+       (−2° launch, ×0.88 spin, ×0.85 height per rung down). Presumed, like its carry. */
     return {id,label:c.label,loft:c.loft,
-      carries:{full:pr.full,tq:pr.tq,half:pr.half},
-      launch:{full:fl,tq:Math.max(8,fl-2),half:Math.max(6,fl-4)},
-      spin:{full:fs,tq:Math.round(fs*0.88),half:Math.round(fs*0.76)},
-      height:{full:fh,tq:Math.round(fh*0.85),half:Math.round(fh*0.70)}};
+      carries:{full:pr.full,tq:pr.tq,half:pr.half,third:pr.third},
+      launch:{full:fl,tq:Math.max(8,fl-2),half:Math.max(6,fl-4),third:Math.max(5,fl-6)},
+      spin:{full:fs,tq:Math.round(fs*0.88),half:Math.round(fs*0.76),third:Math.round(fs*0.64)},
+      height:{full:fh,tq:Math.round(fh*0.85),half:Math.round(fh*0.70),third:Math.round(fh*0.55)}};
   }).filter(Boolean);
   /* Extend through fairway wood: every non-putter, non-driver club not already a partial
      club is added as a FULL-swing option, so a big plays-like number still maps to a club.
@@ -97,8 +103,8 @@ function wedgeModel(){
       const p=perf(c.id); const full=p.total||p.carry||null;
       const fl=p.launch||18, fs=p.spin||5500, fh=p.ht||90;
       return {id:c.id,label:c.label,loft:c.loft,
-        carries:{full, tq:null, half:null},
-        launch:{full:fl,tq:fl,half:fl}, spin:{full:fs,tq:fs,half:fs}, height:{full:fh,tq:fh,half:fh}};
+        carries:{full, tq:null, half:null, third:null},
+        launch:{full:fl,tq:fl,half:fl,third:fl}, spin:{full:fs,tq:fs,half:fs,third:fs}, height:{full:fh,tq:fh,half:fh,third:fh}};
     })
     .filter(x=>x.carries.full!=null);
   return partial.concat(longer);
@@ -123,10 +129,11 @@ function calcSuggestions(target){
     let eff;
     if(target<=a){const lc=loHas?club.carries[lo.key]:a-15;const r=a-lc,pos=target-lc,le=loHas?lo.effort:sw.effort-12;eff=le+(sw.effort-le)*(pos/r);}
     else{const hc=hiHas?club.carries[hi.key]:a+5;const r=hc-a,pos=target-a,ue=hiHas?hi.effort:sw.effort+5;eff=sw.effort+(ue-sw.effort)*(pos/r);}
-    eff=Math.min(102,Math.max(70,Math.round(eff)));
+    /* floor sits below the 8:00 rung's 62 — a 70 floor would flatten the whole new rung */
+    eff=Math.min(102,Math.max(55,Math.round(eff)));
     out.push({club,sw,anchor:a,effort:eff,delta:target-a,dist:Math.abs(target-a)});
   }));
-  const swingRank={full:0,tq:1,half:2}; /* lower = fuller = preferred when dist is equal */
+  const swingRank={full:0,tq:1,half:2,third:3}; /* lower = fuller = preferred when dist is equal */
   out.sort((a,b)=>{
     if(a.dist!==b.dist) return a.dist-b.dist;              /* 1. closest anchor first */
     const sr=swingRank[a.sw.key]-swingRank[b.sw.key];
@@ -195,7 +202,7 @@ function renderCalc(target){
   let flightHTML='';
   box.innerHTML=sug.map((o,i)=>{
     const selected=i===selIdx, color=effortColor(o.effort);
-    const swingDesc=o.sw.key==='full'?'Full swing':o.sw.key==='tq'?'¾ swing':'½ swing';
+    const swingDesc=o.sw.key==='full'?'Full swing':o.sw.key==='tq'?'¾ swing':o.sw.key==='half'?'½ swing':'⅓ swing';
     const effDesc=o.effort>=98?'Full effort — no margin':o.effort>=90?'Near-full — controlled finish':o.effort>=82?'Measured swing — good option':'Easy swing — high control';
     const fl0=interpFlight(o.club,o.sw.key,playTarget);
     const fl={launch:Math.round(fl0.launch*stm.launchMult),spin:Math.round(fl0.spin*stm.spinMult),height:Math.round(fl0.height*stm.heightMult)};
@@ -207,7 +214,7 @@ function renderCalc(target){
     const estRoll=Math.max(0,Math.round(baseRoll*stm.rollMult)+(window.approachGreenFirmness||0));
     const estCarry=target-estRoll;
     /* Anchor mini-stat */
-    const clockPos=o.sw.key==='full'?'11:00':o.sw.key==='tq'?'10:00':'9:00';
+    const clockPos=o.sw.key==='full'?'11:00':o.sw.key==='tq'?'10:00':o.sw.key==='half'?'9:00':'8:00';
     const diffStr=o.delta===0?'on anchor':`${o.delta>0?'+':''}${o.delta}yd`;
     if(selected){
       flightHTML=`<div class="flight-wrap">

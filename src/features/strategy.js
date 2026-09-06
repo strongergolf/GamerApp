@@ -327,7 +327,7 @@ function approachShotName(effYd){
   if(typeof calcSuggestions==='function'){
     const s=calcSuggestions(key);
     if(s&&s.length){
-      const sw=s[0].sw.key==='full'?'full':s[0].sw.key==='tq'?'¾':'½';
+      const sw=s[0].sw.key==='full'?'full':s[0].sw.key==='tq'?'¾':s[0].sw.key==='half'?'½':'⅓';
       out={ id:s[0].club.id, label:s[0].club.label, detail:sw+' swing', effort:s[0].effort };
     }
   }

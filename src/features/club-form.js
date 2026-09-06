@@ -32,12 +32,14 @@ function addNewClub(){
   STATE.performance[id] = perf;
   /* add to partials only if a wedge or iron */
   if((club.type==='wedge'||club.type==='iron') && perf.carry){
-    STATE.partials[id] = {
+    const seeded = {
       full: perf.carry,
       tq: Math.round(perf.carry*0.92),
       half: Math.round(perf.carry*0.84),
-      conf: [true,false,false]
+      conf: [true,false,false,false]
     };
+    seeded.third = estThirdCarry(seeded);   /* 8:00 rung from this club's own ladder */
+    STATE.partials[id] = seeded;
   }
   saveState();
   refreshAll();

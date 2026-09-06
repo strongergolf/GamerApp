@@ -1,4 +1,4 @@
-// D-Plane Lab (its own main tab): the rotatable 3D impact-geometry viewer, the
+// D-Plane (a Hit Shots sub-tab): the rotatable 3D impact-geometry viewer, the
 // Shape Sandbox, the Shot Presets sub-page, the per-club stock-shot tendencies
 // grid and the gear-effect reference. Split out of diagnose.js (2026-07).
 // Physics lives in physics/dplane.js - this file is presentation + interaction;
@@ -71,7 +71,7 @@ function setDplaneCell(id,field,value){
 function buildDplaneLab(){
   const wrap=document.getElementById('dplane-lab-wrap'); if(!wrap) return;
   wrap.innerHTML=`
-    <div class="section-label" style="margin-top:0">The D-Plane Lab — Impact Geometry &amp; Ball Flight</div>
+    <div class="section-label" style="margin-top:0">D-Plane — Impact Geometry &amp; Ball Flight</div>
     <div class="dpl-vis-main"><div id="dplane-visual"></div></div>
     <div class="lvl-subhead" style="margin-top:16px">Stock-Shot Tendencies by Club</div>
     <div class="chain-caption" style="margin-top:4px">Each club's <strong>stock-shot</strong> impact geometry: horizontal face, horizontal path, vertical face (dyn loft), vertical path (attack angle) and vertical swing plane (degrees, left −/right +; blank plane = estimated from loft). Tap a club to load it into the lab above; typed edits save automatically.</div>
@@ -404,13 +404,12 @@ function dpApplyPreset(key){
   o.aoa=Math.max(-8,Math.min(8,(P.aoaAbs!=null)?P.aoaAbs:o.aoa+P.aoa));
   dpSandSync(); dpRenderScene();
 }
-/* Apply a preset from the Shot Presets page, then jump to the Lab to watch it fly. */
+/* Apply a preset from the Shot Presets page, then jump to D-Plane to watch it fly. */
 function dpLoadShot(key){
   const P=DP_SHOTS[key]; if(!P) return;
   dpApplyPreset(key);
-  const tabs=document.querySelectorAll('#nav-sub .nav-tab');
-  showPage('dplane', tabs.length?tabs[0]:null);
-  if(typeof toast==='function') toast(P.lbl.replace('&amp;','&')+' loaded in the Lab');
+  showPage('dplane', document.querySelector('#nav-sub .nav-tab[data-tab="dplane"]'));
+  if(typeof toast==='function') toast(P.lbl.replace('&amp;','&')+' loaded in D-Plane');
 }
 /* One-line recipe summary for a short-game shot card. */
 function dpShotParamsTxt(s){
@@ -420,10 +419,10 @@ function dpShotParamsTxt(s){
   const bs=s.bs!=null?fmtMph(s.bs):(s.bsMult?Math.round(s.bsMult*100)+'% ball speed':'stock speed');
   return 'vert. face '+vf+' · vert. path '+ao+' · '+bs;
 }
-/* ---- SHOT PRESETS — its own sub-page under the D-Plane Lab tab (#page-dpshots).
+/* ---- SHOT PRESETS — its own sub-page alongside D-Plane, under Hit Shots (#page-dpshots).
    The 9-window drill grid plus the named short-game shots as expandable recipe
-   cards. Tapping any shot loads its impact numbers into the Lab's sandbox
-   (relative to the selected club) and switches to the Lab. ---- */
+   cards. Tapping any shot loads its impact numbers into D-Plane's sandbox
+   (relative to the selected club) and switches there. ---- */
 function buildDpShots(){
   const wrap=document.getElementById('dpshots-wrap'); if(!wrap) return;
   const clubs=STATE.clubs.filter(c=>c.type!=='putter');

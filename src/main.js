@@ -1,5 +1,5 @@
 /* ============================================================
-   StrongerGolf — Gamer's App
+   StrongerGolf — Player's App
    Entry point. Imports every module in dependency order.
 
    ARCHITECTURE NOTE (staged migration):

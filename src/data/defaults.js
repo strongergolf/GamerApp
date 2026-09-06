@@ -103,15 +103,20 @@ const DEFAULT_DATA = {
     Pu: {carry:null,total:null,bspd:null,cspd:null,launch:null,spin:null,ht:null,land:null}
   },
   /* partial swings — total distances (carry + green rollout), single source.
-     Full-swing totals match performance.total; partials scaled proportionally. */
+     Full-swing totals match performance.total; partials scaled proportionally.
+     Rungs are backswing clock positions: full 11:00 · tq 10:00 · half 9:00 · third 8:00.
+     `conf` flags each rung Captured (true) vs Presumed (false), in that same order.
+     The 8:00 (third) column is PRESUMED throughout — modelled by estThirdCarry (store.js)
+     from each club's own ladder, pending Mark's recalibration numbers. Note the 44→20 hole
+     between S and X at 8:00: real if the ladder holds, worth checking on the recalibration. */
   partials: {
-    '7i':{full:170,tq:158,half:143, conf:[true,false,false]},
-    '8i':{full:157,tq:143,half:127, conf:[true,false,false]},
-    '9i':{full:142,tq:127,half:112, conf:[true,false,false]},
-    P:   {full:126,tq:112,half:97,  conf:[true,false,false]},
-    W:   {full:112,tq:97, half:74,  conf:[true,false,false]},
-    S:   {full:97, tq:74, half:57,  conf:[true,false,true]},
-    X:   {full:74, tq:57, half:37,  conf:[true,true,true]}
+    '7i':{full:170,tq:158,half:143, third:126, conf:[true,false,false,false]},
+    '8i':{full:157,tq:143,half:127, third:110, conf:[true,false,false,false]},
+    '9i':{full:142,tq:127,half:112, third:97,  conf:[true,false,false,false]},
+    P:   {full:126,tq:112,half:97,  third:82,  conf:[true,false,false,false]},
+    W:   {full:112,tq:97, half:74,  third:50,  conf:[true,false,false,false]},
+    S:   {full:97, tq:74, half:57,  third:44,  conf:[true,false,true,false]},
+    X:   {full:74, tq:57, half:37,  third:20,  conf:[true,true,true,false]}
   },
   /* per-club stock-shot D-plane tendencies (horizontal face/path + attack angle, degrees).
      hFace/hPath: left(−)/right(+) of target. Stock shape & curve derived (face vs path,

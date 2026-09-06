@@ -1,9 +1,9 @@
 {
-  "name": "strongergolf-gamers-app",
+  "name": "strongergolf-players-app",
   "private": true,
   "version": "0.61.0",
   "type": "module",
-  "description": "StrongerGolf — Gamer's App. Golf performance application for serious amateurs.",
+  "description": "StrongerGolf — Player's App. Golf performance application for serious amateurs.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

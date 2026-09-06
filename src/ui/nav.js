@@ -5,24 +5,30 @@
    ============================================================ */
 /* group → ordered list of {id,label} sub-tabs */
 const GROUPS={
+  /* Hit Shots (was Play): the four stock-shot tabs, plus D-Plane Lab folded in here
+     (was its own main tab) — its two pages keep their ids, just renamed/renested. */
   play:[
     {id:'bag',      label:'Stock Shots'},
     {id:'partials', label:'Approach'},
     {id:'shortgame',label:'Short Game'},
     {id:'putting',  label:'Putting'},
-    {id:'games',    label:'Practice Games'},
-    {id:'rgames',   label:'On-Course Games'}
+    {id:'dplane',   label:'D-Plane'},
+    {id:'dpshots',  label:'Shot Presets'}
   ],
-  /* Gameplan follows the round arc, one sub-tab per phase — Strategy leads because the
-     Hole Overlay is the tool actually used, not a reference section. */
+  games:[
+    {id:'games',  label:'Practice Games'},
+    {id:'rgames', label:'On-Course Games'}
+  ],
+  /* Strategy (was Gameplan) follows the round arc, one sub-tab per phase — Hole Overlay
+     leads because it's the tool actually used, not a reference section. (Was labelled
+     "Strategy" itself before the main tab took that name — renamed to avoid the dupe.) */
   gameplan:[
-    {id:'gameplan',  label:'Strategy'},
+    {id:'gameplan',  label:'Hole Overlay'},
     {id:'preshot',   label:'Pre-Shot'},
     {id:'postshot',  label:'Post-Shot'},
     {id:'postround', label:'Post-Round'},
     {id:'gpcourses', label:'My Courses'}
   ],
-  dplane:[{id:'dplane',label:'The Lab'},{id:'dpshots',label:'Shot Presets'}],
   diagnose:[
     {id:'chain',label:'The Chain'},
     {id:'ch1',label:'1 Score'},{id:'ch2',label:'2 Ball Flight'},{id:'ch3',label:'3 Forces'},
@@ -44,8 +50,14 @@ function showGroup(group,el){
   const tabs=GROUPS[group];
   /* single-surface groups don't need a sub-strip */
   if(tabs.length<=1){ sub.innerHTML=''; showPage(tabs[0].id); }
-  else { sub.innerHTML=tabs.map((t,i)=>`<div class="nav-tab${i===0?' active':''}" onclick="showPage('${t.id}',this)">${t.label}</div>`).join(''); showPage(tabs[0].id); }
+  else { sub.innerHTML=tabs.map((t,i)=>`<div class="nav-tab${i===0?' active':''}" data-tab="${t.id}" onclick="showPage('${t.id}',this)">${t.label}</div>`).join(''); showPage(tabs[0].id); }
   updateSubScrollCue();
+}
+/* Deep-link into a specific sub-tab of another main group (e.g. The Chain → Hit Shots'
+   D-Plane sub-tab) — showGroup alone always lands on that group's first sub-tab. */
+function showGroupPage(group,pageId){
+  showGroup(group);
+  showPage(pageId, document.querySelector(`#nav-sub .nav-tab[data-tab="${pageId}"]`));
 }
 /* Show the right-edge fade only when the sub-tab strip actually overflows (cue that it scrolls). */
 function updateSubScrollCue(){
@@ -136,4 +148,4 @@ window.addEventListener('resize', updateSubScrollCue);
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { GROUPS, currentGroup, initConditions, refreshAll, renderAll, showGroup, showPage, toast, toastTimer, toggleRefMore, triggerImportFile });
+Object.assign(window, { GROUPS, currentGroup, initConditions, refreshAll, renderAll, showGroup, showPage, showGroupPage, toast, toastTimer, toggleRefMore, triggerImportFile });

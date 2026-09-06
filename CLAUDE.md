@@ -1,4 +1,4 @@
-# StrongerGolf — Gamer's App
+# StrongerGolf — Player's App
 
 Golf performance application for serious amateurs. Built by Mark Strong (PGA of Canada professional, Surrey BC) as part of reviving the StrongerGolf brand. Planned direction: subscription SaaS competing on value, not price.
 

@@ -5,9 +5,9 @@
 // Approach/Stock cells show Total (big) over Carry (small) for the 11:00/10:00/9:00 swings.
 // Chip cells show the total distance for a 2 / 5 / 10 yd carry. All from live bag data.
 
-/* Full / ¾ / ½ swing table for a set of club ids (Total over Carry per cell). */
+/* Full / ¾ / ½ / ⅓ swing table for a set of club ids (Total over Carry per cell). */
 function prSwingTable(clubIds){
-  const swings=[['11:00','Full','full'],['10:00','¾','tq'],['9:00','½','half']];
+  const swings=[['11:00','Full','full'],['10:00','¾','tq'],['9:00','½','half'],['8:00','⅓','third']];
   const firm=window.approachGreenFirmness||0;
   let body='';
   clubIds.forEach(id=>{
@@ -17,7 +17,7 @@ function prSwingTable(clubIds){
     const cell=key=>{
       let total,carry;
       if(key==='full'){ total=p.total!=null?p.total:p.carry; carry=p.carry!=null?p.carry:(total!=null?total*ratio:null); }
-      else { total=pr[key]!=null?pr[key]:(p.total!=null?p.total*(key==='tq'?0.92:0.78):null); carry=total!=null?total*ratio:null; }
+      else { const fb={tq:0.92,half:0.78,third:0.62}[key]; total=pr[key]!=null?pr[key]:(p.total!=null?p.total*fb:null); carry=total!=null?total*ratio:null; }
       if(total==null) return '<td>&mdash;</td>';
       /* mirror the on-screen tables: when Adjust is on, carry scales with air density
          and roll-out is preserved (adjTotal); firmness still adds on top. */
@@ -25,7 +25,7 @@ function prSwingTable(clubIds){
       const aTotal=(window.adjustOn&&carry!=null)?adjTotal(carry,total):total;
       return `<td><span class="big">${Math.round(aTotal)+firm}</span><span class="sm">${aCarry!=null?Math.round(aCarry)+firm:'—'}</span></td>`;
     };
-    body+=`<tr><td class="club"><span class="big">${c.label}</span><span class="sm">${c.loft||''}</span></td>${cell('full')}${cell('tq')}${cell('half')}</tr>`;
+    body+=`<tr><td class="club"><span class="big">${c.label}</span><span class="sm">${c.loft||''}</span></td>${cell('full')}${cell('tq')}${cell('half')}${cell('third')}</tr>`;
   });
   const head=`<tr><th>Club</th>${swings.map(s=>`<th>${s[0]}<span class="thsub">${s[1]}</span></th>`).join('')}</tr>`;
   return `<table class="ref"><thead>${head}</thead><tbody>${body}</tbody></table>`;
@@ -106,7 +106,7 @@ function prCard(){
         <div class="mtitle" style="margin-top:12px">Chip Shot Matrix</div>${prChipTable()}
       </div>
     </div>
-    <div class="foot">${prMark}<span>Gamer&rsquo;s App &middot; ${new Date().toLocaleDateString()}</span></div>
+    <div class="foot">${prMark}<span>Player&rsquo;s App &middot; ${new Date().toLocaleDateString()}</span></div>
   </section>`;
 }
 function printCardHTML(sides){

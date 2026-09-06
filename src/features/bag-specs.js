@@ -135,10 +135,23 @@ function estimatePerfForLoft(targetLoft, excludeId){
   ['carry','total','bspd','cspd','launch','spin','ht','land'].forEach(k=>{ const v=interp(k); if(v!=null&&isFinite(v)) est[k]=(k==='launch'||k==='land')?Math.round(v*10)/10:Math.round(v); });
   return Object.keys(est).length?est:null;
 }
-/* Swap the chosen replacement club into this bag slot and estimate its stats (flagged Presumed). */
+/* Swap the chosen replacement club into this bag slot and estimate its stats (flagged Presumed).
+   This is a true EXCHANGE: the club coming out goes back into the other-bags inventory and the
+   club going in leaves it. Before this it was one-way — the displaced club was overwritten in
+   place and existed nowhere afterwards, so you could never put it back (the 64° PM case), and
+   the incoming club stayed in the inventory and could be swapped into several slots at once. */
 function selectReplacement(clubId,oIdx){
   const c=STATE.clubs.find(x=>x.id===clubId); if(!c) return;
   const o=repMatches(c).matches[oIdx]; if(!o) return;
+  const oInv=STATE.otherClubs.indexOf(o);
+  /* snapshot the outgoing club in inventory shape before its fields are overwritten */
+  const displaced={
+    label:c.label, effLoft:parseFloat(c.loft)||null, make:c.make, model:c.model,
+    shaft:c.shaft, length:c.length, lie:c.lie, year:c.year, swt:c.swt,
+    bag:'Removed from bag', type:c.type
+  };
+  if(c.grip) displaced.grip=c.grip;
+  if(c.weightOz) displaced.weightOz=c.weightOz;
   c.label=o.label||c.label; c.make=o.make; c.model=o.model; c.shaft=o.shaft;
   if(o.length) c.length=o.length;
   if(o.effLoft!=null){ c.loft=o.effLoft+'°'; c.origLoft=o.effLoft+'°'; }
@@ -152,11 +165,18 @@ function selectReplacement(clubId,oIdx){
          estimate so My Bag and the Play tabs show the same numbers. Rebuild full/¾/½ from the
          estimated total (carry≈total here, no measured rollout split for an estimated club). */
       const base=est.total||est.carry;
-      if(base) STATE.partials[clubId]={ full:Math.round(base), tq:Math.round(base*0.92), half:Math.round(base*0.78) };
+      if(base){
+        const rebuilt={ full:Math.round(base), tq:Math.round(base*0.92), half:Math.round(base*0.78), conf:[false,false,false,false] };
+        rebuilt.third=estThirdCarry(rebuilt);
+        STATE.partials[clubId]=rebuilt;
+      }
     }
   }
+  /* complete the exchange: incoming club leaves the inventory, outgoing club joins it */
+  if(oInv>-1) STATE.otherClubs.splice(oInv,1);
+  if(displaced.effLoft!=null) STATE.otherClubs.push(displaced);
   saveState(); refreshAll();
-  if(typeof toast==='function') toast(`${o.make} ${o.model} (${o.effLoft}°) swapped in — stats estimated`);
+  if(typeof toast==='function') toast(`${o.make} ${o.model} (${o.effLoft}°) swapped in — ${displaced.make} ${displaced.model} to your other bags`);
 }
 function toggleSpecs(c,row,group){
   const open=group.classList.contains('open');
@@ -193,7 +213,7 @@ function toggleSpecs(c,row,group){
     </div>`;
   const {effLoft,loftTol,matches}=repMatches(c);
   const repLabel=`<div class="specs-rep-label">Replacement Options — ±${loftTol}° Effective Loft${c.type==='putter'?' · putters only':''} · tap to swap in</div>`;
-  const repHtml=!matches.length?`<div class="specs-no-rep">No matching clubs found in your other bags.</div>`:matches.map((o,i)=>{
+  const repHtml=!matches.length?`<div class="specs-no-rep">Nothing in your other bags within ±${loftTol}° of ${effLoft}°. A club further away than that is hidden rather than missing — edit the spec fields above to enter it directly.</div>`:matches.map((o,i)=>{
     const d=o.effLoft-effLoft, ds=d===0?'=':d>0?`+${d}°`:`${d}°`, dc=d===0?'exact':Math.abs(d)<=1?'close':'off';
     const extraDetail = c.type==='putter'
       ? `<div class="spec-val" style="font-size:.58rem;color:var(--muted)">${o.grip||''} · ${o.weightOz||''}oz · ${o.swt||''}</div>`
@@ -224,6 +244,7 @@ function syncPartialsForClub(id){
   pr.full=Math.round(tot);
   if(pr.tq!=null) pr.tq=Math.round(pr.tq*r);
   if(pr.half!=null) pr.half=Math.round(pr.half*r);
+  if(pr.third!=null) pr.third=Math.round(pr.third*r);
 }
 function saveClub(id){
   const club=STATE.clubs.find(c=>c.id===id); const p=STATE.performance[id]=STATE.performance[id]||{};
@@ -403,7 +424,7 @@ function generateFromSwingSpeed(){
     if(p.bspd!=null)p.bspd=Math.round(p.bspd*ratio);
     if(p.cspd!=null)p.cspd=Math.round(p.cspd*ratio);
   });
-  Object.keys(STATE.partials).forEach(id=>{const pr=STATE.partials[id];['full','tq','half'].forEach(k=>{if(pr[k]!=null)pr[k]=Math.round(pr[k]*ratio);});});
+  Object.keys(STATE.partials).forEach(id=>{const pr=STATE.partials[id];['full','tq','half','third'].forEach(k=>{if(pr[k]!=null)pr[k]=Math.round(pr[k]*ratio);});});
   STATE.profile.driverSwingSpeed=target;
   saveState(); refreshAll(); toast('Ladder generated — refine from real data');
 }
