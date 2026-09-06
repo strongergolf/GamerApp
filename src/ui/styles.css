@@ -1208,6 +1208,87 @@ body.theme-dark .wg-run-a{color:var(--green2)} body.theme-dark .wg-run-b{color:v
 .wg-strokes b{color:var(--ink)}
 .wg-u-fixed{display:inline-block;text-align:center;border-color:transparent;background:none;cursor:default}
 
+/* ---- COMBINES: phone-first practice-game card ----
+   Filled in one-handed on a range mat, so: no horizontal scroll anywhere, inputs at least
+   38px tall, and the four running games as a glanceable strip instead of table columns. */
+.gm-pick{display:flex;gap:6px;flex-wrap:wrap}
+.gm-pick-btn{flex:1 1 0;min-width:72px;min-height:40px;font-family:Arial,sans-serif;font-size:.8rem;font-weight:700;
+  padding:8px 6px;border:1px solid var(--border2);border-radius:9px;background:var(--surface);color:var(--ink2);cursor:pointer}
+.gm-pick-btn:hover{border-color:var(--green)}
+.gm-pick-btn.active{background:var(--green);border-color:var(--green);color:#fff}
+.gm-hole{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:baseline;margin:10px 0 2px;padding:8px 11px;
+  background:var(--bg2);border:1px solid var(--border);border-radius:9px}
+.gm-hole label{font-family:ui-monospace,monospace;font-size:.56rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.gm-hole input{width:70px;min-height:36px;margin:0 4px;font-family:ui-monospace,monospace;font-size:.86rem;font-weight:800;
+  padding:5px 7px;border:1px solid var(--border2);border-radius:7px;background:var(--surface);color:var(--ink)}
+.gm-hole input:focus{border-color:var(--green)}
+.gm-hole span{flex:1 1 100%;font-family:Arial,sans-serif;font-size:.68rem;line-height:1.45;color:var(--muted)}
+.gm-hole b{color:var(--ink2)}
+.gm-tiles{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin:10px 0 8px}
+@media(min-width:620px){.gm-tiles{grid-template-columns:repeat(4,1fr)}}
+.gm-tile{padding:7px 9px;border:1px solid var(--border);border-left:3px solid var(--border2);border-radius:8px;background:var(--bg2)}
+.gm-tile span{display:block;font-family:ui-monospace,monospace;font-size:.46rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.gm-tile b{display:block;font-family:Arial,sans-serif;font-size:.8rem;font-weight:800;color:var(--ink);line-height:1.25;margin-top:2px}
+/* token pairs, not literals: --green-pale/--green flip together between themes, so a
+   hardcoded dark green here would sit on a dark ground in dark mode and vanish */
+.gm-tile.gm-lead-a{border-left-color:var(--green)}
+.gm-tile.gm-lead-b{border-left-color:var(--gold)}
+.gm-mode{display:flex;gap:5px;margin:8px 0 0}
+.gm-mode-btn{flex:0 0 auto;min-height:34px;padding:6px 14px;font-family:ui-monospace,monospace;font-size:.58rem;
+  font-weight:700;text-transform:uppercase;letter-spacing:.07em;border:1px solid var(--border2);border-radius:8px;
+  background:var(--surface);color:var(--muted);cursor:pointer}
+.gm-mode-btn.active{background:var(--bg2);border-color:var(--green);color:var(--ink)}
+.gm-list-head,.gm-row,.gm-totals{display:grid;grid-template-columns:52px 1fr 1fr;gap:6px;align-items:center}
+/* solo: one player column, so give the entry the room the second column was using */
+.gm-list-head.gm-solo,.gm-solo-list .gm-row,.gm-totals.gm-solo{grid-template-columns:52px 1fr}
+.gm-sc .gm-lost{color:var(--gold)}
+.gm-pb{color:var(--green);font-size:.55rem;letter-spacing:.06em}
+.gm-list-head{padding:0 2px 4px;font-family:ui-monospace,monospace;font-size:.5rem;text-transform:uppercase;
+  letter-spacing:.07em;color:var(--muted);font-weight:700}
+.gm-list-head>div{text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gm-list-head>div>span{display:block;font-size:.44rem;font-weight:400;letter-spacing:.05em}
+.gm-list-head .gm-st{text-align:right}
+.gm-list{display:flex;flex-direction:column;gap:5px}
+.gm-row{padding:5px 0;border-bottom:1px solid var(--border)}
+.gm-row:last-child{border-bottom:none}
+.gm-row.gm-down{background:linear-gradient(90deg,var(--bg2) 0 46px,transparent 46px)}
+.gm-st{font-family:ui-monospace,monospace;font-size:.82rem;font-weight:800;color:var(--ink);text-align:right;line-height:1.15}
+.gm-st span{display:block;font-size:.44rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.gm-st em{display:block;font-style:normal;font-size:.44rem;color:var(--muted);letter-spacing:.03em}
+.gm-side{display:flex;flex-direction:column;gap:3px;min-width:0}
+.gm-side .wg-in input,.gm-drive input{min-height:38px}
+.gm-sc{display:flex;gap:5px;align-items:baseline;justify-content:center;font-family:ui-monospace,monospace;line-height:1}
+.gm-sc-g{font-size:.78rem;font-weight:800;color:var(--ink2);padding:1px 4px;border-radius:4px}
+.gm-sc-n{font-size:.54rem;font-style:normal;color:var(--muted);padding:1px 3px;border-radius:4px}
+.gm-sc-none{font-size:.66rem;color:var(--border2)}
+.gm-sc .gm-won{background:var(--green-pale);color:var(--green)}
+.gm-drive{display:grid;grid-template-columns:1fr 1fr auto;gap:3px;align-items:center}
+.gm-drive input{width:100%;min-width:0;font-family:ui-monospace,monospace;font-size:.76rem;font-weight:700;
+  padding:6px 5px;border:1px solid var(--border2);border-radius:7px;background:var(--surface);color:var(--ink);text-align:center}
+.gm-drive input:focus{border-color:var(--green)}
+.gm-band{font-family:ui-monospace,monospace;font-size:.46rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;
+  padding:3px 4px;border-radius:5px;background:var(--bg2);color:var(--muted);text-align:center;min-width:26px}
+/* Three bands must be told apart at a glance. NOT --amber for the middle one: in dark mode
+   --amber and --green resolve to the SAME value, so Fwy and Rgh became one colour. Green /
+   gold / gold-with-a-hard-edge stays distinct in both themes, and the label carries the
+   meaning anyway. */
+.gm-band-fwy{background:var(--green-pale);color:var(--green)}
+.gm-band-rgh{background:var(--gold-pale);color:var(--gold)}
+.gm-band-rcy{background:var(--gold-pale);color:var(--gold);border:1px solid var(--gold);font-weight:800}
+.gm-totals{margin-top:6px;padding-top:8px;border-top:2px solid var(--border2)}
+.gm-tot-side{text-align:center;font-family:ui-monospace,monospace;line-height:1.2;min-width:0}
+.gm-tot-side span{display:block;font-size:.46rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gm-tot-side b{display:block;font-family:Arial,sans-serif;font-size:1.05rem;font-weight:800;color:var(--ink)}
+.gm-tot-side i{display:block;font-style:normal;font-size:.56rem;color:var(--ink2)}
+.gm-tot-side em{display:block;font-style:normal;font-size:.5rem;color:var(--muted)}
+.gm-result{display:grid;grid-template-columns:1fr;gap:5px;margin-top:9px}
+@media(min-width:520px){.gm-result{grid-template-columns:1fr 1fr}}
+.gm-result>div{padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);
+  font-family:Arial,sans-serif;font-size:.76rem;font-weight:700;color:var(--ink)}
+.gm-result span{display:block;font-family:ui-monospace,monospace;font-size:.46rem;font-weight:700;text-transform:uppercase;
+  letter-spacing:.08em;color:var(--muted)}
+
 /* ---- On-course games: one card, several wagers ---- */
 .gr-players{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin:10px 0}
 .gr-player{display:flex;gap:6px;align-items:flex-end;flex:1 1 210px;min-width:190px}
@@ -1218,15 +1299,22 @@ body.theme-dark .wg-run-a{color:var(--green2)} body.theme-dark .wg-run-b{color:v
 .gr-opts span{font-family:ui-monospace,monospace;font-size:.46rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
 .gr-optnote{font-family:Arial,sans-serif;font-size:.66rem;line-height:1.5;color:var(--muted);margin-bottom:10px}
 .gr-scroll,.gr-scroll2{overflow-x:auto}
-.gr-card{border-collapse:collapse;font-family:ui-monospace,monospace;font-size:.62rem;min-width:640px}
+/* Vertical scorecard: holes down, players across. Full width, never scrolls sideways —
+   this is filled in on the course on a phone. */
+.gr-card{width:100%;border-collapse:collapse;font-family:ui-monospace,monospace;font-size:.62rem;table-layout:fixed}
 .gr-card th,.gr-card td{border:1px solid var(--border);padding:2px 3px;text-align:center}
-.gr-card thead th{background:var(--bg2);color:var(--muted);font-size:.55rem;font-weight:700}
+.gr-card thead th{background:var(--bg2);color:var(--muted);font-size:.55rem;font-weight:700;position:sticky;top:0;z-index:1}
+.gr-card .gr-h{width:74px;text-align:left;padding-left:7px;font-weight:800;color:var(--ink);background:var(--bg2);line-height:1.2}
+.gr-card .gr-h span{display:block;font-size:.46rem;font-weight:400;color:var(--muted);letter-spacing:.02em}
+.gr-card .gr-p{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gr-card .gr-turn-row td,.gr-card .gr-turn-row th{border-top:2px solid var(--border2)}
+.gr-card tfoot th,.gr-card tfoot td{border-top:2px solid var(--border2);font-size:.72rem}
 .gr-card .gr-sub td{background:var(--bg2);color:var(--muted);font-size:.5rem}
 .gr-card .gr-name{text-align:left;white-space:nowrap;font-weight:800;color:var(--ink);background:var(--bg2);
   position:sticky;left:0;z-index:1;min-width:74px;max-width:110px;overflow:hidden;text-overflow:ellipsis}
 .gr-card .gr-turn{border-right:2px solid var(--border2)}
 .gr-cell{position:relative;padding:0 !important}
-.gr-cell input{width:34px;border:none;background:transparent;text-align:center;font-family:ui-monospace,monospace;
+.gr-cell input{width:100%;min-height:38px;border:none;background:transparent;text-align:center;font-family:ui-monospace,monospace;
   font-size:.74rem;font-weight:700;color:var(--ink);padding:6px 0 3px;outline:none}
 .gr-cell input:focus{background:var(--green-pale)}
 body.theme-dark .gr-cell input:focus{background:rgba(0,133,63,.2)}

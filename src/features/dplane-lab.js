@@ -404,12 +404,14 @@ function dpApplyPreset(key){
   o.aoa=Math.max(-8,Math.min(8,(P.aoaAbs!=null)?P.aoaAbs:o.aoa+P.aoa));
   dpSandSync(); dpRenderScene();
 }
-/* Apply a preset from the Shot Presets page, then jump to D-Plane to watch it fly. */
+/* Apply a preset, then bring the 3D render into view to watch it fly. Presets sit on the
+   D-Plane page itself now, so this scrolls rather than switching sub-tab. */
 function dpLoadShot(key){
   const P=DP_SHOTS[key]; if(!P) return;
   dpApplyPreset(key);
-  showPage('dplane', document.querySelector('#nav-sub .nav-tab[data-tab="dplane"]'));
-  if(typeof toast==='function') toast(P.lbl.replace('&amp;','&')+' loaded in D-Plane');
+  const vis=document.getElementById('dplane-visual');
+  if(vis&&vis.scrollIntoView) vis.scrollIntoView({behavior:'smooth',block:'center'});
+  if(typeof toast==='function') toast(P.lbl.replace('&amp;','&')+' loaded — see the render above');
 }
 /* One-line recipe summary for a short-game shot card. */
 function dpShotParamsTxt(s){
@@ -419,10 +421,10 @@ function dpShotParamsTxt(s){
   const bs=s.bs!=null?fmtMph(s.bs):(s.bsMult?Math.round(s.bsMult*100)+'% ball speed':'stock speed');
   return 'vert. face '+vf+' · vert. path '+ao+' · '+bs;
 }
-/* ---- SHOT PRESETS — its own sub-page alongside D-Plane, under Hit Shots (#page-dpshots).
-   The 9-window drill grid plus the named short-game shots as expandable recipe
-   cards. Tapping any shot loads its impact numbers into D-Plane's sandbox
-   (relative to the selected club) and switches there. ---- */
+/* ---- SHOT PRESETS — a section of the D-Plane page (#dpshots-wrap sits inside
+   #page-dplane). The 9-window drill grid plus the named short-game shots as expandable
+   recipe cards. Tapping any shot loads its impact numbers into the sandbox above
+   (relative to the selected club) and scrolls back to the render. ---- */
 function buildDpShots(){
   const wrap=document.getElementById('dpshots-wrap'); if(!wrap) return;
   const clubs=STATE.clubs.filter(c=>c.type!=='putter');
@@ -437,8 +439,8 @@ function buildDpShots(){
       <div class="dps-card-params">${dpShotParamsTxt(s)}</div>
     </div>`;};
   wrap.innerHTML=`
-    <div class="section-label" style="margin-top:0">Shot Presets — load a shot into the Lab</div>
-    <div class="chain-caption" style="margin-top:4px">Every preset loads its impact numbers into the <strong>D-Plane Lab</strong> sandbox — relative to the selected club's stock tendencies — and jumps there so the 3D render shows the flight. Nothing here touches your stored stock numbers until you <strong>save as stock</strong> in the Lab.</div>
+    <div class="section-label" style="margin-top:22px">Shot Presets — load a shot into the sandbox above</div>
+    <div class="chain-caption" style="margin-top:4px">Every preset loads its impact numbers into the <strong>sandbox above</strong> — relative to the selected club's stock tendencies — and scrolls back to the 3D render so you can see the flight. Nothing here touches your stored stock numbers until you <strong>save as stock</strong>.</div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0 4px">
       <label style="font-family:ui-monospace,monospace;font-size:.56rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)">Club</label>
       <select class="strat-select" style="max-width:150px" onchange="setDpVisClub(this.value)">${opts}</select>

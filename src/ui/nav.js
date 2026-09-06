@@ -5,15 +5,15 @@
    ============================================================ */
 /* group → ordered list of {id,label} sub-tabs */
 const GROUPS={
-  /* Hit Shots (was Play): the four stock-shot tabs, plus D-Plane Lab folded in here
-     (was its own main tab) — its two pages keep their ids, just renamed/renested. */
+  /* Hit Shots (was Play): the four stock-shot tabs plus D-Plane, which was its own main
+     tab (the D-Plane Lab). Shot Presets used to be a sixth tab here and is now a section
+     of the D-Plane page — five sub-tabs is the cap. */
   play:[
     {id:'bag',      label:'Stock Shots'},
     {id:'partials', label:'Approach'},
     {id:'shortgame',label:'Short Game'},
     {id:'putting',  label:'Putting'},
-    {id:'dplane',   label:'D-Plane'},
-    {id:'dpshots',  label:'Shot Presets'}
+    {id:'dplane',   label:'D-Plane'}
   ],
   games:[
     {id:'games',  label:'Practice Games'},

@@ -47,7 +47,15 @@ const SR = {
   tee:    [[100,2.80],[150,2.98],[200,3.20],[250,3.45],[300,3.71],[350,3.88],[400,4.05],
            [450,4.25],[500,4.48],[550,4.75],[600,5.02]]
 };
+/* RECOVERY — a ball more than 30 yards offline: trees, fescue, the next fairway. Broadie
+   tracks recovery as its own category and it sits meaningfully worse than rough, because the
+   next shot usually cannot advance to the green at all. Modelled as a fixed offset ON TOP of
+   rough rather than as a table of its own, deliberately: a table would look measured, and
+   this number is not. PRESUMED — replace with a real curve when there is recovery data.
+   Used by the Driver game to score a wild drive against a fairway one. */
+const SR_RECOVERY_OVER_ROUGH = 0.60;
 function srInterp(lie,dist){
+  if(lie==='recovery'){ const r=srInterp('rough',dist); return r==null?null:r+SR_RECOVERY_OVER_ROUGH; }
   const t=SR[lie]; if(!t) return null;
   if(dist<=t[0][0]) return t[0][1];
   if(dist>=t[t.length-1][0]) return t[t.length-1][1];
@@ -103,4 +111,4 @@ function effHcpForLie(lie){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { SR, parseHcp, srForPlayer, srInterp, effHcpForLie });
+Object.assign(window, { SR, SR_RECOVERY_OVER_ROUGH, parseHcp, srForPlayer, srInterp, effHcpForLie });

@@ -283,23 +283,30 @@ function buildRoundResults(){
   const r=grState(), names=r.players.map((p,i)=>p.name||('Player '+(i+1)));
   const st=grStrokes(), net=grNet();
   const two=r.players.length===2;
-  /* ---- the card ---- */
-  const hdr=r.holes.map((h,i)=>'<th'+(i===8?' class="gr-turn"':'')+'>'+h.num+'</th>').join('');
-  const parRow=r.holes.map(h=>'<td>'+h.par+'</td>').join('');
-  const siRow=r.holes.map(h=>'<td>'+h.si+'</td>').join('');
-  const body=r.players.map((p,pi)=>{
-    const cells=r.holes.map((h,hi)=>{
+  /* ---- the card ----
+     HOLES ARE ROWS, players are columns. This card is filled in on the course, on a phone,
+     one hole at a time — the other way round it is eighteen columns wide, which means finding
+     the hole you just played by scrolling sideways past the ones you already did. Down the
+     page there is no sideways scroll at all and four players still fit a 375px screen. It
+     also matches the vertical scorecard the SG round log already uses. */
+  const hdr=r.players.map((p,pi)=>'<th class="gr-p">'+escapeHtml(names[pi])+'</th>').join('');
+  const body=r.holes.map((h,hi)=>{
+    const cells=r.players.map((p,pi)=>{
       const got=st[pi][hi], dots = got>=1?'<i class="gr-dot">'+'&bull;'.repeat(Math.min(3,Math.round(got)))+'</i>':'';
       const half = (got%1)>0 ? '<i class="gr-dot gr-half">&frac12;</i>' : '';
       return '<td class="gr-cell">'+dots+half
         + '<input type="number" min="1" max="15" inputmode="numeric" value="'+(r.scores[pi][hi]||'')
         + '" oninput="grSetScore('+pi+','+hi+',this.value)"></td>';
     }).join('');
-    const gross=r.scores[pi].reduce((s,v)=>s+(parseInt(v)||0),0);
-    const netT=net[pi].reduce((s,v)=>s+(v||0),0);
-    return '<tr><th class="gr-name">'+escapeHtml(names[pi])+'</th>'+cells
-      +'<td class="gr-tot">'+(gross||'-')+'</td><td class="gr-tot gr-netot">'+(netT?netT.toFixed(netT%1?1:0):'-')+'</td></tr>';
+    return '<tr'+(hi===9?' class="gr-turn-row"':'')+'><th class="gr-h">'+h.num
+      + '<span>par '+h.par+' &middot; si '+h.si+'</span></th>'+cells+'</tr>';
   }).join('');
+  const totRow='<tr class="gr-tot-row"><th class="gr-h">Gross</th>'
+    + r.players.map((p,pi)=>{const g=r.scores[pi].reduce((s,v)=>s+(parseInt(v)||0),0);
+        return '<td class="gr-tot">'+(g||'-')+'</td>';}).join('')+'</tr>'
+    + '<tr class="gr-tot-row"><th class="gr-h">Net</th>'
+    + r.players.map((p,pi)=>{const t=net[pi].reduce((s,v)=>s+(v||0),0);
+        return '<td class="gr-tot gr-netot">'+(t?t.toFixed(t%1?1:0):'-')+'</td>';}).join('')+'</tr>';
   /* ---- results ---- */
   const nassau = two ? grNassau() : null;
   const skins = grSkins();
@@ -323,11 +330,9 @@ function buildRoundResults(){
   const ptsHtml='<div class="gr-tally">'+names.map((n,i)=>'<span>'+escapeHtml(n)+' <b>'+pts.tot[i]+'</b></span>').join('')+'</div>'
     + '<div class="gr-note">Stableford off the same net card: par 2, birdie 3, eagle 4, bogey 1, double or worse 0. Works for two, three or four.</div>';
   host.innerHTML=
-    '<div class="gr-scroll"><table class="gr-card"><thead>'
-    + '<tr><th class="gr-name">Hole</th>'+hdr+'<th class="gr-tot">Gr</th><th class="gr-tot">Net</th></tr>'
-    + '<tr class="gr-sub"><th class="gr-name">Par</th>'+parRow+'<td></td><td></td></tr>'
-    + '<tr class="gr-sub"><th class="gr-name">SI</th>'+siRow+'<td></td><td></td></tr>'
-    + '</thead><tbody>'+body+'</tbody></table></div>'
+    '<table class="gr-card"><thead>'
+    + '<tr><th class="gr-h">Hole</th>'+hdr+'</tr>'
+    + '</thead><tbody>'+body+'</tbody><tfoot>'+totRow+'</tfoot></table>'
     + '<div class="gr-games">'
     + '<div class="gr-game"><h4>Nassau</h4>'+nassauHtml+'</div>'
     + '<div class="gr-game"><h4>Skins <span>'+(r.skinsNet?'net':'gross')+' &middot; '+GR_VALID[r.valid].label.toLowerCase()+'</span></h4>'+skinsHtml+'</div>'
