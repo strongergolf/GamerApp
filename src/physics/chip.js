@@ -5,29 +5,31 @@
 /* ============================================================
    SHORT GAME — CHIP DIALLER
    ============================================================ */
-/* Roll ratio R = roll/carry, keyed by club LOFT — the standard bump-and-run ladder that
-   every short-game lesson is taught from, mapped onto this bag's actual lofts:
+/* Roll ratio R = roll/carry, keyed by club LOFT — Mark's own calibration, restored.
 
-     7i 1:6   8i 1:5   9i 1:4   P 1:3   G 1:2   S 1:1   L 2:1   X 3:1
+   These were briefly re-anchored to the textbook bump-and-run ladder (7i 1:6 … S 1:1) on my
+   reading that the model sat a club strong. That was wrong, and the reason is worth keeping:
+   the textbook ladder is quoted for a bump-and-run — ball back, hands well forward, face
+   square — which is a DELOFTED setup, while these anchors are keyed on the club's STAMPED
+   loft and the setup's deloft is applied separately on top (SG_VARS' standard chip already
+   carries +6° of forward shaft lean, so a 51° gap wedge delivers about 45°). Pinning textbook
+   ratios to stamped loft counts that deloft twice, and every club comes out a club strong —
+   a gap wedge released like a pitching wedge, which is exactly what showed up on the tab.
 
-   This used to sit a full club stronger (7i 1:5 … S 2:1), which put the even 1:1 split on
-   the gap wedge instead of the sand wedge and made every club release less than the golfer
-   expects. Nothing in the physics justified the shift — it came from an old 58°-and-5-yards
-   rule of thumb that had already drifted out of step with these anchors — so the ladder is
-   now the ladder. Presumed until measured: the Calibration panel's rollMult scales the whole
-   ladder from the player's own observed shots. */
+   So the anchors below are for the club's stamped loft at a NEUTRAL delivery, and they sit
+   softer than the lesson-tee ladder by design. The bump-and-run numbers reappear on their own
+   when the setup is dialled to a bump-and-run. Measured against Mark's own shots; the
+   Calibration panel's rollMult scales the whole ladder from a player's observed rollouts. */
 const CHIP_ROLL_ANCHORS=[
-  [26.7, 8.0],   /* 5-iron  1:8  (and the floor below it) */
-  [31.0, 7.0],   /* 6-iron  1:7 */
-  [35.0, 6.0],   /* 7-iron  1:6 */
-  [39.0, 5.0],   /* 8-iron  1:5 */
-  [43.0, 4.0],   /* 9-iron  1:4 */
-  [47.0, 3.0],   /* P-wedge 1:3 */
-  [51.0, 2.0],   /* G-wedge 1:2 */
-  [56.0, 1.0],   /* S-wedge 1:1 */
-  [61.0, 0.50],  /* L-wedge 2:1 */
-  [65.0, 0.33],  /* X-wedge 3:1 */
-  [86.7, 0.33]   /* cap */
+  [26.7, 6.0],   /* floor below 7i */
+  [35.0, 5.0],   /* 7-iron  1:5 */
+  [39.0, 4.0],   /* 8-iron  1:4 */
+  [43.0, 3.0],   /* 9-iron  1:3 */
+  [47.0, 2.0],   /* P-wedge 1:2 */
+  [51.0, 1.0],   /* G-wedge 1:1 */
+  [56.0, 0.5],   /* S-wedge 2:1 */
+  [65.0, 0.2],   /* X-wedge 5:1 */
+  [86.7, 0.2]    /* cap */
 ];
 function chipRollRatio(loftDeg){
   const L=parseFloat(loftDeg)||50, A=CHIP_ROLL_ANCHORS;

@@ -624,13 +624,7 @@ body.theme-dark .sgv-prov{color:var(--gold)}
 .sgv-shot-cell{display:flex;flex-direction:column;gap:2px;align-items:flex-start}
 .sgv-k{font-family:Arial,sans-serif;font-size:.5rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
 .sgv-v{font-family:ui-monospace,monospace;font-size:.86rem;font-weight:700;color:var(--ink)}
-/* Net Shot Effect: one row per stage (cause at impact, effect on the shot) rather than a
-   4-cell grid, so the labels sit beside their numbers and wrap cleanly on a phone. */
-.sgv-eff-row{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px;font-family:ui-monospace,monospace;font-size:.66rem;color:var(--muted);padding:7px 0;border-bottom:1px solid var(--border)}
-.sgv-eff-row:last-of-type{border-bottom:none}
-.sgv-eff-k{flex:0 0 100%;font-family:Arial,sans-serif;font-size:.5rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
-.sgv-eff-v b{color:var(--ink);font-weight:700;font-size:.8rem}
-@media(min-width:420px){.sgv-eff-k{flex:0 0 auto;min-width:104px}}
+.sgv-shot.sgv-shot-3{grid-template-columns:repeat(3,1fr)}
 .sgv-readout-foot{font-family:ui-monospace,monospace;font-size:.62rem;color:var(--muted);margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .sgv-reset{font-family:Arial,sans-serif;font-size:.66rem;font-weight:600;padding:3px 10px;background:transparent;border:1px solid var(--border2);border-radius:14px;color:var(--ink2);cursor:pointer}
 .sgv-reset:hover{border-color:var(--accent,var(--ink2));color:var(--ink)}

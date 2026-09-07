@@ -66,7 +66,13 @@ const SG_K = {
   leanDeloft:  1.0,   /* ° effective loft removed per ° forward (horizontal) shaft lean */
   launchRatio: 0.68,  /* launch = effective loft × this (matches chipLaunch display rule) */
   spinPerSteep:130,   /* rpm added per ° of downward (steeper) vertical path */
-  spinPerLean: 90     /* rpm added per ° forward shaft lean (added compression) */
+  spinPerLean: 90,    /* rpm added per ° forward shaft lean (added compression) */
+  /* Reference CLUB loft for the ball-speed term. The setup panel is club-independent — it
+     states what a setup does to any chip — so the speed change has to be quoted against a
+     representative club, and a gap wedge is the go-to chipping club. Delivered loft is this
+     less the setup's shaft lean, so the standard chip lands at 51 − 6 = 45°; sgRefDelivered()
+     derives that rather than asserting it, and the readout prints what it derives. */
+  refClubLoft: 51
 };
 
 function sgVarList(){ return [...SG_VARS.setup, ...SG_VARS.pivot]; }
@@ -95,6 +101,20 @@ function sgRawNet(sel){
   return acc;
 }
 
+/* Ball speed as a fraction of the club's own speed. Only the component of the strike normal to
+   the face compresses the ball; the rest slides up it and becomes spin. So adding delivered
+   loft costs ball speed and buys spin, and delofting does the reverse — which is why a chip
+   played off the back foot comes out hotter. cos(delivered loft) is the first-order form of
+   that split. Presumed: a first-order model, refine from launch-monitor smash factors. */
+function sgSpeedFrac(effLoftDelta){
+  return Math.cos((SG_K.refClubLoft + effLoftDelta) * Math.PI/180);
+}
+/* Delivered loft of the standard chip on the reference club — derived, so it cannot drift out
+   of step with SG_VARS' defaults the way a hardcoded 45 would. */
+function sgRefDelivered(){
+  const def={}; sgVarList().forEach(v=>def[v.key]=v.def);
+  return SG_K.refClubLoft + sgRawNet(def).effLoft;
+}
 /* Net shot effect = current selection MINUS the default ("standard chip") selection,
    so defaults = zero change and the existing tuned baseline is preserved. */
 function sgNet(){
@@ -107,6 +127,8 @@ function sgNet(){
     dLaunch:  cur.launch  - base.launch,
     dSpin:    cur.spin    - base.spin,
     dBounce:  cur.bounce  - base.bounce,
+    /* a PERCENTAGE change in ball speed, so the UI states it without redoing the trigonometry */
+    dSpeedPct: (sgSpeedFrac(cur.effLoft)/sgSpeedFrac(base.effLoft) - 1) * 100,
     prov:cur.prov
   };
 }
@@ -132,4 +154,4 @@ function resetSgVars(){
 }
 
 // Expose for inline handlers + cross-module use during the staged migration.
-Object.assign(window, { SG_VARS, SG_K, sgVarList, sgSel, sgRawNet, sgNet, sgEffLoftDelta, setSgVar, setSgVarIdx, resetSgVars });
+Object.assign(window, { SG_VARS, SG_K, sgVarList, sgSel, sgRawNet, sgNet, sgSpeedFrac, sgRefDelivered, sgEffLoftDelta, setSgVar, setSgVarIdx, resetSgVars });

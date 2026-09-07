@@ -67,7 +67,7 @@ const DEFAULT_DATA = {
     {id:'P',  type:'wedge', label:'P',  make:'Callaway', model:'JAWS MD5 S',     shaft:'DG S200',        length:'35.75"', loft:'47°', origLoft:'46° (11)',lie:'63.25°',swt:'D3',   year:2019},
     {id:'W',  type:'wedge', label:'G',  make:'Callaway', model:'JAWS MD5 S',     shaft:'DG S200',        length:'35.5"',  loft:'51°', origLoft:'50° (11)',lie:'63.5°', swt:'D3',   year:2019},
     {id:'S',  type:'wedge', label:'S',  make:'Callaway', model:'JAWS MD5 S',     shaft:'DG S200',        length:'35.25"', loft:'56°', origLoft:'54° (12)',lie:'64°',   swt:'D4',   year:2019},
-    {id:'X',  type:'wedge', label:'X',  make:'Callaway', model:'MD3 PM Grind',   shaft:'ProjX 5.5',      length:'35"',    loft:'65°', origLoft:'64° (11)',lie:'64°',   swt:'D5',   year:2015},
+    {id:'X',  type:'wedge', label:'X',  make:'Callaway', model:'MD3 PM',         shaft:'ProjX 5.5',      length:'35"',    loft:'65°', origLoft:'64° (11)',lie:'64°',   swt:'D5',   year:2015},
     {id:'Pu', type:'putter',label:'Pu', make:'Odyssey',  model:'Toulon Garage Azalea', shaft:'Stroke Lab', length:'34"',  loft:'3°',  origLoft:'3°',      lie:'70°',   swt:'C3',   year:2019, grip:'Golf Pride Pistol', weightOz:'18.25'}
   ],
   /* per-golfer performance keyed by club id */
@@ -132,9 +132,9 @@ const DEFAULT_DATA = {
        by bag slot id), so the measurements ride on the inventory record itself and swapIntoBag
        prefers them over its loft estimate when this club goes back in. */
     {label:'L', effLoft:61,make:'Callaway',model:'MD3 PM',        shaft:'KBS Tour V-wedge',  length:'35"',    bag:'Home Backups',year:2015, type:'wedge', carry:85, total:83},
-    /* The 64 (bent to 65) MD3 PM Grind. It was IN the bag until the club-swap bug destroyed
+    /* The 64 (bent to 65) PM Grind. It was IN the bag until the club-swap bug destroyed
        displaced clubs instead of returning them — restored here so it is selectable again. */
-    {label:'X', effLoft:65,make:'Callaway',model:'MD3 PM Grind',  shaft:'ProjX 5.5',         length:'35"',    bag:'Home Backups',year:2015, lie:'64°', swt:'D5', type:'wedge'},
+    {label:'X', effLoft:65,make:'Callaway',model:'MD3 PM',        shaft:'ProjX 5.5',         length:'35"',    bag:'Home Backups',year:2015, lie:'64°', swt:'D5', type:'wedge'},
     {label:'L', effLoft:62,make:'Callaway',model:'MD4 Tactical',  shaft:'DG S200',           length:'35"',    bag:'Home Backups',year:2018},
     {label:'Fwy',effLoft:15,make:'Callaway',model:'XHot Pro',     shaft:'ProjX 6.0',         length:'43.5"',  bag:'Home Staff Bag',year:2013},
     {label:'2', effLoft:19,make:'Hogan',   model:'Apex Edge Pro', shaft:'Apex 4',            length:'39.25"', bag:'Home Staff Bag',year:2002},

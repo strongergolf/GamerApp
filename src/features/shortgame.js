@@ -181,22 +181,23 @@ function renderSgVars(){
      half of eight cells were the same two numbers said differently. What the setup does to the
      club at impact is the cause; what that does to the shot is the effect; and the effect only
      means anything as a change from standard, which is what this panel exists to show. */
+  /* NET SHOT EFFECT — the shot, and nothing else.
+     It used to restate the club's behaviour at impact (shaft lean, vertical path, effective
+     loft, bounce), all of which each variable row above already prints under its own slider.
+     What no row above can say is how the ball leaves: those are properties of the strike, not
+     of any one setting, and they are the reason to move a slider at all. Speed is a percentage
+     because it is club-independent — the same setup costs a 7-iron chip and a lob wedge the
+     same share of their own ball speed. */
+  const spd=net.dSpeedPct;
   const readout=`
     <div class="sgv-readout">
       <div class="sgv-readout-head">Net Shot Effect ${provNote}</div>
-      <div class="sgv-eff-row">
-        <span class="sgv-eff-k">At impact</span>
-        <span class="sgv-eff-v">shaft lean <b>${a.horizLean.toFixed(0)}&deg;</b></span>
-        <span class="sgv-eff-v">vert. path <b>${a.vertPath>0?'+':''}${a.vertPath.toFixed(0)}&deg;</b></span>
+      <div class="sgv-shot sgv-shot-3">
+        <div class="sgv-shot-cell"><span class="sgv-k">${arrow(net.dLaunch)} Launch</span><span class="sgv-v">${fmt(net.dLaunch,'&deg;')}</span></div>
+        <div class="sgv-shot-cell"><span class="sgv-k">${arrow(net.dSpin)} Spin</span><span class="sgv-v">${fmt(net.dSpin,'',0)}</span></div>
+        <div class="sgv-shot-cell"><span class="sgv-k">${arrow(spd)} Ball speed</span><span class="sgv-v">${fmt(spd,'%',1)}</span></div>
       </div>
-      <div class="sgv-eff-row">
-        <span class="sgv-eff-k">Shot, vs standard</span>
-        <span class="sgv-eff-v">${arrow(net.dEffLoft)} loft <b>${fmt(net.dEffLoft,'&deg;')}</b></span>
-        <span class="sgv-eff-v">${arrow(net.dLaunch)} launch <b>${fmt(net.dLaunch,'&deg;')}</b></span>
-        <span class="sgv-eff-v">${arrow(net.dSpin)} spin <b>${fmt(net.dSpin,'',0)}</b></span>
-        <span class="sgv-eff-v">${arrow(net.dBounce)} bounce <b>${fmt(net.dBounce,'&deg;')}</b></span>
-      </div>
-      <div class="sgv-readout-foot">Standard chip = Middle &middot; Vertical &middot; Square. <button type="button" class="sgv-reset" onclick="resetSgVars()">Reset to standard</button></div>
+      <div class="sgv-readout-foot">vs the standard chip &mdash; Middle &middot; Vertical &middot; Square, delivering ~${sgRefDelivered().toFixed(0)}&deg;. <button type="button" class="sgv-reset" onclick="resetSgVars()">Reset to standard</button></div>
     </div>`;
   wrap.innerHTML=`
     <div class="sgv-cat">

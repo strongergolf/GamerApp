@@ -14,12 +14,29 @@ window.adjustOn = false;
 
 function deepClone(o){ return JSON.parse(JSON.stringify(o)); }
 
+/* MODEL-NAME MIGRATION.
+   "MD3 PM Grind" and "MD3 PM" are the same Callaway wedge, spelled two ways across years of
+   hand-entered data. That matters because a club's identity for merging is make+model+loft, so
+   the two spellings were two different clubs: correcting either one in defaults would have
+   appended a duplicate to an existing browser rather than updating the record it already had.
+   Renaming on load — in the bag and in the inventory alike — is what makes the correction
+   land instead of multiplying. Add future renames here; the dedupe below cleans up after them. */
+const CLUB_MODEL_RENAMES = [ [/^MD3\s+PM\s+Grind$/i, 'MD3 PM'] ];
+function migrateClubModel(model){
+  if(typeof model!=='string') return model;
+  const t=model.trim();
+  for(const [re,to] of CLUB_MODEL_RENAMES){ if(re.test(t)) return to; }
+  return model;
+}
+
 function loadState(){
   try{
     const raw = localStorage.getItem(STORE_KEY);
     if(raw){
       const parsed = JSON.parse(raw);
-      window.STATE = mergeDefaults(parsed);
+      const merged = mergeAndFix(parsed);
+      window.STATE = merged.state;
+      if(merged.changed) saveState();
       /* If the merge dropped untouched blank courses, commit it. Pruning only in memory
          leaves the junk in storage for ever — it would merely LOOK gone, and would come
          back the moment anything else wrote the old array. */
@@ -51,6 +68,29 @@ function estThirdCarry(p){
   ratio=Math.min(0.88, Math.max(0.55, ratio));
   return Math.round(half*ratio);
 }
+/* ONE-TIME DATA CORRECTIONS.
+   Saved performance always beats defaults — it is the golfer's own measured data, and that is
+   right. The cost is that correcting a DEFAULT number can never reach a browser that already
+   holds the club: the S wedge has read 99 carry / 98 total in defaults for a while now and no
+   existing device ever saw it. A correction therefore has to be its own act, applied exactly
+   once per browser and then recorded, so it fixes the stale figure without ever reaching back
+   over something the golfer edits later. Bump DATA_VERSION and add an entry to correct a
+   number after release; anything a user can edit in My Bag stays theirs from then on. */
+const DATA_VERSION = 1;
+const DATA_FIXES = [
+  { v:1, note:'S wedge stock shot 99 carry / 98 total', apply(st){
+      const p=st.performance && st.performance.S;
+      if(p && p.carry!=null){ p.carry=99; p.total=98; }
+      /* keep the ladder's full rung with it, or Approach and My Bag disagree by a yard */
+      if(st.partials && st.partials.S) st.partials.S.full=98;
+  }}
+];
+function applyDataFixes(st, fromVersion){
+  let applied=false;
+  DATA_FIXES.forEach(f=>{ if(fromVersion < f.v){ try{ f.apply(st); applied=true; }catch(e){} } });
+  st.dataVersion = DATA_VERSION;
+  return applied;
+}
 function mergeDefaults(saved){
   const base = deepClone(DEFAULT_DATA);
   const sv = saved||{};
@@ -68,6 +108,7 @@ function mergeDefaults(saved){
   const savedClubs = sv.clubs||base.clubs;
   const savedIds = new Set(savedClubs.map(c=>c.id));
   const clubs = [...savedClubs, ...base.clubs.filter(c=>!savedIds.has(c.id))];
+  clubs.forEach(c=>{ const m=migrateClubModel(c.model); if(m!==c.model) c.model=m; });
   /* Saved performance: merge with defaults so new clubs get empty perf entries */
   const performance = Object.assign({}, base.performance, sv.performance||{});
   /* Per-club D-plane tendencies: merge so new default clubs get seeded entries
@@ -126,12 +167,13 @@ function mergeDefaults(saved){
   /* OTHER CLUBS (the backups library): saved list wins, but any club in DEFAULTS that is not
      in the save is appended. Without this a defaults change never reaches an existing browser,
      because `Object.assign(base, sv, ...)` lets the saved array replace the default outright —
-     which is exactly why the MD3 PM Grind, destroyed by the old swap-overwrite bug, could not
+     which is exactly why the PM Grind, destroyed by the old swap-overwrite bug, could not
      be restored by editing defaults alone. Identity is make+model+loft, so a club the user
      edited or re-lofted is never duplicated back in. */
   const svOther = Array.isArray(sv.otherClubs) ? sv.otherClubs : null;
   let otherClubs = svOther || base.otherClubs;
   if(svOther){
+    svOther.forEach(o=>{ const m=migrateClubModel(o.model); if(m!==o.model) o.model=m; });
     const idOf=o=>[(o.make||'').trim().toLowerCase(),(o.model||'').trim().toLowerCase(),o.effLoft].join('|');
     const byId=new Map((base.otherClubs||[]).map(o=>[idOf(o),o]));
     /* Backfill FIELDS as well as whole clubs. Appending only entire missing clubs meant a
@@ -147,6 +189,16 @@ function mergeDefaults(saved){
     const have=new Set(svOther.map(idOf));
     const missing=(base.otherClubs||[]).filter(o=>!have.has(idOf(o)));
     if(missing.length) otherClubs=[...otherClubs, ...missing];
+    /* A rename can make two inventory records identical — the same wedge, entered twice under
+       its two spellings. Collapse them, keeping the first and taking from the second only the
+       fields the first is missing, so neither entry's detail is thrown away. */
+    const seen=new Map();
+    otherClubs.forEach(o=>{
+      const k=idOf(o), prev=seen.get(k);
+      if(!prev){ seen.set(k, o); return; }
+      Object.keys(o).forEach(f=>{ if(prev[f]===undefined) prev[f]=o[f]; });
+    });
+    otherClubs=[...seen.values()];
   }
   /* New STATE slices — keep saved if present, else default. */
   const missTendency = Object.assign({}, base.missTendency, sv.missTendency||{});
@@ -167,11 +219,20 @@ function mergeDefaults(saved){
     missTendency,
     skillsTests,
     hcpHistory,
+    dataVersion: DATA_VERSION,
     profile:  Object.assign(base.profile,  sv.profile||{}),
     baseline: Object.assign(base.baseline, sv.baseline||{}),
     scoring:  { rounds: (sv.scoring&&sv.scoring.rounds)||[] },
     swing
   });
+}
+/* Wraps mergeDefaults so loadState can tell whether a correction actually fired and needs
+   writing back — leaving it in memory only would re-apply it on every load for ever. */
+function mergeAndFix(saved){
+  const from = (saved && typeof saved.dataVersion==='number') ? saved.dataVersion : 0;
+  const st = mergeDefaults(saved);
+  const changed = applyDataFixes(st, from);
+  return {state:st, changed};
 }
 function saveState(){
   try{ localStorage.setItem(STORE_KEY, JSON.stringify(window.STATE)); }catch(e){}
@@ -179,4 +240,4 @@ function saveState(){
 
 // Expose helpers on window for the staged ES-module migration.
 // NOTE: STATE itself is set directly on window by loadState (see note above).
-Object.assign(window, { STORE_KEY, deepClone, estThirdCarry, loadState, mergeDefaults, saveState });
+Object.assign(window, { STORE_KEY, CLUB_MODEL_RENAMES, DATA_VERSION, DATA_FIXES, applyDataFixes, deepClone, estThirdCarry, mergeAndFix, migrateClubModel, loadState, mergeDefaults, saveState });
