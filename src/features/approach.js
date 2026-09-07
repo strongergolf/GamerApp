@@ -38,13 +38,25 @@ function buildPartialsTable(){
       <span style="font-family:ui-monospace,monospace;font-size:.64rem;font-weight:700;color:var(--ink2);display:block;margin-top:1px">${c.loft}</span>
     </td>`;
     const pf=STATE.performance[id]||{};
-    const ratio=(pf.carry>0&&pf.total>0)?pf.carry/pf.total:0.97;        // club's carry / total
+    /* The FULL total is the partials ladder's own number. It used to come from
+       performance.total, which disagreed with the ladder the shot-options engine reads —
+       G showed 108 here and played as 112 — and fell back to performance.CARRY when total
+       was blank, so S and X rendered a full wedge with zero roll (95/95, 72/72).
+       Worse, W has carry 110 stored against total 108: a carry longer than its own total.
+       That produced a ratio above 1, which then rendered carry > total on EVERY rung of
+       that row (108/110 full, 97/99 three-quarter). The ratio is now taken from the pair
+       actually shown and clamped at 1, so bad stored data can no longer print a shot that
+       rolls backwards. */
+    const fullTotal = pr.full!=null ? pr.full : (pf.total!=null?pf.total:pf.carry);
+    let fullCarry = pf.carry!=null ? pf.carry : (fullTotal!=null?Math.round(fullTotal*0.97):null);
+    if(fullCarry!=null && fullTotal!=null) fullCarry=Math.min(fullCarry, fullTotal);
+    const ratio=(fullCarry>0&&fullTotal>0)?Math.min(1, fullCarry/fullTotal):0.97;  // club's carry / total
     rows.forEach(sw=>{
       let total=pr[sw.key], carry;
-      if(sw.key==='full'){                                             // full reads Stock Shots total/carry directly
-        total = pf.total!=null?pf.total : (pf.carry!=null?pf.carry:total);
-        carry = pf.carry!=null?pf.carry : (total!=null?Math.round(total*ratio):null);
-      } else {                                                         // ¾/½: total stored, carry derived from the ratio
+      if(sw.key==='full'){
+        total = fullTotal;
+        carry = fullCarry;
+      } else {                                                         // ¾/½/⅓: total stored, carry derived from the ratio
         carry = total!=null?Math.round(total*ratio):null;
       }
       if(total==null){ html+=`<td><div class="carry-cell empty">—</div></td>`; }
