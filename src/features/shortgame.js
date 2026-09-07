@@ -268,21 +268,28 @@ function renderChipDial(){
         </div>
       </div>`;
     }
-    /* Same shape as the Approach card: club badge, the carry/roll split that differs between
-       the options, then the DEFINING number pinned right. For a chip that is the carry-to-roll
-       RATIO — "flies a third, runs two-thirds" is the whole basis of picking a chipping club —
-       with the archetype name under it as the teaching label.
-       Colour bands the ratio by how much of the shot is in the air: green stops soonest,
-       gold runs furthest. Descriptive, not a judgement — a runner is the right shot often. */
+    /* Same shape as the Approach card: club badge, per-club detail, then the DEFINING number
+       pinned right. For a chip that is the CARRY-TO-ROLL SPLIT in real yards — "2.5 : 17.5"
+       says both how the shot flies and, read down the stack, how the clubs differ — with the
+       archetype under it as the teaching label.
+       Colour still bands the underlying RATIO, not the raw numbers, so it means the same thing
+       at every target distance: green stops soonest, gold runs furthest. Descriptive, not a
+       judgement — a runner is the right shot more often than not.
+       The middle carries launch and spin, which differ per club and appear nowhere else on the
+       card; it used to repeat the carry and roll now shown on the right. */
     const ratio = carry>0.05 ? roll/carry : 0;
-    const ratioStr = '1 : '+ratio.toFixed(ratio<10?1:0);
+    /* always one decimal, so the split reads as a column down the stack — ydNum(4.0,1)
+       returns the NUMBER 4, which would print "4 : 16" beside "3.3 : 16.7" */
+    const splitStr = `${ydNum(carry,1).toFixed(1)} : ${ydNum(roll,1).toFixed(1)}`;
     const rc = ratio<=1 ? 'var(--green)' : ratio<=3 ? 'var(--sky)' : 'var(--gold)';
+    const rowLaunch=(typeof chipLaunch==='function'?chipLaunch(loft):loft*0.68)+(window.chipStanceLaunchAdj||0);
+    const rowSpin=typeof chipSpin==='function'?chipSpin(carry,loft):0;
     return `<div class="calc-result-card ${selected?'best':''}"
         onclick="selectChipClub(${i})" style="cursor:pointer${!practical&&!selected?';opacity:.5':''}">
       <div class="calc-card-header">
         <div class="calc-club-badge" style="color:${tc}">${c.label}<small>${c.loft}</small></div>
-        <div class="calc-head-main">Carry ${ydNum(carry,1)} <em>+</em> Roll ${ydNum(roll,1)} ${ydUnit()}${noteStr}</div>
-        <div class="calc-head-anchor" style="color:${rc}">${ratioStr}<span>${chipArchetype(loft)}</span></div>
+        <div class="calc-head-main">${rowLaunch.toFixed(0)}° launch <em>·</em> ${(rowSpin/1000).toFixed(1)}k spin<span class="sg-split-lbl">carry : roll ${ydUnit()}</span>${noteStr}</div>
+        <div class="calc-head-anchor" style="color:${rc}">${splitStr}<span>${chipArchetype(loft)}</span></div>
       </div>
     </div>`;
   }).join('');

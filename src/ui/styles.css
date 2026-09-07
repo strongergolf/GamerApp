@@ -1359,3 +1359,8 @@ body.theme-dark .gr-a{color:var(--green2)} body.theme-dark .gr-b{color:var(--c-w
 .gr-tally b{font-size:.86rem;color:var(--ink)}
 .gr-note{font-family:Arial,sans-serif;font-size:.64rem;line-height:1.5;color:var(--muted)}
 .gr-lost{color:var(--muted);text-decoration:line-through}
+
+/* Expected Putts Calculator chart */
+.psg-chart{overflow-x:auto}
+/* "carry : roll yd" hint under the launch/spin line, so the split on the right is unambiguous */
+.sg-split-lbl{display:block;font-family:ui-monospace,monospace;font-size:.5rem;font-weight:400;color:var(--muted);letter-spacing:.04em;margin-top:1px}
