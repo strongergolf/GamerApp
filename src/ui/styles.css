@@ -216,15 +216,20 @@ input[type=range].yard-slider::-moz-range-thumb{width:20px;height:20px;border-ra
 .calc-swing-label{font-family:Arial,sans-serif;font-size:.9rem;font-weight:700;color:var(--ink);letter-spacing:.04em}
 .calc-swing-sub{font-family:ui-monospace,monospace;font-size:.62rem;color:var(--muted);margin-top:1px}
 .calc-best-tag{font-family:ui-monospace,monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.1em;background:var(--panel);color:var(--gold2);padding:3px 8px;border-radius:4px;white-space:nowrap}
-.calc-card-body{padding:8px 12px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;align-items:center}
-.calc-effort-col{grid-column:1/-1}
-.calc-effort-label{display:flex;justify-content:space-between;font-family:ui-monospace,monospace;font-size:.62rem;color:var(--muted);margin-bottom:3px}
-.calc-effort-pct{font-family:Arial,sans-serif;font-weight:800;font-size:.9rem}
-.calc-effort-track{height:6px;background:var(--bg2);border-radius:3px;border:1px solid var(--border);overflow:hidden}
-.calc-effort-fill{height:100%;border-radius:3px;transition:width .4s ease}
+.calc-card-body{padding:8px 12px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;align-items:start}
+/* Anchor / Diff leads the card: it is the swing the golfer has actually practised, and how
+   far off it this shot asks them to play. Effort became a supporting stat below, and the
+   effort progress bar went with it — a bar implies a scale that matters more than the number. */
+.calc-anchor-col{grid-column:1/-1;display:flex;align-items:baseline;justify-content:space-between;gap:10px;
+  padding-bottom:5px;margin-bottom:5px;border-bottom:1px solid var(--border)}
+.calc-anchor-label{font-family:ui-monospace,monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.calc-anchor-val{display:flex;align-items:baseline;gap:9px;font-family:Arial,sans-serif;font-size:1.18rem;font-weight:800;color:var(--ink);line-height:1.1}
+.calc-anchor-diff{font-family:ui-monospace,monospace;font-size:.76rem;font-weight:700;color:var(--ink2)}
+.calc-anchor-diff.on{color:var(--green)}
 .calc-mini-stat{text-align:center}
 .calc-mini-label{font-family:ui-monospace,monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:1px}
 .calc-mini-val{font-family:Arial,sans-serif;font-size:.88rem;font-weight:700;color:var(--ink2)}
+.calc-mini-sub{font-family:ui-monospace,monospace;font-size:.52rem;color:var(--muted);font-style:italic;margin-top:1px}
 .calc-no-result{text-align:center;padding:22px;font-style:italic;color:var(--muted);font-size:.88rem;background:var(--surface2);border:1px dashed var(--border);border-radius:8px}
 
 /* SPECS */

@@ -203,7 +203,6 @@ function renderCalc(target){
   box.innerHTML=sug.map((o,i)=>{
     const selected=i===selIdx, color=effortColor(o.effort);
     const swingDesc=o.sw.key==='full'?'Full swing':o.sw.key==='tq'?'¾ swing':o.sw.key==='half'?'½ swing':'⅓ swing';
-    const effDesc=o.effort>=98?'Full effort — no margin':o.effort>=90?'Near-full — controlled finish':o.effort>=82?'Measured swing — good option':'Easy swing — high control';
     const fl0=interpFlight(o.club,o.sw.key,playTarget);
     const fl={launch:Math.round(fl0.launch*stm.launchMult),spin:Math.round(fl0.spin*stm.spinMult),height:Math.round(fl0.height*stm.heightMult)};
     const p=STATE.performance[o.club.id]||{};
@@ -213,9 +212,15 @@ function renderCalc(target){
     const baseRoll=approachRolloutYds(fl0.spin,fl0.height);
     const estRoll=Math.max(0,Math.round(baseRoll*stm.rollMult)+(window.approachGreenFirmness||0));
     const estCarry=target-estRoll;
-    /* Anchor mini-stat */
+    /* Anchor / Diff — the headline of the card. The anchor is a swing the golfer has actually
+       practised and can repeat; the diff is how far off that known number this shot asks them
+       to play. That pair IS the instruction ("your 10:00 wedge, three yards longer"), so it
+       leads, and effort drops to a supporting stat. */
     const clockPos=o.sw.key==='full'?'11:00':o.sw.key==='tq'?'10:00':o.sw.key==='half'?'9:00':'8:00';
-    const diffStr=o.delta===0?'on anchor':`${o.delta>0?'+':''}${o.delta}yd`;
+    const onAnchor=o.delta===0;
+    const diffStr=onAnchor?'on anchor':`${o.delta>0?'+':''}${ydNum(o.delta)} ${ydUnit()}`;
+    /* short enough to sit under a third-width stat; the long form was sized for a full row */
+    const effShort=o.effort>=98?'no margin':o.effort>=90?'near-full':o.effort>=82?'measured':'high control';
     if(selected){
       flightHTML=`<div class="flight-wrap">
         <div class="flight-row">
@@ -232,14 +237,13 @@ function renderCalc(target){
         </div>
       </div>
       <div class="calc-card-body">
-        <div class="calc-effort-col">
-          <div class="calc-effort-label"><span>Effort</span><span class="calc-effort-pct" style="color:${color}">${o.effort}%</span></div>
-          <div class="calc-effort-track"><div class="calc-effort-fill" style="width:${o.effort}%;background:${color}"></div></div>
-          <div style="font-family:ui-monospace,monospace;font-size:.56rem;color:var(--muted);margin-top:4px;font-style:italic">${effDesc}</div>
+        <div class="calc-anchor-col">
+          <div class="calc-anchor-label">Anchor / Diff</div>
+          <div class="calc-anchor-val">${clockPos}<span class="calc-anchor-diff${onAnchor?' on':''}">${diffStr}</span></div>
         </div>
         <div class="calc-mini-stat"><div class="calc-mini-label">Launch / Spin</div><div class="calc-mini-val">${fl.launch}° · ${(fl.spin/1000).toFixed(1)}k</div></div>
-        <div class="calc-mini-stat"><div class="calc-mini-label">Height / Check</div><div class="calc-mini-val">${fl.height}ft · ${checkDesc}</div></div>
-        <div class="calc-mini-stat"><div class="calc-mini-label">Anchor / Diff</div><div class="calc-mini-val">${clockPos} · ${diffStr}</div></div>
+        <div class="calc-mini-stat"><div class="calc-mini-label">Height / Check</div><div class="calc-mini-val">${ftNum(fl.height)}${ftUnit()} · ${checkDesc}</div></div>
+        <div class="calc-mini-stat"><div class="calc-mini-label">Effort</div><div class="calc-mini-val" style="color:${color}">${o.effort}%</div><div class="calc-mini-sub">${effShort}</div></div>
       </div>
     </div>`;
   }).join('');
