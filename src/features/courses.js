@@ -669,7 +669,7 @@ function buildCourses(){
     <div class="cf-hole-meta">
       <label>Hole <input type="number" min="1" max="18" value="${h.num}" onchange="cfSetHoleField('num',this.value)" style="width:48px"></label>
       <label>Par <input type="number" min="3" max="6" value="${h.par}" onchange="cfSetHoleField('par',this.value)" style="width:48px"></label>
-      <label>${isMetric()?'Metres':'Yards'} <input type="number" min="${ydNum(40)}" max="${ydNum(700)}" value="${ydNum(h.yards)}" onchange="cfSetHoleField('yards',fromDisplay('distance',this.value))" style="width:64px"></label>
+      <label>${isMetric('distance')?'Metres':'Yards'} <input type="number" min="${ydNum(40)}" max="${ydNum(700)}" value="${ydNum(h.yards)}" onchange="cfSetHoleField('yards',fromDisplay('distance',this.value))" style="width:64px"></label>
       <span class="cf-scale">scale: ${scaleTxt}</span>
     </div>
     <div class="cf-tools">

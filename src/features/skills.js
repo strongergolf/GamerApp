@@ -50,7 +50,7 @@ function wedgeTestCard(){
     </div>`).join('');
   return `<div class="profile-card" style="margin-bottom:14px">
     <h3>Wedge Ladder Test ${last!=null?`<span style="float:right;font-size:1.1rem;font-weight:800;color:${scoreColor(last)}">${last}</span>`:''}</h3>
-    <p class="gen-note">Hit a handful of shots at each distance and log your <strong>average proximity to the hole</strong> (${isMetric()?"metres":"feet"}). Score is 0–100 — closer is higher. Tracks over time below.</p>
+    <p class="gen-note">Hit a handful of shots at each distance and log your <strong>average proximity to the hole</strong> (${isMetric('short')?"metres":"feet"}). Score is 0–100 — closer is higher. Tracks over time below.</p>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:10px 0">${inputs}</div>
     <div class="btn-row"><button class="btn btn-primary" onclick="logWedgeTest()">Save Result</button></div>
     ${testTrendSpark('wedge')}

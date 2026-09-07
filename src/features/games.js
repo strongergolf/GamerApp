@@ -267,7 +267,7 @@ function gmRecords(g){
    where the two ranges genuinely want different words. In metric one unit spans both (2 m
    from ten, 16 m from a hundred and twenty), so the toggle would offer a choice between
    metres and metres. Storage is always FEET; only entry and redisplay convert. */
-function gmMetric(){ return typeof isMetric==='function' && isMetric(); }
+function gmMetric(){ return typeof isMetric==='function' && isMetric('short'); }
 /* Two scales in each system, because a shot from ten yards and a shot from a hundred and
    twenty are not measured in the same words: cm/m in metric, ft/yd in imperial. The default
    follows the station — close in for the short ones, the long unit further out — and either

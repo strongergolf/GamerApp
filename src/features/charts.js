@@ -99,9 +99,19 @@ function savePhysical(){
   const pf=STATE.profile;
   pf.handedness=document.getElementById('pf-hand')?.value||pf.handedness;
   pf.ageRange=document.getElementById('pf-age')?.value||pf.ageRange;
-  pf.heightFt=document.getElementById('pf-htft')?.value||pf.heightFt;
-  pf.heightIn=document.getElementById('pf-htin')?.value||pf.heightIn;
-  pf.armToFloor=document.getElementById('pf-atf')?.value||pf.armToFloor;
+  /* Metric shows one cm box, imperial shows ft + in — whichever is on screen is the one to
+     read. Storage stays the feet+inches pair either way, so switching units never rewrites
+     the stored height. */
+  const cmEl=document.getElementById('pf-htcm');
+  if(cmEl){
+    const cm=parseFloat(cmEl.value);
+    if(!isNaN(cm)&&cm>0){ const tot=cm/2.54; pf.heightFt=String(Math.floor(tot/12)); pf.heightIn=String(Math.round(tot-Math.floor(tot/12)*12)); }
+  } else {
+    pf.heightFt=document.getElementById('pf-htft')?.value||pf.heightFt;
+    pf.heightIn=document.getElementById('pf-htin')?.value||pf.heightIn;
+  }
+  const atf=document.getElementById('pf-atf')?.value;
+  if(atf!==undefined&&atf!==''){ const n=parseFloat(atf); if(!isNaN(n)) pf.armToFloor=String(typeof isMetric==='function'&&isMetric('height')?+(n/2.54).toFixed(2):n); }
   pf.gloveSize=document.getElementById('pf-glove')?.value||pf.gloveSize;
   saveState(); refreshAll(); toast('Physical profile saved');
 }

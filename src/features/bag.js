@@ -14,7 +14,7 @@
 const ENV_HOSTS=['env-bag'];
 /* canonical key -> which unit family converts it; humidity and k are unitless */
 const ENV_UNITS={ tempF:'temp', altitudeFt:'altitude', pressureInHg:'pressure' };
-function envFieldDp(kind){ return kind==='pressure' ? (isMetric()?0:2) : (kind==='temp'&&isMetric()?1:0); }
+function envFieldDp(kind){ return kind==='pressure' ? (isMetric('pressure')?0:2) : (kind==='temp'&&isMetric('temp')?1:0); }
 function envPanelHTML(pfx){
   const b=STATE.baseline;
   const fld=(key,label,attrs,val)=>`<div class="cond-field"><label>${label}</label><input id="${pfx}-${key}" type="number" inputmode="decimal" ${attrs} value="${val}" oninput="onEnvInput('${key}',this.value)"></div>`;

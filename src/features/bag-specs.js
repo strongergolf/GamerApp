@@ -221,12 +221,15 @@ function toggleSpecs(c,row,group){
      unit, the value is converted for display, and data-unit tells saveClub how to convert it
      back — so storage stays canonical however the field is labelled. */
   const sf=(label,key,val,kind,u)=>{
-    const shown = u&&val!=null&&val!=='' ? toDisplay(u, val, u==='short'&&isMetric()?1:0) : (val==null?'':val);
+    /* decimals per unit family: metres want one, grams none, ounces two (a putter head is
+       specified to the quarter-ounce and rounding it to 18 would lose the spec) */
+    const dp = u==='short'&&isMetric('short') ? 1 : (u==='mass' ? (isMetric('mass')?0:2) : 0);
+    const shown = u&&val!=null&&val!=='' ? toDisplay(u, val, dp) : (val==null?'':val);
     const lbl = u ? `${label} (${unitLabel(u)})` : label;
     return `<div class="edit-field"><label>${lbl}</label><input data-club="${c.id}" data-kind="${kind}" data-key="${key}"${u?` data-unit="${u}"`:''} value="${escapeHtml(shown)}"></div>`;
   };
   const putterExtra = c.type==='putter'
-    ? `${sf('Grip','grip',c.grip||'','spec')}${sf('Weight (oz)','weightOz',c.weightOz||'','spec')}`
+    ? `${sf('Grip','grip',c.grip||'','spec')}${sf('Weight','weightOz',c.weightOz||'','spec','mass')}`
     : '';
   const editHtml=`
     <div class="specs-edit-panel">
@@ -250,7 +253,7 @@ function toggleSpecs(c,row,group){
     /* Which bag it is sitting in does not help you CHOOSE a club — you pick on loft, model
        and shaft, then go and find it. It lives in the club's own detail instead. */
     const extraDetail = c.type==='putter'
-      ? `<div class="spec-val" style="font-size:.58rem;color:var(--muted)">${o.grip||''} · ${o.weightOz||''}oz · ${o.swt||''}</div>`
+      ? `<div class="spec-val" style="font-size:.58rem;color:var(--muted)">${o.grip||''} · ${o.weightOz?fmtOz(o.weightOz):'—'} · ${o.swt||''}</div>`
       : '';
     return `<div class="specs-rep-row${extraDetail?' has-extra':''}" onclick="selectReplacement('${c.id}',${i})" style="cursor:pointer" title="Swap this club into your bag — stats estimated">
       <span class="spec-club ${c.type}" style="font-size:1rem">${o.label}</span>
@@ -291,7 +294,13 @@ function saveClub(id){
   document.querySelectorAll(`[data-club="${id}"]`).forEach(el=>{
     const key=el.getAttribute('data-key'), kind=el.getAttribute('data-kind'); let v=el.value.trim();
     const u=el.getAttribute('data-unit');
-    if(kind==='spec'){ club[key]= key==='year'?(parseInt(v)||club[key]):v; }
+    if(kind==='spec'){
+      /* spec fields are free text (shaft, grip), EXCEPT any carrying a unit family —
+         those must convert back to canonical or a weight typed in grams would be
+         stored as ounces and read back as a 500 oz putter */
+      if(u && v!=='' && !isNaN(parseFloat(v))) club[key]=String(Math.round(fromDisplay(u,parseFloat(v))*100)/100);
+      else club[key]= key==='year'?(parseInt(v)||club[key]):v;
+    }
     else if(v===''){ p[key]=null; }
     else if(isNaN(parseFloat(v))){ p[key]=v; }
     else {
@@ -301,7 +310,7 @@ function saveClub(id){
          returns as 162.8 — so an untouched club would drift a little every time it was
          saved in the other unit system, and keep drifting. Compare what is IN the box against
          what the stored value would DISPLAY as: if they agree, the user changed nothing. */
-      if(u && p[key]!=null && String(toDisplay(u, p[key], u==='short'&&isMetric()?1:0))===String(n)) return;
+      if(u && p[key]!=null && String(toDisplay(u, p[key], u==='short'&&isMetric('short')?1:0))===String(n)) return;
       p[key]= u ? Math.round(fromDisplay(u,n)*10)/10 : n;
     }
   });
@@ -524,11 +533,36 @@ function buildMyData(){
   MY_DATA_SOURCES.forEach(src=>{ try{ src.render(); }catch(e){} });
   buildUnitToggle();
 }
+/* Units, one row per category. Built from UNIT_SETTINGS, so a new category appears here by
+   declaring it in conditions.js — this function never needs touching.
+   Per category rather than one switch because that is how people actually measure: North
+   American golf is played in yards whatever the passport, while everything outside the game
+   may well be metric. The two buttons at the top set every row at once, for anyone who does
+   want a single answer. */
 function buildUnitToggle(){
   const el=document.getElementById('unit-toggle'); if(!el) return;
-  const cur=(typeof unitSys==='function')?unitSys():'imperial';
-  el.innerHTML=[['imperial','°F · ft · yd'],['metric','°C · m · m']].map(([v,l])=>
-    `<button type="button" class="unit-btn${v===cur?' on':''}" onclick="setUnits('${v}')">${l}</button>`).join('');
+  if(typeof UNIT_SETTINGS==='undefined'){ el.innerHTML=''; return; }
+  const groups=Object.keys(UNIT_SETTINGS);
+  const allMetric=groups.every(g=>unitSysFor(g)==='metric');
+  const allImperial=groups.every(g=>unitSysFor(g)==='imperial');
+  const rows=groups.map(g=>{
+    const cfg=UNIT_SETTINGS[g], cur=unitSysFor(g);
+    const btn=(v,lbl)=>`<button type="button" class="unit-btn${v===cur?' on':''}" onclick="setUnitPref('${g}','${v}')">${escapeHtml(lbl)}</button>`;
+    return `<div class="unit-row">
+      <div class="unit-row-id"><span class="unit-row-label">${cfg.label}</span><span class="unit-row-note">${cfg.note}</span></div>
+      <div class="unit-row-btns">${btn('imperial',cfg.imperial)}${btn('metric',cfg.metric)}</div>
+    </div>`;
+  }).join('');
+  el.innerHTML=`
+    <div class="unit-all">
+      <span class="unit-all-lbl">Set everything</span>
+      <div class="unit-row-btns">
+        <button type="button" class="unit-btn${allImperial?' on':''}" onclick="setUnits('imperial')">All imperial</button>
+        <button type="button" class="unit-btn${allMetric?' on':''}" onclick="setUnits('metric')">All metric</button>
+      </div>
+    </div>
+    <div class="unit-rows">${rows}</div>
+    <p class="gen-note" style="margin:10px 2px 0">Mix them freely — yards off the tee with °C and grams is a perfectly normal combination. Stored data never changes; only the display converts, so switching back and forth is lossless.</p>`;
 }
 
 /* ---- Strike correlation: the one number that decides how a landing pattern leans ----

@@ -110,6 +110,16 @@ function mergeDefaults(saved){
     if(!isFinite(floor)) return;
     if(p.total==null || p.total<floor) performance[id]=Object.assign({},p,{total:floor});
   });
+  /* Unit preferences went from ONE setting to one PER CATEGORY. A save made before that has
+     only `units`, so every category is seeded from it — someone who had the app in metric
+     stays fully metric, and everyone else stays imperial. New categories added later inherit
+     the same way, so no upgrade ever silently flips a unit the user had chosen. */
+  const unitPrefs = {};
+  const legacyUnits = (sv.units==='metric') ? 'metric' : 'imperial';
+  Object.keys(typeof UNIT_SETTINGS!=='undefined'?UNIT_SETTINGS:{}).forEach(g=>{
+    const saved=(sv.unitPrefs||{})[g];
+    unitPrefs[g] = (saved==='metric'||saved==='imperial') ? saved : legacyUnits;
+  });
   /* New STATE slices — keep saved if present, else default. */
   const missTendency = Object.assign({}, base.missTendency, sv.missTendency||{});
   const skillsTests = Array.isArray(sv.skillsTests) ? sv.skillsTests : base.skillsTests;
@@ -123,6 +133,7 @@ function mergeDefaults(saved){
     strategy,
     sgVars,
     sgCal,
+    unitPrefs,
     missTendency,
     skillsTests,
     hcpHistory,

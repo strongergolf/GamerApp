@@ -22,7 +22,7 @@ const PRACTICE_AREAS=[
        <div class="chain-caption" style="margin-top:4px">Expected strokes to hole out from any position, calibrated to your handicap. Uses Broadie baseline data adjusted linearly per handicap stroke.</div>
        <div class="sg-scen-row">
          <div class="sg-scen-field"><label>Distance (${ydUnit()} / ${ftUnit()} if green)</label><input id="sg-scen-dist" type="number" min="1" placeholder="e.g. ${ydNum(150)}" oninput="sgScenario()"></div>
-         <div class="sg-scen-field"><label>Lie / Position</label><select id="sg-scen-lie" onchange="sgScenario()"><option value="fairway">Fairway</option><option value="rough">Rough</option><option value="sand">Sand / Bunker</option><option value="green">Green (${isMetric()?"metres":"feet"})</option></select></div>
+         <div class="sg-scen-field"><label>Lie / Position</label><select id="sg-scen-lie" onchange="sgScenario()"><option value="fairway">Fairway</option><option value="rough">Rough</option><option value="sand">Sand / Bunker</option><option value="green">Green (${isMetric('short')?"metres":"feet"})</option></select></div>
          <div class="sg-scen-field"><label>Handicap</label><input id="sg-scen-hcp" type="text" placeholder="${escapeHtml(STATE.profile.handicap||'0')}" value="${escapeHtml(STATE.profile.handicap||'0')}" oninput="sgScenario()"></div>
        </div>
        <div id="sg-scen-out"><span style="color:var(--muted);font-style:italic;font-size:.82rem">Enter a distance above.</span></div>
@@ -257,9 +257,8 @@ const PRACTICE_AREAS=[
        <div class="edit-grid">
          <div class="edit-field"><label>Handedness</label>${sel('pf-hand',['','RH','LH'],STATE.profile.handedness||'')}</div>
          <div class="edit-field"><label>Age Range</label>${sel('pf-age',['','Under 20','20s','30s','40s','50s','60s','70+'],STATE.profile.ageRange||'')}</div>
-         <div class="edit-field"><label>Height — ${isMetric()?"cm":"ft"}</label><input id="pf-htft" type="number" min="3" max="8" value="${escapeHtml(STATE.profile.heightFt||'')}"></div>
-         <div class="edit-field"><label>Height — in</label><input id="pf-htin" type="number" min="0" max="11" value="${escapeHtml(STATE.profile.heightIn||'')}"></div>
-         <div class="edit-field"><label>Arm-to-Floor (in)</label><input id="pf-atf" type="number" step="0.25" value="${escapeHtml(STATE.profile.armToFloor||'')}" placeholder="wrist-to-floor at address"></div>
+         ${pfHeightFields()}
+         <div class="edit-field"><label>Arm-to-Floor (${isMetric('height')?'cm':'in'})</label><input id="pf-atf" type="number" step="${isMetric('height')?1:0.25}" value="${escapeHtml(pfAtfDisplay())}" placeholder="wrist-to-floor at address"></div>
          <div class="edit-field"><label>Glove Size</label>${sel('pf-glove',[
            '','Men\'s S','Men\'s M','Men\'s M/L','Men\'s L','Men\'s XL','Men\'s XXL',
            'Men\'s Cadet S','Men\'s Cadet M','Men\'s Cadet M/L','Men\'s Cadet L','Men\'s Cadet XL',
@@ -374,6 +373,30 @@ function chainGo(n){
 }
 function chainSetSlot(n,slot){ window.chainSlotSel[n]=slot; buildChainLevel(n); }
 
+/* Body measurements follow the Player Height unit. Height is stored as the feet+inches pair
+   the profile has always held; metric shows ONE centimetre field and converts both ways,
+   because a height is not said as two metric numbers.
+   This also fixes a real defect: metric used to relabel the FEET box to "cm" and leave
+   min=3 max=8 on it, so a metric player could not enter their height at all. Arm-to-floor is
+   stored in inches and now converts rather than just being relabelled. */
+function pfHeightTotalIn(){
+  const ft=parseFloat(STATE.profile.heightFt)||0, inch=parseFloat(STATE.profile.heightIn)||0;
+  return ft*12+inch;
+}
+function pfHeightFields(){
+  if(isMetric('height')){
+    const tot=pfHeightTotalIn();
+    const cm=tot?Math.round(tot*2.54):'';
+    return `<div class="edit-field"><label>Height — cm</label><input id="pf-htcm" type="number" min="90" max="230" value="${escapeHtml(String(cm))}"></div>`;
+  }
+  return `<div class="edit-field"><label>Height — ft</label><input id="pf-htft" type="number" min="3" max="8" value="${escapeHtml(STATE.profile.heightFt||'')}"></div>
+         <div class="edit-field"><label>Height — in</label><input id="pf-htin" type="number" min="0" max="11" value="${escapeHtml(STATE.profile.heightIn||'')}"></div>`;
+}
+function pfAtfDisplay(){
+  const v=parseFloat(STATE.profile.armToFloor);
+  if(isNaN(v)) return '';
+  return isMetric('height') ? String(Math.round(v*2.54)) : String(v);
+}
 function buildChainLanding(){
   const wrap=document.getElementById('chain-wrap'); if(!wrap) return;
   const card=a=>`<div class="chn-card" onclick="chainGo(${a.n})">

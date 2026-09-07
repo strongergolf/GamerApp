@@ -1373,3 +1373,25 @@ body.theme-dark .gr-a{color:var(--green2)} body.theme-dark .gr-b{color:var(--c-w
 /* "launch" stays so the degrees are not mistaken for the loft under the badge; "spin" goes,
    because a bare k after a number already means spin everywhere else in the app */
 .calc-result-card .calc-head-main{font-size:.68rem}
+
+/* ---- Units settings: one row per category (My App) ---- */
+.unit-all{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
+  padding:8px 10px;margin-bottom:8px;background:var(--bg2);border:1px solid var(--border);border-radius:9px}
+.unit-all-lbl{font-family:ui-monospace,monospace;font-size:.56rem;font-weight:700;text-transform:uppercase;
+  letter-spacing:.08em;color:var(--muted)}
+.unit-rows{display:flex;flex-direction:column;gap:5px}
+.unit-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
+  padding:7px 10px;border:1px solid var(--border);border-radius:9px;background:var(--surface)}
+.unit-row-id{min-width:0;flex:1 1 150px}
+.unit-row-label{display:block;font-family:Arial,sans-serif;font-size:.84rem;font-weight:700;color:var(--ink);line-height:1.2}
+.unit-row-note{display:block;font-family:ui-monospace,monospace;font-size:.5rem;color:var(--muted);letter-spacing:.03em;margin-top:1px}
+.unit-row-btns{display:flex;gap:5px;flex:0 0 auto}
+.unit-row-btns .unit-btn{min-height:34px;min-width:62px}
+/* Units needs the full width of the card, not the narrow control column a set-row gives.
+   .unit-toggle is a segmented-control shell (inline-flex, clipped) built for two buttons —
+   inside the stacked row it has to stop being that, or the header block and the rows sit
+   side by side as two flex items. */
+.set-row.set-row-stack{flex-direction:column;align-items:stretch;gap:8px}
+.set-row.set-row-stack .unit-toggle{width:100%;display:block;border:none;border-radius:0;overflow:visible}
+/* the buttons are no longer clipped by a shared shell, so each carries its own edge */
+.unit-row-btns .unit-btn,.unit-all .unit-btn{border:1px solid var(--border2);border-radius:7px}

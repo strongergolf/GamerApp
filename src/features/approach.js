@@ -19,7 +19,7 @@ function apSyncUnitLabels(){
   const set=(id,txt)=>{ const e=document.getElementById(id); if(e) e.textContent=txt; };
   set('ap-total-lbl','total '+ydUnit());
   set('ap-lim-lo', fmtYd(37)); set('ap-lim-hi', fmtYd(200));
-  set('ap-manual-lbl', isMetric()?'Metres':'Yards');
+  set('ap-manual-lbl', isMetric('distance')?'Metres':'Yards');
   const inp=document.getElementById('yard-input');
   if(inp){ inp.min=ydNum(37); inp.max=ydNum(200); if(inp!==document.activeElement) inp.value=ydNum(parseInt(document.getElementById('yard-slider')?.value)||95); }
   const disp=document.getElementById('calc-display');

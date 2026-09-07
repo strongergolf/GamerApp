@@ -31,7 +31,7 @@ function buildShortGame(){
           oninput="sgSetChipDist(this.value)">
       </div>
       <div class="calc-manual-col">
-        <label for="chip-input">${isMetric()?'Metres':'Yards'}</label>
+        <label for="chip-input">${isMetric('distance')?'Metres':'Yards'}</label>
         <input type="number" id="chip-input" min="${ydNum(5)}" max="${ydNum(55)}" value="${ydNum(20)}"
           oninput="sgSetChipDist(fromDisplay('distance',this.value),true)">
       </div>

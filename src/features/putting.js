@@ -18,7 +18,7 @@ function buildPutting(){
     <div class="calc-dist-block">
       <div class="calc-yardage-display">
         <div class="calc-yardage-num" id="putt-dist-display">${ftNum(15)}</div>
-        <div class="calc-yardage-label">${isMetric()?'metres':'feet'} from cup</div>
+        <div class="calc-yardage-label">${isMetric('short')?'metres':'feet'} from cup</div>
       </div>
       <div class="calc-slider-col">
         <div class="calc-slider-limits"><span>${fmtFt(2)}</span><span>${fmtFt(60)}</span></div>
@@ -26,8 +26,8 @@ function buildPutting(){
           oninput="puttSetDist(this.value)">
       </div>
       <div class="calc-manual-col">
-        <label for="putt-dist-input">${isMetric()?'Metres':'Feet'}</label>
-        <input type="number" id="putt-dist-input" min="${ftNum(2)}" max="${ftNum(60)}" step="${isMetric()?0.5:1}" value="${ftNum(15)}"
+        <label for="putt-dist-input">${isMetric('short')?'Metres':'Feet'}</label>
+        <input type="number" id="putt-dist-input" min="${ftNum(2)}" max="${ftNum(60)}" step="${isMetric('short')?0.5:1}" value="${ftNum(15)}"
           oninput="puttSetDist(fromDisplay('short',this.value))">
       </div>
       <div class="calc-manual-col calc-stimp-col">
@@ -116,8 +116,8 @@ function puttSlopeTermHTML(){
   const u=window.puttSlopeUnit||'in', val=window.puttSlopeVal!=null?window.puttSlopeVal:0;
   const cfg = u==='deg' ? {min:-8,max:8,step:0.25} : {min:-60,max:60,step:1};
   const disp = u==='deg' ? fmtPuttSlopeDeg(val) : fmtSlopeElev(val);
-  const linear=isMetric()?'cm':'in';
-  return `<div class="ey-term-head"><span class="ey-term-label">Putt Slope<button type="button" class="ey-unit-toggle" title="Switch ${isMetric()?'centimetres':'inches'} ↔ degrees" onclick="togglePuttSlopeUnit()">${u==='deg'?'°':linear}</button></span><span class="ey-term-val" id="putt-slope-display">${disp}</span></div>
+  const linear=isMetric('short')?'cm':'in';
+  return `<div class="ey-term-head"><span class="ey-term-label">Putt Slope<button type="button" class="ey-unit-toggle" title="Switch ${isMetric('short')?'centimetres':'inches'} ↔ degrees" onclick="togglePuttSlopeUnit()">${u==='deg'?'°':linear}</button></span><span class="ey-term-val" id="putt-slope-display">${disp}</span></div>
     <input type="range" id="putt-slope" min="${cfg.min}" max="${cfg.max}" step="${cfg.step}" value="${val}" oninput="onPuttSlopeInput(this.value)">`;
 }
 function onPuttSlopeInput(v){
@@ -155,7 +155,7 @@ function fmtSlopeElev(inches){
   /* Imperial reads elevation the way a golfer says it — 6", then 1'6" once it passes a foot.
      Metric has no such break point: centimetres all the way, which is how it would be said. */
   let mag;
-  if(isMetric()) mag=fmtIn(a);
+  if(isMetric('short')) mag=fmtIn(a);
   else { const ft=Math.floor(a/12), inch=a%12; mag = ft>0 ? (inch>0?`${ft}'${inch}"`:`${ft} ft`) : `${a}"`; }
   return `${mag} ${dir}`;
 }
