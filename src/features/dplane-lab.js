@@ -1,5 +1,5 @@
-// D-Plane (a Shots sub-tab): the rotatable 3D impact-geometry viewer, the
-// Shape Sandbox, the Shot Presets sub-page, the per-club stock-shot tendencies
+// D-Plane (Causation → 2 Ball Flight, Assess): the rotatable 3D impact-geometry viewer, the
+// Shape Sandbox, the Shot Presets, the per-club stock-shot tendencies
 // grid and the gear-effect reference. Split out of diagnose.js (2026-07).
 // Physics lives in physics/dplane.js - this file is presentation + interaction;
 // cross-module calls resolve via the window globals (staged migration pattern).
@@ -65,13 +65,14 @@ function setDplaneCell(id,field,value){
   saveState();
 }
 
-/* ---- THE D-PLANE LAB — its own top-level page (#page-dplane). One place to build and
+/* ---- THE D-PLANE — hosted by Causation → 2 Ball Flight. One place to build and
    demonstrate ANY shot: the rotatable 3D impact-geometry render, shot presets, the
    ball-speed sandbox, and the per-club stock-shot tendencies grid. ---- */
 function buildDplaneLab(){
   const wrap=document.getElementById('dplane-lab-wrap'); if(!wrap) return;
   wrap.innerHTML=`
-    <div class="section-label" style="margin-top:0">D-Plane — Impact Geometry &amp; Ball Flight</div>
+    <!-- heading supplied by the host (Causation → 2 Ball Flight), which pairs it with the
+         explanation; printing it here too showed it twice -->
     <div class="dpl-vis-main"><div id="dplane-visual"></div></div>
     <div class="lvl-subhead" style="margin-top:16px">Stock-Shot Tendencies by Club</div>
     <div class="chain-caption" style="margin-top:4px">Each club's <strong>stock-shot</strong> impact geometry: horizontal face, horizontal path, vertical face (dyn loft), vertical path (attack angle) and vertical swing plane (degrees, left −/right +; blank plane = estimated from loft). Tap a club to load it into the lab above; typed edits save automatically.</div>

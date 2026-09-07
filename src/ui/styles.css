@@ -1398,3 +1398,5 @@ body.theme-dark .gr-a{color:var(--green2)} body.theme-dark .gr-b{color:var(--c-w
 /* comparison-benchmark buttons wrap onto as many rows as they need */
 .escmp-btns{flex-wrap:wrap}
 .escmp-btns .unit-btn{flex:1 1 auto;min-width:84px}
+/* the "plays" line now carries a short explanation beside the number */
+.cond-summary i{font-style:normal;font-family:Arial,sans-serif;font-size:.68rem;color:var(--muted);margin-left:6px}

@@ -42,13 +42,18 @@ function buildEnvPanels(){
   ENV_HOSTS.forEach(pfx=>{ const h=document.getElementById(pfx); if(h) h.innerHTML=envPanelHTML(pfx); });
   envSyncSummary();
 }
+/* The two air-density figures that used to sit here (today's and the reference) were the
+   model's working, not an answer: three decimals of kg/m³ that no golfer acts on, and whose
+   only real job was to explain the one number that matters. That number — how far the ball
+   plays against stock — is kept, and now says which way and why in words. */
 function envSyncSummary(){
   const rhoC=airDensity(currentConditions()), rhoStd=airDensity(STD_COND);
   const f=window.adjustOn?(1+STATE.densityK*(rhoStd/rhoC-1)):1;
   const pct=(f-1)*100, dir=pct>0.05?'up':pct<-0.05?'down':'', sign=pct>0?'+':'';
-  const html=`<span>Air density: <b>${rhoC.toFixed(3)}</b> kg/m³</span>
-    <span>Standard: <b>${rhoStd.toFixed(3)}</b> kg/m³</span>
-    <span>Plays: <b class="${dir}">${window.adjustOn?sign+pct.toFixed(1)+'%':'stock'}</b></span>`;
+  const html = window.adjustOn
+    ? `<span>Plays: <b class="${dir}">${sign}${pct.toFixed(1)}%</b>
+         <i>${Math.abs(pct)<0.05?'the same as stock today':(pct>0?'further than stock — thinner air':'shorter than stock — denser air')}</i></span>`
+    : `<span>Plays: <b>stock</b> <i>tick “Adjust carries” to apply today’s conditions</i></span>`;
   ENV_HOSTS.forEach(pfx=>{ const s=document.getElementById(pfx+'-sum'); if(s) s.innerHTML=html; });
 }
 function envRefreshDeps(){

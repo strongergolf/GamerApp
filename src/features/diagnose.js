@@ -126,11 +126,13 @@ const PRACTICE_AREAS=[
        <div class="lvl-subhead">Ball Flight — from Bag Data</div>
        ${ballRefHtml()}
 
-       <div class="chain-caption" style="margin-top:14px">The interactive <strong>D-Plane</strong> — the rotatable impact-geometry render, shot presets, ball-speed sandbox and per-club stock-shot tendencies — lives under <strong>Shots</strong>: <b onclick="showGroupPage('play','dplane')" style="color:var(--sky);cursor:pointer;text-decoration:underline">open D-Plane</b>.</div>`,
+       <div class="lvl-subhead" style="margin-top:18px">D-Plane — Impact Geometry &amp; Ball Flight</div>
+       <div class="chain-caption" style="margin-top:4px">The rotatable impact render, the shape sandbox, your per-club stock tendencies and the shot presets. This is the level's own tool: ball flight is the outcome of club behaviour, and this is where that behaviour is set and seen.</div>
+       <div id="dplane-lab-wrap"></div>
+       <div id="dpshots-wrap"></div>`,
      improve:()=>ballImprove(),
      resources:()=>`
        ${ballLawsRef()}
-       <div class="chain-caption" style="margin-top:14px">The interactive D-plane shaper — per-club impact inputs alongside the live 3D render — lives under <strong>Shots</strong>: <b onclick="showGroupPage('play','dplane')" style="color:var(--sky);cursor:pointer;text-decoration:underline">open D-Plane</b>.</div>
        ${buildGearEffectL2()}
 
        <div class="chain-caption" style="margin-top:14px">Driver distance optimization (Foresight launch &amp; spin windows) now lives under the <strong>Driver</strong> in <strong>Stock Shots</strong>.</div>`},
@@ -455,6 +457,14 @@ function buildChainLevel(n){
     <div class="chn-body">${content}</div>
     ${walk}`;
   if(n===1&&slot==='assess'&&typeof buildTests==='function') buildTests();
+  /* D-Plane lives on THIS level now (it was briefly its own main tab). Built on demand,
+     because the pills mean its host divs only exist while Assess is showing — and the 3D
+     viewer fits its viewBox to the host width, which is 0 until the level is on screen. */
+  if(n===2&&slot==='assess'){
+    if(typeof buildDplaneLab==='function') buildDplaneLab();
+    if(typeof buildDpShots==='function') buildDpShots();
+    if(typeof dpRenderScene==='function') setTimeout(dpRenderScene,0);
+  }
   /* the static Definitions dropdown lives on the L2 page — show it only on Resources */
   if(n===2){ const defs=document.getElementById('ch2-defs'); if(defs) defs.style.display=(slot==='resources')?'':'none'; }
 }

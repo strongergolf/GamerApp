@@ -95,20 +95,21 @@ function mergeDefaults(saved){
     while(row.conf.length<4) row.conf.push(false);   /* 4th rung starts Presumed */
     partials[id]=row;
   });
-  /* REPAIR: a club's total must never sit under its own carry, and must not be missing when
-     the ladder knows the number. Saved data predating the fix keeps its own bad pair — a
-     defaults change alone never reaches an existing browser — and the pair is not merely
-     cosmetic: syncPartialsForClub rescales the whole ladder to `total ?? carry` whenever the
-     club is saved in My Bag, so W (carry 110, total 108) would have dragged a measured ladder
-     down 3.6%, and S/X (total null) down ~2%, on the next edit.
-     Only ever raises a total, never lowers one, and never touches carry — the measured
-     number stays measured. */
+  /* BACKFILL a MISSING total only.
+     This used to also force any total below its own carry up to it, on the assumption that a
+     ball cannot finish short of where it landed. That assumption was wrong: a high-spin wedge
+     routinely checks back past its pitch mark, so a NEGATIVE rollout is real data — Mark's X
+     is 76 carry / 73 total. The rule was overwriting measurements to satisfy a rule of thumb.
+     What is still worth guarding is a total that is absent, because syncPartialsForClub
+     rescales the whole ladder to `total ?? carry` on the next My Bag save, which would drag a
+     measured ladder down by the rollout. Backfilling from the ladder's own full number keeps
+     that from happening without touching any figure the golfer actually entered. */
   Object.keys(performance).forEach(id=>{
     const p=performance[id]; if(!p) return;
+    if(p.total!=null) return;                       // a real number, however it compares to carry
     const full=partials[id]&&partials[id].full;
-    const floor=Math.max(p.carry!=null?p.carry:-Infinity, full!=null?full:-Infinity);
-    if(!isFinite(floor)) return;
-    if(p.total==null || p.total<floor) performance[id]=Object.assign({},p,{total:floor});
+    const fill=Math.max(p.carry!=null?p.carry:-Infinity, full!=null?full:-Infinity);
+    if(isFinite(fill)) performance[id]=Object.assign({},p,{total:fill});
   });
   /* Unit preferences went from ONE setting to one PER CATEGORY. A save made before that has
      only `units`, so every category is seeded from it — someone who had the app in metric

@@ -48,9 +48,14 @@ function buildPartialsTable(){
        actually shown and clamped at 1, so bad stored data can no longer print a shot that
        rolls backwards. */
     const fullTotal = pr.full!=null ? pr.full : (pf.total!=null?pf.total:pf.carry);
-    let fullCarry = pf.carry!=null ? pf.carry : (fullTotal!=null?Math.round(fullTotal*0.97):null);
-    if(fullCarry!=null && fullTotal!=null) fullCarry=Math.min(fullCarry, fullTotal);
-    const ratio=(fullCarry>0&&fullTotal>0)?Math.min(1, fullCarry/fullTotal):0.97;  // club's carry / total
+    const fullCarry = pf.carry!=null ? pf.carry : (fullTotal!=null?Math.round(fullTotal*0.97):null);
+    /* Carry is NOT clamped to total, and the ratio is NOT clamped to 1. A high-spin wedge
+       checks back past its pitch mark, so carry above total is real — the X is 76 / 73. Both
+       clamps were added when W read 110 / 108 and that looked impossible; it is not.
+       KNOWN LIMITATION: one ratio is applied to every rung, so a club that spins back on a
+       full swing is modelled as spinning back on its 8:00 too, which it would not — a shorter
+       swing carries less spin and releases. Refining that needs per-rung rollout data. */
+    const ratio=(fullCarry>0&&fullTotal>0)?(fullCarry/fullTotal):0.97;  // club's carry / total
     rows.forEach(sw=>{
       let total=pr[sw.key], carry;
       if(sw.key==='full'){

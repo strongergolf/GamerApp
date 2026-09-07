@@ -5,15 +5,14 @@
    ============================================================ */
 /* group → ordered list of {id,label} sub-tabs */
 const GROUPS={
-  /* Shots (was Play): the four stock-shot tabs plus D-Plane, which was its own main
-     tab (the D-Plane Lab). Shot Presets used to be a sixth tab here and is now a section
-     of the D-Plane page — five sub-tabs is the cap. */
+  /* Shots: the four stock-shot surfaces. D-Plane passed through here as a fifth tab and has
+     gone back to Causation → 2 Ball Flight, where the impact geometry it renders is the
+     level's own subject rather than a neighbour of the yardage tools. */
   play:[
     {id:'bag',      label:'Stock Shots'},
     {id:'partials', label:'Approach'},
     {id:'shortgame',label:'Short Game'},
-    {id:'putting',  label:'Putting'},
-    {id:'dplane',   label:'D-Plane'}
+    {id:'putting',  label:'Putting'}
   ],
   games:[
     {id:'games',  label:'Practice Games'},
@@ -70,9 +69,6 @@ function showPage(id,tab){
   document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
   const pg=document.getElementById('page-'+id); if(pg)pg.classList.add('active');
   if(tab)tab.classList.add('active');
-  /* the D-Plane viewer's viewBox is fitted to its host width, which is 0 while the
-     page is hidden — refit on first show */
-  if(id==='dplane'&&typeof dpRenderScene==='function') setTimeout(dpRenderScene,0);
   /* the overlay depends on the bag, the handicap and the courses — any of which may have
      changed on another tab — so rebuild it on show rather than serving a stale render */
   if(id==='gameplan'&&typeof buildHoleOverlay==='function') setTimeout(buildHoleOverlay,0);
