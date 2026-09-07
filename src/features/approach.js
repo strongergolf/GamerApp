@@ -109,54 +109,82 @@ function wedgeModel(){
     .filter(x=>x.carries.full!=null);
   return partial.concat(longer);
 }
-function effortColor(p){ return p<=80?'var(--green)':p<=90?'var(--sky)':'var(--gold)'; }
 function interpFlight(club,key,target){
   const i=SWINGS.findIndex(s=>s.key===key), lo=SWINGS[i-1], hi=SWINGS[i+1], a=club.carries[key];
   if(target>a&&hi&&club.carries[hi.key]!=null){const u=club.carries[hi.key],t=Math.min(1,(target-a)/(u-a));return{launch:Math.round(club.launch[key]+t*(club.launch[hi.key]-club.launch[key])),spin:Math.round(club.spin[key]+t*(club.spin[hi.key]-club.spin[key])),height:Math.round(club.height[key]+t*(club.height[hi.key]-club.height[key]))};}
   if(target<a&&lo&&club.carries[lo.key]!=null){const l=club.carries[lo.key],t=Math.min(1,(a-target)/(a-l));return{launch:Math.round(club.launch[key]-t*(club.launch[key]-club.launch[lo.key])),spin:Math.round(club.spin[key]-t*(club.spin[key]-club.spin[lo.key])),height:Math.round(club.height[key]-t*(club.height[key]-club.height[lo.key]))};}
   return{launch:club.launch[key],spin:club.spin[key],height:club.height[key]};
 }
+/* A club's usable window: 3 yards under its SHORTEST rung (the 8:00 for a club with the
+   partial ladder filled in; the full swing for a full-only long club) up to 3 yards over
+   its full maximum. Inside that, the club can physically be asked to produce the number —
+   3 yards either end being the slack a golfer genuinely has without changing the swing.
+   This replaced a per-rung half-window, which hid clubs that were plainly playable: it only
+   ever offered the rung nearest the target, so a shot two rungs down the same club vanished
+   even though the club covered it comfortably. */
+const CLUB_RANGE_SLACK_YD = 3;
+/* A full-only club has no partial ladder to measure down from, so it cannot reach far below
+   its own number — but it must still reach down to where the next shorter club stops, or the
+   bag develops yardages nothing covers. MEASURED before this guard existed: 174-179 and
+   187-193 returned no options at all, because a 7i topped out at 173 and a 6i started at 180.
+   Capped so a fairway wood does not claim a 25-yard band it cannot actually hit. */
+const FULL_ONLY_MAX_REACH_YD = 15;
+function clubRanges(clubs){
+  const withFull=clubs.filter(c=>c.carries.full!=null).slice().sort((a,b)=>a.carries.full-b.carries.full);
+  const map=new Map();
+  withFull.forEach((club,idx)=>{
+    const full=club.carries.full;
+    /* SWINGS is ordered shortest → fullest, so the first non-null is the shortest rung */
+    const shortest=SWINGS.map(s=>club.carries[s.key]).find(v=>v!=null);
+    const hasLadder = shortest!=null && shortest!==full;
+    let lo;
+    if(hasLadder) lo = shortest-CLUB_RANGE_SLACK_YD;
+    else {
+      const prev=withFull[idx-1];
+      const meetPrev = prev ? prev.carries.full+CLUB_RANGE_SLACK_YD : full-CLUB_RANGE_SLACK_YD;
+      lo = Math.min(meetPrev, full-CLUB_RANGE_SLACK_YD);
+      lo = Math.max(lo, full-FULL_ONLY_MAX_REACH_YD);
+    }
+    map.set(club.id,{lo,hi:full+CLUB_RANGE_SLACK_YD,full,shortest,hasLadder});
+  });
+  return map;
+}
+/* Single-club convenience (kept for callers and for checking one club in isolation). */
+function clubUsableRange(club){
+  return clubRanges([club]).get(club.id)||null;
+}
 function calcSuggestions(target){
   const clubs=wedgeModel(); const out=[];
-  clubs.forEach(club=>SWINGS.forEach(sw=>{
-    const a=club.carries[sw.key]; if(a==null)return;
-    const i=SWINGS.indexOf(sw),lo=SWINGS[i-1],hi=SWINGS[i+1];
-    /* a full-only (longer) club has null tq/half neighbours — fall back to a self-window */
-    const loHas=lo&&club.carries[lo.key]!=null, hiHas=hi&&club.carries[hi.key]!=null;
-    const loC=loHas?club.carries[lo.key]:a*0.85, hiC=hiHas?club.carries[hi.key]:a;
-    const wLow=loHas?(a+loC)/2:a-10, wHigh=hiHas?(a+hiC)/2:a*1.04;
-    if(target<wLow-2||target>wHigh)return;
-    let eff;
-    if(target<=a){const lc=loHas?club.carries[lo.key]:a-15;const r=a-lc,pos=target-lc,le=loHas?lo.effort:sw.effort-12;eff=le+(sw.effort-le)*(pos/r);}
-    else{const hc=hiHas?club.carries[hi.key]:a+5;const r=hc-a,pos=target-a,ue=hiHas?hi.effort:sw.effort+5;eff=sw.effort+(ue-sw.effort)*(pos/r);}
-    /* floor sits below the 8:00 rung's 62 — a 70 floor would flatten the whole new rung */
-    eff=Math.min(102,Math.max(55,Math.round(eff)));
-    out.push({club,sw,anchor:a,effort:eff,delta:target-a,dist:Math.abs(target-a)});
-  }));
+  const ranges=clubRanges(clubs);
+  clubs.forEach(club=>{
+    const r=ranges.get(club.id);
+    if(!r || target<r.lo || target>r.hi) return;
+    /* Which rung to play it from: the nearest anchor, because the anchor is the swing the
+       golfer has actually practised and the card's headline is how far off it this is. */
+    let best=null;
+    SWINGS.forEach(sw=>{
+      const a=club.carries[sw.key]; if(a==null) return;
+      const d=Math.abs(target-a);
+      if(!best||d<best.dist) best={sw,anchor:a,dist:d};
+    });
+    if(!best) return;
+    /* Percent of this club's FULL distance the shot asks for — a real ratio, not an
+       interpolation between invented effort anchors. 95 yd with a 126 yd P is 75%. */
+    const pctFull=Math.round((target/r.full)*100);
+    out.push({club,sw:best.sw,anchor:best.anchor,pctFull,
+              delta:target-best.anchor,dist:best.dist,
+              loft:parseFloat(club.loft)||0});
+  });
+  /* RANKED first — the recommendation is still "closest to a practised anchor, fuller swing
+     preferred" — so renderCalc can mark the best one before re-sorting for display. */
   const swingRank={full:0,tq:1,half:2,third:3}; /* lower = fuller = preferred when dist is equal */
   out.sort((a,b)=>{
     if(a.dist!==b.dist) return a.dist-b.dist;              /* 1. closest anchor first */
     const sr=swingRank[a.sw.key]-swingRank[b.sw.key];
     if(sr!==0) return sr;                                   /* 2. fuller swing preferred */
-    return Math.abs(a.effort-87)-Math.abs(b.effort-87);    /* 3. closest to 87% effort */
+    return b.loft-a.loft;                                   /* 3. more loft = more margin */
   });
-  /* Deduplicate: only remove genuinely identical club+swing entries (can't happen
-     in practice, but guards against any window overlap). Keying on anchor alone
-     was incorrectly removing valid alternatives like P tq vs 9i half at 113yd. */
-  const seen=new Set();
-  const deduped=out.filter(o=>{
-    const key=o.club.id+'-'+o.sw.key;
-    if(seen.has(key)) return false;
-    seen.add(key); return true;
-  });
-  /* Secondary dedup: for each club, only keep the single best-ranked option
-     (prevents e.g. G full + G tq both appearing when they produce ~identical results) */
-  const clubSeen=new Set();
-  const final=deduped.filter(o=>{
-    if(clubSeen.has(o.club.id)) return false;
-    clubSeen.add(o.club.id); return true;
-  });
-  return final.slice(0,3);   /* at most the three closest options */
+  return out;
 }
 /* Rollout in yards derived from ball-flight characteristics — makes each shot's carry/roll split
    match its actual behaviour (Stops quickly vs Moderate release vs Runs out). */
@@ -192,17 +220,22 @@ function renderCalc(target){
   if(typeof eyRefreshSummary==='function') eyRefreshSummary('approach');
   const box=document.getElementById('calc-results');
   if(target<37||target>200){box.innerHTML=`<div class="calc-no-result">Outside range (37–200 yd). Use the Bag ladder for longer distances.</div>`;return;}
-  const sug=calcSuggestions(playTarget);
-  if(!sug.length){box.innerHTML=`<div class="calc-no-result">No clean match for ${target} yd.</div>`;return;}
-  const selIdx=window.approachSelectedIdx>=0&&window.approachSelectedIdx<sug.length?window.approachSelectedIdx:0;
+  const ranked=calcSuggestions(playTarget);
+  if(!ranked.length){box.innerHTML=`<div class="calc-no-result">No clean match for ${target} yd.</div>`;return;}
+  /* Ranked order picks the RECOMMENDATION; display order is by loft, most-lofted at the top
+     down to least, because that is how the bag is laid out and how a golfer scans for "the
+     next club up". The recommended shot keeps the highlight wherever loft puts it. */
+  const recommended=ranked[0];
+  const sug=ranked.slice().sort((a,b)=>b.loft-a.loft || a.dist-b.dist);
+  const recIdx=Math.max(0, sug.indexOf(recommended));
+  const selIdx=window.approachSelectedIdx>=0&&window.approachSelectedIdx<sug.length?window.approachSelectedIdx:recIdx;
   /* Shot-type (trajectory) model — knockdown / stock / high. Distance shift is already in
      playTarget (via the adjuster); here it reshapes launch / spin / height / rollout per club. */
   const shotType=(typeof EY!=='undefined'&&EY.approach)?EY.approach.shot:'stock';
   const stm=(typeof EY_SHOT!=='undefined'&&EY_SHOT[shotType])?EY_SHOT[shotType]:{launchMult:1,spinMult:1,heightMult:1,rollMult:1};
   let flightHTML='';
   box.innerHTML=sug.map((o,i)=>{
-    const selected=i===selIdx, color=effortColor(o.effort);
-    const swingDesc=o.sw.key==='full'?'Full swing':o.sw.key==='tq'?'¾ swing':o.sw.key==='half'?'½ swing':'⅓ swing';
+    const selected=i===selIdx;
     const fl0=interpFlight(o.club,o.sw.key,playTarget);
     const fl={launch:Math.round(fl0.launch*stm.launchMult),spin:Math.round(fl0.spin*stm.spinMult),height:Math.round(fl0.height*stm.heightMult)};
     const p=STATE.performance[o.club.id]||{};
@@ -212,15 +245,16 @@ function renderCalc(target){
     const baseRoll=approachRolloutYds(fl0.spin,fl0.height);
     const estRoll=Math.max(0,Math.round(baseRoll*stm.rollMult)+(window.approachGreenFirmness||0));
     const estCarry=target-estRoll;
-    /* Anchor / Diff — the headline of the card. The anchor is a swing the golfer has actually
-       practised and can repeat; the diff is how far off that known number this shot asks them
-       to play. That pair IS the instruction ("your 10:00 wedge, three yards longer"), so it
-       leads, and effort drops to a supporting stat. */
+    /* Anchor / Diff — the headline, and now it sits ON the club line rather than in a row of
+       its own. The clock reading already says which swing this is, so the old "⅓ swing —"
+       prefix was saying it twice; dropping it is most of the vertical saving.
+       The COLOUR lives here now: how far off a practised number you are being asked to play
+       is the thing worth flagging. Green = essentially your stock yardage. */
     const clockPos=o.sw.key==='full'?'11:00':o.sw.key==='tq'?'10:00':o.sw.key==='half'?'9:00':'8:00';
     const onAnchor=o.delta===0;
+    const ad=Math.abs(o.delta);
+    const color=ad<=2?'var(--green)':ad<=6?'var(--sky)':'var(--gold)';
     const diffStr=onAnchor?'on anchor':`${o.delta>0?'+':''}${ydNum(o.delta)} ${ydUnit()}`;
-    /* short enough to sit under a third-width stat; the long form was sized for a full row */
-    const effShort=o.effort>=98?'no margin':o.effort>=90?'near-full':o.effort>=82?'measured':'high control';
     if(selected){
       flightHTML=`<div class="flight-wrap">
         <div class="flight-row">
@@ -232,18 +266,13 @@ function renderCalc(target){
     return `<div class="calc-result-card ${selected?'best':''}" onclick="selectApproachResult(${i})" style="cursor:pointer">
       <div class="calc-card-header">
         <div class="calc-club-badge">${o.club.label}<small>${o.club.loft}</small></div>
-        <div style="flex:1;min-width:0">
-          <div class="calc-swing-label">${swingDesc}<span style="font-family:ui-monospace,monospace;font-size:.75rem;font-weight:600;color:var(--ink);letter-spacing:.01em"> — Carry ${ydNum(estCarry)} · Roll ${ydNum(estRoll)} · Total ${fmtYd(target)}</span></div>
-        </div>
+        <div class="calc-head-main">Carry ${ydNum(estCarry)} <em>+</em> Roll ${ydNum(estRoll)} ${ydUnit()}</div>
+        <div class="calc-head-anchor" style="color:${color}">${clockPos}<span>${diffStr}</span></div>
       </div>
       <div class="calc-card-body">
-        <div class="calc-anchor-col">
-          <div class="calc-anchor-label">Anchor / Diff</div>
-          <div class="calc-anchor-val">${clockPos}<span class="calc-anchor-diff${onAnchor?' on':''}">${diffStr}</span></div>
-        </div>
         <div class="calc-mini-stat"><div class="calc-mini-label">Launch / Spin</div><div class="calc-mini-val">${fl.launch}° · ${(fl.spin/1000).toFixed(1)}k</div></div>
         <div class="calc-mini-stat"><div class="calc-mini-label">Height / Check</div><div class="calc-mini-val">${ftNum(fl.height)}${ftUnit()} · ${checkDesc}</div></div>
-        <div class="calc-mini-stat"><div class="calc-mini-label">Effort</div><div class="calc-mini-val" style="color:${color}">${o.effort}%</div><div class="calc-mini-sub">${effShort}</div></div>
+        <div class="calc-mini-stat"><div class="calc-mini-label">% of Full</div><div class="calc-mini-val">${o.pctFull}%</div></div>
       </div>
     </div>`;
   }).join('');
@@ -263,4 +292,4 @@ function initCalc(){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { apSetDist, apSyncUnitLabels, PARTIAL_CLUBS, SWINGS, buildLookupTable, buildPartialsTable, calcSuggestions, effortColor, initCalc, interpFlight, renderCalc, selectApproachResult, wedgeModel });
+Object.assign(window, { apSetDist, apSyncUnitLabels, PARTIAL_CLUBS, SWINGS, CLUB_RANGE_SLACK_YD, buildLookupTable, buildPartialsTable, calcSuggestions, clubRanges, clubUsableRange, FULL_ONLY_MAX_REACH_YD, initCalc, interpFlight, renderCalc, selectApproachResult, wedgeModel });

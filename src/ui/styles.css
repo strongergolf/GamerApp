@@ -56,8 +56,13 @@ body::after{content:'';position:fixed;inset:0;background-image:url("data:image/s
 .nav-sub:empty{display:none}
 .nav-sub::-webkit-scrollbar{display:none}
 /* right-edge fade when the sub-tabs overflow (toggled in showGroup) — a cue that it scrolls */
-.nav-sub.is-scroll{-webkit-mask-image:linear-gradient(90deg,#000 86%,transparent);mask-image:linear-gradient(90deg,#000 86%,transparent)}
-.nav-tab{flex:1;min-width:88px;padding:11px 12px;text-align:center;font-family:Arial,sans-serif;font-size:.66rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#7aa899;cursor:pointer;border-bottom:3px solid transparent;transition:color .2s,border-color .2s;white-space:nowrap}
+/* fade starts late so it cues the scroll without swallowing the last label */
+.nav-sub.is-scroll{-webkit-mask-image:linear-gradient(90deg,#000 93%,transparent);mask-image:linear-gradient(90deg,#000 93%,transparent)}
+/* flex:1 0 auto, NOT flex:1 — with flex-shrink allowed, a long label like "SHORT GAME" was
+   squeezed below its own width, and because the text is nowrap it overflowed the box and
+   collided with the next tab (visible at 375px: "STOCK SHOTSAPPROACH"). Tabs still grow to
+   fill the bar when there are only two or three; past that the strip scrolls, as designed. */
+.nav-tab{flex:1 0 auto;min-width:88px;padding:11px 12px;text-align:center;font-family:Arial,sans-serif;font-size:.66rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#7aa899;cursor:pointer;border-bottom:3px solid transparent;transition:color .2s,border-color .2s;white-space:nowrap}
 .nav-tab.active{color:#f4f0e8;border-bottom-color:var(--green2)}
 .nav-tab:hover:not(.active){color:#bfe0d3}
 
@@ -214,18 +219,20 @@ input[type=range].yard-slider::-moz-range-thumb{width:20px;height:20px;border-ra
 .calc-club-badge{font-family:Arial,sans-serif;font-weight:800;font-size:1.3rem;color:var(--c-wedge);text-align:center;line-height:1}
 .calc-club-badge small{display:block;font-family:ui-monospace,monospace;font-size:.62rem;font-weight:400;color:var(--muted)}
 .calc-swing-label{font-family:Arial,sans-serif;font-size:.9rem;font-weight:700;color:var(--ink);letter-spacing:.04em}
+/* Carry / Roll / Total sits mid-line; the anchor clock and its differential are pinned right
+   on the SAME line, which is what took a whole row out of every card. The clock already says
+   which swing it is, so the old "⅓ swing —" prefix is gone as a duplicate. */
+/* Total is the SAME on every card — it is the target, already set in the big number at the
+   top of the tab — so the cards show the carry/roll split that actually differs between them
+   and let it read as the sum. Dropping the repeat is what stopped the line wrapping. */
+.calc-head-main{font-family:ui-monospace,monospace;font-size:.75rem;font-weight:600;color:var(--ink);letter-spacing:.01em;min-width:0}
+.calc-head-main em{font-style:normal;color:var(--muted);padding:0 1px}
+.calc-head-anchor{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;
+  font-family:Arial,sans-serif;font-size:1.05rem;font-weight:800;line-height:1.05;white-space:nowrap}
+.calc-head-anchor span{font-family:ui-monospace,monospace;font-size:.6rem;font-weight:700;opacity:.85}
 .calc-swing-sub{font-family:ui-monospace,monospace;font-size:.62rem;color:var(--muted);margin-top:1px}
 .calc-best-tag{font-family:ui-monospace,monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.1em;background:var(--panel);color:var(--gold2);padding:3px 8px;border-radius:4px;white-space:nowrap}
 .calc-card-body{padding:8px 12px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;align-items:start}
-/* Anchor / Diff leads the card: it is the swing the golfer has actually practised, and how
-   far off it this shot asks them to play. Effort became a supporting stat below, and the
-   effort progress bar went with it — a bar implies a scale that matters more than the number. */
-.calc-anchor-col{grid-column:1/-1;display:flex;align-items:baseline;justify-content:space-between;gap:10px;
-  padding-bottom:5px;margin-bottom:5px;border-bottom:1px solid var(--border)}
-.calc-anchor-label{font-family:ui-monospace,monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
-.calc-anchor-val{display:flex;align-items:baseline;gap:9px;font-family:Arial,sans-serif;font-size:1.18rem;font-weight:800;color:var(--ink);line-height:1.1}
-.calc-anchor-diff{font-family:ui-monospace,monospace;font-size:.76rem;font-weight:700;color:var(--ink2)}
-.calc-anchor-diff.on{color:var(--green)}
 .calc-mini-stat{text-align:center}
 .calc-mini-label{font-family:ui-monospace,monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:1px}
 .calc-mini-val{font-family:Arial,sans-serif;font-size:.88rem;font-weight:700;color:var(--ink2)}

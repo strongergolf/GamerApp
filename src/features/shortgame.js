@@ -268,15 +268,21 @@ function renderChipDial(){
         </div>
       </div>`;
     }
-    const muted='font-family:ui-monospace,monospace;font-size:.65rem;font-weight:500;color:var(--muted)';
-    const bigCol=selected?'var(--gold)':tc;
+    /* Same shape as the Approach card: club badge, the carry/roll split that differs between
+       the options, then the DEFINING number pinned right. For a chip that is the carry-to-roll
+       RATIO — "flies a third, runs two-thirds" is the whole basis of picking a chipping club —
+       with the archetype name under it as the teaching label.
+       Colour bands the ratio by how much of the shot is in the air: green stops soonest,
+       gold runs furthest. Descriptive, not a judgement — a runner is the right shot often. */
+    const ratio = carry>0.05 ? roll/carry : 0;
+    const ratioStr = '1 : '+ratio.toFixed(ratio<10?1:0);
+    const rc = ratio<=1 ? 'var(--green)' : ratio<=3 ? 'var(--sky)' : 'var(--gold)';
     return `<div class="calc-result-card ${selected?'best':''}"
         onclick="selectChipClub(${i})" style="cursor:pointer${!practical&&!selected?';opacity:.5':''}">
       <div class="calc-card-header">
         <div class="calc-club-badge" style="color:${tc}">${c.label}<small>${c.loft}</small></div>
-        <div style="flex:1;min-width:0">
-          <div class="calc-swing-label" style="color:${tc}">${chipArchetype(loft)}<span style="${muted}"> — </span><span style="font-family:Arial,sans-serif;font-size:1.15rem;font-weight:800;color:${bigCol}">${carry.toFixed(1)}</span><span style="${muted}"> carry · </span><span style="font-family:Arial,sans-serif;font-size:.92rem;font-weight:700;color:${bigCol}">${roll.toFixed(1)}</span><span style="${muted}"> roll · ${total.toFixed(1)} total</span>${noteStr}</div>
-        </div>
+        <div class="calc-head-main">Carry ${ydNum(carry,1)} <em>+</em> Roll ${ydNum(roll,1)} ${ydUnit()}${noteStr}</div>
+        <div class="calc-head-anchor" style="color:${rc}">${ratioStr}<span>${chipArchetype(loft)}</span></div>
       </div>
     </div>`;
   }).join('');
