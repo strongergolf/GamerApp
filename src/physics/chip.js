@@ -4,28 +4,30 @@
 
 /* ============================================================
    SHORT GAME — CHIP DIALLER
-   Mark's rule: 58° wedge · 5yd carry → 7yd rollout (stimp ~9.5, level)
-   +1° loft = −1yd rollout per 5yd carry
-   rollFactor = 65 − loft  (yd of rollout per 5yd carry at base conditions)
-   rollout = rollFactor × (carry/5) × stimpAdj × slopeAdj
    ============================================================ */
-/* Roll ratio R = roll/carry, keyed directly by club LOFT (the standard bump-and-run
-   ladder — lower-lofted clubs release more). Same calibrated outputs as before; the
-   loft keys are just the old launch keys un-scaled (÷0.75), so the launch factor no
-   longer lives inside the roll model.
-   7i 35° → 1:5 (R=5.0)   8i 39° → 1:4 (R=4.0)   9i 43° → 1:3 (R=3.0)
-   P 47° → 1:2 (R=2.0)    G 51° → 1:1 (R=1.0)    S 56° → 2:1 (R=0.5)
-   X 65° → 5:1 (R=0.2). */
+/* Roll ratio R = roll/carry, keyed by club LOFT — the standard bump-and-run ladder that
+   every short-game lesson is taught from, mapped onto this bag's actual lofts:
+
+     7i 1:6   8i 1:5   9i 1:4   P 1:3   G 1:2   S 1:1   L 2:1   X 3:1
+
+   This used to sit a full club stronger (7i 1:5 … S 2:1), which put the even 1:1 split on
+   the gap wedge instead of the sand wedge and made every club release less than the golfer
+   expects. Nothing in the physics justified the shift — it came from an old 58°-and-5-yards
+   rule of thumb that had already drifted out of step with these anchors — so the ladder is
+   now the ladder. Presumed until measured: the Calibration panel's rollMult scales the whole
+   ladder from the player's own observed shots. */
 const CHIP_ROLL_ANCHORS=[
-  [26.7, 6.0],   /* floor below 7i */
-  [35.0, 5.0],   /* 7-iron  1:5 */
-  [39.0, 4.0],   /* 8-iron  1:4 */
-  [43.0, 3.0],   /* 9-iron  1:3 */
-  [47.0, 2.0],   /* P-wedge 1:2 */
-  [51.0, 1.0],   /* G-wedge 1:1 */
-  [56.0, 0.5],   /* S-wedge 2:1 */
-  [65.0, 0.2],   /* X-wedge 5:1 */
-  [86.7, 0.2]    /* cap */
+  [26.7, 8.0],   /* 5-iron  1:8  (and the floor below it) */
+  [31.0, 7.0],   /* 6-iron  1:7 */
+  [35.0, 6.0],   /* 7-iron  1:6 */
+  [39.0, 5.0],   /* 8-iron  1:5 */
+  [43.0, 4.0],   /* 9-iron  1:4 */
+  [47.0, 3.0],   /* P-wedge 1:3 */
+  [51.0, 2.0],   /* G-wedge 1:2 */
+  [56.0, 1.0],   /* S-wedge 1:1 */
+  [61.0, 0.50],  /* L-wedge 2:1 */
+  [65.0, 0.33],  /* X-wedge 3:1 */
+  [86.7, 0.33]   /* cap */
 ];
 function chipRollRatio(loftDeg){
   const L=parseFloat(loftDeg)||50, A=CHIP_ROLL_ANCHORS;
@@ -156,6 +158,24 @@ function chipCarryForTotal(total, loftDeg, stimp, slope, baseline){
   const m = baseline ? 1 : chipFirm()*chipLie()*chipStanceRoll()*chipElevRoll();
   return total / (1 + chipRollFactor(loftDeg,stimp,slope) * m * chipUserRollMult());
 }
+/* THE split, under the setup showing on screen right now — the one number the dial and the
+   reference chart must agree on. They disagreed before because the dial added the Short Game
+   Variables' effective-loft shift (open the face and a G wedge behaves like a 54°) and the
+   per-shot firmness / lie / stance / elevation multipliers, while the chart used the bare loft
+   and passed baseline=true to skip them. Two code paths, two answers, same club on one screen.
+   There is now one path, and both call it. */
+function chipLiveRollRatio(loftDeg){
+  const d=(typeof sgEffLoftDelta==='function')?sgEffLoftDelta():0;
+  const L=Math.max(10,(parseFloat(loftDeg)||50)+d);
+  return chipRollout(1, L, STATE.stimp, chipSlopeVal(), false);
+}
+/* Say the split the way a golfer says it: the bigger side against 1. Below a wedge the roll
+   dominates (1 : 6); above one the carry does, and "1 : 0.3" is a ratio nobody speaks — that
+   shot is 3 : 1. Crossing over flips the format rather than shrinking the second number. */
+function chipRatioStr(R){
+  if(!isFinite(R)||R<=0) return '1 : 0';
+  return R>=1 ? `1 : ${R.toFixed(1)}` : `${(1/R).toFixed(1)} : 1`;
+}
 function chipClubs(){
   return STATE.clubs
     .filter(c=>{ const l=parseFloat(c.loft); return l>=34&&l<=70; })
@@ -172,4 +192,4 @@ function selectChipClub(i){ window.chipSelectedIdx=i; renderChipDial(); }
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { CHIP_ROLL_ANCHORS, CHIP_SLOPE_ANCHORS, CHIP_FIRM_MODEL, CHIP_STANCE_MODEL, chipArchetype, chipCarryForTotal, chipCalibrated, chipClubs, chipElevRoll, chipFirm, chipFirmModel, chipLaunch, chipLaunchRaw, chipLie, chipRollFactor, chipRollRatio, chipRollout, chipSlopeDeg, chipSlopeFactor, chipSlopeMult, chipSlopeVal, chipSpin, chipSpinRaw, chipStance, chipStanceRoll, chipUserLaunchOff, chipUserRollMult, chipUserSpinMult, selectChipClub });
+Object.assign(window, { CHIP_ROLL_ANCHORS, CHIP_SLOPE_ANCHORS, CHIP_FIRM_MODEL, CHIP_STANCE_MODEL, chipArchetype, chipCarryForTotal, chipCalibrated, chipClubs, chipElevRoll, chipFirm, chipFirmModel, chipLaunch, chipLaunchRaw, chipLie, chipLiveRollRatio, chipRatioStr, chipRollFactor, chipRollRatio, chipRollout, chipSlopeDeg, chipSlopeFactor, chipSlopeMult, chipSlopeVal, chipSpin, chipSpinRaw, chipStance, chipStanceRoll, chipUserLaunchOff, chipUserRollMult, chipUserSpinMult, selectChipClub });

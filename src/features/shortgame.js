@@ -205,6 +205,15 @@ function renderSgVars(){
     </div>`;
 }
 
+/* Target elevation → roll multiplier: green BELOW you plays shorter (carry less, release more);
+   ABOVE plays longer (carry more, release less). ~3% roll per foot; clamped.
+   Lifted out of renderChipDial because the reference chart needs the same multiplier and must
+   not depend on the dial having rendered first — build order was deciding the numbers. */
+function chipSyncElevRoll(measuredYd){
+  const d=(measuredYd!=null)?measuredYd:parseInt(document.getElementById('chip-slider')?.value||20);
+  const elevFt=(typeof elevBaseVal==='function' && typeof EY!=='undefined') ? elevBaseVal('shortgame', d) : 0;
+  window.chipElevRollMult = Math.max(0.5, Math.min(2, 1 - elevFt*0.03));
+}
 function renderChipDial(){
   const measuredYd=parseInt(document.getElementById('chip-slider')?.value||20);
   /* A chip must reach the hole, so carry + roll always sums to the distance to the hole. The
@@ -213,10 +222,7 @@ function renderChipDial(){
   const eyAdj = typeof eyTotal==='function' ? eyTotal('shortgame',measuredYd) : 0;
   const totalYd=Math.max(3, Math.round(measuredYd+eyAdj));
   if(typeof eyRefreshSummary==='function') eyRefreshSummary('shortgame');
-  /* Target elevation → roll multiplier: green BELOW you plays shorter (carry less, release more);
-     ABOVE plays longer (carry more, release less). ~3% roll per foot; clamped. */
-  const elevFt = (typeof elevBaseVal==='function' && typeof EY!=='undefined') ? elevBaseVal('shortgame', measuredYd) : 0;
-  window.chipElevRollMult = Math.max(0.5, Math.min(2, 1 - elevFt*0.03));
+  chipSyncElevRoll(measuredYd);
   const stimp=STATE.stimp, slope=chipSlopeVal();
   const clubs=chipClubs();
   const results=document.getElementById('chip-results'); if(!results) return;
@@ -403,7 +409,7 @@ function buildChipSVG(carryYd, rollYd, loftDeg, opts){
 }
 
 /* One line stating everything the chip numbers ASSUME. The reference is meaningless without
-   it: move the ball back or speed the green up and every split below moves with it. */
+   it: open the face or speed the green up and every split below moves with it. */
 function chipSetupSummary(){
   const sel=STATE.sgVars||{};
   const nameOf=key=>{
@@ -413,32 +419,30 @@ function chipSetupSummary(){
   const fk=window.chipFirmKey||'avg';
   const firm={vsoft:'very soft',soft:'soft',avg:'average',firm:'firm',vfirm:'very firm'}[fk]||fk;
   const sl=(typeof chipSlopeVal==='function')?chipSlopeVal():0;
-  const slope=sl>0.1?`${sl}&deg; uphill`:sl<-0.1?`${Math.abs(sl)}&deg; downhill`:'level';
+  const slope=sl>0.1?`${sl}° uphill`:sl<-0.1?`${Math.abs(sl)}° downhill`:'level';
+  const d=(typeof sgEffLoftDelta==='function')?sgEffLoftDelta():0;
+  const loftTxt=Math.abs(d)>=0.05?`${d>0?'+':''}${d.toFixed(1)}° eff. loft`:null;
   return [ 'ball '+(nameOf('ballPos')||'Middle').toLowerCase(),
            'shaft '+(nameOf('shaftPos')||'Vertical').toLowerCase(),
-           'face '+(nameOf('face')||'Square').toLowerCase(),
-           'stimp '+STATE.stimp.toFixed(1), firm+' green', slope ].join(' &middot; ');
+           'face '+(nameOf('face')||'Square').toLowerCase(), loftTxt,
+           'stimp '+STATE.stimp.toFixed(1), firm+' green', slope ]
+         .filter(Boolean).join(' &middot; ');
 }
 /* CHIP REFERENCE — a row per club, not a grid of distances.
-   chipRollout is strictly proportional to carry (roll = carry x factor), so the carry-to-roll
-   SPLIT is the same at 2 yards as at 15: the old six-column matrix was printing one number six
-   times per row. What genuinely differs between clubs is the split, so that is what this
-   states — as a share of the shot, and as the 1:x ratio a golfer thinks in. */
+   Roll is proportional to carry, so the SPLIT is the same at 2 yards as at 15: the old
+   six-column matrix printed one number six times per row. The split is the whole content, and
+   one honest way of saying it is enough — a percentage pair and a ratio were the same fact
+   twice. It comes from chipLiveRollRatio, the same call the shot options above use, so the
+   chart and the dial cannot drift apart. */
 function buildChipMatrix(){
-  const clubs=chipClubs();
-  const stimp=STATE.stimp, slope=chipSlopeVal();
+  chipSyncElevRoll();
   const typeColor=c=>c.type==='wedge'?'var(--c-wedge)':c.type==='iron'?'var(--c-iron)':c.type==='putter'?'var(--c-putter)':'var(--c-wood)';
-  let html=`<thead><tr><th style="text-align:left;padding-left:12px">Club</th><th>Carry</th><th>Roll</th><th>Ratio</th></tr></thead><tbody>`;
-  clubs.forEach(c=>{
-    const loft=parseFloat(c.loft);
-    const roll=chipRollout(1,loft,stimp,slope,true);          /* per unit of carry = the ratio */
-    const carryPct=100/(1+roll), rollPct=100-carryPct;
+  let html=`<thead><tr><th style="text-align:left;padding-left:12px">Club</th><th>Carry : Roll</th></tr></thead><tbody>`;
+  chipClubs().forEach(c=>{
     const col=typeColor(c);
     html+=`<tr>
       <td style="padding-left:12px;white-space:nowrap"><span style="font-family:Arial,sans-serif;font-weight:800;font-size:.95rem;color:${col}">${c.label}</span> <span style="font-family:ui-monospace,monospace;font-size:.56rem;color:var(--muted)">${c.loft}</span></td>
-      <td><div class="chip-cell" style="color:${col}">${carryPct.toFixed(0)}%</div></td>
-      <td><div class="chip-cell" style="color:${col}">${rollPct.toFixed(0)}%</div></td>
-      <td><div class="chip-cell" style="color:${col}">1 : ${roll.toFixed(1)}</div></td>
+      <td><div class="chip-cell" style="color:${col}">${chipRatioStr(chipLiveRollRatio(c.loft))}</div></td>
     </tr>`;
   });
   const t=document.getElementById('chip-matrix-table'); if(t) t.innerHTML=html+'</tbody>';
@@ -448,6 +452,7 @@ function buildChipMatrix(){
 
 
 
+
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { sgSetChipDist, buildChipMatrix, chipSetupSummary, buildChipSVG, buildShortGame, fmtChipSlope, renderChipDial, renderSgVars, renderSgCal, sgCalAddShot, sgCalRemove, sgCalReset });
+Object.assign(window, { sgSetChipDist, buildChipMatrix, chipSetupSummary, chipSyncElevRoll, buildChipSVG, buildShortGame, fmtChipSlope, renderChipDial, renderSgVars, renderSgCal, sgCalAddShot, sgCalRemove, sgCalReset });

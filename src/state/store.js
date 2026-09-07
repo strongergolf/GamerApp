@@ -133,9 +133,20 @@ function mergeDefaults(saved){
   let otherClubs = svOther || base.otherClubs;
   if(svOther){
     const idOf=o=>[(o.make||'').trim().toLowerCase(),(o.model||'').trim().toLowerCase(),o.effLoft].join('|');
+    const byId=new Map((base.otherClubs||[]).map(o=>[idOf(o),o]));
+    /* Backfill FIELDS as well as whole clubs. Appending only entire missing clubs meant a
+       defaults record that gained a field — the PM Grind's measured 85/83 — could never reach a
+       browser that already held that club, because the saved record matched and was kept whole.
+       Saved values always win; only keys the save simply does not have are filled in. */
+    otherClubs=svOther.map(o=>{
+      const d=byId.get(idOf(o)); if(!d) return o;
+      let out=o;
+      Object.keys(d).forEach(k=>{ if(out[k]===undefined){ if(out===o) out=Object.assign({},o); out[k]=d[k]; } });
+      return out;
+    });
     const have=new Set(svOther.map(idOf));
     const missing=(base.otherClubs||[]).filter(o=>!have.has(idOf(o)));
-    if(missing.length) otherClubs=[...svOther, ...missing];
+    if(missing.length) otherClubs=[...otherClubs, ...missing];
   }
   /* New STATE slices — keep saved if present, else default. */
   const missTendency = Object.assign({}, base.missTendency, sv.missTendency||{});

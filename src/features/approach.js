@@ -264,24 +264,28 @@ function renderCalc(target){
     const fl0=interpFlight(o.club,o.sw.key,playTarget);
     const fl={launch:Math.round(fl0.launch*stm.launchMult),spin:Math.round(fl0.spin*stm.spinMult),height:Math.round(fl0.height*stm.heightMult)};
     const p=STATE.performance[o.club.id]||{};
-    const checkDesc=(()=>{const hs=fl.spin>=8500,ms=fl.spin>=6500,hh=fl.height>=70,mh=fl.height>=50;if(hs&&hh)return'Stops quickly';if(hs&&mh)return'Checks up';if(hs)return'Bites on landing';if(ms&&hh)return'Some check';if(ms&&mh)return'Moderate release';if(ms)return'Low release';if(hh)return'Soft landing';return'Runs out';})();
     /* Roll from the stock flight × the shot-type rollout multiplier + green firmness; the
-       ball lands at the measured target, so Total = target and Carry = target − roll. */
+       ball lands at the measured target, so Total = target and Carry = target − roll.
+       Roll is no longer floored at zero. A high-spin wedge into a receptive green routinely
+       finishes short of its pitch mark — Mark's X is 76 carry to 73 total — so clamping at 0
+       was overwriting a real, and useful, outcome with a rule of thumb. */
     const baseRoll=approachRolloutYds(fl0.spin,fl0.height);
-    const estRoll=Math.max(0,Math.round(baseRoll*stm.rollMult)+(window.approachGreenFirmness||0));
+    const estRoll=Math.round(baseRoll*stm.rollMult)+(window.approachGreenFirmness||0);
     const estCarry=target-estRoll;
+    const backs=estRoll<0;
+    const checkDesc=(()=>{if(backs)return'Backs up';const hs=fl.spin>=8500,ms=fl.spin>=6500,hh=fl.height>=70,mh=fl.height>=50;if(hs&&hh)return'Stops quickly';if(hs&&mh)return'Checks up';if(hs)return'Bites on landing';if(ms&&hh)return'Some check';if(ms&&mh)return'Moderate release';if(ms)return'Low release';if(hh)return'Soft landing';return'Runs out';})();
     /* Anchor / Diff — the headline, and now it sits ON the club line rather than in a row of
        its own. The clock reading already says which swing this is, so the old "⅓ swing —"
        prefix was saying it twice; dropping it is most of the vertical saving.
        The COLOUR lives here now: how far off a practised number you are being asked to play
        is the thing worth flagging. Green = essentially your stock yardage. */
+    const color=(typeof typeHex==='function')?typeHex(clubTypeOf(o.club)):'var(--ink)';
     const clockPos=o.sw.key==='full'?'11:00':o.sw.key==='tq'?'10:00':o.sw.key==='half'?'9:00':'8:00';
     const onAnchor=o.delta===0;
     /* Coloured by CLUB TYPE — wedge green, iron blue, wood/hybrid/utility pink — so the
        clock reading, the club badge and the dispersion oval on the same screen all say the
        same thing about which club this is. It previously banded by distance-from-anchor,
        which was a second colour language competing with the bag's own. */
-    const color=(typeof typeHex==='function')?typeHex(clubTypeOf(o.club)):'var(--ink)';
     const diffStr=onAnchor?'on anchor':`${o.delta>0?'+':''}${ydNum(o.delta)} ${ydUnit()}`;
     if(selected){
       flightHTML=`<div class="flight-wrap">
@@ -293,8 +297,8 @@ function renderCalc(target){
     }
     return `<div class="calc-result-card ${selected?'best':''}" onclick="selectApproachResult(${i})" style="cursor:pointer">
       <div class="calc-card-header">
-        <div class="calc-club-badge">${o.club.label}<small>${o.club.loft}</small></div>
-        <div class="calc-head-main">Carry ${ydNum(estCarry)} <em>+</em> Roll ${ydNum(estRoll)} ${ydUnit()}</div>
+        <div class="calc-club-badge" style="color:${color}">${o.club.label}<small>${o.club.loft}</small></div>
+        <div class="calc-head-main">Carry ${ydNum(estCarry)} <em>${backs?'&minus;':'+'}</em> ${backs?'Back':'Roll'} ${ydNum(Math.abs(estRoll))} ${ydUnit()}</div>
         <div class="calc-head-anchor" style="color:${color}">${clockPos}<span>${diffStr}</span></div>
       </div>
       <div class="calc-card-body">

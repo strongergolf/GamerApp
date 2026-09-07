@@ -56,22 +56,18 @@ function prFullTable(clubIds){
    those three columns were the same split restated three times. The split itself is the useful
    thing standing over the ball: what share of the shot flies, and where to land it. */
 function prChipTable(){
-  const stimp=STATE.stimp;
   const clubs=(typeof PARTIAL_CLUBS!=='undefined'?PARTIAL_CLUBS:['7i','8i','9i','P','W','S','X'])
     .map(id=>(STATE.clubs||[]).find(c=>c.id===id)).filter(Boolean);
   let body='';
   clubs.forEach(c=>{
-    const loft=parseFloat(c.loft)||35;
-    const roll=(typeof chipRollout==='function')?chipRollout(1,loft,stimp,0,true):1;
-    const carryPct=100/(1+roll);
+    const R=(typeof chipLiveRollRatio==='function')?chipLiveRollRatio(c.loft):1;
     body+=`<tr><td class="club"><span class="big">${c.label}</span><span class="sm">${c.loft||''}</span></td>`
-      +`<td><span class="big">${carryPct.toFixed(0)}%</span></td>`
-      +`<td>${(100-carryPct).toFixed(0)}%</td>`
-      +`<td>1 : ${roll.toFixed(1)}</td></tr>`;
+      +`<td><span class="big">${(typeof chipRatioStr==='function')?chipRatioStr(R):R.toFixed(1)}</span></td></tr>`;
   });
-  const head=`<tr><th>Club</th><th>Carry<span class="thsub">of shot</span></th><th>Roll<span class="thsub">of shot</span></th><th>Ratio</th></tr>`;
+  const head=`<tr><th>Club</th><th>Carry : Roll</th></tr>`;
   return `<table class="ref"><thead>${head}</thead><tbody>${body}</tbody></table>`;
 }
+
 /* The split only holds for the setup it was computed from, so the card carries it too —
    otherwise the numbers look absolute when they are anything but. */
 function prChipNote(){

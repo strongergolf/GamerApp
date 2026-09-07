@@ -203,19 +203,28 @@ function swapIntoBag(clubId, o){
   };
   if(c.grip) displaced.grip=c.grip;
   if(c.weightOz) displaced.weightOz=c.weightOz;
+  /* Carry the club's MEASURED numbers out with it. Performance lives under the bag-slot id, so
+     without this a club sent to Backups leaves its yardages behind for whatever replaces it, and
+     coming back it would be re-estimated from loft — a measurement silently downgraded to a
+     guess by the act of resting a club for a fortnight. */
+  const dp=(typeof perf==='function')?perf(c.id):null;
+  if(dp&&dp.carry!=null&&dp.prov!=='presumed'){ displaced.carry=dp.carry; if(dp.total!=null) displaced.total=dp.total; }
   c.label = o.label || autoLabelForLoft(o.effLoft) || c.label; c.make=o.make; c.model=o.model; c.shaft=o.shaft;
   if(o.length) c.length=o.length;
   if(o.effLoft!=null){ c.loft=o.effLoft+'°'; c.origLoft=o.effLoft+'°'; }
   if(o.lie) c.lie=o.lie; if(o.year) c.year=o.year; if(o.swt) c.swt=o.swt; if(o.type) c.type=o.type;
   if(o.grip) c.grip=o.grip; if(o.weightOz) c.weightOz=o.weightOz;
   if(c.type!=='putter'){
+    /* Measured numbers on the inventory record beat an estimate from loft — that is the whole
+       point of keeping them (see displaced above, and the PM Grind in defaults). */
     const est=estimatePerfForLoft(o.effLoft, clubId);
-    if(est){
-      STATE.performance[clubId]=Object.assign({},est,{prov:'presumed'});
+    const measured = (o.carry!=null) ? {carry:o.carry, total:(o.total!=null?o.total:o.carry)} : null;
+    if(est||measured){
+      STATE.performance[clubId]=Object.assign({},est||{},measured||{},{prov:measured?'input':'presumed'});
       /* Keep the partial-swing ladder (what Approach/Short Game read) in step with the new
          estimate so My Bag and the Play tabs show the same numbers. Rebuild full/¾/½ from the
          estimated total (carry≈total here, no measured rollout split for an estimated club). */
-      const base=est.total||est.carry;
+      const base=(measured?measured.carry:null)||(est&&(est.total||est.carry));
       if(base){
         const rebuilt={ full:Math.round(base), tq:Math.round(base*0.92), half:Math.round(base*0.78), conf:[false,false,false,false] };
         rebuilt.third=estThirdCarry(rebuilt);
