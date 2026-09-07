@@ -31,6 +31,18 @@ function buildSpecs(){
   });
   const carryOf=c=> c.type==='putter'?0:(perf(c.id).carry||0);
   const mini=(label,val,wCls='')=>`<div class="spec-mini${wCls?' '+wCls:''}"><span class="sm-l">${label}</span><span class="sm-v">${val==null||val===''?'—':val}</span></div>`;
+  /* Mark bends almost the whole bag a degree weak — it adds effective bounce and cuts offset —
+     so the loft in play is NOT the loft stamped on the club. Showing only the effective number
+     made an owned club unfindable: hunting for "my 64° PM" in a list where every row reads 65.
+     Stock loft rides along whenever the two differ, small and muted, with the sign of the bend
+     so a strong bend reads differently from a weak one. Bounce, where recorded, stays in the
+     club's own detail — this is a find-it aid, not a spec sheet. */
+  const loftCell=(c)=>{
+    const eff=parseFloat(c.loft), orig=parseFloat(c.origLoft);
+    if(isNaN(eff)||isNaN(orig)||eff===orig) return c.loft;
+    const d=+(eff-orig).toFixed(1);
+    return `${c.loft}<span class="sm-stock">${orig}° ${d>0?'+':'−'}${Math.abs(d)}</span>`;
+  };
   let lastType=null;
   sorted.forEach((c,i)=>{
     if(c.type!==lastType){
@@ -44,7 +56,7 @@ function buildSpecs(){
     row.innerHTML=
       `<span class="spec-club ${c.type}">${c.label}</span>`+
       `<div class="sc-id"><span class="sc-name">${c.make} ${c.model}</span></div>`+   /* year · shaft moved into the dropdown (Physical Spec) for a tighter mobile row */
-      mini('Length',c.length,'sm-w-len')+mini('Loft',c.loft,'sm-w-deg')+mini('Lie',c.lie,'sm-w-deg')+
+      mini('Length',c.length,'sm-w-len')+mini('Loft',loftCell(c),'sm-w-deg')+mini('Lie',c.lie,'sm-w-deg')+
       `<div class="sc-sep"></div>`+
       mini('Carry '+ydUnit(),hasC?ydNum(carry):'—','sm-w-yd')+mini('Total '+ydUnit(),total?ydNum(total):'—','sm-w-yd')+
       mini('86% L/R',d86!=null?ydNum(d86,1):'—','sm-w-lr')+
@@ -215,10 +227,12 @@ function toggleSpecs(c,row,group){
   const repLabel=`<div class="specs-rep-label">Replacement Options — ±${loftTol}° Effective Loft${c.type==='putter'?' · putters only':''} · tap to swap in</div>`;
   const repHtml=!matches.length?`<div class="specs-no-rep">Nothing in your other bags within ±${loftTol}° of ${effLoft}°. A club further away than that is hidden rather than missing — edit the spec fields above to enter it directly.</div>`:matches.map((o,i)=>{
     const d=o.effLoft-effLoft, ds=d===0?'=':d>0?`+${d}°`:`${d}°`, dc=d===0?'exact':Math.abs(d)<=1?'close':'off';
+    /* Which bag it is sitting in does not help you CHOOSE a club — you pick on loft, model
+       and shaft, then go and find it. It lives in the club's own detail instead. */
     const extraDetail = c.type==='putter'
       ? `<div class="spec-val" style="font-size:.58rem;color:var(--muted)">${o.grip||''} · ${o.weightOz||''}oz · ${o.swt||''}</div>`
-      : `<div class="rep-inline-bag">${o.bag.replace(' Bag','').replace(' Staff','')}</div>`;
-    return `<div class="specs-rep-row" onclick="selectReplacement('${c.id}',${i})" style="cursor:pointer" title="Swap this club into your bag — stats estimated">
+      : '';
+    return `<div class="specs-rep-row${extraDetail?' has-extra':''}" onclick="selectReplacement('${c.id}',${i})" style="cursor:pointer" title="Swap this club into your bag — stats estimated">
       <span class="spec-club ${c.type}" style="font-size:1rem">${o.label}</span>
       <div class="spec-model">${o.make} ${o.model}<small>${o.year} · ${o.shaft} · ${o.length||''}</small></div>
       <div class="spec-val">${o.length||''}</div>
