@@ -2,39 +2,27 @@
 // Clubs, performance figures, profile, baseline weather and the swing-diagnosis tree.
 
 const DEFAULT_DATA = {
-  profile: { name:'Mark Strong', handicap:'+2', driverSwingSpeed:110,
-    handedness:'RH', heightFt:'', heightIn:'', armToFloor:'', ageRange:'',
-    roundsPerYear:'', practicePerYear:'', hcpService:'', hcpId:'',
-    ballMake:'', ballModel:'', ballAlignment:'', ballNotes:'',
-    ballCompression:'', ballCover:'', ballLayers:'', ballFirmness:'', ballSpin:'', ballTrajectory:'',
-    gloveSize:'',
-    /* typical-round baselines (feed "my actual" + scoring benchmarks) */
-    scoringAvg:'', goalHcp:'', firPct:'', girPct:'', puttsRound:'', upDownPct:'',
-    /* home setup — seeds Putting stimp + Plan */
-    homeCourse:'', usualTee:'', homeStimp:'', coachMode:false,
-    /* launch monitor profile */
-    lmBrand:'', lmSessionDate:'', lmDriverAoA:'', lmDriverPath:'', lmDriverFace:'', lmSmash:'', lmNotes:'',
-    /* course conditions */
-    roughLength:'', greenGrass:'', fairwayGrass:'', roughGrass:'', bunkerSand:'' },
-  /* Today's playing conditions (Environmental Adjustment). Starts on the same fine spring
-     day at Vancouver GC that STD_COND uses as the stock-yardage reference, so a new user
-     sees "stock" until they change something rather than a phantom adjustment. */
-  baseline: { tempF:71.6, altitudeFt:50, humidity:65, pressureInHg:30.05 },
+  profile: {name:"Mark Strong", handicap:"+2", driverSwingSpeed:110, handedness:"RH", heightFt:"5", heightIn:"10", armToFloor:"", ageRange:"40s", roundsPerYear:"25", practicePerYear:"2000", hcpService:"Golf Canada", hcpId:"", ballMake:"Callaway", ballModel:"Chrome Tour", ballAlignment:"3 black dots", ballNotes:"", ballCompression:"", ballCover:"Urethane", ballLayers:"4-piece", ballFirmness:"Soft", ballSpin:"Medium", ballTrajectory:"Mid", gloveSize:"Men's M", scoringAvg:"", goalHcp:"+6", firPct:"", girPct:"", puttsRound:"", upDownPct:"", homeCourse:"", usualTee:"Black", homeStimp:"10", coachMode:false, lmBrand:"", lmSessionDate:"", lmDriverAoA:"", lmDriverPath:"", lmDriverFace:"", lmSmash:"", lmNotes:"", roughLength:"Long (2″)", greenGrass:"Poa Annua", fairwayGrass:"Ryegrass", roughGrass:"Kentucky Bluegrass", bunkerSand:"Silica", ballColor:"Yellow"},
+  /* Today's playing conditions (Environmental Adjustment). Deliberately kept EQUAL to
+     STD_COND (24 °C at sea level) rather than copied from the export's 72 °F / 30 % — the
+     panel then opens reading "plays: stock" instead of showing an adjustment nobody asked
+     for. Change the day here and the difference is what the adjustment means. */
+  baseline: { tempF:75.2, altitudeFt:0, humidity:65, pressureInHg:30.05 },
   /* 'imperial' (°F / ft / inHg / yd) or 'metric' (°C / m / hPa / m). Stored values stay
      canonical-imperial; only what is displayed converts. */
   units: 'imperial',
   /* Correlation between hitting one long and hitting it left, per club type — what makes a
      landing pattern lean. See STRIKE_CORR in physics/dispersion.js. Empty = use defaults. */
-  dispersion: { strikeCorr: {} },
+  dispersion: {strikeCorr:{}},
   densityK: 0.65,
   lmSessions: [],   /* saved launch-monitor driver sessions (Driver Optimizer) */
   stimp: 9.5,
   /* Short Game Variables (Short Game tab) — selected option id per variable.
      Keys/options defined in physics/shortgame-vars.js; defaults net to zero change. */
-  sgVars: {},
+  sgVars: {ballPos:"cforward", handPos:"neutral", face:"sopen", spine:"level", engine:"blend", shaftPos:"vertical"},
   /* Short-game calibration — captured launch-monitor shots + the per-user launch/spin/roll
      factors derived from them (Short Game → Calibrate to My Data). Neutral until imported. */
-  sgCal: { shots:[], launchOff:0, spinMult:1, rollMult:1 },
+  sgCal: {shots:[], launchOff:0, spinMult:1, rollMult:1},
   scoring: {
     rounds: []
     /* each round: {id, date, course, ott, app, atg, putt, gross, notes} */
@@ -51,13 +39,7 @@ const DEFAULT_DATA = {
   /* Handicap snapshots over time (Locker Room → Myself). Each: {date, hcp}. */
   hcpHistory: [],
   /* Golfer's default targeting tendencies (Plan → Strategy). Drive the EV aim points later. */
-  strategy: {
-    teeTarget: 'centre',          // left-edge|left-centre|centre|right-centre|right-edge|shortest|widest
-    teeClub: 'optimal',           // driver-often|optimal|conservative
-    approachTarget: 'flag-centre',// left-edge|left-centre|centre|right-centre|right-edge|at-flag|flag-centre
-    approachDistance: 'middle',   // pin-high|middle|fat|pin-seek
-    riskPosture: 'balanced'       // balanced|chase|protect|match — the aim-optimizer's objective
-  },
+  strategy: {teeTarget:"widest", teeClub:"driver-often", approachTarget:"flag-centre", approachDistance:"fat", riskPosture:"protect", skillHcp:"-6"},
   /* Shots ANCHORED on the Hole Overlay: where the ball actually finished, as opposed to where
      it was aimed. anchors is keyed "<course name>|<hole number>" -> [ {x,y}|null per shot ].
      A finish is what turns modelled strokes gained into measured strokes gained, so this is
@@ -87,26 +69,20 @@ const DEFAULT_DATA = {
   ],
   /* per-golfer performance keyed by club id */
   performance: {
-    D:  {carry:270,total:295,bspd:163,cspd:110,launch:11,spin:2400,ht:100,land:42},
-    Fwy:{carry:235,total:250,bspd:155,cspd:103,launch:13,spin:4300,ht:90, land:41},
-    H:  {carry:210,total:225,bspd:145,cspd:99, launch:15,spin:5100,ht:90, land:42},
-    U:  {carry:200,total:210,bspd:135,cspd:97, launch:16,spin:5300,ht:90, land:43},
-    '5i':{carry:190,total:197,bspd:130,cspd:95,launch:17,spin:5700,ht:90, land:44},
-    '6i':{carry:177,total:183,bspd:125,cspd:93,launch:18,spin:6200,ht:90, land:45},
-    '7i':{carry:165,total:170,bspd:120,cspd:91,launch:19,spin:6700,ht:85, land:46},
-    '8i':{carry:153,total:157,bspd:115,cspd:89,launch:21,spin:7200,ht:85, land:47},
-    '9i':{carry:139,total:142,bspd:110,cspd:87,launch:23,spin:7800,ht:85, land:48},
-    P:  {carry:124,total:126,bspd:100,cspd:85,launch:25,spin:8500,ht:75, land:49},
-    /* Totals here MUST agree with the partials ladder's `full` below and must never be under
-       their own carry. W read total 108 against carry 110 — a carry longer than the total
-       containing it — which made the carry/total ratio exceed 1 and printed carry above total
-       on every rung of that row. S and X had no total at all, so surfaces fell back to carry
-       and showed a full wedge with zero roll. All three now carry a 2 yd rollout, matching
-       the ladder (112 / 97 / 74) and the P row's own carry-to-total step. */
-    W:  {carry:110,total:112,bspd:90, cspd:83,launch:27,spin:9000,ht:75, land:49},
-    S:  {carry:95, total:97,  bspd:80,cspd:81,launch:29,spin:9500,ht:75, land:49},
-    X:  {carry:72, total:74,  bspd:69,cspd:75,launch:35,spin:10000,ht:70,land:50},
-    Pu: {carry:null,total:null,bspd:null,cspd:null,launch:null,spin:null,ht:null,land:null}
+    D:      {carry:275, total:300, bspd:165, cspd:110, launch:12, spin:2500, ht:100, land:42, prov:"input"},
+    Fwy:    {carry:245, total:265, bspd:157, cspd:105, launch:13, spin:4300, ht:90, land:41, prov:"input"},
+    H:      {carry:220, total:235, bspd:145, cspd:99, launch:15, spin:5100, ht:90, land:42, prov:"input"},
+    U:      {carry:206, total:214, bspd:137, cspd:98, launch:15, spin:5300, ht:90, land:43, prov:"input"},
+    '5i':   {carry:193, total:200, bspd:130, cspd:95, launch:17, spin:5700, ht:90, land:44, prov:"input"},
+    '6i':   {carry:180, total:186, bspd:125, cspd:93, launch:18, spin:6200, ht:90, land:45, prov:"input"},
+    '7i':   {carry:167, total:172, bspd:120, cspd:91, launch:19, spin:6700, ht:85, land:46, prov:"input"},
+    '8i':   {carry:154, total:158, bspd:115, cspd:89, launch:21, spin:7200, ht:85, land:47, prov:"input"},
+    '9i':   {carry:141, total:144, bspd:110, cspd:87, launch:23, spin:7800, ht:85, land:48, prov:"input"},
+    P:      {carry:128, total:130, bspd:100, cspd:85, launch:25, spin:8500, ht:75, land:49, prov:"input"},
+    W:      {carry:115, total:116, bspd:90, cspd:83, launch:27, spin:9000, ht:75, land:49, prov:"input"},
+    S:      {carry:100, total:100, bspd:80, cspd:81, launch:29, spin:9500, ht:75, land:49, prov:"input"},
+    X:      {carry:76, total:76, bspd:64, cspd:78, launch:32.2, spin:10300, ht:75, land:49, prov:"presumed"},
+    Pu:     {carry:null, total:null, bspd:null, cspd:null, launch:null, spin:null, ht:null, land:null}
   },
   /* partial swings — total distances (carry + green rollout), single source.
      Full-swing totals match performance.total; partials scaled proportionally.
@@ -116,70 +92,21 @@ const DEFAULT_DATA = {
      from each club's own ladder, pending Mark's recalibration numbers. Note the 44→20 hole
      between S and X at 8:00: real if the ladder holds, worth checking on the recalibration. */
   partials: {
-    '7i':{full:170,tq:158,half:143, third:126, conf:[true,false,false,false]},
-    '8i':{full:157,tq:143,half:127, third:110, conf:[true,false,false,false]},
-    '9i':{full:142,tq:127,half:112, third:97,  conf:[true,false,false,false]},
-    P:   {full:126,tq:112,half:97,  third:82,  conf:[true,false,false,false]},
-    W:   {full:112,tq:97, half:74,  third:50,  conf:[true,false,false,false]},
-    S:   {full:97, tq:74, half:57,  third:44,  conf:[true,false,true,false]},
-    X:   {full:74, tq:57, half:37,  third:20,  conf:[true,true,true,false]}
+    '7i':   {full:172, tq:160, half:145, third:126, conf:[true, false, false, false]},
+    '8i':   {full:158, tq:144, half:128, third:110, conf:[true, false, false, false]},
+    '9i':   {full:144, tq:129, half:114, third:97, conf:[true, false, false, false]},
+    P:      {full:130, tq:116, half:100, third:82, conf:[true, false, false, false]},
+    W:      {full:116, tq:100, half:76, third:50, conf:[true, false, false, false]},
+    S:      {full:99, tq:76, half:58, third:44, conf:[true, false, true, false]},
+    X:      {full:74, tq:68, half:58, third:46, conf:[false, false, false, false]}
   },
   /* per-club stock-shot D-plane tendencies (horizontal face/path + attack angle, degrees).
      hFace/hPath: left(−)/right(+) of target. Stock shape & curve derived (face vs path,
      loft-scaled). Seeds a mild draw bias for long clubs → neutral wedges. Edit in the
      Practice → D-Plane Tendencies grid; consumed by Bag dispersion and Plan overlays. */
-  dplane: {
-    D:   {hFace:0.5, hPath:1.5, vFace:13, aoa:-1.0},
-    Fwy: {hFace:0.4, hPath:1.3, vFace:14, aoa:-1.5},
-    H:   {hFace:0.3, hPath:1.2, vFace:17, aoa:-2.5},
-    U:   {hFace:0.3, hPath:1.1, vFace:19, aoa:-3.0},
-    '5i':{hFace:0.2, hPath:1.0, vFace:23, aoa:-3.5},
-    '6i':{hFace:0.2, hPath:0.9, vFace:26, aoa:-4.0},
-    '7i':{hFace:0.1, hPath:0.8, vFace:29, aoa:-4.5},
-    '8i':{hFace:0.1, hPath:0.7, vFace:33, aoa:-5.0},
-    '9i':{hFace:0.0, hPath:0.6, vFace:37, aoa:-5.5},
-    P:   {hFace:0.0, hPath:0.5, vFace:42, aoa:-6.0},
-    W:   {hFace:-0.1,hPath:0.4, vFace:46, aoa:-6.5},
-    S:   {hFace:-0.2,hPath:0.3, vFace:50, aoa:-7.0},
-    X:   {hFace:-0.3,hPath:0.2, vFace:58, aoa:-7.5}
-  },
+  dplane: {D:{hFace:-0.5, hPath:-1, aoa:0, vFace:8}, Fwy:{hFace:0.4, hPath:0, aoa:0, vFace:14}, H:{hFace:0.3, hPath:1.2, aoa:-0.5, vFace:17}, U:{hFace:0.5, aoa:-1, vFace:20, hPath:0}, "5i":{hFace:0.2, hPath:1, aoa:-1.5, vFace:23}, "6i":{hFace:0.2, hPath:0.9, aoa:-2, vFace:26}, "7i":{hPath:0.9, hFace:3.6, vFace:45}, "8i":{hFace:0.1, hPath:0.7, aoa:-3, vFace:32}, "9i":{hFace:0, hPath:0.6, aoa:-3.5, vFace:35}, P:{hFace:0, hPath:0.5, aoa:-4, vFace:38}, W:{hFace:-0.1, hPath:0.4, aoa:-4.5, vFace:41}, S:{hPath:-5, vFace:50.5, aoa:0.5}, X:{hFace:-0.3, hPath:0.2, aoa:-5.5, vFace:53}},
   /* swing data — causation chain, placeholder labels pending StrongerGolf terms */
-  swing: {
-    impact: { faceAngle:'', clubPath:'', faceToPath:'', strikeH:'', strikeV:'', dynamicLoft:'', attackAngle:'' },
-    forces: {
-      pull:  { transition:{direction:'',magnitude:''}, mid:{direction:'',magnitude:''}, impact:{direction:'',magnitude:''} },
-      push:  { transition:{direction:'',magnitude:''}, mid:{direction:'',magnitude:''}, impact:{direction:'',magnitude:''} },
-      twist: { transition:{direction:'',magnitude:''}, mid:{direction:'',magnitude:''}, impact:{direction:'',magnitude:''} }
-    },
-    kinematics: {
-      sequenceOrder:'', peakTiming:'', speedGain:'', transitionTrigger:'',
-      pelvis:{bs:'',trans:'',mid:'',imp:'',ft:''},
-      thorax:{bs:'',trans:'',mid:'',imp:'',ft:''},
-      arm:   {bs:'',trans:'',mid:'',imp:'',ft:''},
-      club:  {bs:'',trans:'',mid:'',imp:'',ft:''}
-    },
-    forcePlate: {
-      wtAddress:'', wtTop:'', wtImpact:'',
-      loadingPattern:'', transitionTrigger:'',
-      peakLeadTiming:'', peakTrailTiming:'',
-      pushOffMagnitude:'', copPath:'', notes:''
-    },
-    tpi: {
-      overheadSquat:'', pelvicTilt:'', pelvicRotation:'',
-      thoracicRotation:'', hipInternal:'', hipExternal:'',
-      hamstring:'', wristHinge:'', singleLegBalance:'',
-      seatedTrunkRot:'', lowerQuarterRot:'', notes:''
-    },
-    planes: { hsp:'', vsp:'', pathTendH:'', pathTendV:'' },
-    grip:   { strength:null, depth:null, notes:'' },
-    psych: {
-      mindtrak: { focus:'', commitment:'', emotional:'', routine:'', errors:'', recovery:'' },
-      vision54: { thinkBox:'', playBox:'', humanSkills:'', bestScore:'', notes:'' },
-      fearless:  { orientation:'', courage:'', identity:'', fear:'', notes:'' },
-      goals:     { daily:'', weekly:'', monthly:'', season:'', career:'' }
-    },
-    notes: ''
-  },
+  swing: {impact:{faceAngle:"", clubPath:"", faceToPath:"", strikeH:"", strikeV:"", dynamicLoft:"", attackAngle:""}, forces:{pull:{transition:{direction:"", magnitude:""}, mid:{direction:"", magnitude:""}, impact:{direction:"", magnitude:""}}, push:{transition:{direction:"", magnitude:""}, mid:{direction:"", magnitude:""}, impact:{direction:"", magnitude:""}}, twist:{transition:{direction:"", magnitude:""}, mid:{direction:"", magnitude:""}, impact:{direction:"", magnitude:""}}}, kinematics:{sequenceOrder:"", peakTiming:"", speedGain:"", transitionTrigger:"", pelvis:{bs:"", trans:"", mid:"", imp:"", ft:""}, thorax:{bs:"", trans:"", mid:"", imp:"", ft:""}, arm:{bs:"", trans:"", mid:"", imp:"", ft:""}, club:{bs:"", trans:"", mid:"", imp:"", ft:""}}, forcePlate:{wtAddress:"", wtTop:"", wtImpact:"", loadingPattern:"", transitionTrigger:"", peakLeadTiming:"", peakTrailTiming:"", pushOffMagnitude:"", copPath:"", notes:""}, tpi:{overheadSquat:"", pelvicTilt:"", pelvicRotation:"", thoracicRotation:"", hipInternal:"", hipExternal:"", hamstring:"", wristHinge:"", singleLegBalance:"", seatedTrunkRot:"", lowerQuarterRot:"", notes:""}, planes:{hsp:"", vsp:"", pathTendH:"", pathTendV:""}, grip:{strength:3, depth:3, notes:""}, psych:{mindtrak:{focus:"", commitment:"", emotional:"", routine:"", errors:"", recovery:""}, vision54:{thinkBox:"", playBox:"", humanSkills:"", bestScore:"", notes:""}, fearless:{orientation:"", courage:"", identity:"", fear:"", notes:""}, goals:{daily:"", weekly:"", monthly:"", season:"", career:""}}, notes:""},
   /* other bags inventory — for replacement matching */
   otherClubs: [
     {label:'W', effLoft:48,make:'Callaway',model:'MacDaddy 2 S',  shaft:'DG Wedge',          length:'35.375"',bag:'Home Backups',year:2013},
