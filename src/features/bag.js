@@ -27,6 +27,7 @@ function envPanelHTML(pfx){
     <div class="cond-head">
       <div class="cond-title">Environmental Adjustment</div>
       <label class="cond-toggle"><input type="checkbox" id="${pfx}-adj" ${window.adjustOn?'checked':''} onchange="onEnvToggle(this.checked)"> Adjust carries</label>
+      <button type="button" class="cond-reset" title="Back to the reference day the stock numbers were captured on" onclick="envRestoreDefault()">Restore default</button>
     </div>
     <div class="cond-body">
       ${conv('tempF')}
@@ -75,6 +76,18 @@ function onEnvInput(key,val){
              : STATE.baseline[key];
   }});
   envSyncSummary(); envRefreshDeps();
+}
+/* Back to the reference day the stock yardages were captured on. STD_COND is that day, so
+   restoring makes today EQUAL the reference and the panel reads "plays: stock" — which is
+   also the honest definition of the button: not "clear the fields" but "assume the
+   conditions the numbers were measured in". */
+function envRestoreDefault(){
+  STATE.baseline={ tempF:STD_COND.tempF, altitudeFt:STD_COND.altitudeFt,
+                   humidity:STD_COND.humidity, pressureInHg:STD_COND.pressureInHg };
+  STATE.densityK=0.65;
+  saveState();
+  buildEnvPanels(); envRefreshDeps();
+  if(typeof toast==='function') toast('Conditions back to the reference day');
 }
 function onEnvToggle(on){
   window.adjustOn=on;
@@ -254,7 +267,7 @@ function buildSideSVG(c,p){
     const rc=rollout<0?'#d96070':tc;
     roll+=`<line x1="${bx.toFixed(1)}" y1="${groundY}" x2="${totalX}" y2="${groundY}" stroke="${rc}" stroke-width="1.5" opacity="0.6"/>`;
     roll+=`<circle cx="${totalX}" cy="${groundY}" r="2" fill="${rc}" opacity="0.7"/>`;
-    roll+=`<text x="${(totalX-2).toFixed(1)}" y="${groundY+9}" text-anchor="end" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="6" fill="${rc}" opacity="0.8">${rollout<0?ydNum(total)+ydUnit()+' (checks back)':ydNum(total)+ydUnit()+' total'}</text>`;
+    roll+=`<text x="${(totalX-2).toFixed(1)}" y="${groundY+9}" text-anchor="end" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="12" fill="${rc}" opacity="0.8">${rollout<0?ydNum(total)+ydUnit()+' (checks back)':ydNum(total)+ydUnit()+' total'}</text>`;
   }
   const lx2=x0+24*Math.cos(launchRad),ly2=y0-24*Math.sin(launchRad);
   const rx2=carryX-24*Math.cos(landRad),ry2=y3-24*Math.sin(landRad);
@@ -262,11 +275,11 @@ function buildSideSVG(c,p){
   /* Two caption rows sit BELOW the ground line — the total at groundY+9 and the carry
      at H+10 — so the viewBox has to clear the lower one's descenders (~H+11.5) or the
      wrap's overflow:hidden clips them. H+14 leaves a small bottom margin. */
-  return `<svg data-pz viewBox="0 0 ${W} ${H+14}" style="width:100%;display:block" xmlns="http://www.w3.org/2000/svg">
+  return `<svg viewBox="0 0 ${W} ${H+14}" style="width:100%;display:block" xmlns="http://www.w3.org/2000/svg">
     <line x1="4" y1="${groundY}" x2="${W-4}" y2="${groundY}" stroke="#c0d8cf" stroke-width="0.8"/>
     <line x1="${pk.x.toFixed(1)}" y1="${(pk.y+2).toFixed(1)}" x2="${pk.x.toFixed(1)}" y2="${groundY}" stroke="#c0d8cf" stroke-width="0.6" stroke-dasharray="3,2"/>
-    <text x="${htLX.toFixed(1)}" y="${htLY.toFixed(1)}" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="6.5" fill="#3a5a7a">${p.ht!=null?ftNum(p.ht)+ftUnit():'—'}</text>
-    <text x="${((PAD_L+carryX)/2).toFixed(1)}" y="${H+10}" text-anchor="middle" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="6" fill="#3a5a7a">${ydNum(carry)}${ydUnit()} carry</text>
+    <text x="${htLX.toFixed(1)}" y="${htLY.toFixed(1)}" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="13" fill="#3a5a7a">${p.ht!=null?ftNum(p.ht)+ftUnit():'—'}</text>
+    <text x="${((PAD_L+carryX)/2).toFixed(1)}" y="${H+10}" text-anchor="middle" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="12" fill="#3a5a7a">${ydNum(carry)}${ydUnit()} carry</text>
     <path d="${flight}" fill="none" stroke="${tc}" stroke-width="1.8" opacity="0.9"/>
     ${roll}
     <line x1="${x0}" y1="${y0}" x2="${lx2.toFixed(1)}" y2="${ly2.toFixed(1)}" stroke="#1a5aaa" stroke-width="1.2" opacity="0.7"/>
@@ -336,14 +349,16 @@ function buildTopSVG(c,p,opts){
   } else {
     /* Typical green (~30 yd diameter), smooth organic outline. */
     scale=40/15;                                            // ~15yd radius → 40px
-    bg=`<path d="${greenBlobPath(cx,cy,40,36)}" fill="var(--green2)" fill-opacity="0.16" stroke="var(--green)" stroke-width="1.1" stroke-opacity="0.6"/>`;
+    /* The green is drawn NEUTRAL — the colour on this view belongs to the club, so the
+       dispersion pattern reads as "this club, on that surface" rather than green on green. */
+    bg=`<path d="${greenBlobPath(cx,cy,40,36)}" fill="var(--ink)" fill-opacity="0.10" stroke="var(--muted)" stroke-width="1.1" stroke-opacity="0.55"/>`;
     ctxLabel='~30yd green';
     gx=40; gy=36; shape='green';
   }
   const ovW=dispYd*scale, ovH=depthYd*scale;
 
   if(!drag){
-    return `<svg data-pz viewBox="0 0 ${W} ${H}" style="width:100%;display:block;overflow:visible" xmlns="http://www.w3.org/2000/svg">
+    return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block;overflow:visible" xmlns="http://www.w3.org/2000/svg">
     <text x="${cx}" y="12" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9" font-weight="bold" fill="var(--ink2)">${fmtYd(carry)}</text>
     ${bg}
     <text x="${cx}" y="21" text-anchor="middle" font-family="ui-monospace,monospace" font-size="5" fill="var(--green)" opacity="0.8">${ctxLabel}</text>
@@ -362,7 +377,7 @@ function buildTopSVG(c,p,opts){
   const uid=opts.uid||'appr';
   window.aimOffsets=window.aimOffsets||{};
   const off=window.aimOffsets[uid]||(window.aimOffsets[uid]={dx:0,dy:0});
-  return `<svg id="aim-svg-${uid}" class="aim-svg" data-pz viewBox="0 0 ${W} ${H}" style="width:100%;display:block;overflow:visible;touch-action:pan-y"
+  return `<svg id="aim-svg-${uid}" class="aim-svg" viewBox="0 0 ${W} ${H}" style="width:100%;display:block;overflow:visible;touch-action:pan-y"
       data-uid="${uid}" data-cx="${cx}" data-cy="${cy}" data-gx="${gx}" data-gy="${gy}" data-scale="${scale.toFixed(4)}" data-disp="${ovW.toFixed(2)}" data-depth="${ovH.toFixed(2)}" data-shape="${shape}" data-slant="${slant.toFixed(2)}"
       xmlns="http://www.w3.org/2000/svg">
     <text x="${cx}" y="12" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9" font-weight="bold" fill="var(--ink2)">${fmtYd(carry)}</text>
@@ -372,12 +387,6 @@ function buildTopSVG(c,p,opts){
     <g class="aim-ro" style="display:none">
       <line class="aim-tick-l"     stroke="var(--green)" stroke-width="0.7" stroke-dasharray="2,1.5"/>
       <line class="aim-tick-r"     stroke="var(--green)" stroke-width="0.7" stroke-dasharray="2,1.5"/>
-      <line class="aim-tick-long"  stroke="var(--green)" stroke-width="0.7" stroke-dasharray="2,1.5"/>
-      <line class="aim-tick-short" stroke="var(--green)" stroke-width="0.7" stroke-dasharray="2,1.5"/>
-      <text class="aim-ro-left"  text-anchor="middle" font-family="ui-monospace,monospace" font-size="5" font-weight="bold"></text>
-      <text class="aim-ro-right" text-anchor="middle" font-family="ui-monospace,monospace" font-size="5" font-weight="bold"></text>
-      <text class="aim-ro-long"  text-anchor="middle" font-family="ui-monospace,monospace" font-size="5" font-weight="bold"></text>
-      <text class="aim-ro-short" text-anchor="middle" font-family="ui-monospace,monospace" font-size="5" font-weight="bold"></text>
       <text class="aim-ro-target" x="4" y="31" text-anchor="start" font-family="ui-monospace,monospace" font-size="5.5" font-weight="bold"
             stroke="var(--surface)" stroke-width="1.8" paint-order="stroke"></text>
       <text class="aim-ro-target2" x="4" y="38.5" text-anchor="start" font-family="ui-monospace,monospace" font-size="5.5" font-weight="bold"
@@ -577,4 +586,4 @@ function buildGearEffectPanel(c){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { buildEnvPanels, buildGapping, buildGearEffectPanel, buildGearFaceSVG, buildLadder, buildMissBlock, buildSideSVG, buildTopSVG, envPanelHTML, envSyncSummary, initApproachAimDrag, missNote, missSelect, onEnvInput, onEnvToggle, renderConditions, setMiss, statCell, toggleDetail, updateCondSummary });
+Object.assign(window, { buildEnvPanels, envRestoreDefault, buildGapping, buildGearEffectPanel, buildGearFaceSVG, buildLadder, buildMissBlock, buildSideSVG, buildTopSVG, envPanelHTML, envSyncSummary, initApproachAimDrag, missNote, missSelect, onEnvInput, onEnvToggle, renderConditions, setMiss, statCell, toggleDetail, updateCondSummary });

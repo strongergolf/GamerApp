@@ -1416,3 +1416,7 @@ body.theme-dark .gr-a{color:var(--green2)} body.theme-dark .gr-b{color:var(--c-w
 .bk-slot-loft{font-family:ui-monospace,monospace;font-size:.7rem;font-weight:700;color:var(--ink)}
 .rep-flash{animation:repflash 1.6s ease}
 @keyframes repflash{0%,100%{background:transparent}30%{background:var(--gold-pale)}}
+.cond-reset{font-family:ui-monospace,monospace;font-size:.54rem;font-weight:700;text-transform:uppercase;
+  letter-spacing:.07em;padding:5px 9px;min-height:30px;color:#7aa899;background:transparent;
+  border:1px solid rgba(255,255,255,.22);border-radius:7px;cursor:pointer;margin-left:auto}
+.cond-reset:hover{color:#f4f0e8;border-color:rgba(255,255,255,.45)}

@@ -170,6 +170,13 @@ function clubRanges(clubs){
 function clubUsableRange(club){
   return clubRanges([club]).get(club.id)||null;
 }
+/* wedgeModel rows carry id/label/loft but not the club TYPE, which is what the colour keys
+   off; look it up rather than re-deriving type from loft, so a utility iron stays whatever
+   the bag says it is. */
+function clubTypeOf(mc){
+  const c=(STATE.clubs||[]).find(x=>x.id===(mc&&mc.id));
+  return c?c.type:'iron';
+}
 function calcSuggestions(target){
   const clubs=wedgeModel(); const out=[];
   const ranges=clubRanges(clubs);
@@ -269,8 +276,11 @@ function renderCalc(target){
        is the thing worth flagging. Green = essentially your stock yardage. */
     const clockPos=o.sw.key==='full'?'11:00':o.sw.key==='tq'?'10:00':o.sw.key==='half'?'9:00':'8:00';
     const onAnchor=o.delta===0;
-    const ad=Math.abs(o.delta);
-    const color=ad<=2?'var(--green)':ad<=6?'var(--sky)':'var(--gold)';
+    /* Coloured by CLUB TYPE — wedge green, iron blue, wood/hybrid/utility pink — so the
+       clock reading, the club badge and the dispersion oval on the same screen all say the
+       same thing about which club this is. It previously banded by distance-from-anchor,
+       which was a second colour language competing with the bag's own. */
+    const color=(typeof typeHex==='function')?typeHex(clubTypeOf(o.club)):'var(--ink)';
     const diffStr=onAnchor?'on anchor':`${o.delta>0?'+':''}${ydNum(o.delta)} ${ydUnit()}`;
     if(selected){
       flightHTML=`<div class="flight-wrap">
@@ -309,4 +319,4 @@ function initCalc(){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { apSetDist, apSyncUnitLabels, PARTIAL_CLUBS, SWINGS, CLUB_RANGE_SLACK_YD, buildLookupTable, buildPartialsTable, calcSuggestions, clubRanges, clubUsableRange, FULL_ONLY_MAX_REACH_YD, initCalc, interpFlight, renderCalc, selectApproachResult, wedgeModel });
+Object.assign(window, { apSetDist, apSyncUnitLabels, PARTIAL_CLUBS, SWINGS, CLUB_RANGE_SLACK_YD, buildLookupTable, buildPartialsTable, calcSuggestions, clubTypeOf, clubRanges, clubUsableRange, FULL_ONLY_MAX_REACH_YD, initCalc, interpFlight, renderCalc, selectApproachResult, wedgeModel });
