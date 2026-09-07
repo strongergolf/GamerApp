@@ -54,8 +54,8 @@ function buildPutting(){
           <input type="range" id="putt-grade" min="0" max="5" step="0.5" value="2" oninput="onPuttGradeInput(this.value)">
         </div>
         <div class="ey-term">
-          <div class="ey-term-head"><span class="ey-term-label">Pace (&quot; past hole)</span><span class="ey-term-val" id="putt-pace-val">12&quot;</span></div>
-          <input type="range" id="putt-pace" min="4" max="48" step="2" value="12" oninput="document.getElementById('putt-pace-val').textContent=this.value+'&quot;';renderPutt()">
+          <div class="ey-term-head"><span class="ey-term-label">Pace (past hole)</span><span class="ey-term-val" id="putt-pace-val">${fmtIn(12)}</span></div>
+          <input type="range" id="putt-pace" min="4" max="48" step="2" value="12" oninput="document.getElementById('putt-pace-val').textContent=fmtIn(this.value);renderPutt()">
         </div>
       </div>
     </div>
@@ -71,7 +71,7 @@ function buildPutting(){
         <div class="putt-profile-label" style="margin-top:12px">Side Profile</div>
         <div id="putt-profile-wrap" style="width:100%"></div>
       </div>
-      <div style="flex:0 0 260px">
+      <div style="flex:0 1 260px;margin:0 auto">
         <div id="putt-svg-wrap" style="width:100%"></div>
       </div>
     </div>`;
@@ -85,7 +85,8 @@ function puttSlopeTermHTML(){
   const u=window.puttSlopeUnit||'in', val=window.puttSlopeVal!=null?window.puttSlopeVal:0;
   const cfg = u==='deg' ? {min:-8,max:8,step:0.25} : {min:-60,max:60,step:1};
   const disp = u==='deg' ? fmtPuttSlopeDeg(val) : fmtSlopeElev(val);
-  return `<div class="ey-term-head"><span class="ey-term-label">Putt Slope<button type="button" class="ey-unit-toggle" title="Switch inches ↔ degrees" onclick="togglePuttSlopeUnit()">${u==='deg'?'°':'in'}</button></span><span class="ey-term-val" id="putt-slope-display">${disp}</span></div>
+  const linear=isMetric()?'cm':'in';
+  return `<div class="ey-term-head"><span class="ey-term-label">Putt Slope<button type="button" class="ey-unit-toggle" title="Switch ${isMetric()?'centimetres':'inches'} ↔ degrees" onclick="togglePuttSlopeUnit()">${u==='deg'?'°':linear}</button></span><span class="ey-term-val" id="putt-slope-display">${disp}</span></div>
     <input type="range" id="putt-slope" min="${cfg.min}" max="${cfg.max}" step="${cfg.step}" value="${val}" oninput="onPuttSlopeInput(this.value)">`;
 }
 function onPuttSlopeInput(v){
@@ -120,8 +121,11 @@ function fmtSlopeElev(inches){
   const n=Math.round(parseFloat(inches)||0);
   if(n===0) return 'Level';
   const dir=n>0?'up':'down', a=Math.abs(n);
-  const ft=Math.floor(a/12), inch=a%12;
-  const mag = ft>0 ? (inch>0?`${ft}'${inch}"`:`${ft} ft`) : `${a}"`;
+  /* Imperial reads elevation the way a golfer says it — 6", then 1'6" once it passes a foot.
+     Metric has no such break point: centimetres all the way, which is how it would be said. */
+  let mag;
+  if(isMetric()) mag=fmtIn(a);
+  else { const ft=Math.floor(a/12), inch=a%12; mag = ft>0 ? (inch>0?`${ft}'${inch}"`:`${ft} ft`) : `${a}"`; }
   return `${mag} ${dir}`;
 }
 function slopeCategoryFromElev(e){
@@ -169,9 +173,6 @@ function puttMakePct(d){
 }
 /* Typical lag leave (feet from the hole) by putt distance. */
 function puttLeave(d){ return Math.round((0.3 + d*0.06)*10)/10; }
-/* How far a slide-by runs past, from the chosen pace (inches past → feet of comeback). */
-function puttComeback(paceIn){ return Math.round((paceIn/12)*10)/10; }
-const PUTT_PACE_STD=12;   /* ~1 ft past = the assumed standard pace */
 
 function renderPutt(){
   const dist=parseInt(document.getElementById('putt-dist')?.value||15);
@@ -197,7 +198,7 @@ function renderPutt(){
     <div class="putt-result-card">
       <h4>Required Break</h4>
       <div class="putt-stat-grid" style="grid-template-columns:repeat(2,1fr)">
-        <div class="putt-stat"><div class="putt-stat-val">${edgeOffsetIn.toFixed(1)}"</div><div class="putt-stat-lbl">Outside edge</div></div>
+        <div class="putt-stat"><div class="putt-stat-val">${fmtIn(edgeOffsetIn,1)}</div><div class="putt-stat-lbl">Outside edge</div></div>
         <div class="putt-stat"><div class="putt-stat-val">${cupW.toFixed(2)}×</div><div class="putt-stat-lbl">Cup widths</div></div>
       </div>
       <div class="putt-sum">
@@ -208,9 +209,9 @@ function renderPutt(){
           ${sumCell('Sidehill',`${grade}%`)}
         </div>
         <div class="putt-sum-row" style="grid-template-columns:repeat(3,1fr)">
-          ${sumCell('Pace Past',`${pace}"`)}
+          ${sumCell('Pace Past',fmtIn(pace))}
           ${sumCell('Effective Dist',effVal)}
-          ${sumCell('Break to Centre',`${breakIn.toFixed(1)}"`)}
+          ${sumCell('Break to Centre',fmtIn(breakIn,1))}
         </div>
       </div>
     </div>`;
@@ -314,7 +315,7 @@ function buildPuttSVG(distFt,breakIn,dir,slope,pace){
   const HOLE_R=2.125;
   const edgeOff=breakIn-HOLE_R;
   const isInside=edgeOff<-0.05;
-  const edgeTxt=isInside?`Inside ${Math.abs(edgeOff).toFixed(1)}"`:`${Math.max(0,edgeOff).toFixed(1)}"`;
+  const edgeTxt=isInside?`Inside ${fmtIn(Math.abs(edgeOff),1)}`:fmtIn(Math.max(0,edgeOff),1);
   const breakLabel=aimPx>2?`
     <line x1="${cx}" y1="${holeY}" x2="${aimX.toFixed(1)}" y2="${holeY}" stroke="var(--gold2)" stroke-width="1.6" opacity="0.75"/>
     <text x="${(cx+sign*10).toFixed(1)}" y="${holeY-20}" text-anchor="${dir==='lr'?'end':'start'}" font-family="Arial,sans-serif" font-size="${isInside?12:16}" font-weight="800" fill="var(--gold2)">${edgeTxt}</text>`:'';
@@ -380,7 +381,7 @@ function buildPuttProfileSVG(distFt, elevIn, pace, stimp){
   const surface=`<line x1="${ballX}" y1="${ballY.toFixed(1)}" x2="${holeX}" y2="${holeY.toFixed(1)}" stroke="#2f9a55" stroke-width="3" stroke-linecap="round"/>`
     +`<line x1="${holeX}" y1="${holeY.toFixed(1)}" x2="${finX.toFixed(1)}" y2="${finY.toFixed(1)}" stroke="#2f9a55" stroke-width="3" stroke-linecap="round" opacity="0.55"/>`;
   const rollLine=`<line x1="${ballX}" y1="${ballY.toFixed(1)}" x2="${holeX}" y2="${holeY.toFixed(1)}" stroke="rgba(255,255,255,0.9)" stroke-width="1.5" stroke-dasharray="1,3" stroke-linecap="round"/>`;
-  const overrun=pastPx>3?`<line x1="${holeX}" y1="${holeY.toFixed(1)}" x2="${finX.toFixed(1)}" y2="${finY.toFixed(1)}" stroke="#f4d47a" stroke-width="1.4" stroke-dasharray="3,3"/><circle cx="${finX.toFixed(1)}" cy="${finY.toFixed(1)}" r="3" fill="none" stroke="#f4d47a" stroke-width="1.2"/><text x="${finX.toFixed(1)}" y="${(finY-6).toFixed(1)}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="7" fill="#f4d47a">${pace}" past</text>`:'';
+  const overrun=pastPx>3?`<line x1="${holeX}" y1="${holeY.toFixed(1)}" x2="${finX.toFixed(1)}" y2="${finY.toFixed(1)}" stroke="#f4d47a" stroke-width="1.4" stroke-dasharray="3,3"/><circle cx="${finX.toFixed(1)}" cy="${finY.toFixed(1)}" r="3" fill="none" stroke="#f4d47a" stroke-width="1.2"/><text x="${finX.toFixed(1)}" y="${(finY-6).toFixed(1)}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="7" fill="#f4d47a">${fmtIn(pace)} past</text>`:'';
   const cup=`<line x1="${(holeX-4).toFixed(1)}" y1="${holeY.toFixed(1)}" x2="${(holeX-4).toFixed(1)}" y2="${(holeY+9).toFixed(1)}" stroke="#0c1a0c" stroke-width="1.5"/><line x1="${(holeX+4).toFixed(1)}" y1="${holeY.toFixed(1)}" x2="${(holeX+4).toFixed(1)}" y2="${(holeY+9).toFixed(1)}" stroke="#0c1a0c" stroke-width="1.5"/>`;
   /* flag sized to the putt: looms over a 3-footer, distant on a 60-ft lag */
   const fs=Math.max(0.55, Math.min(1.35, 1.4-distFt*0.014));
@@ -411,4 +412,4 @@ function buildPuttProfileSVG(distFt, elevIn, pace, stimp){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { puttSetDist, buildPuttSVG, buildPuttProfileSVG, buildPutting, renderPutt, renderPuttSG, fmtSlopeElev, fmtPuttSlopeDeg, slopeCategoryFromElev, PUTT_BREAKS, puttBreakId, onPuttBreakSlider, onPuttGradeInput, puttSlopeTermHTML, onPuttSlopeInput, togglePuttSlopeUnit, puttElevIn, puttMakePct, puttLeave, puttComeback });
+Object.assign(window, { puttSetDist, buildPuttSVG, buildPuttProfileSVG, buildPutting, renderPutt, renderPuttSG, fmtSlopeElev, fmtPuttSlopeDeg, slopeCategoryFromElev, PUTT_BREAKS, puttBreakId, onPuttBreakSlider, onPuttGradeInput, puttSlopeTermHTML, onPuttSlopeInput, togglePuttSlopeUnit, puttElevIn, puttMakePct, puttLeave });

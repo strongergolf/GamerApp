@@ -94,6 +94,21 @@ function fmtFt(v, dp){
   }
   return `${ftNum(v,dp)} ${ftUnit()}`;
 }
+/* Inches — break, aim offset, pace past the hole, elevation over a putt. Held in INCHES
+   because that is the AimPoint model's own unit, but a metric golfer does not read a break in
+   inches any more than an imperial one reads it in centimetres. Imperial keeps the inch mark;
+   metric gets whole centimetres, which is the right resolution for a number this size.
+   (Cup Widths stays unitless and is the primary readout either way.) */
+function inNum(v, dp){
+  const n=+v||0;
+  return isMetric() ? Math.round(n*2.54) : (dp==null ? Math.round(n*10)/10 : +n.toFixed(dp));
+}
+function inUnit(){ return isMetric() ? 'cm' : '"'; }
+/* Imperial writes 2.2" with no space; metric writes 6 cm with one. */
+function fmtIn(v, dp){
+  if(v==null||v===''||isNaN(+v)) return '—';
+  return isMetric() ? `${inNum(v)} cm` : `${inNum(v,dp)}"`;
+}
 function mphNum(v){ return Math.round(toDisplay('speed', v)); }
 function mphUnit(){ return unitLabel('speed'); }
 function fmtMph(v){ return v==null||v===''||isNaN(+v) ? '—' : `${mphNum(v)} ${mphUnit()}`; }
@@ -130,4 +145,4 @@ function adjTotal(stockCarry, stockTotal){
 // other modules can resolve them during the staged ES-module migration.
 Object.assign(window, { STD_COND, adjCarry, adjTotal, airDensity, carryFactor, currentConditions, num, satVaporPressure,
   UNIT_CONV, unitSys, isMetric, unitDef, unitLabel, toDisplay, fromDisplay, setUnits,
-  ydNum, ydUnit, fmtYd, ftNum, ftUnit, fmtFt, FT_CM_CUTOFF_M, mphNum, mphUnit, fmtMph });
+  ydNum, ydUnit, fmtYd, ftNum, ftUnit, fmtFt, FT_CM_CUTOFF_M, inNum, inUnit, fmtIn, mphNum, mphUnit, fmtMph });
