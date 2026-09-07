@@ -36,8 +36,8 @@ const GROUPS={
   /* Settings: the bag you play, the rest of the collection, you, and the app itself.
      Page ids keep their old names so deep links and saved data are untouched. */
   setup:[
-    {id:'specs',    label:'Current Gamers'},
-    {id:'backups',  label:'Backups'},
+    {id:'specs',    label:'Current Bag'},
+    {id:'backups',  label:'Locker Room'},
     {id:'profile',  label:'Golfer Profile'},
     {id:'reference',label:'The App'}
   ]

@@ -246,7 +246,7 @@ input[type=range].yard-slider::-moz-range-thumb{width:20px;height:20px;border-ra
 .spec-gap-row{display:flex;align-items:center;gap:14px;padding:2px 14px}
 .sc-id{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:space-between}
 .sc-name{font-size:.84rem;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sc-sub{font-size:.67rem;color:var(--muted);white-space:nowrap}
+.sc-sub{font-size:.67rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sc-sep{width:1px;background:var(--border);align-self:stretch;flex-shrink:0;margin:0 2px}
 .spec-mini{display:flex;flex-direction:column;justify-content:space-between;line-height:1.25;flex-shrink:0}
 .gap-mini{align-items:center;justify-content:center}
@@ -996,6 +996,10 @@ body.theme-dark .mix-sand{color:var(--dp-loft)}
 .sh-strip-line .ss-none{font-family:ui-monospace,monospace;font-size:.62rem;color:var(--muted)}
 /* the club, which used to sit on the map label */
 .sh-strip-line .ss-club{font-family:ui-monospace,monospace;font-size:.72rem;font-weight:800;color:var(--ink2);border:1px solid var(--border2);border-radius:5px;padding:1px 6px}
+.sh-strip-line.is-opt{border-color:var(--c-optimal,#79e08d);background:var(--surface2)}
+.ss-why{flex:0 0 100%;font-family:ui-monospace,monospace;font-size:.55rem;letter-spacing:.03em;color:var(--muted);text-transform:uppercase}
+.ss-sg{color:var(--ink)}
+.ss-sg.neg{color:var(--red,#d96070)}
 .ss-pair{display:inline-flex;gap:4px;align-items:baseline}
 .ss-pair b{font-family:ui-monospace,monospace;font-size:.86rem;font-weight:800;color:var(--ink)}
 .ss-pair span{font-family:ui-monospace,monospace;font-size:.5rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
@@ -1422,3 +1426,13 @@ body.theme-dark .gr-a{color:var(--green2)} body.theme-dark .gr-b{color:var(--c-w
   letter-spacing:.07em;padding:5px 9px;min-height:30px;color:#7aa899;background:transparent;
   border:1px solid rgba(255,255,255,.22);border-radius:7px;cursor:pointer;margin-left:auto}
 .cond-reset:hover{color:#f4f0e8;border-color:rgba(255,255,255,.45)}
+
+/* LOCKER ROOM — search, type filter and sort above the collection. The search takes its own
+   line on a phone and joins the row from ~430px up, where there is width for all three. */
+.bk-controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 2px 10px}
+.bk-search{flex:1 1 100%;min-width:0;font-family:inherit;font-size:.86rem;padding:8px 11px;border:1px solid var(--border2);border-radius:9px;background:var(--surface);color:var(--ink)}
+.bk-search::placeholder{color:var(--muted)}
+.bk-type{flex:0 1 auto}
+.bk-sort{display:inline-flex;align-items:center;gap:6px;flex:0 0 auto;font-family:Arial,sans-serif;font-size:.55rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.bk-sort select.strat-select{width:auto;max-width:150px;font-size:.8rem}
+@media(min-width:430px){.bk-search{flex:1 1 190px}}

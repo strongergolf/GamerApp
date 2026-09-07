@@ -164,7 +164,7 @@ function mergeDefaults(saved){
   });
   /* Expected-shots comparison benchmark: one app-wide choice, was a dropdown on every strip. */
   const esCompare = (typeof ES_COMPARE!=='undefined' && ES_COMPARE[sv.esCompare]) ? sv.esCompare : 'scratch';
-  /* OTHER CLUBS (the backups library): saved list wins, but any club in DEFAULTS that is not
+  /* OTHER CLUBS (the locker-room library): saved list wins, but any club in DEFAULTS that is not
      in the save is appended. Without this a defaults change never reaches an existing browser,
      because `Object.assign(base, sv, ...)` lets the saved array replace the default outright —
      which is exactly why the PM Grind, destroyed by the old swap-overwrite bug, could not

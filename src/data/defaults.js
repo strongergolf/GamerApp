@@ -128,7 +128,7 @@ const DEFAULT_DATA = {
     {label:'S', effLoft:56,make:'Callaway',model:'MD4 Tactical',  shaft:'DG S200',           length:'35.25"', bag:'Home Backups',year:2018},
     {label:'L', effLoft:59,make:'Callaway',model:'MD3 PM',        shaft:'KBS Tour V-wedge',  length:'35"',    bag:'Home Backups',year:2015},
     /* The 60 (bent to 61) PM Grind — a gamer until recently, so its numbers are measured, not
-       estimated. A club in Backups has nowhere to keep performance (STATE.performance is keyed
+       estimated. A club in Locker Room has nowhere to keep performance (STATE.performance is keyed
        by bag slot id), so the measurements ride on the inventory record itself and swapIntoBag
        prefers them over its loft estimate when this club goes back in. */
     {label:'L', effLoft:61,make:'Callaway',model:'MD3 PM',        shaft:'KBS Tour V-wedge',  length:'35"',    bag:'Home Backups',year:2015, type:'wedge', carry:85, total:83},

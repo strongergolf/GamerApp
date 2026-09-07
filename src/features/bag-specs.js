@@ -12,9 +12,9 @@ function buildSpecs(){
     const ballLabel=pf.ballMake&&pf.ballModel?`${pf.ballMake} ${pf.ballModel}`:'No ball on file';
     const ballSub=[ pf.ballLayers, pf.ballCover, pf.ballColor, pf.ballAlignment ].filter(Boolean).join(' · ');
     bw.innerHTML=`<div class="specs-col-head"><span></span><span>Model</span><span>Feel</span><span>Spin</span><span>Trajectory</span><span></span></div>
-      <div class="specs-club-row ball-row" onclick="const _dd=document.getElementById('ball-edit-dd');if(_dd)_dd.open=true;setTimeout(()=>document.getElementById('ball-grid')?.scrollIntoView({behavior:'smooth',block:'center'}),80)">
+      <div class="specs-club-row ball-row" onclick="ballEditJump()">
         <span class="spec-club" style="font-family:Arial,sans-serif;font-weight:800;font-size:1.1rem;color:var(--grey)">B</span>
-        <div class="spec-model">${ballLabel}<small>${ballSub||'tap to edit below'}</small></div>
+        <div class="spec-model">${ballLabel}<small>${ballSub||'tap to describe it'}</small></div>
         <div class="spec-val">${pf.ballFirmness||'—'}</div>
         <div class="spec-val">${pf.ballSpin||'—'}</div>
         <div class="spec-val">${pf.ballTrajectory||'—'}</div>
@@ -133,7 +133,7 @@ const GREENSIDE_WEDGE_LOFT = 57;
    AUTO-LABELLING ONLY EVER FILLS A GAP. A label the golfer typed is theirs and is never
    recomputed, because the label is what they call the club, not a fact derived from its loft:
    re-lofting an "L" one degree does not make it something else if they still call it their L.
-   So this runs when a club has no label, or when one arrives from Backups without its own. */
+   So this runs when a club has no label, or when one arrives from Locker Room without its own. */
 const WEDGE_LABEL_BANDS = [[62,'X'],[58,'L'],[54,'S'],[50,'G'],[45,'P']];
 function autoLabelForLoft(loft){
   const n=parseFloat(loft); if(isNaN(n)) return null;
@@ -188,9 +188,9 @@ function estimatePerfForLoft(targetLoft, excludeId){
    club going in leaves it. Before this it was one-way — the displaced club was overwritten in
    place and existed nowhere afterwards, so you could never put it back (the 64° PM case), and
    the incoming club stayed in the inventory and could be swapped into several slots at once. */
-/* Swap a bag slot for a club from the backups library. The exchange is symmetric — the
+/* Swap a bag slot for a club from the locker-room library. The exchange is symmetric — the
    incoming club leaves the library, the outgoing one joins it — and is driven from BOTH
-   directions now: from Current Gamers (pick a replacement for this slot) and from Backups
+   directions now: from Current Bag (pick a replacement for this slot) and from Locker Room
    (pick a slot for this club). One function so the two can never diverge. */
 function swapIntoBag(clubId, o){
   const c=STATE.clubs.find(x=>x.id===clubId); if(!c||!o) return false;
@@ -204,7 +204,7 @@ function swapIntoBag(clubId, o){
   if(c.grip) displaced.grip=c.grip;
   if(c.weightOz) displaced.weightOz=c.weightOz;
   /* Carry the club's MEASURED numbers out with it. Performance lives under the bag-slot id, so
-     without this a club sent to Backups leaves its yardages behind for whatever replaces it, and
+     without this a club sent to Locker Room leaves its yardages behind for whatever replaces it, and
      coming back it would be re-estimated from loft — a measurement silently downgraded to a
      guess by the act of resting a club for a fortnight. */
   const dp=(typeof perf==='function')?perf(c.id):null;
@@ -236,15 +236,15 @@ function swapIntoBag(clubId, o){
   if(oInv>-1) STATE.otherClubs.splice(oInv,1);
   if(displaced.effLoft!=null) STATE.otherClubs.push(displaced);
   saveState(); refreshAll();
-  if(typeof toast==='function') toast(`${o.make} ${o.model} (${o.effLoft}°) swapped in — ${displaced.make} ${displaced.model} to Backups`);
+  if(typeof toast==='function') toast(`${o.make} ${o.model} (${o.effLoft}°) swapped in — ${displaced.make} ${displaced.model} to Locker Room`);
   return true;
 }
-/* From Current Gamers: the replacement list under an expanded club. */
+/* From Current Bag: the replacement list under an expanded club. */
 function selectReplacement(clubId,oIdx){
   const c=STATE.clubs.find(x=>x.id===clubId); if(!c) return;
   swapIntoBag(clubId, repMatches(c).matches[oIdx]);
 }
-/* From Backups: "Add to Current Gamers" — pick which slot it takes. Offered nearest-loft
+/* From Backups: "Add to Current Bag" — pick which slot it takes. Offered nearest-loft
    first, because that is nearly always the intended trade, but every slot is listed: a
    bag change is the user's call, not the app's. */
 function backupSlotPicker(oIdx){
@@ -265,7 +265,7 @@ function backupToBag(oIdx, clubId){
   const o=STATE.otherClubs[oIdx];
   if(o && swapIntoBag(clubId, o)) window.bkOpen=null;
 }
-/* From Current Gamers: send this club to Backups. A slot cannot simply empty — the bag has
+/* From Current Bag: send this club to Locker Room. A slot cannot simply empty — the bag has
    fourteen places and the rest of the app indexes clubs by id — so removing is completed by
    saying what takes its place. That is the same exchange, run from this end, and the list of
    candidates is already on screen; this just names the act and points at it. */
@@ -273,10 +273,10 @@ function removeToBackups(clubId){
   const c=STATE.clubs.find(x=>x.id===clubId); if(!c) return;
   const {matches,loftTol,effLoft}=repMatches(c);
   if(!matches.length){
-    if(typeof toast==='function') toast(`Nothing in Backups within ±${loftTol}° of ${effLoft}° to take its place`);
+    if(typeof toast==='function') toast(`Nothing in Locker Room within ±${loftTol}° of ${effLoft}° to take its place`);
     return;
   }
-  if(typeof toast==='function') toast(`Pick what replaces ${c.label} — it goes to Backups`);
+  if(typeof toast==='function') toast(`Pick what replaces ${c.label} — it goes to Locker Room`);
   const lbl=document.querySelector('.specs-rep-group.open .specs-rep-label');
   if(lbl){ lbl.classList.add('rep-flash'); setTimeout(()=>lbl.classList.remove('rep-flash'),1600);
            lbl.scrollIntoView({behavior:'smooth',block:'center'}); }
@@ -317,10 +317,10 @@ function toggleSpecs(c,row,group){
         ${sf('Max Ht','ht',p.ht,'perf','short')}${sf('Land (°)','land',p.land,'perf')}`:''}
       </div>
       <div class="btn-row"><button class="btn btn-primary" onclick="saveClub('${c.id}')">Save ${c.label}</button>
-        <button class="btn" onclick="event.stopPropagation();removeToBackups('${c.id}')">Remove from Current Gamers</button></div>
+        <button class="btn" onclick="event.stopPropagation();removeToBackups('${c.id}')">Remove from Current Bag</button></div>
     </div>`;
   const {effLoft,loftTol,matches}=repMatches(c);
-  const repLabel=`<div class="specs-rep-label">Add from Backups — ±${loftTol}° Effective Loft${c.type==='putter'?' · putters only':''} · tap to swap in</div>`;
+  const repLabel=`<div class="specs-rep-label">Add from Locker Room — ±${loftTol}° Effective Loft${c.type==='putter'?' · putters only':''} · tap to swap in</div>`;
   const repHtml=!matches.length?`<div class="specs-no-rep">Nothing in your other bags within ±${loftTol}° of ${effLoft}°. A club further away than that is hidden rather than missing — edit the spec fields above to enter it directly.</div>`:matches.map((o,i)=>{
     const d=o.effLoft-effLoft, ds=d===0?'=':d>0?`+${d}°`:`${d}°`, dc=d===0?'exact':Math.abs(d)<=1?'close':'off';
     /* Which bag it is sitting in does not help you CHOOSE a club — you pick on loft, model
@@ -468,6 +468,16 @@ function buildProfile(){
   pfDirtyInit();
 }
 /* Clear the Edit Golf Ball form fields (does not persist until Save Edits). */
+/* The ball's edit form lives in the Locker Room now, with the other equipment admin, so the
+   summary card on Current Bag has to carry the reader across a tab rather than scroll them
+   down the page. Same gesture, one more hop. */
+function ballEditJump(){
+  if(typeof showGroupPage==='function') showGroupPage('setup','backups');
+  setTimeout(()=>{
+    const dd=document.getElementById('ball-edit-dd'); if(dd) dd.open=true;
+    const g=document.getElementById('ball-grid'); if(g) g.scrollIntoView({behavior:'smooth',block:'center'});
+  },120);
+}
 function clearBallForm(){
   ['ball-make','ball-model','ball-align','ball-cover','ball-firmness','ball-layers','ball-color','ball-spin','ball-trajectory','ball-notes']
     .forEach(id=>{ const e=document.getElementById(id); if(e) e.value=''; });
@@ -615,45 +625,113 @@ function buildMyData(){
 /* One app-wide comparison benchmark, chosen here rather than repeated as a dropdown on every
    expected-shots strip — the same question asked on four tabs, whose answer did not travel. */
 /* BACKUPS — every club not currently in the bag, grouped by where it physically lives.
-   Each row expands to its specs and an "Add to Current Gamers" button, which then asks which
+   Each row expands to its specs and an "Add to Current Bag" button, which then asks which
    slot it takes. The bag side has the mirror of this, so a swap can be started from whichever
    end the golfer is thinking from. */
 function bkToggle(i){ window.bkOpen = (window.bkOpen===i) ? null : i; buildBackups(); }
+const DASH_JS='\u2014', DEG_JS='\u00b0', UP_JS='\u25b4', DOWN_JS='\u25be', ELL_JS='\u2026', MID_JS='\u00b7';
+/* WHAT YOU CAN CHANGE HERE. A club out of the bag is still a club you own, and its specs get
+   corrected the same way — a re-loft, a new shaft, a grip. This panel was read-only, so the
+   only way to fix a spare club's loft was to swap it into the bag, edit it and swap it back:
+   two clubs shuffled to change one number. Fields save on BLUR, not per keystroke, so the
+   list is never rebuilt under the finger typing into it. */
+const BK_FIELDS=[
+  ['Label','label'],['Make','make'],['Model','model'],['Shaft','shaft'],
+  ['Loft','effLoft','deg'],['Lie','lie'],['Length','length'],['Swing Wt','swt'],
+  ['Year','year'],['Grip','grip'],['Weight','weightOz','mass'],['Location','bag'],
+  ['Carry','carry','distance'],['Total','total','distance']
+];
+function bkField(i,label,key,val,unit){
+  const conv = unit && unit!=='deg';
+  const dp = unit==='mass' ? (isMetric('mass')?0:2) : 0;
+  const v = (conv && val!=null && val!=='' && typeof toDisplay==='function')
+    ? toDisplay(unit,val,dp) : (val==null?'':val);
+  const lbl = (conv && typeof unitLabel==='function') ? label+' ('+unitLabel(unit)+')' : label;
+  return '<div class="edit-field"><label>'+lbl+'</label><input data-bk="'+i+'" data-key="'+key+'"'
+    + (unit?' data-unit="'+unit+'"':'') + ' value="'+escapeHtml(String(v))
+    + '" onclick="event.stopPropagation()" onchange="bkSave(this)"></div>';
+}
+function bkSave(el){
+  const i=parseInt(el.getAttribute('data-bk')), key=el.getAttribute('data-key'), u=el.getAttribute('data-unit');
+  const o=(STATE.otherClubs||[])[i]; if(!o) return;
+  const v=el.value.trim();
+  if(v===''){ delete o[key]; }
+  else if(key==='effLoft'){ const n=parseFloat(v); if(!isNaN(n)) o[key]=n; }
+  else if(key==='year'){ const n=parseInt(v); if(!isNaN(n)) o[key]=n; }
+  else if(u&&u!=='deg'&&!isNaN(parseFloat(v))){
+    const n=fromDisplay(u,parseFloat(v));
+    o[key] = (key==='carry'||key==='total') ? Math.round(n) : String(Math.round(n*100)/100);
+  }
+  else { o[key]=v; }
+  /* A label the golfer types is theirs and outranks the auto-labeller (see autoLabelForLoft). */
+  if(key==='label'&&v) o.userLabel=true;
+  saveState(); buildBackups();
+  if(typeof toast==='function') toast('Updated');
+}
+/* SORT + FILTER. The collection runs to dozens of clubs across several bags and the only way
+   to find one was to scroll. Location stays the default because it is how the clubs are
+   physically arranged — it is where you would walk to fetch one — but loft is what you sort by
+   when you are looking for something to fill a gap. */
+window.bkView = window.bkView || { q:'', type:'', sort:'location' };
+function bkSetView(k,v){ window.bkView[k]=v; window.bkOpen=null; buildBackups(); }
+function bkTypeOf(o){ return o.type||((o.effLoft>=44)?'wedge':(o.effLoft>=24)?'iron':'wood'); }
+const BK_TYPES=[['','All'],['wood','Woods'],['iron','Irons'],['wedge','Wedges'],['putter','Putters']];
+const BK_SORTS=[['location','Location'],['loft','Loft'],['label','Label'],['name','Make & model'],['year','Year']];
 function buildBackups(){
   const wrap=document.getElementById('backups-wrap'); if(!wrap) return;
-  const list=STATE.otherClubs||[];
-  if(!list.length){ wrap.innerHTML='<div class="specs-no-rep">No backup clubs on file.</div>'; return; }
-  const groups={};
-  list.forEach((o,i)=>{ const g=o.bag||'Unfiled'; (groups[g]=groups[g]||[]).push({o,i}); });
-  const order=Object.keys(groups).sort((a,b)=> a==='Removed from bag'?-1 : b==='Removed from bag'?1 : a.localeCompare(b));
-  const typeCls=o=>o.type||((o.effLoft>=44)?'wedge':(o.effLoft>=24)?'iron':'wood');
-  let html=`<div class="section-label" style="margin-top:2px">Backups</div>
-    <p class="intro-note">Every club you own that is not in play. Tap one to see its specs, or to put it in the bag — you will be asked which club it replaces, and that club comes back here.</p>`;
-  order.forEach(g=>{
-    html+=`<div class="ladder-divider">${escapeHtml(g)} <span style="opacity:.7">· ${groups[g].length}</span></div>`;
-    groups[g].forEach(({o,i})=>{
-      const open=window.bkOpen===i;
-      html+=`<div class="specs-club-row spec-card${open?' selected':''}" onclick="bkToggle(${i})" style="cursor:pointer">
-        <span class="spec-club ${typeCls(o)}">${escapeHtml(o.label||'—')}</span>
-        <div class="sc-id"><span class="sc-name">${escapeHtml((o.make||'')+' '+(o.model||''))}</span></div>
-        ${miniCell('Loft', o.effLoft!=null?o.effLoft+'°':'—','sm-w-deg')}
-        ${miniCell('Lie', o.lie||'—','sm-w-deg')}
-        ${miniCell('Length', o.length||'—','sm-w-len')}
-        <div class="specs-chevron">${open?'▴':'▾'}</div>
-      </div>`;
-      if(open){
-        html+=`<div class="specs-rep-group open"><div class="specs-rep-group-inner" style="padding:10px 14px">
-          <div class="bk-specs">
-            ${bkSpec('Make',o.make)}${bkSpec('Model',o.model)}${bkSpec('Shaft',o.shaft)}
-            ${bkSpec('Length',o.length)}${bkSpec('Lie',o.lie)}${bkSpec('Swing Wt',o.swt)}
-            ${bkSpec('Year',o.year)}${bkSpec('Grip',o.grip)}${o.weightOz?bkSpec('Weight',fmtOz(o.weightOz)):''}
-            ${bkSpec('Location',o.bag)}
-          </div>
-          ${backupSlotPicker(i)}
-        </div></div>`;
-      }
+  const all=STATE.otherClubs||[];
+  const V=window.bkView, q=(V.q||'').trim().toLowerCase();
+  const hay=o=>[o.label,o.make,o.model,o.shaft,o.bag,o.effLoft].filter(Boolean).join(' ').toLowerCase();
+  let rows=all.map((o,i)=>({o,i}))
+    .filter(r=>!V.type||bkTypeOf(r.o)===V.type)
+    .filter(r=>!q||hay(r.o).includes(q));
+  const ctl='<div class="section-label" style="margin-top:2px">The Collection</div>'
+    + '<p class="intro-note">Every club you own that is not in play. Tap one to edit its specs, or to put it in the bag '+DASH_JS+' you will be asked which club it replaces, and that club comes back here.</p>'
+    + '<div class="bk-controls">'
+    + '<input class="bk-search" type="search" placeholder="Search make, model, shaft'+ELL_JS+'" value="'+escapeHtml(V.q||'')+'" oninput="bkSetView(\'q\',this.value)">'
+    + '<div class="unit-row-btns bk-type">'+BK_TYPES.map(t=>'<button type="button" class="unit-btn'+(V.type===t[0]?' on':'')+'" onclick="bkSetView(\'type\',\''+t[0]+'\')">'+t[1]+'</button>').join('')+'</div>'
+    + '<label class="bk-sort">Sort<select class="strat-select" onchange="bkSetView(\'sort\',this.value)">'
+    + BK_SORTS.map(t=>'<option value="'+t[0]+'"'+(V.sort===t[0]?' selected':'')+'>'+t[1]+'</option>').join('')+'</select></label></div>';
+  if(!all.length){ wrap.innerHTML=ctl+'<div class="specs-no-rep">No spare clubs on file.</div>'; return; }
+  if(!rows.length){ wrap.innerHTML=ctl+'<div class="specs-no-rep">Nothing matches '+DASH_JS+' <a href="#" onclick="window.bkView.q=\'\';bkSetView(\'type\',\'\');return false">clear the filters</a>.</div>'; return; }
+  const card=r=>{
+    const o=r.o, i=r.i, open=window.bkOpen===i;
+    let h='<div class="specs-club-row spec-card'+(open?' selected':'')+'" onclick="bkToggle('+i+')" style="cursor:pointer">'
+      + '<span class="spec-club '+bkTypeOf(o)+'">'+escapeHtml(o.label||DASH_JS)+'</span>'
+      + '<div class="sc-id"><span class="sc-name">'+escapeHtml(o.model||o.make||DASH_JS)+'</span>'
+      + '<span class="sc-sub">'+escapeHtml([o.make,o.shaft].filter(Boolean).join(' '+MID_JS+' ')||'')+'</span></div>'
+      + miniCell('Loft', o.effLoft!=null?o.effLoft+DEG_JS:DASH_JS,'sm-w-deg')
+      + miniCell('Length', o.length||DASH_JS,'sm-w-len')
+      + '<div class="specs-chevron">'+(open?UP_JS:DOWN_JS)+'</div></div>';
+    if(open){
+      h+='<div class="specs-rep-group open"><div class="specs-rep-group-inner" style="padding:10px 14px">'
+        + '<div class="edit-grid">'+BK_FIELDS.map(f=>bkField(i,f[0],f[1],o[f[1]],f[2])).join('')+'</div>'
+        + '<p class="gen-note" style="margin:6px 2px 0">Carry and total are optional '+DASH_JS+' fill them in and they travel with the club into the bag, instead of being estimated from its loft.</p>'
+        + backupSlotPicker(i) + '</div></div>';
+    }
+    return h;
+  };
+  let html=ctl;
+  if(V.sort==='location'){
+    const groups={};
+    rows.forEach(r=>{ const g=r.o.bag||'Unfiled'; (groups[g]=groups[g]||[]).push(r); });
+    const order=Object.keys(groups).sort((a,b)=> a==='Removed from bag'?-1 : b==='Removed from bag'?1 : a.localeCompare(b));
+    order.forEach(g=>{
+      html+='<div class="ladder-divider">'+escapeHtml(g)+' <span style="opacity:.7">'+MID_JS+' '+groups[g].length+'</span></div>';
+      groups[g].forEach(r=>{ html+=card(r); });
     });
-  });
+  } else {
+    const cmp={
+      loft:  (a,b)=>((a.o.effLoft==null?999:a.o.effLoft)-(b.o.effLoft==null?999:b.o.effLoft)),
+      label: (a,b)=>String(a.o.label||'').localeCompare(String(b.o.label||'')),
+      name:  (a,b)=>((a.o.make||'')+' '+(a.o.model||'')).localeCompare((b.o.make||'')+' '+(b.o.model||'')),
+      year:  (a,b)=>((parseInt(b.o.year)||0)-(parseInt(a.o.year)||0))
+    }[V.sort];
+    rows=rows.slice().sort(cmp);
+    const nm={location:'location',loft:'loft',label:'label',name:'make & model',year:'year'}[V.sort];
+    html+='<div class="ladder-divider">By '+nm+' <span style="opacity:.7">'+MID_JS+' '+rows.length+'</span></div>';
+    rows.forEach(r=>{ html+=card(r); });
+  }
   wrap.innerHTML=html;
 }
 function bkSpec(l,v){ return (v==null||v==='')?'':`<div class="bk-spec"><span>${l}</span><b>${escapeHtml(String(v))}</b></div>`; }
@@ -797,4 +875,4 @@ function logHcpSnapshot(){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { GREENSIDE_WEDGE_LOFT, MAX_BAG_CLUBS, WEDGE_LABEL_BANDS, autoLabelForLoft, bagIsFull, MY_DATA_SOURCES, buildMyData, buildUnitToggle, renderStrikeCal, setStrikeCorr, buildProfile, buildSpecs, clearBallForm, estimatePerfForLoft, exportData, generateFromSwingSpeed, hcpTrendHtml, importData, logHcpSnapshot, pfDirtyInit, pfMaybeSave, repMatches, resetData, buildEsCompareToggle, backupSlotPicker, backupToBag, bkToggle, bkSpec, miniCell, buildBackups, removeToBackups, swapIntoBag, saveCalibration, saveClub, saveProfile, sel, selectReplacement, syncPartialsForClub, toggleSpecs });
+Object.assign(window, { GREENSIDE_WEDGE_LOFT, MAX_BAG_CLUBS, WEDGE_LABEL_BANDS, autoLabelForLoft, bagIsFull, MY_DATA_SOURCES, buildMyData, buildUnitToggle, renderStrikeCal, setStrikeCorr, buildProfile, buildSpecs, ballEditJump, clearBallForm, estimatePerfForLoft, exportData, generateFromSwingSpeed, hcpTrendHtml, importData, logHcpSnapshot, pfDirtyInit, pfMaybeSave, repMatches, resetData, buildEsCompareToggle, backupSlotPicker, backupToBag, bkToggle, bkSpec, bkField, bkSave, bkSetView, bkTypeOf, BK_FIELDS, miniCell, buildBackups, removeToBackups, swapIntoBag, saveCalibration, saveClub, saveProfile, sel, selectReplacement, syncPartialsForClub, toggleSpecs });

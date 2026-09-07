@@ -11,7 +11,7 @@ function addNewClub(){
   /* Fourteen clubs, putter included — the Rule of Golf. A club can still be brought in from
      Backups, because that is an EXCHANGE and keeps the count; this path is a genuine add. */
   if(typeof bagIsFull==='function' && bagIsFull()){
-    toast('Current Gamers is full at ' + MAX_BAG_CLUBS + ' clubs — swap one out from Backups instead');
+    toast('Current Bag is full at ' + MAX_BAG_CLUBS + ' clubs — swap one out from Locker Room instead');
     return;
   }
   /* generate a unique id */

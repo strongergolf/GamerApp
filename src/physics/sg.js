@@ -105,21 +105,29 @@ function effHcpForLie(lie){
   const pf=STATE.profile||{};
   const num=v=>{ if(v===''||v==null) return null; const n=parseFloat(v); return isNaN(n)?null:n; };
   const clamp=h=>Math.max(-6,Math.min(40,h));
+  /* The golfer's own index is the FALLBACK, not a null. This used to return null for tee,
+     rough and sand under any profile, and for the other three whenever the profile fields
+     were blank — which they ship blank — so the "my actual" half of every Shots Expected
+     strip was permanently empty and the Hole Overlay, which models the player from the
+     handicap, disagreed with it. One player, one definition: the per-category numbers refine
+     the index where the golfer has entered them, and stand in for it where they have not. */
+  const own=clamp(parseHcp((pf.handicap==null||pf.handicap==='')?0:pf.handicap));
   if(lie==='green'){
-    const putts=num(pf.puttsRound); if(putts==null) return null;
-    return clamp((putts-29.5)*4.44);                 // 29.5→0, 34→~20
+    const putts=num(pf.puttsRound);
+    return putts==null ? own : clamp((putts-29.5)*4.44);      // 29.5→0, 34→~20
   }
   if(lie==='fairway'){                                // approach skill ← GIR
-    const gir=num(pf.girPct); if(gir==null) return null;
-    return clamp((0.66-gir/100)*43.5);               // 66%→0, 25%→~18
+    const gir=num(pf.girPct);
+    return gir==null ? own : clamp((0.66-gir/100)*43.5);      // 66%→0, 25%→~18
   }
   if(lie==='atg'){                                    // short game ← up&down, else scoring avg
     const ud=num(pf.upDownPct);
-    if(ud!=null) return clamp((0.60-ud/100)*51.4);   // 60%→0, 25%→~18
-    const sa=num(pf.scoringAvg); if(sa!=null) return clamp((sa-72)*0.93);
-    return null;
+    if(ud!=null) return clamp((0.60-ud/100)*51.4);            // 60%→0, 25%→~18
+    const sa=num(pf.scoringAvg);
+    if(sa!=null) return clamp((sa-72)*0.93);
+    return own;
   }
-  return null;
+  return own;                                          // tee, rough, sand — no per-category input exists
 }
 
 /* Re-render the scenario output inside the open L1 card */

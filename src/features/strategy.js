@@ -603,6 +603,9 @@ function optimiseShot(hole, from, opts){
    Line O is the optimiser's own chain, recomputed from the tee. Lines A and B are yours:
    drag either one and every number moves, including the shots that follow it. */
 window.stratSel = window.stratSel || { cIdx:0, hIdx:0 };
+/* `active` is always 'S' now. Only S was ever draggable — O is the optimiser's own answer —
+   so the S/O switch changed almost nothing except hiding the anchor row, at the cost of a
+   mode the golfer had to understand. The field stays because the map and drag code read it. */
 window.stratShot = window.stratShot || { shotNum:1, lines:{S:[]}, active:'S' };
 /* Solved chains, per hole. An epoch counter invalidates them all at once — cheaper and
    less error-prone than hunting down every cache entry when the bag or a pin changes. */
@@ -882,15 +885,14 @@ function stratSheetProgress(){
 }
 /* Which skill level the expected strokes and strokes-gained are measured against.
    null = the golfer's own handicap from their profile. */
-const STRAT_SKILLS = [['','My handicap'],['-6','Tour (+6)'],['0','Scratch'],['6','6 hcp'],['12','12 hcp'],['18','18 hcp'],['24','24 hcp']];
-function stratSkill(){
-  const s=(STATE.strategy||{}).skillHcp;
-  return (s===''||s==null) ? cfHcp() : parseFloat(s);
-}
-function stratSetSkill(v){
-  STATE.strategy=STATE.strategy||{}; STATE.strategy.skillHcp=(v===''?null:v);
-  saveState(); window.stratCacheEpoch=(window.stratCacheEpoch||0)+1; buildHoleOverlay();
-}
+/* WHO IS PLAYING THIS HOLE. There is no picker any more, and that is the point: the overlay
+   plans the round for the golfer holding the phone. It used to carry its own skill dropdown
+   (My handicap / Tour / Scratch / 6 / 12 / 18 / 24), which meant the whole plan — aim points,
+   layups, the optimal line — could quietly be a tour pro's plan rather than yours. Worse, it
+   was the fourth definition of "the player" in the app, and a 106 yd fairway shot read 2.68
+   here against 2.81 on Approach. The comparison benchmark still exists, once, app-wide, in
+   Settings, where comparing yourself to scratch belongs; this is not that question. */
+function stratSkill(){ return cfHcp(); }
 /* Two lines is enough: O is the optimiser's answer, S is whatever you select against it. */
 const SHOT_LINES = ['S','O'];
 const SHOT_COL = { S:'#ffd24a', O:'#79e08d' };
@@ -989,6 +991,15 @@ function stratSetCourse(i){
 function stratSetHole(i){ window.stratSel.hIdx=+i; stratClearLines(); stratSaveSel(true); buildHoleOverlay(); }
 function stratSetShotNum(n){ window.stratShot.shotNum=Math.max(1,Math.min(SHOT_MAX,+n)); buildHoleOverlay(); }
 function stratSetLine(l){ window.stratShot.active=l; buildHoleOverlay(); }
+/* Whether the app tells you which line is better. Optimal is always ON SCREEN — that is the
+   recommendation and it is computed whether you ask or not — but being scored against it on
+   every glance is a different thing, and that is opt-in. Persisted: it is a standing choice
+   about how you want to be talked to, not a per-hole one. */
+function stratToggleCompare(){
+  STATE.strategy=STATE.strategy||{};
+  STATE.strategy.compareOptimal=!STATE.strategy.compareOptimal;
+  saveState(); buildHoleOverlay();
+}
 function stratResetAim(){ stratClearLines(); buildHoleOverlay(); }
 function stratSetPosture(p){
   if(typeof setStrategy==='function') setStrategy('riskPosture',p);
@@ -1490,9 +1501,6 @@ function buildHoleOverlay(){
     <div class="strat-hole-row">
       <select class="strat-select" style="max-width:200px" onchange="stratSetCourse(this.value)">${cOpts}</select>
       <select class="strat-select" style="max-width:160px" onchange="stratSetHole(this.value)">${hOpts}</select>
-      <select class="strat-select" style="max-width:140px" title="Skill level the expected strokes and strokes-gained are measured against" onchange="stratSetSkill(this.value)">
-        ${STRAT_SKILLS.map(([v,l])=>`<option value="${v}"${String((STATE.strategy||{}).skillHcp??'')===v?' selected':''}>${l}</option>`).join('')}
-      </select>
     </div>`;
   if(!hole){ wrap.innerHTML=head+`<div class="lvl-soon-note">This course has no holes yet.</div>`; return; }
   if(!cfHasScale(hole) || !hole.tee || !cfPin(hole)){
@@ -1529,8 +1537,6 @@ function buildHoleOverlay(){
   const holeYd=cfDistYd(hole,hole.tee,hole.pin);
   const shotBtns=Array.from({length:maxShot},(_,i)=>i+1).map(i=>
     `<button type="button" class="strat-pick${i===n?' active':''}" onclick="stratSetShotNum(${i})">Shot ${i}</button>`).join('');
-  const lineBtns=SHOT_LINES.map(l=>
-    `<button type="button" class="strat-pick${l===S.active?' active':''}" style="--pick:${SHOT_COL[l]}" onclick="stratSetLine('${l}')">${SHOT_LABEL[l]}</button>`).join('');
 
   /* One table, metrics down the side and the three lines across — far less vertical space
      than three stacked cards, and it lines the numbers up for comparison, which is the
@@ -1553,33 +1559,62 @@ function buildHoleOverlay(){
        1. the OUTCOME MIX, which is the honest summary of the risk being taken;
        2. expected-if-perfect against expected-in-practice. The GAP between those two IS the
           cost of your dispersion, and until now it was only ever implicit. */
-  const strip=SHOT_LINES.map(l=>{
-    const r=shots[l], on=(l===S.active);
-    /* The line tag lives here now that the map has dropped it, so this row is the key to
-       which colour is which. The club comes with it — it left the map in the same change and
-       this is the only other place it appears. */
-    const head=`<span class="ss-ln ln-${l}">${l}-${n}</span>${l==='O'?'<span class="ss-sub">optimal</span>':''}`;
-    if(!r) return `<div class="sh-strip-line${on?' on':''}">${head}<span class="ss-none">—</span></div>`;
-    if(r.blocked) return `<div class="sh-strip-line${on?' on':''}">${head}<span class="ss-none"><i>${blockedTxt(r)}</i></span></div>`;
-    const gap=(r.expAtAim!=null)?(r.mean-r.expAtAim):null;
-    const perfect=r.sgActual
-      ? `<span class="ss-pair"><b>${r.expAfter.toFixed(2)}</b> <span>from where it finished</span></span>`
-      : `<span class="ss-pair"><b>${r.expAtAim!=null?r.expAtAim.toFixed(2):'—'}</b> <span>if perfect</span></span>
-         <span class="ss-pair"><b>${r.mean.toFixed(2)}</b> <span>in practice</span></span>
-         ${gap!=null?`<span class="ss-gap${gap<0?' neg':''}" title="${gap>=0
-             ? 'What your dispersion costs: the difference between finishing exactly on the target and the whole pattern of where the ball actually goes.'
-             : 'Negative: the spread around this target averages BETTER than the target itself — you are aiming at the worst point of a forgiving area.'
-           }">${gap>=0?'+':'−'}${Math.abs(gap).toFixed(2)} dispersion</span>`:''}`;
+  /* TWO READINGS, NOT TWO MODES.
+     Optimal is computed for every shot whether or not anyone asks, so it is simply shown —
+     the recommendation for the situation, taking the dispersion pattern into account. Yours
+     sits beside it saying what to expect from the shot you have picked. Each card answers the
+     two questions a decision actually turns on: how often does this come off, and what is it
+     worth on average. The likelihood leads (fairway or green, whichever this shot is playing
+     to) and the remaining outcomes follow as chips, so the number that matters is not buried
+     among five that do not. Dropped in this pass: "if perfect" and the dispersion gap. They
+     were the same story the likelihood tells, told in a second currency — a shot that holds
+     the fairway 60% of the time IS the dispersion cost, stated in a unit you can picture. */
+  const CARD_LABEL={O:'Optimal', S:'Your shot'};
+  const oStep=chain[n-1];
+  const oRes=(oStep&&oStep.res)?oStep.res:null;
+  const CARD_ORDER=['O','S'];          /* the recommendation reads first; yours answers it */
+  const strip=CARD_ORDER.map(l=>{
+    const r=shots[l];
+    const head=`<span class="ss-ln ln-${l}">${CARD_LABEL[l]}</span><span class="ss-sub">${l}-${n}</span>`;
+    if(!r) return `<div class="sh-strip-line">${head}<span class="ss-none">—</span></div>`;
+    if(r.blocked) return `<div class="sh-strip-line">${head}<span class="ss-none"><i>${blockedTxt(r)}</i></span></div>`;
+    /* Which surface this shot is playing TO — a drive is judged on fairways, an approach on
+       greens, and a par 3 tee shot is an approach however you got there. Read it off the
+       outcome mix rather than the shot number, so a layup and a go-for-it on the same hole
+       are each judged on what they are actually trying to hold. */
+    const m=r.lieMix, holdKey=((m.green||0)>=(m.fairway||0))?'green':'fairway';
+    const holdPct=Math.round((m[holdKey]||0)*100);
+    const rest=mixOrder.filter(k=>k!==holdKey&&m[k]>0.004)
+      .map(k=>`<span class="mix-chip mix-${k}">${CHIP_SHORT[k]} ${pct(m[k])}</span>`).join('');
     const swing=(r.shot.detail&&r.shot.detail!=='full swing')?` ${r.shot.detail}`:'';
-    return `<div class="sh-strip-line${on?' on':''}">${head}
-      <span class="ss-club">${r.shot.label}${swing}</span>${perfect}
-      <span class="ss-chips">${chipsFor(r.lieMix)}</span></div>`;
+    const sg=r.sgActual
+      ? `<span class="ss-pair"><b class="ss-sg${r.sg>=0?'':' neg'}">${r.sg>=0?'+':''}${r.sg.toFixed(2)}</b> <span>SG, measured</span></span>`
+      : (r.sg!=null?`<span class="ss-pair"><b class="ss-sg${r.sg>=0?'':' neg'}">${r.sg>=0?'+':''}${r.sg.toFixed(2)}</b> <span>SG on average</span></span>`:'');
+    const left=r.sgActual?r.expAfter:r.mean;
+    /* Why this is "optimal" when the other card may show a better average: the optimiser
+       minimises a RISK-WEIGHTED score, not raw expected strokes, so under a conservative
+       posture it will spend a few hundredths avoiding a big number. Naming the decision and
+       the posture on the card is what keeps that from reading as a contradiction. */
+    /* the posture labels carry their own explanation in a parenthetical, which is right in the
+       preferences list and far too long on a card — take the name and leave the gloss */
+    const postureShort=stratLabel('riskPosture').split(/\s+—\s+| \(/)[0].toLowerCase();
+    const why=(l==='O')
+      ? `<span class="ss-why" title="The optimiser minimises a risk-weighted score under your posture — ${escapeHtml(stratLabel('riskPosture').toLowerCase())} — so it can sit a little behind on raw average to avoid the big miss.">${
+          oRes&&oRes.best&&oRes.best.category?escapeHtml(oRes.best.category.toLowerCase()):'best play'} · ${escapeHtml(postureShort)}</span>`
+      : '';
+    return `<div class="sh-strip-line${l==='O'?' is-opt':''}">${head}
+      <span class="ss-club">${r.shot.label}${swing}</span>
+      <span class="ss-pair"><b>${holdPct}%</b> <span>${holdKey==='green'?'green':'fairway'}</span></span>
+      ${sg}
+      <span class="ss-pair"><b>${left!=null?left.toFixed(2):'—'}</b> <span>shots left</span></span>
+      <span class="ss-chips">${rest}</span>${why}</div>`;
   }).join('');
   const table=`<div class="sh-strip">${strip}</div>`;
   /* verdict across the three lines that actually produced a shot */
+  const cmpOn=!!(STATE.strategy||{}).compareOptimal;
   const live=SHOT_LINES.filter(l=>shots[l]&&!shots[l].blocked);
   let verdict='';
-  if(live.length>1){
+  if(cmpOn && live.length>1){
     /* Compare every line to the BEST, not to the runner-up — with two lines tied at the top
        a runner-up comparison reports "level" while a third sits 0.7 strokes adrift. */
     /* Anything inside the avoidance tie-break band is noise, not a difference. O optimises
@@ -1605,8 +1640,6 @@ function buildHoleOverlay(){
   const b=chains.__ball;
   const onTee = b && hole.tee && Math.abs(b.x-hole.tee.x)<CF_TEE_TOL && Math.abs(b.y-hole.tee.y)<CF_TEE_TOL;
   const ballWhere = !b ? '' : onTee ? ' · on the tee' : ` · ball in the ${CF_LIE_LABEL[cfShotLie(hole,b)].toLowerCase()}`;
-  const oStep=chain[n-1];
-  const oRes=(oStep&&oStep.res)?oStep.res:null;
   /* S's line comes out of these five answers, so they belong beside the map rather than two
      tabs away — change one and the yellow line moves on the spot. Which PAIR is doing the
      work depends on the shot, so say which, or the caption is a list rather than a reason. */
@@ -1740,8 +1773,11 @@ function buildHoleOverlay(){
       <div class="sh-head">Hole ${hole.num||hi+1} · par ${hole.par||4} · ${fmtYd(holeYd)}${ballWhere}</div>
       <div class="sh-bar-ctl">
         <div class="strat-picks">${shotBtns}</div>
-        <div class="strat-picks">${lineBtns}<button type="button" class="strat-mode-btn" onclick="stratResetAim()">↺ reset</button></div>
-        ${S.active==='S'?anchorRow:''}
+        <div class="strat-picks">
+          <button type="button" class="strat-mode-btn${cmpOn?' on':''}" onclick="stratToggleCompare()" title="${cmpOn?'Stop scoring your line against the optimal one':'Score your line against the optimal one'}">⇄ compare${cmpOn?' — on':''}</button>
+          <button type="button" class="strat-mode-btn" onclick="stratResetAim()">↺ reset</button>
+        </div>
+        ${anchorRow}
         ${pinRow}
       </div>
     </div>
@@ -1750,7 +1786,6 @@ function buildHoleOverlay(){
       <div class="sh-side">
         ${table}
         <div class="sh-below-notes">
-          ${oRes&&oRes.best.category?`<div class="sh-cat">${oRes.best.category}</div>`:''}
           ${verdict}
           <div class="sh-pref-note">${prefWhy}</div>
           ${coverRow}
@@ -1859,7 +1894,7 @@ Object.assign(window, {
   SHOT_LAT_MAX, SHOT_LAT_STEP, SHOT_RECOVERY_MAX_YD, SHOT_POSTURES, SHOT_POSTURE_LABEL,
   stratSetPosture, SHOT_HOLE_SD, SHOT_POS_SD, SHOT_TARGET_MIN_GAIN, normCdf, tournamentCtx, shotZ,
   stratTourInputs, stratSetTour,
-  STRAT_SKILLS, stratSkill, stratSetSkill, stratViewBox, stratResetView,
+  stratSkill, stratViewBox, stratResetView,
   SHOT_COL, SHOT_LINES, SHOT_LABEL, SHOT_MAX, stratPosture, stratCurrent, stratGreenMid,
   stratClearLines, stratResetAim, stratSetShotNum, stratSetLine,
   stratScoreShot, stratOChain, stratBallFor, stratLineAim,
@@ -1869,7 +1904,7 @@ Object.assign(window, {
   FIT_STEP_YD, FIT_MAX_DEG, FIT_TURN_MAX, FIT_LEAN, FIT_TOL_DEG, stratFairwayTilt, stratShapeFit,
   stratAnchorKey, stratAnchors, stratAnchorAt, stratAnchorCount, stratToggleAnchor, stratClearAnchors,
   stratSaveSel, stratRestoreSel, stratHoleReady, stratHoleScore, stratBestCourseIdx,
-  stratZoomGreen, stratPinMode, stratSetPinAt, stratSetPinPaces, stratPinReset,
+  stratToggleCompare, stratZoomGreen, stratPinMode, stratSetPinAt, stratSetPinPaces, stratPinReset,
   stratPinSheetHoles, stratPinZone, stratPinThumbClick, stratSheetPaces, stratSheetClearHole, stratPinSheetGrid,
   ROUND_METHODS, ROUND_RES, stratRoundHole, stratRound, stratRoundTable,
   stratSheetSet, stratSheetDelete, stratSheetProgress,
