@@ -95,7 +95,7 @@ function aimRhoOf(slantDeg){ return Math.max(-0.95, Math.min(0.95, Math.tan((sla
 
    The sign comes from the SPIN AXIS, not the Draw/Fade label, so it is right for either
    hand: a negative axis curves the ball left whoever is holding the club. Returned in the
-   same sense as DISP_SLANT — positive tilts the long axis LEFT.
+   tilt sense: positive tilts the long axis LEFT.
 
    MEASURED — and the answer changed once the model was right. Recorded in full, because the
    first pass concluded the opposite and that conclusion was wrong for two reasons at once:
@@ -145,7 +145,7 @@ function aimShapeReset(){
 }
 
 /* Weighted landing samples (field units) for a shot from `from` aimed at `aim`.
-   The error ellipse is lateral × depth, tilted DISP_SLANT° long-left / short-right, plus
+   The error ellipse is lateral × depth, tilted long-left / short-right, plus
    opt.tiltDeg for the club's own landing heading (see aimLandingTilt).
    opt.sigmaYd overrides the length the sigmas are looked up at (an approach from rough
    needs more club, so it disperses like the longer shot it really is); opt.latMult /
@@ -1275,7 +1275,7 @@ function stratPrefAim(hole, from, n){
    The fairway has a direction of its own, and near the landing zone it is rarely the
    direction you are standing on. Read its centreline by taking the lateral midpoint of the
    polygon a little short of the landing zone and a little long of it: the line between those
-   two midpoints IS the local axis. Returned in the DISP_SLANT sense — positive means the
+   two midpoints IS the local axis. Returned in the tilt sense — positive means the
    fairway runs LEFT as it goes away from you, the same sign a draw's landing tilt carries,
    so the two numbers can simply be compared. */
 const FIT_STEP_YD  = 35;    // how far either side of the landing zone to read the axis
@@ -1284,7 +1284,7 @@ const FIT_TURN_MAX = 12;    // if the axis swings more than this THROUGH the zon
 const FIT_LEAN     = 0.6;   // lean toward the hole's line; never try to trace it
 const FIT_TOL_DEG  = 2;     // below this a fairway is straight enough to call straight
 
-/* The fairway's own axis through the landing zone, in the DISP_SLANT sense (positive = the
+/* The fairway's own axis through the landing zone, in the tilt sense (positive = the
    fairway runs LEFT as it goes away from you), so it can be compared with a shape's tilt.
 
    Read at three cross-sections rather than two, because the failure mode here is geometric:

@@ -161,7 +161,7 @@ function toggleDetail(c,row,group,inner){
       ${statCell('Club Speed',mphNum(p.cspd),mphUnit(),'hl-speed')}
       ${statCell('Vert. Launch',(p.launch!=null?p.launch:'—'),'°','')}
       ${statCell('Spin Rate',(p.spin!=null?p.spin.toLocaleString():'—'),'rpm','hl-spin')}
-      ${statCell('Max Height',p.ht,'ft','')}
+      ${statCell('Max Height',(p.ht!=null?ftNum(p.ht):'—'),ftUnit(),'')}
       ${statCell('Land Angle',(p.land!=null?p.land:'—'),'°','hl-land')}
     </div>
     <div id="es-bag-${c.id}" class="expected-shots-strip"></div>
@@ -260,7 +260,7 @@ function buildSideSVG(c,p){
   return `<svg data-pz viewBox="0 0 ${W} ${H+14}" style="width:100%;display:block" xmlns="http://www.w3.org/2000/svg">
     <line x1="4" y1="${groundY}" x2="${W-4}" y2="${groundY}" stroke="#c0d8cf" stroke-width="0.8"/>
     <line x1="${pk.x.toFixed(1)}" y1="${(pk.y+2).toFixed(1)}" x2="${pk.x.toFixed(1)}" y2="${groundY}" stroke="#c0d8cf" stroke-width="0.6" stroke-dasharray="3,2"/>
-    <text x="${htLX.toFixed(1)}" y="${htLY.toFixed(1)}" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="6.5" fill="#3a5a7a">${p.ht||'—'}ft</text>
+    <text x="${htLX.toFixed(1)}" y="${htLY.toFixed(1)}" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="6.5" fill="#3a5a7a">${p.ht!=null?ftNum(p.ht)+ftUnit():'—'}</text>
     <text x="${((PAD_L+carryX)/2).toFixed(1)}" y="${H+10}" text-anchor="middle" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="6" fill="#3a5a7a">${ydNum(carry)}${ydUnit()} carry</text>
     <path d="${flight}" fill="none" stroke="${tc}" stroke-width="1.8" opacity="0.9"/>
     ${roll}
@@ -305,7 +305,6 @@ function fairwayPath(cx,top,bot,halfPx){
 /* The oval's lean is no longer a constant. It comes from the club's strike correlation and
    its own two sigmas — see dispTilt in physics/dispersion.js, which explains why a flat 15°
    on every club was wrong. Kept as a name only so nothing else breaks reaching for it. */
-const DISP_SLANT = 15;   /* DEPRECATED — use dispTiltFor(club.type, carry) */
 function buildTopSVG(c,p,opts){
   opts=opts||{};
   const drag=!!opts.draggable;                 // Approach tab: drag the aim oval over the green
@@ -573,4 +572,4 @@ function buildGearEffectPanel(c){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { DISP_SLANT, buildEnvPanels, buildGapping, buildGearEffectPanel, buildGearFaceSVG, buildLadder, buildMissBlock, buildSideSVG, buildTopSVG, envPanelHTML, envSyncSummary, initApproachAimDrag, missNote, missSelect, onEnvInput, onEnvToggle, renderConditions, setMiss, statCell, toggleDetail, updateCondSummary });
+Object.assign(window, { buildEnvPanels, buildGapping, buildGearEffectPanel, buildGearFaceSVG, buildLadder, buildMissBlock, buildSideSVG, buildTopSVG, envPanelHTML, envSyncSummary, initApproachAimDrag, missNote, missSelect, onEnvInput, onEnvToggle, renderConditions, setMiss, statCell, toggleDetail, updateCondSummary });

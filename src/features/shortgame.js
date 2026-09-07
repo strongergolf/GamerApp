@@ -262,7 +262,7 @@ function renderChipDial(){
       const ctxLine = `${fm.check} · ${firmName} green · ${slopeTxt} @ stimp ${stimp.toFixed(1)}${elevTxt}${stanceAdj?` · stance ${stanceAdj>0?'+':''}${stanceAdj}° launch`:''}`;
       flightHTML=`<div class="calc-traj-drop" style="grid-template-columns:1fr">
         <div class="traj-panel traj-main">
-          <div class="traj-panel-title">${c.label} (${c.loft})${effNote} — carry ${ydNum(carry,1)} → roll ${ydNum(roll,1)} ${ydUnit()} · launch ${launch.toFixed(0)}° · ~${spin.toLocaleString()} rpm · ${chipArchetype(loft)}</div>
+          <div class="traj-panel-title">${c.label} (${c.loft})${effNote} — carry ${ydNum(carry,1)} → roll ${ydNum(roll,1)} ${ydUnit()} · launch ${launch.toFixed(0)}° · ~${spin.toLocaleString()} rpm</div>
           <div style="font-family:ui-monospace,monospace;font-size:.6rem;color:var(--muted);margin:1px 0 3px">${ctxLine}</div>
           ${buildChipSVG(carry,roll,loft,{launch,slopeDeg:slope,firmKey:fk})}
         </div>
@@ -294,7 +294,7 @@ function renderChipDial(){
       <div class="calc-card-header">
         <div class="calc-club-badge" style="color:${tc}">${c.label}<small>${c.loft}</small></div>
         <div class="calc-head-main">${rowLaunch.toFixed(0)}° launch <em>·</em> ${(rowSpin/1000).toFixed(1)}k${noteStr}</div>
-        <div class="calc-head-anchor sg-split" style="color:${rc}">${splitStr}<span>${chipArchetype(loft)}</span></div>
+        <div class="calc-head-anchor sg-split" style="color:${rc}">${splitStr}</div>
       </div>
     </div>`;
   }).join('');
