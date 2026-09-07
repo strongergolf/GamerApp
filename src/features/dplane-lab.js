@@ -73,10 +73,7 @@ function buildDplaneLab(){
   wrap.innerHTML=`
     <!-- heading supplied by the host (Causation → 2 Ball Flight), which pairs it with the
          explanation; printing it here too showed it twice -->
-    <div class="dpl-vis-main"><div id="dplane-visual"></div></div>
-    <div class="lvl-subhead" style="margin-top:16px">Stock-Shot Tendencies by Club</div>
-    <div class="chain-caption" style="margin-top:4px">Each club's <strong>stock-shot</strong> impact geometry: horizontal face, horizontal path, vertical face (dyn loft), vertical path (attack angle) and vertical swing plane (degrees, left −/right +; blank plane = estimated from loft). Tap a club to load it into the lab above; typed edits save automatically.</div>
-    <div class="dpl-grid-col">${buildDplaneGrid()}</div>`;
+    <div class="dpl-vis-main"><div id="dplane-visual"></div></div>`;
   renderDPlaneVisual();
 }
 
@@ -426,6 +423,15 @@ function dpShotParamsTxt(s){
    #page-dplane). The 9-window drill grid plus the named short-game shots as expandable
    recipe cards. Tapping any shot loads its impact numbers into the sandbox above
    (relative to the selected club) and scrolls back to the render. ---- */
+/* The per-club tendencies grid is REFERENCE, not the tool — it sits at the foot of the level,
+   below the render and the presets, rather than between them. */
+function buildDplaneTendencies(){
+  const wrap=document.getElementById('dplane-tend-wrap'); if(!wrap) return;
+  wrap.innerHTML=`
+    <div class="lvl-subhead" style="margin-top:18px">Stock-Shot Tendencies by Club</div>
+    <div class="chain-caption" style="margin-top:4px">Each club's <strong>stock-shot</strong> impact geometry: horizontal face, horizontal path, vertical face (dyn loft), vertical path (attack angle) and vertical swing plane (degrees, left −/right +; blank plane = estimated from loft). Tap a club to load it into the render above; typed edits save automatically.</div>
+    <div class="dpl-grid-col">${buildDplaneGrid()}</div>`;
+}
 function buildDpShots(){
   const wrap=document.getElementById('dpshots-wrap'); if(!wrap) return;
   const clubs=STATE.clubs.filter(c=>c.type!=='putter');
@@ -582,4 +588,4 @@ function buildGearEffectL2(){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { DP_SHOTS, buildDplaneGrid, buildDplaneLab, buildDpShots, buildGearEffectL2, dpApplyPreset, dpBallFlight, dpLoadShot, dpRenderScene, dpSandFmt, dpSandRevert, dpSandSave, dpSandSync, dpSceneDragInit, dpSeedSand, dpSetCam, dpSetSand, dpSetStrike, dpShotParamsTxt, dpStrikeTxt, dpWorldVectors, dplFmt, dplaneShape, renderDPlaneVisual, setDpVisClub, setDplaneCell });
+Object.assign(window, { DP_SHOTS, buildDplaneGrid, buildDplaneLab, buildDplaneTendencies, buildDpShots, buildGearEffectL2, dpApplyPreset, dpBallFlight, dpLoadShot, dpRenderScene, dpSandFmt, dpSandRevert, dpSandSave, dpSandSync, dpSceneDragInit, dpSeedSand, dpSetCam, dpSetSand, dpSetStrike, dpShotParamsTxt, dpStrikeTxt, dpWorldVectors, dplFmt, dplaneShape, renderDPlaneVisual, setDpVisClub, setDplaneCell });

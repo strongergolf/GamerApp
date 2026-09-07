@@ -1400,3 +1400,19 @@ body.theme-dark .gr-a{color:var(--green2)} body.theme-dark .gr-b{color:var(--c-w
 .escmp-btns .unit-btn{flex:1 1 auto;min-width:84px}
 /* the "plays" line now carries a short explanation beside the number */
 .cond-summary i{font-style:normal;font-family:Arial,sans-serif;font-size:.68rem;color:var(--muted);margin-left:6px}
+
+/* ---- Backups tab ---- */
+.bk-specs{display:flex;flex-wrap:wrap;gap:6px 14px;margin-bottom:10px}
+.bk-spec{display:flex;flex-direction:column;min-width:0}
+.bk-spec span{font-family:ui-monospace,monospace;font-size:.48rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.bk-spec b{font-family:Arial,sans-serif;font-size:.8rem;font-weight:700;color:var(--ink)}
+.bk-picker{border-top:1px solid var(--border);padding-top:9px}
+.bk-picker-lbl{font-family:ui-monospace,monospace;font-size:.56rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px}
+.bk-slot{display:grid;grid-template-columns:2.2rem 1fr auto auto;gap:8px;align-items:center;width:100%;
+  min-height:40px;padding:6px 8px;margin-bottom:5px;text-align:left;cursor:pointer;
+  background:var(--surface);border:1px solid var(--border);border-radius:8px}
+.bk-slot:hover{border-color:var(--green)}
+.bk-slot-name{font-family:Arial,sans-serif;font-size:.78rem;font-weight:600;color:var(--ink2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bk-slot-loft{font-family:ui-monospace,monospace;font-size:.7rem;font-weight:700;color:var(--ink)}
+.rep-flash{animation:repflash 1.6s ease}
+@keyframes repflash{0%,100%{background:transparent}30%{background:var(--gold-pale)}}

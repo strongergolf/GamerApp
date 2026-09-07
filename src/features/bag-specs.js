@@ -172,9 +172,12 @@ function estimatePerfForLoft(targetLoft, excludeId){
    club going in leaves it. Before this it was one-way — the displaced club was overwritten in
    place and existed nowhere afterwards, so you could never put it back (the 64° PM case), and
    the incoming club stayed in the inventory and could be swapped into several slots at once. */
-function selectReplacement(clubId,oIdx){
-  const c=STATE.clubs.find(x=>x.id===clubId); if(!c) return;
-  const o=repMatches(c).matches[oIdx]; if(!o) return;
+/* Swap a bag slot for a club from the backups library. The exchange is symmetric — the
+   incoming club leaves the library, the outgoing one joins it — and is driven from BOTH
+   directions now: from Current Gamers (pick a replacement for this slot) and from Backups
+   (pick a slot for this club). One function so the two can never diverge. */
+function swapIntoBag(clubId, o){
+  const c=STATE.clubs.find(x=>x.id===clubId); if(!c||!o) return false;
   const oInv=STATE.otherClubs.indexOf(o);
   /* snapshot the outgoing club in inventory shape before its fields are overwritten */
   const displaced={
@@ -208,7 +211,50 @@ function selectReplacement(clubId,oIdx){
   if(oInv>-1) STATE.otherClubs.splice(oInv,1);
   if(displaced.effLoft!=null) STATE.otherClubs.push(displaced);
   saveState(); refreshAll();
-  if(typeof toast==='function') toast(`${o.make} ${o.model} (${o.effLoft}°) swapped in — ${displaced.make} ${displaced.model} to your other bags`);
+  if(typeof toast==='function') toast(`${o.make} ${o.model} (${o.effLoft}°) swapped in — ${displaced.make} ${displaced.model} to Backups`);
+  return true;
+}
+/* From Current Gamers: the replacement list under an expanded club. */
+function selectReplacement(clubId,oIdx){
+  const c=STATE.clubs.find(x=>x.id===clubId); if(!c) return;
+  swapIntoBag(clubId, repMatches(c).matches[oIdx]);
+}
+/* From Backups: "Add to Current Gamers" — pick which slot it takes. Offered nearest-loft
+   first, because that is nearly always the intended trade, but every slot is listed: a
+   bag change is the user's call, not the app's. */
+function backupSlotPicker(oIdx){
+  const o=STATE.otherClubs[oIdx]; if(!o) return '';
+  const lo=parseFloat(o.effLoft);
+  const cands=STATE.clubs
+    .map(c=>({c, d:Math.abs((parseFloat(c.loft)||0)-(isNaN(lo)?0:lo))}))
+    .sort((a,b)=>a.d-b.d);
+  const rows=cands.map(({c,d})=>`<button type="button" class="bk-slot" onclick="backupToBag(${oIdx},'${c.id}')">
+      <span class="spec-club ${c.type}">${c.label}</span>
+      <span class="bk-slot-name">${escapeHtml((c.make||'')+' '+(c.model||''))}</span>
+      <span class="bk-slot-loft">${escapeHtml(c.loft||'')}</span>
+      <span class="rep-inline-delta ${d<=1?'exact':d<=3?'close':'off'}">${d===0?'=':'±'+(Math.round(d*10)/10)+'°'}</span>
+    </button>`).join('');
+  return `<div class="bk-picker"><div class="bk-picker-lbl">Replace which club?</div>${rows}</div>`;
+}
+function backupToBag(oIdx, clubId){
+  const o=STATE.otherClubs[oIdx];
+  if(o && swapIntoBag(clubId, o)) window.bkOpen=null;
+}
+/* From Current Gamers: send this club to Backups. A slot cannot simply empty — the bag has
+   fourteen places and the rest of the app indexes clubs by id — so removing is completed by
+   saying what takes its place. That is the same exchange, run from this end, and the list of
+   candidates is already on screen; this just names the act and points at it. */
+function removeToBackups(clubId){
+  const c=STATE.clubs.find(x=>x.id===clubId); if(!c) return;
+  const {matches,loftTol,effLoft}=repMatches(c);
+  if(!matches.length){
+    if(typeof toast==='function') toast(`Nothing in Backups within ±${loftTol}° of ${effLoft}° to take its place`);
+    return;
+  }
+  if(typeof toast==='function') toast(`Pick what replaces ${c.label} — it goes to Backups`);
+  const lbl=document.querySelector('.specs-rep-group.open .specs-rep-label');
+  if(lbl){ lbl.classList.add('rep-flash'); setTimeout(()=>lbl.classList.remove('rep-flash'),1600);
+           lbl.scrollIntoView({behavior:'smooth',block:'center'}); }
 }
 function toggleSpecs(c,row,group){
   const open=group.classList.contains('open');
@@ -244,10 +290,11 @@ function toggleSpecs(c,row,group){
         ${sf('Club Spd','cspd',p.cspd,'perf','speed')}${sf('Launch (°)','launch',p.launch,'perf')}${sf('Spin (rpm)','spin',p.spin,'perf')}
         ${sf('Max Ht','ht',p.ht,'perf','short')}${sf('Land (°)','land',p.land,'perf')}`:''}
       </div>
-      <div class="btn-row"><button class="btn btn-primary" onclick="saveClub('${c.id}')">Save ${c.label}</button></div>
+      <div class="btn-row"><button class="btn btn-primary" onclick="saveClub('${c.id}')">Save ${c.label}</button>
+        <button class="btn" onclick="event.stopPropagation();removeToBackups('${c.id}')">Remove from Current Gamers</button></div>
     </div>`;
   const {effLoft,loftTol,matches}=repMatches(c);
-  const repLabel=`<div class="specs-rep-label">Replacement Options — ±${loftTol}° Effective Loft${c.type==='putter'?' · putters only':''} · tap to swap in</div>`;
+  const repLabel=`<div class="specs-rep-label">Add from Backups — ±${loftTol}° Effective Loft${c.type==='putter'?' · putters only':''} · tap to swap in</div>`;
   const repHtml=!matches.length?`<div class="specs-no-rep">Nothing in your other bags within ±${loftTol}° of ${effLoft}°. A club further away than that is hidden rather than missing — edit the spec fields above to enter it directly.</div>`:matches.map((o,i)=>{
     const d=o.effLoft-effLoft, ds=d===0?'=':d>0?`+${d}°`:`${d}°`, dc=d===0?'exact':Math.abs(d)<=1?'close':'off';
     /* Which bag it is sitting in does not help you CHOOSE a club — you pick on loft, model
@@ -541,6 +588,50 @@ function buildMyData(){
    want a single answer. */
 /* One app-wide comparison benchmark, chosen here rather than repeated as a dropdown on every
    expected-shots strip — the same question asked on four tabs, whose answer did not travel. */
+/* BACKUPS — every club not currently in the bag, grouped by where it physically lives.
+   Each row expands to its specs and an "Add to Current Gamers" button, which then asks which
+   slot it takes. The bag side has the mirror of this, so a swap can be started from whichever
+   end the golfer is thinking from. */
+function bkToggle(i){ window.bkOpen = (window.bkOpen===i) ? null : i; buildBackups(); }
+function buildBackups(){
+  const wrap=document.getElementById('backups-wrap'); if(!wrap) return;
+  const list=STATE.otherClubs||[];
+  if(!list.length){ wrap.innerHTML='<div class="specs-no-rep">No backup clubs on file.</div>'; return; }
+  const groups={};
+  list.forEach((o,i)=>{ const g=o.bag||'Unfiled'; (groups[g]=groups[g]||[]).push({o,i}); });
+  const order=Object.keys(groups).sort((a,b)=> a==='Removed from bag'?-1 : b==='Removed from bag'?1 : a.localeCompare(b));
+  const typeCls=o=>o.type||((o.effLoft>=44)?'wedge':(o.effLoft>=24)?'iron':'wood');
+  let html=`<div class="section-label" style="margin-top:2px">Backups</div>
+    <p class="intro-note">Every club you own that is not in play. Tap one to see its specs, or to put it in the bag — you will be asked which club it replaces, and that club comes back here.</p>`;
+  order.forEach(g=>{
+    html+=`<div class="ladder-divider">${escapeHtml(g)} <span style="opacity:.7">· ${groups[g].length}</span></div>`;
+    groups[g].forEach(({o,i})=>{
+      const open=window.bkOpen===i;
+      html+=`<div class="specs-club-row spec-card${open?' selected':''}" onclick="bkToggle(${i})" style="cursor:pointer">
+        <span class="spec-club ${typeCls(o)}">${escapeHtml(o.label||'—')}</span>
+        <div class="sc-id"><span class="sc-name">${escapeHtml((o.make||'')+' '+(o.model||''))}</span></div>
+        ${miniCell('Loft', o.effLoft!=null?o.effLoft+'°':'—','sm-w-deg')}
+        ${miniCell('Lie', o.lie||'—','sm-w-deg')}
+        ${miniCell('Length', o.length||'—','sm-w-len')}
+        <div class="specs-chevron">${open?'▴':'▾'}</div>
+      </div>`;
+      if(open){
+        html+=`<div class="specs-rep-group open"><div class="specs-rep-group-inner" style="padding:10px 14px">
+          <div class="bk-specs">
+            ${bkSpec('Make',o.make)}${bkSpec('Model',o.model)}${bkSpec('Shaft',o.shaft)}
+            ${bkSpec('Length',o.length)}${bkSpec('Lie',o.lie)}${bkSpec('Swing Wt',o.swt)}
+            ${bkSpec('Year',o.year)}${bkSpec('Grip',o.grip)}${o.weightOz?bkSpec('Weight',fmtOz(o.weightOz)):''}
+            ${bkSpec('Location',o.bag)}
+          </div>
+          ${backupSlotPicker(i)}
+        </div></div>`;
+      }
+    });
+  });
+  wrap.innerHTML=html;
+}
+function bkSpec(l,v){ return (v==null||v==='')?'':`<div class="bk-spec"><span>${l}</span><b>${escapeHtml(String(v))}</b></div>`; }
+function miniCell(label,val,wCls){ return `<div class="spec-mini ${wCls}"><span class="sm-l">${label}</span><span class="sm-v">${val}</span></div>`; }
 function buildEsCompareToggle(){
   const el=document.getElementById('escmp-toggle'); if(!el) return;
   if(typeof ES_COMPARE_ORDER==='undefined'){ el.innerHTML=''; return; }
@@ -680,4 +771,4 @@ function logHcpSnapshot(){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { GREENSIDE_WEDGE_LOFT, MY_DATA_SOURCES, buildMyData, buildUnitToggle, renderStrikeCal, setStrikeCorr, buildProfile, buildSpecs, clearBallForm, estimatePerfForLoft, exportData, generateFromSwingSpeed, hcpTrendHtml, importData, logHcpSnapshot, pfDirtyInit, pfMaybeSave, repMatches, resetData, buildEsCompareToggle, saveCalibration, saveClub, saveProfile, sel, selectReplacement, syncPartialsForClub, toggleSpecs });
+Object.assign(window, { GREENSIDE_WEDGE_LOFT, MY_DATA_SOURCES, buildMyData, buildUnitToggle, renderStrikeCal, setStrikeCorr, buildProfile, buildSpecs, clearBallForm, estimatePerfForLoft, exportData, generateFromSwingSpeed, hcpTrendHtml, importData, logHcpSnapshot, pfDirtyInit, pfMaybeSave, repMatches, resetData, buildEsCompareToggle, backupSlotPicker, backupToBag, bkToggle, bkSpec, miniCell, buildBackups, removeToBackups, swapIntoBag, saveCalibration, saveClub, saveProfile, sel, selectReplacement, syncPartialsForClub, toggleSpecs });

@@ -123,6 +123,20 @@ function mergeDefaults(saved){
   });
   /* Expected-shots comparison benchmark: one app-wide choice, was a dropdown on every strip. */
   const esCompare = (typeof ES_COMPARE!=='undefined' && ES_COMPARE[sv.esCompare]) ? sv.esCompare : 'scratch';
+  /* OTHER CLUBS (the backups library): saved list wins, but any club in DEFAULTS that is not
+     in the save is appended. Without this a defaults change never reaches an existing browser,
+     because `Object.assign(base, sv, ...)` lets the saved array replace the default outright —
+     which is exactly why the MD3 PM Grind, destroyed by the old swap-overwrite bug, could not
+     be restored by editing defaults alone. Identity is make+model+loft, so a club the user
+     edited or re-lofted is never duplicated back in. */
+  const svOther = Array.isArray(sv.otherClubs) ? sv.otherClubs : null;
+  let otherClubs = svOther || base.otherClubs;
+  if(svOther){
+    const idOf=o=>[(o.make||'').trim().toLowerCase(),(o.model||'').trim().toLowerCase(),o.effLoft].join('|');
+    const have=new Set(svOther.map(idOf));
+    const missing=(base.otherClubs||[]).filter(o=>!have.has(idOf(o)));
+    if(missing.length) otherClubs=[...svOther, ...missing];
+  }
   /* New STATE slices — keep saved if present, else default. */
   const missTendency = Object.assign({}, base.missTendency, sv.missTendency||{});
   const skillsTests = Array.isArray(sv.skillsTests) ? sv.skillsTests : base.skillsTests;
@@ -136,6 +150,7 @@ function mergeDefaults(saved){
     strategy,
     sgVars,
     sgCal,
+    otherClubs,
     unitPrefs,
     esCompare,
     missTendency,

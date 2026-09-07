@@ -129,7 +129,8 @@ const PRACTICE_AREAS=[
        <div class="lvl-subhead" style="margin-top:18px">D-Plane — Impact Geometry &amp; Ball Flight</div>
        <div class="chain-caption" style="margin-top:4px">The rotatable impact render, the shape sandbox, your per-club stock tendencies and the shot presets. This is the level's own tool: ball flight is the outcome of club behaviour, and this is where that behaviour is set and seen.</div>
        <div id="dplane-lab-wrap"></div>
-       <div id="dpshots-wrap"></div>`,
+       <div id="dpshots-wrap"></div>
+       <div id="dplane-tend-wrap"></div>`,
      improve:()=>ballImprove(),
      resources:()=>`
        ${ballLawsRef()}
@@ -463,6 +464,7 @@ function buildChainLevel(n){
   if(n===2&&slot==='assess'){
     if(typeof buildDplaneLab==='function') buildDplaneLab();
     if(typeof buildDpShots==='function') buildDpShots();
+    if(typeof buildDplaneTendencies==='function') buildDplaneTendencies();
     if(typeof dpRenderScene==='function') setTimeout(dpRenderScene,0);
   }
   /* the static Definitions dropdown lives on the L2 page — show it only on Resources */

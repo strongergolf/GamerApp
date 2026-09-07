@@ -128,6 +128,9 @@ const DEFAULT_DATA = {
     {label:'S', effLoft:56,make:'Callaway',model:'MD4 Tactical',  shaft:'DG S200',           length:'35.25"', bag:'Home Backups',year:2018},
     {label:'L', effLoft:59,make:'Callaway',model:'MD3 PM',        shaft:'KBS Tour V-wedge',  length:'35"',    bag:'Home Backups',year:2015},
     {label:'L', effLoft:61,make:'Callaway',model:'MD3 PM',        shaft:'KBS Tour V-wedge',  length:'35"',    bag:'Home Backups',year:2015},
+    /* The 64 (bent to 65) MD3 PM Grind. It was IN the bag until the club-swap bug destroyed
+       displaced clubs instead of returning them — restored here so it is selectable again. */
+    {label:'X', effLoft:65,make:'Callaway',model:'MD3 PM Grind',  shaft:'ProjX 5.5',         length:'35"',    bag:'Home Backups',year:2015, lie:'64°', swt:'D5', type:'wedge'},
     {label:'L', effLoft:62,make:'Callaway',model:'MD4 Tactical',  shaft:'DG S200',           length:'35"',    bag:'Home Backups',year:2018},
     {label:'Fwy',effLoft:15,make:'Callaway',model:'XHot Pro',     shaft:'ProjX 6.0',         length:'43.5"',  bag:'Home Staff Bag',year:2013},
     {label:'2', effLoft:19,make:'Hogan',   model:'Apex Edge Pro', shaft:'Apex 4',            length:'39.25"', bag:'Home Staff Bag',year:2002},

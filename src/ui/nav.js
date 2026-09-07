@@ -33,7 +33,14 @@ const GROUPS={
     {id:'ch1',label:'1 Score'},{id:'ch2',label:'2 Ball Flight'},{id:'ch3',label:'3 Forces'},
     {id:'ch4',label:'4 Sequence'},{id:'ch5',label:'5 Body'},{id:'ch6',label:'6 Mind'},{id:'ch7',label:'7 Strategy'}
   ],
-  setup:[{id:'specs',label:'My Bag'},{id:'profile',label:'Myself'},{id:'reference',label:'My App'}]
+  /* Settings: the bag you play, the rest of the collection, you, and the app itself.
+     Page ids keep their old names so deep links and saved data are untouched. */
+  setup:[
+    {id:'specs',    label:'Current Gamers'},
+    {id:'backups',  label:'Backups'},
+    {id:'profile',  label:'Golfer Profile'},
+    {id:'reference',label:'The App'}
+  ]
 };
 let currentGroup='play';
 
@@ -104,6 +111,7 @@ function refreshAll(){
   buildChainLevels();
   buildDplaneLab();
   buildDpShots();
+  if(typeof buildDplaneTendencies==="function") buildDplaneTendencies();
   buildCourseStrategy();
   buildHoleOverlay();
   buildCourses();
@@ -113,6 +121,7 @@ function refreshAll(){
   buildPostShot();
   buildPostRound();
   buildSpecs();
+  if(typeof buildBackups==='function') buildBackups();
   buildGapping();
   buildProfile();
   buildMyData();
