@@ -95,6 +95,21 @@ function mergeDefaults(saved){
     while(row.conf.length<4) row.conf.push(false);   /* 4th rung starts Presumed */
     partials[id]=row;
   });
+  /* REPAIR: a club's total must never sit under its own carry, and must not be missing when
+     the ladder knows the number. Saved data predating the fix keeps its own bad pair — a
+     defaults change alone never reaches an existing browser — and the pair is not merely
+     cosmetic: syncPartialsForClub rescales the whole ladder to `total ?? carry` whenever the
+     club is saved in My Bag, so W (carry 110, total 108) would have dragged a measured ladder
+     down 3.6%, and S/X (total null) down ~2%, on the next edit.
+     Only ever raises a total, never lowers one, and never touches carry — the measured
+     number stays measured. */
+  Object.keys(performance).forEach(id=>{
+    const p=performance[id]; if(!p) return;
+    const full=partials[id]&&partials[id].full;
+    const floor=Math.max(p.carry!=null?p.carry:-Infinity, full!=null?full:-Infinity);
+    if(!isFinite(floor)) return;
+    if(p.total==null || p.total<floor) performance[id]=Object.assign({},p,{total:floor});
+  });
   /* New STATE slices — keep saved if present, else default. */
   const missTendency = Object.assign({}, base.missTendency, sv.missTendency||{});
   const skillsTests = Array.isArray(sv.skillsTests) ? sv.skillsTests : base.skillsTests;

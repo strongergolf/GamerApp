@@ -234,11 +234,17 @@ function toggleSpecs(c,row,group){
 }
 /* Keep the Distance Matrix in sync with a club's edited total: scale the partial swings
    (full/tq/half) by the change so the matrix tracks the new distance. */
+/* Editing a club's yardage in My Bag rescales its whole partial ladder by the same ratio, so
+   the ¾/½/⅓ rungs follow the full number instead of going stale. That is the intended
+   behaviour — but it means a bad total silently rewrites MEASURED rungs, so the number
+   driving it is floored at the club's own carry: a total under its carry is data entry that
+   has gone wrong, not an instruction to shrink the ladder. */
 function syncPartialsForClub(id){
   const pr=STATE.partials&&STATE.partials[id], perf=STATE.performance&&STATE.performance[id];
   if(!pr||!perf||!pr.full) return;
-  const tot=perf.total!=null?perf.total:perf.carry;
+  let tot=perf.total!=null?perf.total:perf.carry;
   if(tot==null) return;
+  if(perf.carry!=null && tot<perf.carry) tot=perf.carry;
   const r=tot/pr.full;
   if(!isFinite(r)||Math.abs(r-1)<0.005) return;          // unchanged → leave partials as measured
   pr.full=Math.round(tot);
@@ -597,4 +603,4 @@ function logHcpSnapshot(){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { MY_DATA_SOURCES, buildMyData, buildUnitToggle, renderStrikeCal, setStrikeCorr, buildProfile, buildSpecs, clearBallForm, estimatePerfForLoft, exportData, generateFromSwingSpeed, hcpTrendHtml, importData, logHcpSnapshot, pfDirtyInit, pfMaybeSave, repMatches, resetData, saveCalibration, saveClub, saveProfile, sel, selectReplacement, toggleSpecs });
+Object.assign(window, { MY_DATA_SOURCES, buildMyData, buildUnitToggle, renderStrikeCal, setStrikeCorr, buildProfile, buildSpecs, clearBallForm, estimatePerfForLoft, exportData, generateFromSwingSpeed, hcpTrendHtml, importData, logHcpSnapshot, pfDirtyInit, pfMaybeSave, repMatches, resetData, saveCalibration, saveClub, saveProfile, sel, selectReplacement, syncPartialsForClub, toggleSpecs });

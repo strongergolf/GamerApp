@@ -97,9 +97,15 @@ const DEFAULT_DATA = {
     '8i':{carry:153,total:157,bspd:115,cspd:89,launch:21,spin:7200,ht:85, land:47},
     '9i':{carry:139,total:142,bspd:110,cspd:87,launch:23,spin:7800,ht:85, land:48},
     P:  {carry:124,total:126,bspd:100,cspd:85,launch:25,spin:8500,ht:75, land:49},
-    W:  {carry:110,total:108,bspd:90, cspd:83,launch:27,spin:9000,ht:75, land:49},
-    S:  {carry:95, total:null,bspd:80,cspd:81,launch:29,spin:9500,ht:75, land:49},
-    X:  {carry:72, total:null,bspd:69,cspd:75,launch:35,spin:10000,ht:70,land:50},
+    /* Totals here MUST agree with the partials ladder's `full` below and must never be under
+       their own carry. W read total 108 against carry 110 — a carry longer than the total
+       containing it — which made the carry/total ratio exceed 1 and printed carry above total
+       on every rung of that row. S and X had no total at all, so surfaces fell back to carry
+       and showed a full wedge with zero roll. All three now carry a 2 yd rollout, matching
+       the ladder (112 / 97 / 74) and the P row's own carry-to-total step. */
+    W:  {carry:110,total:112,bspd:90, cspd:83,launch:27,spin:9000,ht:75, land:49},
+    S:  {carry:95, total:97,  bspd:80,cspd:81,launch:29,spin:9500,ht:75, land:49},
+    X:  {carry:72, total:74,  bspd:69,cspd:75,launch:35,spin:10000,ht:70,land:50},
     Pu: {carry:null,total:null,bspd:null,cspd:null,launch:null,spin:null,ht:null,land:null}
   },
   /* partial swings — total distances (carry + green rollout), single source.
