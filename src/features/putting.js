@@ -285,7 +285,7 @@ function buildPuttSVG(distFt,breakIn,dir,slope,pace){
 
   const slopeLabel='';
 
-  return `<svg data-pz viewBox="0 0 ${W} ${H}" style="width:100%;display:block;border-radius:14px;overflow:hidden" xmlns="http://www.w3.org/2000/svg">
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block;border-radius:14px;overflow:hidden" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <radialGradient id="gg${dir}" cx="50%" cy="45%" r="65%">
         <stop offset="0%" stop-color="#1a6a3a"/>
@@ -364,7 +364,7 @@ function buildPuttProfileSVG(distFt, elevIn, pace, stimp){
       effLabel=`<text x="8" y="12" font-family="ui-monospace,monospace" font-size="7.5" font-weight="700" fill="#f4d47a">stroke it as ${ftNum(eff.ft,1)} ${ftUnit()}${deltaTxt}</text>`;
     }
   }
-  return `<svg data-pz viewBox="0 0 ${W} ${H}" style="width:100%;display:block" xmlns="http://www.w3.org/2000/svg">
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block" xmlns="http://www.w3.org/2000/svg">
     <rect width="${W}" height="${H}" fill="var(--surface2)" rx="10"/>
     ${surface}${rollLine}${overrun}${cup}${flag}${ball}
     ${distLabel}${slopeLabel}${effLabel}

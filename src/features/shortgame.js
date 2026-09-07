@@ -393,7 +393,7 @@ function buildChipSVG(carryYd, rollYd, loftDeg, opts){
     <line x1="${stopX.toFixed(1)}" y1="${stopY.toFixed(1)}" x2="${stopX.toFixed(1)}" y2="${flagTopY.toFixed(1)}" stroke="#c9c9c9" stroke-width="${(1.4*fScale).toFixed(2)}" stroke-linecap="round"/>
     <polygon points="${stopX.toFixed(1)},${flagTopY.toFixed(1)} ${(stopX-ffw).toFixed(1)},${(flagTopY+ffh*0.5).toFixed(1)} ${stopX.toFixed(1)},${(flagTopY+ffh).toFixed(1)}" fill="${flagRed}"/>`;
 
-  return `<svg data-pz viewBox="0 0 ${W} ${H+12}" style="width:100%;display:block" xmlns="http://www.w3.org/2000/svg">
+  return `<svg viewBox="0 0 ${W} ${H+12}" style="width:100%;display:block" xmlns="http://www.w3.org/2000/svg">
     <line x1="${PAD-3}" y1="${groundY}" x2="${landX.toFixed(1)}" y2="${groundY}" stroke="var(--border2)" stroke-width="1"/>
     ${greenSurface}
     ${launchIndicator}
@@ -434,16 +434,23 @@ function chipSetupSummary(){
    six-column matrix printed one number six times per row. The split is the whole content, and
    one honest way of saying it is enough — a percentage pair and a ratio were the same fact
    twice. It comes from chipLiveRollRatio, the same call the shot options above use, so the
-   chart and the dial cannot drift apart. */
+   chart and the dial cannot drift apart.
+   Carry leads: the carry number is the one being planned and then executed — a landing spot is
+   a thing you can pick out and hit, where a roll figure is only ever the consequence. Roll and
+   the ratio sit behind it in the same row for the golfer who thinks in 1:3. */
 function buildChipMatrix(){
   chipSyncElevRoll();
   const typeColor=c=>c.type==='wedge'?'var(--c-wedge)':c.type==='iron'?'var(--c-iron)':c.type==='putter'?'var(--c-putter)':'var(--c-wood)';
-  let html=`<thead><tr><th style="text-align:left;padding-left:12px">Club</th><th>Carry : Roll</th></tr></thead><tbody>`;
+  let html=`<thead><tr><th style="text-align:left;padding-left:12px">Club</th><th>Carry</th><th>Roll</th><th>Ratio</th></tr></thead><tbody>`;
   chipClubs().forEach(c=>{
+    const R=chipLiveRollRatio(c.loft);
+    const carryPct=100/(1+R);                 /* the share that flies — what you actually aim at */
     const col=typeColor(c);
     html+=`<tr>
       <td style="padding-left:12px;white-space:nowrap"><span style="font-family:Arial,sans-serif;font-weight:800;font-size:.95rem;color:${col}">${c.label}</span> <span style="font-family:ui-monospace,monospace;font-size:.56rem;color:var(--muted)">${c.loft}</span></td>
-      <td><div class="chip-cell" style="color:${col}">${chipRatioStr(chipLiveRollRatio(c.loft))}</div></td>
+      <td><div class="chip-cell" style="color:${col}">${carryPct.toFixed(0)}%</div></td>
+      <td><div class="chip-cell chip-cell-sub">${(100-carryPct).toFixed(0)}%</div></td>
+      <td><div class="chip-cell chip-cell-sub">${chipRatioStr(R)}</div></td>
     </tr>`;
   });
   const t=document.getElementById('chip-matrix-table'); if(t) t.innerHTML=html+'</tbody>';

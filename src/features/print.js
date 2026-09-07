@@ -61,10 +61,13 @@ function prChipTable(){
   let body='';
   clubs.forEach(c=>{
     const R=(typeof chipLiveRollRatio==='function')?chipLiveRollRatio(c.loft):1;
+    const carryPct=100/(1+R);
     body+=`<tr><td class="club"><span class="big">${c.label}</span><span class="sm">${c.loft||''}</span></td>`
-      +`<td><span class="big">${(typeof chipRatioStr==='function')?chipRatioStr(R):R.toFixed(1)}</span></td></tr>`;
+      +`<td><span class="big">${carryPct.toFixed(0)}%</span></td>`
+      +`<td>${(100-carryPct).toFixed(0)}%</td>`
+      +`<td>${(typeof chipRatioStr==='function')?chipRatioStr(R):R.toFixed(1)}</td></tr>`;
   });
-  const head=`<tr><th>Club</th><th>Carry : Roll</th></tr>`;
+  const head=`<tr><th>Club</th><th>Carry<span class="thsub">of shot</span></th><th>Roll</th><th>Ratio</th></tr>`;
   return `<table class="ref"><thead>${head}</thead><tbody>${body}</tbody></table>`;
 }
 

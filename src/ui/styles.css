@@ -595,6 +595,7 @@ table.chip-matrix td:first-child{padding-left:12px;font-family:ui-monospace,mono
 table.chip-matrix tr:last-child td{border-bottom:none}
 table.chip-matrix tr:hover td{background:var(--surface2)}
 .chip-cell{font-family:Arial,sans-serif;font-weight:700;font-size:1.1rem;letter-spacing:.02em;color:var(--ink);line-height:1;text-align:center}
+.chip-cell-sub{font-size:.8rem;font-weight:600;color:var(--muted)}
 .chip-cell small{display:block;font-family:ui-monospace,monospace;font-size:.62rem;color:var(--muted);margin-top:1px;font-weight:400}
 
 /* SHORT GAME VARIABLES */
