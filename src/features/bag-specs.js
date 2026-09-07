@@ -128,6 +128,22 @@ function buildSpecs(){
    are interchangeable in a way a 7 and an 8 iron are not) and it exempts these clubs from the
    wide-carry-gap warning. A sand wedge sits BELOW it on purpose — it is a full-swing club. */
 const GREENSIDE_WEDGE_LOFT = 57;
+/* Wedge naming by loft, Mark's convention: 58-61 is an L, 62 and up an X. Everything below
+   keeps the name the club already had — a P is a P at 46 or 48.
+   AUTO-LABELLING ONLY EVER FILLS A GAP. A label the golfer typed is theirs and is never
+   recomputed, because the label is what they call the club, not a fact derived from its loft:
+   re-lofting an "L" one degree does not make it something else if they still call it their L.
+   So this runs when a club has no label, or when one arrives from Backups without its own. */
+const WEDGE_LABEL_BANDS = [[62,'X'],[58,'L'],[54,'S'],[50,'G'],[45,'P']];
+function autoLabelForLoft(loft){
+  const n=parseFloat(loft); if(isNaN(n)) return null;
+  for(const [min,lbl] of WEDGE_LABEL_BANDS) if(n>=min) return lbl;
+  return null;                                   /* irons and up keep their own numbering */
+}
+/* The bag is fourteen clubs, putter included — the Rule of Golf, and the reason a swap is an
+   EXCHANGE rather than an add. Backups is unbounded. */
+const MAX_BAG_CLUBS = 14;
+function bagIsFull(){ return (STATE.clubs||[]).length >= MAX_BAG_CLUBS; }
 function repMatches(c){
   const effLoft=parseFloat(c.loft);
   const loftTol = c.type==='putter' ? 1
@@ -187,7 +203,7 @@ function swapIntoBag(clubId, o){
   };
   if(c.grip) displaced.grip=c.grip;
   if(c.weightOz) displaced.weightOz=c.weightOz;
-  c.label=o.label||c.label; c.make=o.make; c.model=o.model; c.shaft=o.shaft;
+  c.label = o.label || autoLabelForLoft(o.effLoft) || c.label; c.make=o.make; c.model=o.model; c.shaft=o.shaft;
   if(o.length) c.length=o.length;
   if(o.effLoft!=null){ c.loft=o.effLoft+'°'; c.origLoft=o.effLoft+'°'; }
   if(o.lie) c.lie=o.lie; if(o.year) c.year=o.year; if(o.swt) c.swt=o.swt; if(o.type) c.type=o.type;
@@ -282,6 +298,7 @@ function toggleSpecs(c,row,group){
       <div class="edit-grid">
         <div class="edit-subhead">Physical Spec</div>
         ${sf('Make','make',c.make,'spec')}${sf('Model','model',c.model,'spec')}${sf('Shaft','shaft',c.shaft,'spec')}
+        <div class="edit-field"><label>Label <span style="font-weight:400;text-transform:none;letter-spacing:0">— 2 characters, yours to choose</span></label><input data-club="${c.id}" data-kind="spec" data-key="label" maxlength="2" value="${escapeHtml(c.label||'')}"></div>
         ${sf('Length','length',c.length,'spec')}${sf('Eff. Loft','loft',c.loft,'spec')}${sf('Lie','lie',c.lie,'spec')}
         ${sf('Orig. Loft','origLoft',c.origLoft,'spec')}${sf('Swing Wt','swt',c.swt,'spec')}${sf('Year','year',c.year,'spec')}
         ${putterExtra}
@@ -771,4 +788,4 @@ function logHcpSnapshot(){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { GREENSIDE_WEDGE_LOFT, MY_DATA_SOURCES, buildMyData, buildUnitToggle, renderStrikeCal, setStrikeCorr, buildProfile, buildSpecs, clearBallForm, estimatePerfForLoft, exportData, generateFromSwingSpeed, hcpTrendHtml, importData, logHcpSnapshot, pfDirtyInit, pfMaybeSave, repMatches, resetData, buildEsCompareToggle, backupSlotPicker, backupToBag, bkToggle, bkSpec, miniCell, buildBackups, removeToBackups, swapIntoBag, saveCalibration, saveClub, saveProfile, sel, selectReplacement, syncPartialsForClub, toggleSpecs });
+Object.assign(window, { GREENSIDE_WEDGE_LOFT, MAX_BAG_CLUBS, WEDGE_LABEL_BANDS, autoLabelForLoft, bagIsFull, MY_DATA_SOURCES, buildMyData, buildUnitToggle, renderStrikeCal, setStrikeCorr, buildProfile, buildSpecs, clearBallForm, estimatePerfForLoft, exportData, generateFromSwingSpeed, hcpTrendHtml, importData, logHcpSnapshot, pfDirtyInit, pfMaybeSave, repMatches, resetData, buildEsCompareToggle, backupSlotPicker, backupToBag, bkToggle, bkSpec, miniCell, buildBackups, removeToBackups, swapIntoBag, saveCalibration, saveClub, saveProfile, sel, selectReplacement, syncPartialsForClub, toggleSpecs });

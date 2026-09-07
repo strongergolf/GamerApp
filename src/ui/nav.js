@@ -103,7 +103,6 @@ function refreshAll(){
   buildEyPanel('approach');
   buildEyPanel('shortgame');
   buildPutting();
-  renderPuttSG();
   renderExpectedShots('es-150', 95, typeof approachLie==='function'?approachLie():'fairway');
   renderExpectedShots('es-short', 20, 'atg');
   renderExpectedShots('es-putting', 15, 'green');

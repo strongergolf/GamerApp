@@ -71,7 +71,10 @@ function buildPartialsTable(){
         const aCarry=(window.adjustOn&&carry!=null)?adjCarry(carry):carry;
         const aTotal=(window.adjustOn&&carry!=null)?adjTotal(carry,total):Math.round(total);
         const t=aTotal+(window.approachGreenFirmness||0);
-        html+=`<td><div class="carry-cell">${t}<small>${aCarry!=null?Math.round(aCarry)+' carry':'—'}</small></div></td>`;
+        /* CARRY leads: it is the number you fly the ball, and the one you aim at a
+           front edge or a bunker lip with. Total follows underneath — it matters once
+           the ball is down, which is a second question. */
+        html+=`<td><div class="carry-cell">${aCarry!=null?Math.round(aCarry):'—'}<small>${t} total</small></div></td>`;
       }
     });
     html+=`</tr>`;
@@ -104,7 +107,7 @@ function wedgeModel(){
     const fl=p.launch||25, fs=p.spin||8000, fh=p.ht||75;
     /* 8:00 flight numbers continue the rung-to-rung steps the ¾/½ model already uses
        (−2° launch, ×0.88 spin, ×0.85 height per rung down). Presumed, like its carry. */
-    return {id,label:c.label,loft:c.loft,
+    return {id,label:c.label,loft:c.loft,type:c.type,
       carries:{full:pr.full,tq:pr.tq,half:pr.half,third:pr.third},
       launch:{full:fl,tq:Math.max(8,fl-2),half:Math.max(6,fl-4),third:Math.max(5,fl-6)},
       spin:{full:fs,tq:Math.round(fs*0.88),half:Math.round(fs*0.76),third:Math.round(fs*0.64)},
@@ -119,7 +122,7 @@ function wedgeModel(){
     .map(c=>{
       const p=perf(c.id); const full=p.total||p.carry||null;
       const fl=p.launch||18, fs=p.spin||5500, fh=p.ht||90;
-      return {id:c.id,label:c.label,loft:c.loft,
+      return {id:c.id,label:c.label,loft:c.loft,type:c.type,
         carries:{full, tq:null, half:null, third:null},
         launch:{full:fl,tq:fl,half:fl,third:fl}, spin:{full:fs,tq:fs,half:fs,third:fs}, height:{full:fh,tq:fh,half:fh,third:fh}};
     })
@@ -170,13 +173,11 @@ function clubRanges(clubs){
 function clubUsableRange(club){
   return clubRanges([club]).get(club.id)||null;
 }
-/* wedgeModel rows carry id/label/loft but not the club TYPE, which is what the colour keys
-   off; look it up rather than re-deriving type from loft, so a utility iron stays whatever
-   the bag says it is. */
-function clubTypeOf(mc){
-  const c=(STATE.clubs||[]).find(x=>x.id===(mc&&mc.id));
-  return c?c.type:'iron';
-}
+/* The club TYPE rides on every model row (see wedgeModel). It has to: buildTopSVG and
+   buildSideSVG both colour by typeHex(c.type), and while the rows omitted it every Approach
+   visual resolved undefined and fell through to the grey putter colour — which is why the
+   dispersion oval refused to take the club's colour. */
+function clubTypeOf(mc){ return (mc&&mc.type) || 'iron'; }
 function calcSuggestions(target){
   const clubs=wedgeModel(); const out=[];
   const ranges=clubRanges(clubs);

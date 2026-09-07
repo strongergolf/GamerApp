@@ -267,7 +267,7 @@ function buildSideSVG(c,p){
     const rc=rollout<0?'#d96070':tc;
     roll+=`<line x1="${bx.toFixed(1)}" y1="${groundY}" x2="${totalX}" y2="${groundY}" stroke="${rc}" stroke-width="1.5" opacity="0.6"/>`;
     roll+=`<circle cx="${totalX}" cy="${groundY}" r="2" fill="${rc}" opacity="0.7"/>`;
-    roll+=`<text x="${(totalX-2).toFixed(1)}" y="${groundY+9}" text-anchor="end" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="12" fill="${rc}" opacity="0.8">${rollout<0?ydNum(total)+ydUnit()+' (checks back)':ydNum(total)+ydUnit()+' total'}</text>`;
+    roll+=`<text x="${(totalX-2).toFixed(1)}" y="${groundY+9}" text-anchor="end" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="10" fill="${rc}" opacity="0.8">${rollout<0?ydNum(total)+ydUnit()+' (checks back)':ydNum(total)+ydUnit()+' total'}</text>`;
   }
   const lx2=x0+24*Math.cos(launchRad),ly2=y0-24*Math.sin(launchRad);
   const rx2=carryX-24*Math.cos(landRad),ry2=y3-24*Math.sin(landRad);
@@ -278,14 +278,14 @@ function buildSideSVG(c,p){
   return `<svg viewBox="0 0 ${W} ${H+14}" style="width:100%;display:block" xmlns="http://www.w3.org/2000/svg">
     <line x1="4" y1="${groundY}" x2="${W-4}" y2="${groundY}" stroke="#c0d8cf" stroke-width="0.8"/>
     <line x1="${pk.x.toFixed(1)}" y1="${(pk.y+2).toFixed(1)}" x2="${pk.x.toFixed(1)}" y2="${groundY}" stroke="#c0d8cf" stroke-width="0.6" stroke-dasharray="3,2"/>
-    <text x="${htLX.toFixed(1)}" y="${htLY.toFixed(1)}" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="13" fill="#3a5a7a">${p.ht!=null?ftNum(p.ht)+ftUnit():'—'}</text>
-    <text x="${((PAD_L+carryX)/2).toFixed(1)}" y="${H+10}" text-anchor="middle" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="12" fill="#3a5a7a">${ydNum(carry)}${ydUnit()} carry</text>
+    <text x="${htLX.toFixed(1)}" y="${htLY.toFixed(1)}" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="10" fill="#3a5a7a">${p.ht!=null?ftNum(p.ht)+ftUnit():'—'}</text>
+    <text x="${((PAD_L+carryX)/2).toFixed(1)}" y="${H+10}" text-anchor="middle" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="10" fill="#3a5a7a">${ydNum(carry)}${ydUnit()} carry</text>
     <path d="${flight}" fill="none" stroke="${tc}" stroke-width="1.8" opacity="0.9"/>
     ${roll}
     <line x1="${x0}" y1="${y0}" x2="${lx2.toFixed(1)}" y2="${ly2.toFixed(1)}" stroke="#1a5aaa" stroke-width="1.2" opacity="0.7"/>
-    <text x="${x0+2}" y="${groundY-5}" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="6" fill="#1a5aaa">${p.launch||'—'}°</text>
+    <text x="${x0+2}" y="${groundY-5}" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="9" fill="#1a5aaa">${p.launch||'—'}°</text>
     <line x1="${carryX.toFixed(1)}" y1="${y3}" x2="${rx2.toFixed(1)}" y2="${ry2.toFixed(1)}" stroke="#d96070" stroke-width="1.2" opacity="0.7"/>
-    <text x="${(carryX-30).toFixed(1)}" y="${groundY-5}" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="6" fill="#d96070">${p.land||'—'}°</text>
+    <text x="${(carryX-30).toFixed(1)}" y="${groundY-5}" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="9" fill="#d96070">${p.land||'—'}°</text>
     <circle cx="${x0}" cy="${y0}" r="2.5" fill="${tc}"/>
     <circle cx="${carryX.toFixed(1)}" cy="${y3}" r="2" fill="#d96070"/>
   </svg>`;
