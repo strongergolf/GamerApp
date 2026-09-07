@@ -1,9 +1,9 @@
 // Printable on-course reference card (StrongerGolf-branded cardstock for the scorecard
 // holder). Two sides:
-//   Side 1 — Partial Approach Shots  +  Chip Shot Matrix
-//   Side 2 — Full-Swing Stock Shots  +  Chip Shot Matrix
+//   Side 1 — Partial Approach Shots  +  Chip Carry & Roll Split
+//   Side 2 — Full-Swing Stock Shots  +  Chip Carry & Roll Split
 // Approach/Stock cells show Total (big) over Carry (small) for the 11:00/10:00/9:00 swings.
-// Chip cells show the total distance for a 2 / 5 / 10 yd carry. All from live bag data.
+// Chip cells show how each club divides a chip into carry and roll. All from live bag data.
 
 /* Full / ¾ / ½ / ⅓ swing table for a set of club ids (Total over Carry per cell). */
 function prSwingTable(clubIds){
@@ -51,19 +51,32 @@ function prFullTable(clubIds){
   const head=`<tr><th>Club</th><th>Carry</th><th>Total</th><th>86% L/R</th></tr>`;
   return `<table class="ref"><thead>${head}</thead><tbody>${body}</tbody></table>`;
 }
-/* Chip matrix — total distance (carry + rollout) for a 2 / 5 / 10 yd carry per club. */
+/* CHIP REFERENCE — the carry-to-roll split per club, matching the Short Game tab.
+   It used to print the total for a 2 / 5 / 10 yd carry, but roll is proportional to carry, so
+   those three columns were the same split restated three times. The split itself is the useful
+   thing standing over the ball: what share of the shot flies, and where to land it. */
 function prChipTable(){
-  const carries=[2,5,10], stimp=STATE.stimp;
+  const stimp=STATE.stimp;
   const clubs=(typeof PARTIAL_CLUBS!=='undefined'?PARTIAL_CLUBS:['7i','8i','9i','P','W','S','X'])
     .map(id=>(STATE.clubs||[]).find(c=>c.id===id)).filter(Boolean);
   let body='';
   clubs.forEach(c=>{
     const loft=parseFloat(c.loft)||35;
-    const cells=carries.map(carry=>{ const total=carry+(typeof chipRollout==='function'?chipRollout(carry,loft,stimp,0,true):carry); return `<td>${Math.round(total*10)/10}</td>`; }).join('');
-    body+=`<tr><td class="club"><span class="big">${c.label}</span><span class="sm">${c.loft||''}</span></td>${cells}</tr>`;
+    const roll=(typeof chipRollout==='function')?chipRollout(1,loft,stimp,0,true):1;
+    const carryPct=100/(1+roll);
+    body+=`<tr><td class="club"><span class="big">${c.label}</span><span class="sm">${c.loft||''}</span></td>`
+      +`<td><span class="big">${carryPct.toFixed(0)}%</span></td>`
+      +`<td>${(100-carryPct).toFixed(0)}%</td>`
+      +`<td>1 : ${roll.toFixed(1)}</td></tr>`;
   });
-  const head=`<tr><th>Club</th>${carries.map(y=>`<th>${y} yd<span class="thsub">Carry</span></th>`).join('')}</tr>`;
+  const head=`<tr><th>Club</th><th>Carry<span class="thsub">of shot</span></th><th>Roll<span class="thsub">of shot</span></th><th>Ratio</th></tr>`;
   return `<table class="ref"><thead>${head}</thead><tbody>${body}</tbody></table>`;
+}
+/* The split only holds for the setup it was computed from, so the card carries it too —
+   otherwise the numbers look absolute when they are anything but. */
+function prChipNote(){
+  const txt=(typeof chipSetupSummary==='function')?chipSetupSummary():`stimp ${STATE.stimp.toFixed(1)}`;
+  return `<div class="chip-note">Same split at every distance &middot; ${txt}</div>`;
 }
 /* Longer clubs (driver / woods / hybrids / long irons) not in the partial set, longest first. */
 function prStockClubIds(){
@@ -103,7 +116,7 @@ function prCard(){
       <div class="col"><div class="mtitle">Full Swing Stock Shots</div>${prFullTable(prAllFullIds())}</div>
       <div class="col">
         <div class="mtitle">Partial Approach Shots</div>${prSwingTable(partialIds)}
-        <div class="mtitle" style="margin-top:12px">Chip Shot Matrix</div>${prChipTable()}
+        <div class="mtitle" style="margin-top:12px">Chip Carry &amp; Roll Split</div>${prChipNote()}${prChipTable()}
       </div>
     </div>
     <div class="foot">${prMark}<span>Player&rsquo;s App &middot; ${new Date().toLocaleDateString()}</span></div>
@@ -123,6 +136,7 @@ function printCardHTML(sides){
     .head .cond-note b{color:#00853F}
     .cols{display:flex;gap:18px;align-items:flex-start}
     .col{flex:1;min-width:0}
+    .chip-note{font-size:.55rem;font-weight:600;color:#5A6B7B;text-align:center;margin:-2px 0 5px}
     .mtitle{font-size:.72rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#0C2340;text-align:center;margin-bottom:5px}
     table.ref{width:100%;border-collapse:collapse}
     table.ref th{background:#0C2340;color:#fff;padding:5px 4px;border:1px solid #0C2340;font-size:9px;font-weight:700;letter-spacing:.04em;line-height:1.15}
@@ -149,4 +163,4 @@ function printCard(){
 /* All three matrix buttons print the unified two-sided reference card. */
 function printMatrix(type){ printCard(); }
 
-Object.assign(window, { printMatrix, printCard, prCard, prConditionsNote, prSwingTable, prFullTable, prChipTable, prStockClubIds, stockShotsPrintTable, printCardHTML });
+Object.assign(window, { printMatrix, printCard, prCard, prConditionsNote, prSwingTable, prFullTable, prChipTable, prChipNote, prStockClubIds, stockShotsPrintTable, printCardHTML });

@@ -65,7 +65,8 @@ function buildShortGame(){
          source, so there is one place that answers "what is feeding the model". -->
 
     <!-- 6. Chip Matrix — at-a-glance, very bottom of the tab -->
-    <div class="section-label" style="margin-top:22px;display:flex;align-items:center;justify-content:space-between;gap:10px">Chip Reference Matrix — Total Distance by Club &amp; Carry <button class="print-btn" onclick="printMatrix('chip')">⎙ Print</button></div>
+    <div class="section-label" style="margin-top:22px;display:flex;align-items:center;justify-content:space-between;gap:10px">Chip Carry &amp; Roll <button class="print-btn" onclick="printMatrix('shortgame')">⌘ Print</button></div>
+    <p class="gen-note" id="chip-matrix-note" style="margin:0 2px 8px"></p>
     <div class="chip-matrix-wrap"><table class="chip-matrix" id="chip-matrix-table"></table></div>`;
 
   buildChipMatrix();
@@ -175,22 +176,27 @@ function renderSgVars(){
   const arrow=x=>x>0.05?'▲':x<-0.05?'▼':'·';
   const fmt=(x,u,d=1)=>`${x>0?'+':''}${x.toFixed(d)}${u}`;
   const provNote=net.prov?'<span class="sgv-prov" style="margin-left:6px">includes provisional values</span>':'';
+  /* Two rows, split by CAUSE and EFFECT rather than absolute-vs-delta. The old pair showed
+     effective loft and bounce TWICE — absolute in the impact row, again as a delta below — so
+     half of eight cells were the same two numbers said differently. What the setup does to the
+     club at impact is the cause; what that does to the shot is the effect; and the effect only
+     means anything as a change from standard, which is what this panel exists to show. */
   const readout=`
     <div class="sgv-readout">
       <div class="sgv-readout-head">Net Shot Effect ${provNote}</div>
-      <div class="sgv-impact">
-        <span>Shaft lean <b>${a.horizLean.toFixed(0)}°</b></span>
-        <span>Vert path <b>${a.vertPath>0?'+':''}${a.vertPath.toFixed(0)}°</b></span>
-        <span>Eff. loft <b>${a.effLoft>0?'+':''}${a.effLoft.toFixed(1)}°</b></span>
-        <span>Bounce <b>${a.bounce>0?'+':''}${a.bounce.toFixed(0)}°</b></span>
+      <div class="sgv-eff-row">
+        <span class="sgv-eff-k">At impact</span>
+        <span class="sgv-eff-v">shaft lean <b>${a.horizLean.toFixed(0)}&deg;</b></span>
+        <span class="sgv-eff-v">vert. path <b>${a.vertPath>0?'+':''}${a.vertPath.toFixed(0)}&deg;</b></span>
       </div>
-      <div class="sgv-shot">
-        <div class="sgv-shot-cell"><span class="sgv-k">Effective Loft</span><span class="sgv-v">${arrow(net.dEffLoft)} ${fmt(net.dEffLoft,'°')}</span></div>
-        <div class="sgv-shot-cell"><span class="sgv-k">Launch</span><span class="sgv-v">${arrow(net.dLaunch)} ${fmt(net.dLaunch,'°')}</span></div>
-        <div class="sgv-shot-cell"><span class="sgv-k">Spin</span><span class="sgv-v">${arrow(net.dSpin)} ${fmt(net.dSpin,' rpm',0)}</span></div>
-        <div class="sgv-shot-cell"><span class="sgv-k">Bounce</span><span class="sgv-v">${arrow(net.dBounce)} ${fmt(net.dBounce,'°')}</span></div>
+      <div class="sgv-eff-row">
+        <span class="sgv-eff-k">Shot, vs standard</span>
+        <span class="sgv-eff-v">${arrow(net.dEffLoft)} loft <b>${fmt(net.dEffLoft,'&deg;')}</b></span>
+        <span class="sgv-eff-v">${arrow(net.dLaunch)} launch <b>${fmt(net.dLaunch,'&deg;')}</b></span>
+        <span class="sgv-eff-v">${arrow(net.dSpin)} spin <b>${fmt(net.dSpin,'',0)}</b></span>
+        <span class="sgv-eff-v">${arrow(net.dBounce)} bounce <b>${fmt(net.dBounce,'&deg;')}</b></span>
       </div>
-      <div class="sgv-readout-foot">vs. the standard chip (Middle · Vertical · Square). <button type="button" class="sgv-reset" onclick="resetSgVars()">Reset to standard</button></div>
+      <div class="sgv-readout-foot">Standard chip = Middle &middot; Vertical &middot; Square. <button type="button" class="sgv-reset" onclick="resetSgVars()">Reset to standard</button></div>
     </div>`;
   wrap.innerHTML=`
     <div class="sgv-cat">
@@ -396,28 +402,52 @@ function buildChipSVG(carryYd, rollYd, loftDeg, opts){
   </svg>`;
 }
 
+/* One line stating everything the chip numbers ASSUME. The reference is meaningless without
+   it: move the ball back or speed the green up and every split below moves with it. */
+function chipSetupSummary(){
+  const sel=STATE.sgVars||{};
+  const nameOf=key=>{
+    const v=(typeof SG_VARS!=='undefined'?SG_VARS.setup:[]).find(x=>x.key===key); if(!v) return null;
+    const o=v.opts.find(o=>o.id===(sel[key]||v.def)); return o?o.label:null;
+  };
+  const fk=window.chipFirmKey||'avg';
+  const firm={vsoft:'very soft',soft:'soft',avg:'average',firm:'firm',vfirm:'very firm'}[fk]||fk;
+  const sl=(typeof chipSlopeVal==='function')?chipSlopeVal():0;
+  const slope=sl>0.1?`${sl}&deg; uphill`:sl<-0.1?`${Math.abs(sl)}&deg; downhill`:'level';
+  return [ 'ball '+(nameOf('ballPos')||'Middle').toLowerCase(),
+           'shaft '+(nameOf('shaftPos')||'Vertical').toLowerCase(),
+           'face '+(nameOf('face')||'Square').toLowerCase(),
+           'stimp '+STATE.stimp.toFixed(1), firm+' green', slope ].join(' &middot; ');
+}
+/* CHIP REFERENCE — a row per club, not a grid of distances.
+   chipRollout is strictly proportional to carry (roll = carry x factor), so the carry-to-roll
+   SPLIT is the same at 2 yards as at 15: the old six-column matrix was printing one number six
+   times per row. What genuinely differs between clubs is the split, so that is what this
+   states — as a share of the shot, and as the 1:x ratio a golfer thinks in. */
 function buildChipMatrix(){
   const clubs=chipClubs();
-  const carries=[2,3,5,8,10,15];
   const stimp=STATE.stimp, slope=chipSlopeVal();
   const typeColor=c=>c.type==='wedge'?'var(--c-wedge)':c.type==='iron'?'var(--c-iron)':c.type==='putter'?'var(--c-putter)':'var(--c-wood)';
-  /* Clubs as rows, carry distances as columns */
-  let html=`<thead><tr><th>Club</th>${carries.map(carry=>`<th>${ydNum(carry)} ${ydUnit()}<br><span style="font-size:.42rem;font-weight:400;color:var(--muted)">carry</span></th>`).join('')}</tr></thead><tbody>`;
+  let html=`<thead><tr><th style="text-align:left;padding-left:12px">Club</th><th>Carry</th><th>Roll</th><th>Ratio</th></tr></thead><tbody>`;
   clubs.forEach(c=>{
     const loft=parseFloat(c.loft);
-    html+=`<tr><td style="padding-left:12px"><span style="font-family:Arial,sans-serif;font-weight:800;font-size:.95rem;color:${typeColor(c)}">${c.label}</span> <span style="font-family:ui-monospace,monospace;font-size:.6rem;font-weight:600;color:var(--ink2)">${c.loft}</span></td>`;
-    carries.forEach(carry=>{
-      const roll=chipRollout(carry,loft,stimp,slope,true);   /* baseline reference — no per-shot firmness/lie */
-      const total=carry+roll;
-      html+=`<td><div class="chip-cell" style="color:${typeColor(c)}">${total.toFixed(1)}<small>+${roll.toFixed(1)}</small></div></td>`;
-    });
-    html+='</tr>';
+    const roll=chipRollout(1,loft,stimp,slope,true);          /* per unit of carry = the ratio */
+    const carryPct=100/(1+roll), rollPct=100-carryPct;
+    const col=typeColor(c);
+    html+=`<tr>
+      <td style="padding-left:12px;white-space:nowrap"><span style="font-family:Arial,sans-serif;font-weight:800;font-size:.95rem;color:${col}">${c.label}</span> <span style="font-family:ui-monospace,monospace;font-size:.56rem;color:var(--muted)">${c.loft}</span></td>
+      <td><div class="chip-cell" style="color:${col}">${carryPct.toFixed(0)}%</div></td>
+      <td><div class="chip-cell" style="color:${col}">${rollPct.toFixed(0)}%</div></td>
+      <td><div class="chip-cell" style="color:${col}">1 : ${roll.toFixed(1)}</div></td>
+    </tr>`;
   });
   const t=document.getElementById('chip-matrix-table'); if(t) t.innerHTML=html+'</tbody>';
+  const n=document.getElementById('chip-matrix-note');
+  if(n) n.innerHTML=`Same split at every distance — roll scales with carry. Assumes <b>${chipSetupSummary()}</b>.`;
 }
 
 
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { sgSetChipDist, buildChipMatrix, buildChipSVG, buildShortGame, fmtChipSlope, renderChipDial, renderSgVars, renderSgCal, sgCalAddShot, sgCalRemove, sgCalReset });
+Object.assign(window, { sgSetChipDist, buildChipMatrix, chipSetupSummary, buildChipSVG, buildShortGame, fmtChipSlope, renderChipDial, renderSgVars, renderSgCal, sgCalAddShot, sgCalRemove, sgCalReset });
