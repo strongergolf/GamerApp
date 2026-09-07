@@ -120,6 +120,8 @@ function mergeDefaults(saved){
     const saved=(sv.unitPrefs||{})[g];
     unitPrefs[g] = (saved==='metric'||saved==='imperial') ? saved : legacyUnits;
   });
+  /* Expected-shots comparison benchmark: one app-wide choice, was a dropdown on every strip. */
+  const esCompare = (typeof ES_COMPARE!=='undefined' && ES_COMPARE[sv.esCompare]) ? sv.esCompare : 'scratch';
   /* New STATE slices — keep saved if present, else default. */
   const missTendency = Object.assign({}, base.missTendency, sv.missTendency||{});
   const skillsTests = Array.isArray(sv.skillsTests) ? sv.skillsTests : base.skillsTests;
@@ -134,6 +136,7 @@ function mergeDefaults(saved){
     sgVars,
     sgCal,
     unitPrefs,
+    esCompare,
     missTendency,
     skillsTests,
     hcpHistory,

@@ -38,6 +38,9 @@ function buildPutting(){
         <input type="range" id="putt-stimp" min="7" max="14" step="0.5" value="${STATE.stimp}" style="width:100%"
           oninput="STATE.stimp=parseFloat(this.value);document.getElementById('putt-stimp-val').textContent=parseFloat(this.value).toFixed(1);const _sg=document.getElementById('sg-stimp');if(_sg){_sg.value=this.value;const _v2=document.getElementById('sg-stimp-val');if(_v2)_v2.textContent=parseFloat(this.value).toFixed(1);}renderPutt();saveState()">
       </div>
+      <!-- Expected shots + strokes gained, folded into the distance box (matches Approach
+           and Short Game — it sat below Situational Info, which was just an inconsistency) -->
+      <div id="es-putting" class="expected-shots-strip"></div>
     </div>
 
     <!-- 2. Situational Info — Break Direction · Putt Slope · Side Slope · Pace -->
@@ -60,8 +63,6 @@ function buildPutting(){
       </div>
     </div>
 
-    <!-- 3. Expected shots strip (below Situational Info; carries the make-% data point) -->
-    <div id="es-putting" class="expected-shots-strip"></div>
 
     <!-- 4. Required Break + Side Profile (left column) · overhead break view (right) —
          the profile slots into the dead space beside the tall overhead SVG -->

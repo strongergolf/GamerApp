@@ -17,11 +17,20 @@ const ES_COMPARE = {
 };
 /* explicit display order (object keys reorder numeric-like keys, so don't rely on Object.keys) */
 const ES_COMPARE_ORDER = ['tour','scratch','6','12','18','24'];
-function esCmp(){ return ES_COMPARE[window.esCompare] || ES_COMPARE.scratch; }
+/* The comparison benchmark is one APP-WIDE setting, chosen in Settings, not a dropdown on
+   every strip. It was a per-strip select, which meant the same question was asked four times
+   on four tabs and the answer did not travel between them. Persisted, so it survives a reload. */
+function esCompareKey(){
+  const v=(window.STATE&&STATE.esCompare)||window.esCompare||'scratch';
+  return ES_COMPARE[v]?v:'scratch';
+}
+function esCmp(){ return ES_COMPARE[esCompareKey()]; }
 function esSetCompare(val){
-  window.esCompare = ES_COMPARE[val] ? val : 'scratch';
-  const ctx=window.esCtx||{};
-  Object.keys(ctx).forEach(id=>{ const c=ctx[id]; renderExpectedShots(id,c.dist,c.lie); });
+  const v = ES_COMPARE[val] ? val : 'scratch';
+  window.esCompare = v;
+  if(window.STATE){ STATE.esCompare = v; if(typeof saveState==='function') saveState(); }
+  if(typeof refreshAll==='function') refreshAll();
+  else { const ctx=window.esCtx||{}; Object.keys(ctx).forEach(id=>{ const c=ctx[id]; renderExpectedShots(id,c.dist,c.lie); }); }
 }
 
 /* Strokes-remaining from the end position (always on the green after the shot), adjusted to the
@@ -68,7 +77,6 @@ function esSetResult(id,val){
    ============================================================ */
 function renderExpectedShots(id, dist, lie){
   const el=document.getElementById(id); if(!el||!dist) return;
-  window.esCompare=window.esCompare||'scratch';
   const cmp=esCmp();
   const embedded = !!el.closest('.calc-dist-block');     // sitting inside a distance box → save space
   const cmpSR=srForPlayer(lie,dist,cmp.hcp);
@@ -94,19 +102,17 @@ function renderExpectedShots(id, dist, lie){
   const h=cmp.hcp, startSR=srForPlayer(lie,dist,h), endSR=esGreenSR(res,h), sg=startSR-endSR-1;
   const sgStr=(sg>=0?'+':'')+sg.toFixed(2);
   const sgColor=sg>=0?'#5fcf8f':'#e3b25a';
-  const cmpSel=`<select class="es-cmp-sel" onchange="esSetCompare(this.value)">`+
-    ES_COMPARE_ORDER.map(k=>`<option value="${k}"${window.esCompare===k?' selected':''}>${ES_COMPARE[k].label} avg</option>`).join('')+`</select>`;
 
   el.innerHTML=`<div class="es-strip${embedded?' es-embedded':''}">
     ${embedded?'':`<div class="es-strip-label">${lieLabel}</div>`}
     <div class="es-strip-body">
       <div class="es-stat">
         <div class="es-val" style="color:${myColor}">${myStr}</div>
-        <div class="es-lbl">my actual</div>
+        <div class="es-lbl">Shots Expected &middot; me</div>
       </div>
       <div class="es-stat">
         <div class="es-val">${cmpSR.toFixed(2)}</div>
-        ${cmpSel}
+        <div class="es-lbl">Shots Expected &middot; ${escapeHtml(cmp.short)}</div>
       </div>
       ${lie==='green'&&typeof puttMakePct==='function'?`<div class="es-stat">
         <div class="es-val">${puttMakePct(dist)}%</div>
@@ -131,4 +137,4 @@ function renderExpectedShots(id, dist, lie){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { renderExpectedShots, esSetResult, esSetCompare, esUpdateSG, esGreenSR, esResultLabel, ES_COMPARE });
+Object.assign(window, { renderExpectedShots, esSetResult, esSetCompare, esCmp, esCompareKey, esUpdateSG, esGreenSR, esResultLabel, ES_COMPARE, ES_COMPARE_ORDER });

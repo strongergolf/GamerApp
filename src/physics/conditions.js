@@ -25,14 +25,16 @@ function airDensity(c){
    atmosphere", because that is where these numbers were actually hit. A reference nobody
    plays in makes the adjustment read as a correction to reality instead of a comparison
    between two real days:
-     22 °C          — a pleasant Lower Mainland spring afternoon
-     50 ft          — Coquitlam sits just above sea level
+     24 °C          — a warm Lower Mainland spring afternoon
+     0 ft           — sea level
      65 % humidity  — coastal spring; higher than the 50 % textbook figure
      30.05 inHg     — the settled high that comes with a clear spring day
-   Air density here is ~1.185 kg/m³ against 1.196 for the old standard, so the same swing
-   carries about 0.5 % further than the previous reference implied. INPUT, not measured — if
-   a launch-monitor session records the conditions it was captured in, use those. */
-const STD_COND = { tempF:71.6, altitudeFt:50, humidity:65, pressureInHg:30.05 };
+   INPUT, not measured — if a launch-monitor session records the conditions it was captured
+   in, use those. Raised from 22 °C / 50 ft in 2026-09: the stock numbers were hit on a warm
+   day at sea level, and a reference colder and higher than reality makes every adjusted carry
+   read short. Thinner reference air means a cold or high day now shows a LARGER penalty,
+   which is the honest direction. */
+const STD_COND = { tempF:75.2, altitudeFt:0, humidity:65, pressureInHg:30.05 };
 
 /* ---------- UNITS ----------
    A preference PER CATEGORY, read everywhere a physical quantity is shown. Stored values stay

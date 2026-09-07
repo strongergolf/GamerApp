@@ -539,6 +539,15 @@ function buildMyData(){
    American golf is played in yards whatever the passport, while everything outside the game
    may well be metric. The two buttons at the top set every row at once, for anyone who does
    want a single answer. */
+/* One app-wide comparison benchmark, chosen here rather than repeated as a dropdown on every
+   expected-shots strip — the same question asked on four tabs, whose answer did not travel. */
+function buildEsCompareToggle(){
+  const el=document.getElementById('escmp-toggle'); if(!el) return;
+  if(typeof ES_COMPARE_ORDER==='undefined'){ el.innerHTML=''; return; }
+  const cur=esCompareKey();
+  el.innerHTML='<div class="unit-row-btns escmp-btns">'+ES_COMPARE_ORDER.map(k=>
+    `<button type="button" class="unit-btn${k===cur?' on':''}" onclick="esSetCompare('${k}')">${escapeHtml(ES_COMPARE[k].label)}</button>`).join('')+'</div>';
+}
 function buildUnitToggle(){
   const el=document.getElementById('unit-toggle'); if(!el) return;
   if(typeof UNIT_SETTINGS==='undefined'){ el.innerHTML=''; return; }
@@ -671,4 +680,4 @@ function logHcpSnapshot(){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { GREENSIDE_WEDGE_LOFT, MY_DATA_SOURCES, buildMyData, buildUnitToggle, renderStrikeCal, setStrikeCorr, buildProfile, buildSpecs, clearBallForm, estimatePerfForLoft, exportData, generateFromSwingSpeed, hcpTrendHtml, importData, logHcpSnapshot, pfDirtyInit, pfMaybeSave, repMatches, resetData, saveCalibration, saveClub, saveProfile, sel, selectReplacement, syncPartialsForClub, toggleSpecs });
+Object.assign(window, { GREENSIDE_WEDGE_LOFT, MY_DATA_SOURCES, buildMyData, buildUnitToggle, renderStrikeCal, setStrikeCorr, buildProfile, buildSpecs, clearBallForm, estimatePerfForLoft, exportData, generateFromSwingSpeed, hcpTrendHtml, importData, logHcpSnapshot, pfDirtyInit, pfMaybeSave, repMatches, resetData, buildEsCompareToggle, saveCalibration, saveClub, saveProfile, sel, selectReplacement, syncPartialsForClub, toggleSpecs });

@@ -1395,3 +1395,6 @@ body.theme-dark .gr-a{color:var(--green2)} body.theme-dark .gr-b{color:var(--c-w
 .set-row.set-row-stack .unit-toggle{width:100%;display:block;border:none;border-radius:0;overflow:visible}
 /* the buttons are no longer clipped by a shared shell, so each carries its own edge */
 .unit-row-btns .unit-btn,.unit-all .unit-btn{border:1px solid var(--border2);border-radius:7px}
+/* comparison-benchmark buttons wrap onto as many rows as they need */
+.escmp-btns{flex-wrap:wrap}
+.escmp-btns .unit-btn{flex:1 1 auto;min-width:84px}

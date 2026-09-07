@@ -66,13 +66,15 @@ const DRIVE_BANDS = [
   { key:'rcy', lie:'recovery', label:'Rcy', max:Infinity, desc:'more than 30 yd offline' }
 ];
 
+/* Ordered as the bag is played: Driver, Irons, Wedges, Putting. The picker renders in this
+   order, so the object's own order IS the display order. */
 const GM_GAMES = {
-  wedge:  { key:'wedge',  label:'Wedge',   kind:'prox',  stations:WEDGE_STATIONS_YD, parPer:WEDGE_PAR_PER,
-            blurb:'One shot from each of twelve stations. Type how close it finished.' },
-  irons:  { key:'irons',  label:'Irons',   kind:'prox',  stations:IRON_STATIONS_YD,  parPer:WEDGE_PAR_PER,
-            blurb:'One shot at each of twelve distances. Type how close it finished.' },
   driver: { key:'driver', label:'Driver',  kind:'drive', stations:null, count:12,
             blurb:'Twelve drives, all count. Type the total distance and how far offline it finished.' },
+  irons:  { key:'irons',  label:'Irons',   kind:'prox',  stations:IRON_STATIONS_YD,  parPer:WEDGE_PAR_PER,
+            blurb:'One shot at each of twelve distances. Type how close it finished.' },
+  wedge:  { key:'wedge',  label:'Wedges',  kind:'prox',  stations:WEDGE_STATIONS_YD, parPer:WEDGE_PAR_PER,
+            blurb:'One shot from each of twelve stations. Type how close it finished.' },
   putt:   { key:'putt',   label:'Putting', kind:'putt',  stations:null, count:12,
             blurb:'Twelve putts - six uphill, six downhill. Type how many putts it took.' }
 };

@@ -120,6 +120,7 @@ function refreshAll(){
   buildGapping();
   buildProfile();
   buildMyData();
+  if(typeof buildEsCompareToggle==='function') buildEsCompareToggle();
   buildGames();
   buildRoundGames();
   renderCalc(95);
