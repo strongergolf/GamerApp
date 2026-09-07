@@ -30,17 +30,21 @@ function buildSpecs(){
     return loftNum(b)-loftNum(a); /* descending loft: X wedge first, driver last */
   });
   const carryOf=c=> c.type==='putter'?0:(perf(c.id).carry||0);
-  /* A greenside wedge is not there to fill a full-swing yardage band — the Approach yardages
-     it covers it still covers (unchanged: it stays an option right across its range), but a
-     wide carry gap ABOVE it is a deliberate bag choice, not a fault, and a pink chip says the
-     opposite. The "too wide" warning is a scoring-club heuristic and is skipped for it.
-     Keyed on LOFT, not on being the most-lofted club in the bag, because those are different
-     things: a bag may carry both an L and an X, or only one, or top out at a sand wedge — and
-     a sand wedge IS a full-swing club (the most common partial-swing club there is), so a gap
-     above it should still flag. GREENSIDE_WEDGE_LOFT is the same 57° threshold repMatches
-     already uses to widen the replacement tolerance, shared so the two cannot drift apart.
-     An OVERLAP is still worth knowing wherever it happens, so the tight flag is untouched. */
-  const isGreensideWedge=c=>c.type!=='putter' && loftNum(c)>=GREENSIDE_WEDGE_LOFT;
+  /* The wide-gap warning asks "is there a full-swing yardage I cannot cover?" — a question
+     that only means something between two SCORING clubs: the irons and the wedges you hit
+     full. It is skipped when either side of the pair is
+       · a wood, hybrid or utility — these sit 25-35 yd apart by design because nothing fits
+         between a fairway wood and a hybrid, so the rule can only ever cry wolf there; or
+       · a greenside wedge — not there to fill a yardage band at all. The Approach yardages it
+         covers it still covers (unchanged: it stays an option right across its range), but a
+         wide carry gap ABOVE it is a bag choice, and a pink chip says the opposite.
+     Keyed on TYPE and LOFT rather than position in the bag, because those differ: a bag may
+     carry both an L and an X, or only one, or top out at a SAND wedge — and a sand wedge is a
+     full-swing club (the most common partial-swing club there is), so a wide gap above one
+     still flags. GREENSIDE_WEDGE_LOFT is the same 57° repMatches already uses to widen the
+     replacement tolerance, shared so the two cannot drift apart.
+     An OVERLAP is worth knowing wherever it happens, so the tight flag is untouched. */
+  const isScoringClub=c=> c.type!=='putter' && c.type!=='wood' && loftNum(c)<GREENSIDE_WEDGE_LOFT;
   const mini=(label,val,wCls='')=>`<div class="spec-mini${wCls?' '+wCls:''}"><span class="sm-l">${label}</span><span class="sm-v">${val==null||val===''?'—':val}</span></div>`;
   /* Mark bends almost the whole bag a degree weak — it adds effective bounce and cuts offset —
      so the loft in play is NOT the loft stamped on the club. Showing only the effective number
@@ -97,8 +101,7 @@ function buildSpecs(){
         const d86Diff=d86!=null&&d86N!=null?'↕ '+ydNum(Math.abs(d86-d86N),1):'—';
         /* carry colour */
         let cBg='var(--bg2)', cCol='var(--muted)';
-        const lobPair = isGreensideWedge(c) || isGreensideWedge(cn);
-        if(gap>15 && !lobPair){cBg='rgba(196,66,122,.12)'; cCol='var(--gold2,#c4427a)';}
+        if(gap>15 && isScoringClub(c) && isScoringClub(cn)){cBg='rgba(196,66,122,.12)'; cCol='var(--gold2,#c4427a)';}
         else if(gap<8){cBg='rgba(214,96,112,.14)'; cCol='#d96070';}
         const gb=(val,wCls,bg,col)=>`<div class="spec-mini gap-mini ${wCls}"><span class="gap-chip" style="background:${bg};color:${col}">${val}</span></div>`;
         const gapRow=document.createElement('div'); gapRow.className='spec-gap-row';

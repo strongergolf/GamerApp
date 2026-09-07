@@ -135,10 +135,10 @@ function buildGapping(){
   /* The per-club gap distances render inline in the Clubs list (see buildSpecs);
      this slot carries the one-line legend decoding the gap-chip colours. */
   const wrap=document.getElementById('gapping-wrap');
-  /* The wide-gap warning is a scoring-club rule, so the legend says where it does not apply
-     rather than quietly making an exception — the lob wedge is a greenside club and a bigger
-     loft gap above it is a bag choice, not a fault. */
-  if(wrap) wrap.innerHTML=`<div style="font-family:ui-monospace,monospace;font-size:.56rem;color:var(--muted);margin:0 0 6px 2px">gap chips between rows = difference to the next club · carry gap: <span style="color:#c4427a;font-weight:700">pink &gt;${ydNum(15)} ${ydUnit()} wide</span> · <span style="color:#d96070;font-weight:700">red &lt;${ydNum(8)} ${ydUnit()} tight</span> · grey = healthy · the wide flag skips the lob wedge, which is not there to fill a full-swing band</div>`;
+  /* The wide-gap warning is a scoring-club rule, so the legend says where it applies rather
+     than quietly making exceptions — woods and hybrids are spaced apart by design, and a
+     greenside wedge is not there to fill a yardage band. */
+  if(wrap) wrap.innerHTML=`<div style="font-family:ui-monospace,monospace;font-size:.56rem;color:var(--muted);margin:0 0 6px 2px">gap chips between rows = difference to the next club · carry gap: <span style="color:#c4427a;font-weight:700">pink &gt;${ydNum(15)} ${ydUnit()} wide</span> · <span style="color:#d96070;font-weight:700">red &lt;${ydNum(8)} ${ydUnit()} tight</span> · grey = healthy · the wide flag applies between scoring clubs only — not woods, hybrids or greenside wedges</div>`;
 }
 function toggleDetail(c,row,group,inner){
   const open=group.classList.contains('open');
