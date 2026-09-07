@@ -193,9 +193,14 @@ function onPuttGradeInput(v){
   renderPutt();
 }
 
-/* ---- Putting outcome model (typical good-player / +3, Presumed — refine from data) ---- */
-/* Make % by putt distance (feet). */
-const PUTT_MAKE_ANCHORS=[[1,99],[2,96],[3,90],[4,82],[5,74],[6,66],[8,52],[10,42],[15,28],[20,20],[25,15],[30,11],[40,7],[50,5],[60,4]];
+/* ---- Putting outcome model ---- */
+/* Make % by putt distance (feet). Moved with the green strokes-remaining table in the 2026-09
+   recalibration, because these are the same fact stated two ways: E(d) = 1 + (1−p(d))·E(leave).
+   The old anchors said 90% from 3 ft while the expected-putts table implied 83% — the two
+   models of the same putt disagreed by seven points, and the 8-footer, the one every golfer
+   has a feel for, sat at 52% when tour is a coin flip. Tour benchmark values, matching the
+   standard on the other lies. */
+const PUTT_MAKE_ANCHORS=[[1,99],[2,97],[3,95],[4,87],[5,79],[6,71],[8,50],[10,39],[15,24],[20,16],[25,11],[30,8],[40,5],[50,3],[60,2]];
 function puttMakePct(d){
   d=Math.max(1,d); const A=PUTT_MAKE_ANCHORS;
   if(d>=A[A.length-1][0]) return A[A.length-1][1];

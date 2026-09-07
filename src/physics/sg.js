@@ -35,7 +35,23 @@ const SR = {
            [120,3.11],[140,3.17],[160,3.25],[180,3.35],[200,3.45],[220,3.57],[240,3.70],
            [260,3.83],[300,4.05],[350,4.28],[420,4.55],[500,4.80]],
   sand:   [[10,2.43],[20,2.53],[30,2.66],[40,2.82],[50,2.92],[60,3.15],[80,3.27],[100,3.36]],
-  green:  [[3,1.20],[5,1.35],[8,1.56],[10,1.65],[15,1.81],[20,1.92],[25,2.02],[30,2.11],[40,2.25],[50,2.37],[60,2.50],[80,2.63]],
+  /* GREEN — RECALIBRATED 2026-09. The 2026-07 pass fixed fairway/rough/sand to the PGA Tour
+     benchmark but left the green table on its old, more pessimistic curve, so putting was the
+     one lie measured against a different standard than everything it feeds.
+     It read 1.20 from 3 feet. A scratch golfer holes better than nine in ten from there, so
+     the honest number is 1.05, and the error ran the whole length of the curve — ~0.15 long
+     at the short end, ~0.30 long on lags. Every close proximity in the games, every SG-putt
+     figure and every green distance in the strategy engine inherited it.
+     Cross-checked against make percentage, which is the same fact stated the other way:
+     E(d) = 1 + (1−p(d))·E(leave). PUTT_MAKE_ANCHORS moved with this table so the two models
+     agree — they disagreed by 7 points at 3 ft before.
+     Also extended DOWN to 1 ft: the table used to clamp at its first entry, so a tap-in from
+     a foot scored identically to a 3-footer, which the proximity games score directly.
+     Reconstructed from the published tour figures, like the other lies — worth checking
+     against Every Shot Counts before treating as final. */
+  green:  [[1,1.001],[2,1.01],[3,1.05],[4,1.14],[5,1.23],[6,1.34],[8,1.50],[10,1.61],
+           [15,1.78],[20,1.87],[25,1.94],[30,2.00],[40,2.09],[50,2.17],[60,2.23],
+           [80,2.33],[100,2.40]],
   atg:    [[5,1.97],[10,2.07],[15,2.15],[20,2.22],[30,2.34],[40,2.46],[55,2.58]],
   /* TEE — expected strokes to hole out from the TEE by hole length (yards), scratch.
      The fairway/rough tables stop at 300/250 yd and clamp, so using them from the tee of a

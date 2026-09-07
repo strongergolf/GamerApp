@@ -25,13 +25,14 @@ function esSetCompare(val){
 }
 
 /* Strokes-remaining from the end position (always on the green after the shot), adjusted to the
-   chosen comparison's handicap. 0 ft = holed. A leave inside 3 ft bridges from ~1.0 (tap-in)
-   to the table's 3 ft value; 3 ft+ uses the green baseline directly. */
+   chosen comparison's handicap. 0 ft = holed; everything else reads the green baseline
+   directly. This used to hand-bridge from 1.0 to the table's 3 ft value because the table
+   started at 3 ft and clamped below it; since the 2026-09 recalibration it runs down to 1 ft,
+   so the bridge would now be a second, worse model of ground the table already covers. */
 function esGreenSR(ft, hcp){
   ft=+ft||0; hcp=hcp||0;
   if(ft<=0) return 0;                                   // holed
-  const at3=srInterp('green',3);
-  const scr = ft<3 ? 1.0 + (ft/3)*(at3-1.0) : srInterp('green',ft);
+  const scr = srInterp('green', Math.max(0.5, ft));
   return scr + (hcp*0.012)*(scr-1);                     // same adjustment as srForPlayer
 }
 function esResultLabel(res,lie){
