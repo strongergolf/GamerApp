@@ -279,8 +279,13 @@ function renderChipDial(){
        card; it used to repeat the carry and roll now shown on the right. */
     const ratio = carry>0.05 ? roll/carry : 0;
     /* always one decimal, so the split reads as a column down the stack — ydNum(4.0,1)
-       returns the NUMBER 4, which would print "4 : 16" beside "3.3 : 16.7" */
-    const splitStr = `${ydNum(carry,1).toFixed(1)} : ${ydNum(roll,1).toFixed(1)}`;
+       returns the NUMBER 4, which would print "4 : 16" beside "3.3 : 16.7".
+       Each half names itself ("10.1 yd carry : 9.9 yd roll") so the line needs no legend
+       under the launch/spin — the units ride small and muted, the numbers keep the weight. */
+    const half=(v,word)=>`${ydNum(v,1).toFixed(1)}<i>${ydUnit()} ${word}</i>`;
+    /* wrapped in its own ROW — .calc-head-anchor is a column flex, so loose inline units
+       would each become their own line and stack the card three deep */
+    const splitStr = `<u class="sg-row">${half(carry,'carry')}<b>:</b>${half(roll,'roll')}</u>`;
     const rc = ratio<=1 ? 'var(--green)' : ratio<=3 ? 'var(--sky)' : 'var(--gold)';
     const rowLaunch=(typeof chipLaunch==='function'?chipLaunch(loft):loft*0.68)+(window.chipStanceLaunchAdj||0);
     const rowSpin=typeof chipSpin==='function'?chipSpin(carry,loft):0;
@@ -288,8 +293,8 @@ function renderChipDial(){
         onclick="selectChipClub(${i})" style="cursor:pointer${!practical&&!selected?';opacity:.5':''}">
       <div class="calc-card-header">
         <div class="calc-club-badge" style="color:${tc}">${c.label}<small>${c.loft}</small></div>
-        <div class="calc-head-main">${rowLaunch.toFixed(0)}° launch <em>·</em> ${(rowSpin/1000).toFixed(1)}k spin<span class="sg-split-lbl">carry : roll ${ydUnit()}</span>${noteStr}</div>
-        <div class="calc-head-anchor" style="color:${rc}">${splitStr}<span>${chipArchetype(loft)}</span></div>
+        <div class="calc-head-main">${rowLaunch.toFixed(0)}° launch <em>·</em> ${(rowSpin/1000).toFixed(1)}k${noteStr}</div>
+        <div class="calc-head-anchor sg-split" style="color:${rc}">${splitStr}<span>${chipArchetype(loft)}</span></div>
       </div>
     </div>`;
   }).join('');
