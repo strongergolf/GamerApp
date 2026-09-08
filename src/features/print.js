@@ -149,6 +149,8 @@ function printCardHTML(sides){
     .foot{display:flex;align-items:center;justify-content:space-between;margin-top:12px;border-top:1px solid #c0cedd;padding-top:7px}
     .foot .mark{font-size:.95rem}
     .foot span{font-size:9px;color:#3a5a7a;letter-spacing:.04em}
+    .cat th,.cat td{font-size:8.5px;padding:2px 4px}
+    .cat td.club .big{font-size:11px}
     @page{margin:12mm;size:landscape}@media print{.card{padding:0}}`;
   return `<!doctype html><html><head><meta charset="utf-8"><title>StrongerGolf — Reference Card</title><style>${css}</style></head><body>${sides.join('')}</body></html>`;
 }
@@ -159,7 +161,42 @@ function printCard(){
   w.focus();
   setTimeout(()=>{ try{ w.print(); }catch(e){} }, 350);
 }
+/* THE CATALOGUE — every club owned, on paper. Not the on-course reference card: that one is
+   yardages for playing, this one is specs for owning — what to hand an insurer, a fitter, or
+   whoever is looking in the garage for the 4 iron. Grouped by where the club lives, because
+   that is how you go and find it. */
+function prCatalogue(){
+  const rows=(typeof clubCatalogue==='function')?clubCatalogue():[];
+  const groups={};
+  rows.forEach(r=>{ (groups[r.where]=groups[r.where]||[]).push(r); });
+  const order=Object.keys(groups).sort((a,b)=> a==='Current Bag'?-1 : b==='Current Bag'?1 : a.localeCompare(b));
+  const cell=v=>(v==null||v==='')?'&mdash;':String(v);
+  const head=`<tr><th>Club</th><th>Make &amp; model</th><th>Loft</th><th>Lie</th><th>Length</th><th>Shaft</th><th>Yr</th><th>Carry</th><th>Total</th></tr>`;
+  const body=order.map(g=>{
+    const list=groups[g].slice();
+    return `<div class="mtitle" style="margin-top:12px">${g} <span style="font-weight:400">&middot; ${list.length}</span></div>`
+      + `<table class="ref cat"><thead>${head}</thead><tbody>` + list.map(r=>
+        `<tr><td class="club"><span class="big">${cell(r.label)}</span></td>`
+        + `<td style="text-align:left">${cell([r.make,r.model].filter(Boolean).join(' '))}</td>`
+        + `<td>${cell(r.loft)}</td><td>${cell(r.lie)}</td><td>${cell(r.length)}</td>`
+        + `<td style="text-align:left">${cell(r.shaft)}</td><td>${cell(r.year)}</td>`
+        + `<td>${cell(r.carry)}</td><td>${cell(r.total)}</td></tr>`).join('')
+      + `</tbody></table>`;
+  }).join('');
+  return `<section class="card">
+    <div class="head">${PR_ARC}${prMark}<div class="sub">Club Catalogue &middot; ${rows.length} clubs</div></div>
+    ${body}
+    <div class="foot">${prMark}<span>Player&rsquo;s App &middot; ${new Date().toLocaleDateString()}</span></div>
+  </section>`;
+}
+function printClubs(){
+  const w=window.open('','_blank');
+  if(!w){ if(typeof toast==='function') toast('Allow pop-ups to print the catalogue'); return; }
+  w.document.open(); w.document.write(printCardHTML([prCatalogue()])); w.document.close();
+  w.focus();
+  setTimeout(()=>{ try{ w.print(); }catch(e){} }, 350);
+}
 /* All three matrix buttons print the unified two-sided reference card. */
 function printMatrix(type){ printCard(); }
 
-Object.assign(window, { printMatrix, printCard, prCard, prConditionsNote, prSwingTable, prFullTable, prChipTable, prChipNote, prStockClubIds, stockShotsPrintTable, printCardHTML });
+Object.assign(window, { printMatrix, printCard, printClubs, prCatalogue, prCard, prConditionsNote, prSwingTable, prFullTable, prChipTable, prChipNote, prStockClubIds, stockShotsPrintTable, printCardHTML });

@@ -52,12 +52,11 @@ function buildSpecs(){
      Stock loft rides along whenever the two differ, small and muted, with the sign of the bend
      so a strong bend reads differently from a weak one. Bounce, where recorded, stays in the
      club's own detail — this is a find-it aid, not a spec sheet. */
-  const loftCell=(c)=>{
-    const eff=parseFloat(c.loft), orig=parseFloat(c.origLoft);
-    if(isNaN(eff)||isNaN(orig)||eff===orig) return c.loft;
-    const d=+(eff-orig).toFixed(1);
-    return `${c.loft}<span class="sm-stock">${orig}° ${d>0?'+':'−'}${Math.abs(d)}</span>`;
-  };
+  /* Just the loft in play. The stock loft and the bend rode along in a second line under
+     every row, which set the row height for the whole list and pushed the Loft number out
+     of line with Length and Lie beside it. Both still live in the club's own editor, which
+     is where a spec belongs; the list is for reading down a column. */
+  const loftCell=(c)=>c.loft;
   let lastType=null;
   sorted.forEach((c,i)=>{
     if(c.type!==lastType){
@@ -401,6 +400,27 @@ function saveClub(id){
 /* Shared select builder — module scope so all render functions can use it */
 const sel=(id,opts,val)=>`<select id="${id}">${opts.map(o=>`<option value="${o}"${o===val?' selected':''}>${o||'—'}</option>`).join('')}</select>`;
 
+/* WHAT THESE STATS ACTUALLY DO. They set the skill the app models you at, per part of the
+   game — so a golfer who putts 34 times is modelled as a worse putter than ball-striker, and
+   Shots Expected on the Putting tab moves accordingly. Left blank they fall back to your
+   handicap index, which is a real answer rather than the blank the app used to show, but a
+   coarse one. Printing the resolved number beside each area is the only way to see which of
+   these fields is doing work and which is still riding on the index. */
+function pfDrivesHTML(){
+  if(typeof effHcpForLie!=='function') return '';
+  const areas=[['tee','Driving','Fairways hit'],['fairway','Approach','Greens in reg'],
+               ['atg','Short game','Up &amp; down'],['green','Putting','Putts per round']];
+  const fmt=h=>h==null?'—':(h<0?'+'+Math.abs(Math.round(h*10)/10):String(Math.round(h*10)/10));
+  const rows=areas.map(a=>{
+    const h=effHcpForLie(a[0]);
+    const src=(typeof effHcpSource==='function')?effHcpSource(a[0]):'index';
+    return `<span class="pf-drive${src==='stat'?' on':''}" title="${src==='stat'
+      ? a[2]+' is setting this' : 'No '+a[2].toLowerCase()+' on file — using your handicap index'}">
+      <b>${a[1]}</b> ${fmt(h)} <i>${src==='stat'?a[2].toLowerCase():'from index'}</i></span>`;
+  }).join('');
+  return `<div class="pf-drive-row">${rows}</div>
+    <p class="gen-note" style="margin:6px 0 0">These set the skill the app models you at in each part of the game — they drive “Shots Expected”, strokes gained, and the Hole Overlay's plan. Anything left blank falls back to your handicap index.</p>`;
+}
 function buildProfile(){
   const pf=STATE.profile;
   const _pg=document.getElementById('profile-grid');
@@ -428,7 +448,8 @@ function buildProfile(){
         <span style="font-family:ui-monospace,monospace;font-size:.52rem;color:var(--muted)">scales all carries proportionally — refine from real data after</span>
       </div>
     </div>
-    <div class="edit-subhead">Typical Round Stats <span style="font-weight:400;font-size:.6rem;color:var(--muted)">powers "my actual" on Approach, Short Game &amp; Putting and the scoring benchmarks</span></div>
+    <div class="edit-subhead">Typical Round Stats</div>
+    <div class="pf-drives" style="grid-column:1/-1">${pfDrivesHTML()}</div>
     <div class="edit-field"><label>Scoring Average</label><input id="pf-scoreavg" type="number" step="0.1" value="${escapeHtml(pf.scoringAvg||'')}" placeholder="e.g. 84"></div>
     <div class="edit-field"><label>Fairways Hit %</label><input id="pf-fir" type="number" step="1" min="0" max="100" value="${escapeHtml(pf.firPct||'')}" placeholder="e.g. 45"></div>
     <div class="edit-field"><label>Greens in Reg %</label><input id="pf-gir" type="number" step="1" min="0" max="100" value="${escapeHtml(pf.girPct||'')}" placeholder="e.g. 40"></div>
@@ -601,6 +622,28 @@ function buildMyData(){
       <h3>My Data <span class="card-sub">what is feeding the model, and how good it is</span></h3>
       <p class="gen-note">Anything measured earns <span class="sg-prov" style="color:var(--green);background:rgba(0,133,63,.12)">Captured</span>; anything typed in earns <span class="sg-prov" style="color:var(--sky);background:rgba(26,90,170,.12)">Input</span>. Everything else is an app default, and says so. Calibrating a source replaces a default with your own golf.</p>
       <div class="src-list">${cards}</div>
+      <!-- PROVENANCE was its own card saying what the badges above mean, and DATA a third one
+           saying where all of it is stored. Both are about the same thing this card already
+           is — what the model is being fed — so they are sections of it rather than neighbours
+           repeating its subject. -->
+      <h4 class="mydata-sub">How every number is sourced</h4>
+      <p class="gen-note">Each data point is labelled by how trustworthy its source is. Calculations inherit the weakest source of their inputs — only maths built purely on Captured data earns Verified.</p>
+      <div class="prov-legend">
+        <div class="prov-legend-item"><span class="sg-prov" style="color:var(--green);background:rgba(0,133,63,.12)">Captured</span> measured by a device — launch monitor, GPS, putt timer.</div>
+        <div class="prov-legend-item"><span class="sg-prov" style="color:var(--green);background:rgba(0,133,63,.12)">✓ Verified</span> calculated directly from Captured data.</div>
+        <div class="prov-legend-item"><span class="sg-prov" style="color:var(--sky);background:rgba(26,90,170,.12)">Input</span> typed in by you — specs, baselines, typical-round stats.</div>
+        <div class="prov-legend-item"><span class="sg-prov" style="color:var(--dp-loft);background:rgba(196,150,30,.16)">Presumed</span> assumed / interviewed / app default — not measured.</div>
+      </div>
+      <p class="gen-note" style="margin-top:10px">Answering profile questions — capturing your full-bag dispersion, say — can unlock features like full course strategy, but an interviewed answer is <em>Presumed</em>, not Captured, until measured data backs it.</p>
+      <h4 class="mydata-sub">Where it lives</h4>
+      <p class="gen-note">All of it — bag, performance numbers, swing data, courses and profile — is saved in this browser and nowhere else. Back it up, move it to another device, or start again from the demo bag. Backup and restore also sit in the <b>Locker Room</b>, beside the clubs.</p>
+      <div class="btn-row">
+        <button class="btn" onclick="exportData()">Backup JSON</button>
+        <button class="btn" onclick="triggerImportFile()">Restore</button>
+        <button class="btn" onclick="exportClubsCsv()">Clubs CSV</button>
+        <button class="btn" onclick="resetData()">Reset to Demo</button>
+        <input type="file" id="import-file" accept="application/json" style="display:none" onchange="importData(event)">
+      </div>
     </div>
     <div class="profile-card">
       <h3>Connected Sources <span class="card-sub">launch monitor, TPI, 3D motion — verify to earn Captured</span></h3>
@@ -686,7 +729,6 @@ function buildBackups(){
     .filter(r=>!V.type||bkTypeOf(r.o)===V.type)
     .filter(r=>!q||hay(r.o).includes(q));
   const ctl='<div class="section-label" style="margin-top:2px">The Collection</div>'
-    + '<p class="intro-note">Every club you own that is not in play. Tap one to edit its specs, or to put it in the bag '+DASH_JS+' you will be asked which club it replaces, and that club comes back here.</p>'
     + '<div class="bk-controls">'
     + '<input class="bk-search" type="search" placeholder="Search make, model, shaft'+ELL_JS+'" value="'+escapeHtml(V.q||'')+'" oninput="bkSetView(\'q\',this.value)">'
     + '<div class="unit-row-btns bk-type">'+BK_TYPES.map(t=>'<button type="button" class="unit-btn'+(V.type===t[0]?' on':'')+'" onclick="bkSetView(\'type\',\''+t[0]+'\')">'+t[1]+'</button>').join('')+'</div>'
@@ -809,6 +851,44 @@ function setStrikeCorr(type,val){
   if(typeof buildHoleOverlay==='function') buildHoleOverlay();
 }
 
+/* CSV or JSON? JSON is the only format that can RESTORE the app: STATE is nested — partial
+   ladders, per-club D-plane tendencies, courses with traced polygons, round history — and a
+   spreadsheet is a rectangle. Flattening it would produce a file that imports back as
+   something less than it was, which is worse than no import at all. So JSON stays the backup,
+   and CSV is offered for the one part of the data that genuinely IS a table: the club
+   catalogue, for a spreadsheet, an insurer or a club-fitter. It is an export, not a backup. */
+const CAT_COLS=[
+  ['Where','where'],['Label','label'],['Type','type'],['Make','make'],['Model','model'],
+  ['Loft','loft'],['Stock loft','origLoft'],['Lie','lie'],['Length','length'],['Shaft','shaft'],
+  ['Swing wt','swt'],['Year','year'],['Grip','grip'],['Carry','carry'],['Total','total']
+];
+/* One flat list of every club owned, bag first, each row saying where it lives. */
+function clubCatalogue(){
+  const rows=[];
+  (STATE.clubs||[]).forEach(c=>{
+    const p=(typeof perf==='function')?perf(c.id):{};
+    rows.push({where:'Current Bag', label:c.label, type:c.type, make:c.make, model:c.model,
+      loft:c.loft, origLoft:c.origLoft, lie:c.lie, length:c.length, shaft:c.shaft,
+      swt:c.swt, year:c.year, grip:c.grip, carry:p&&p.carry!=null?p.carry:'', total:p&&p.total!=null?p.total:''});
+  });
+  (STATE.otherClubs||[]).forEach(o=>{
+    rows.push({where:o.bag||'Locker Room', label:o.label, type:(typeof bkTypeOf==='function')?bkTypeOf(o):(o.type||''),
+      make:o.make, model:o.model, loft:o.effLoft!=null?o.effLoft+'\u00b0':'', origLoft:'', lie:o.lie,
+      length:o.length, shaft:o.shaft, swt:o.swt, year:o.year, grip:o.grip,
+      carry:o.carry!=null?o.carry:'', total:o.total!=null?o.total:''});
+  });
+  return rows;
+}
+function exportClubsCsv(){
+  const esc=v=>{ const t=(v==null?'':String(v)); return /[",\n]/.test(t) ? '"'+t.replace(/"/g,'""')+'"' : t; };
+  const lines=[CAT_COLS.map(c=>esc(c[0])).join(',')]
+    .concat(clubCatalogue().map(r=>CAT_COLS.map(c=>esc(r[c[1]])).join(',')));
+  const blob=new Blob(['\ufeff'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='strongergolf-clubs-'+((STATE.profile.name||'data').replace(/\s+/g,'-').toLowerCase())+'.csv';
+  a.click(); URL.revokeObjectURL(a.href);
+  if(typeof toast==='function') toast('Club catalogue exported (CSV)');
+}
 function exportData(){
   const blob=new Blob([JSON.stringify(STATE,null,2)],{type:'application/json'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
@@ -875,4 +955,4 @@ function logHcpSnapshot(){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { GREENSIDE_WEDGE_LOFT, MAX_BAG_CLUBS, WEDGE_LABEL_BANDS, autoLabelForLoft, bagIsFull, MY_DATA_SOURCES, buildMyData, buildUnitToggle, renderStrikeCal, setStrikeCorr, buildProfile, buildSpecs, ballEditJump, clearBallForm, estimatePerfForLoft, exportData, generateFromSwingSpeed, hcpTrendHtml, importData, logHcpSnapshot, pfDirtyInit, pfMaybeSave, repMatches, resetData, buildEsCompareToggle, backupSlotPicker, backupToBag, bkToggle, bkSpec, bkField, bkSave, bkSetView, bkTypeOf, BK_FIELDS, miniCell, buildBackups, removeToBackups, swapIntoBag, saveCalibration, saveClub, saveProfile, sel, selectReplacement, syncPartialsForClub, toggleSpecs });
+Object.assign(window, { GREENSIDE_WEDGE_LOFT, MAX_BAG_CLUBS, WEDGE_LABEL_BANDS, autoLabelForLoft, bagIsFull, MY_DATA_SOURCES, buildMyData, buildUnitToggle, renderStrikeCal, setStrikeCorr, buildProfile, buildSpecs, ballEditJump, clearBallForm, estimatePerfForLoft, exportData, exportClubsCsv, clubCatalogue, CAT_COLS, generateFromSwingSpeed, hcpTrendHtml, importData, logHcpSnapshot, pfDirtyInit, pfDrivesHTML, pfMaybeSave, repMatches, resetData, buildEsCompareToggle, backupSlotPicker, backupToBag, bkToggle, bkSpec, bkField, bkSave, bkSetView, bkTypeOf, BK_FIELDS, miniCell, buildBackups, removeToBackups, swapIntoBag, saveCalibration, saveClub, saveProfile, sel, selectReplacement, syncPartialsForClub, toggleSpecs });

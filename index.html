@@ -224,14 +224,10 @@
 <div id="page-specs" class="page">
   <!-- Export/Import are shortcuts to the same functions as My App → Data (the full card, incl. Reset, lives there) -->
   <div class="section-label" style="margin-top:0;display:flex;align-items:center;justify-content:space-between;gap:10px">Golf Ball
-    <span style="display:flex;gap:8px;flex-shrink:0">
-      <button class="print-btn" onclick="exportData()" title="Download a JSON backup of all app data">⬇ Export</button>
-      <button class="print-btn" onclick="triggerImportFile()" title="Restore from a JSON backup (confirms &amp; backs up first)">⬆ Import</button>
-    </span>
+    <button class="print-btn" onclick="printClubs()" title="Print every club you own — bag and locker — with its specs">⌘ Print catalogue</button>
   </div>
   <div class="specs-wrap" id="ball-specs-wrap"></div>
   <div class="section-label" style="margin-top:18px">Clubs</div>
-  <div id="gapping-wrap"></div>
   <div class="specs-wrap" id="specs-wrap"></div>
 
 
@@ -317,13 +313,21 @@
     </div>
   </details>
 
-  <div id="backups-wrap" style="margin-top:22px"></div>
+  <div class="section-label" style="margin-top:22px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">Data
+    <span style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="print-btn" onclick="printClubs()" title="Print every club you own — bag and locker — with its specs">⌘ Print catalogue</button>
+      <button class="print-btn" onclick="exportClubsCsv()" title="The club catalogue as a spreadsheet (CSV). An export, not a backup — restore needs the JSON.">⬇ Clubs CSV</button>
+      <button class="print-btn" onclick="exportData()" title="Download a JSON backup of ALL app data — this is the file that can be restored">⬇ Backup JSON</button>
+      <button class="print-btn" onclick="triggerImportFile()" title="Restore from a JSON backup (confirms &amp; backs up first)">⬆ Restore</button>
+    </span>
+  </div>
+  <div id="backups-wrap" style="margin-top:10px"></div>
 </div>
 
 <!-- PROFILE -->
 <div id="page-profile" class="page">
   <div class="profile-card">
-    <h3>Golfer Profile <span style="font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;letter-spacing:.05em;color:var(--muted);text-transform:none">handicap, scoring stats &amp; goals · goal handicap drives the SG diamond goal ring</span></h3>
+    <h3>Golfer Profile</h3>
     <div class="edit-grid" id="profile-grid"></div>
     <div id="hcp-trend-wrap" style="margin-top:12px"></div>
     <div class="btn-row"><button class="btn btn-primary" onclick="saveProfile()">Save Profile</button></div>
@@ -345,7 +349,7 @@
 <!-- MY APP -->
 <div id="page-reference" class="page">
   <div class="section-label" style="margin-top:0">My App</div>
-  <p class="intro-note">App-level preferences — separate from your golfer profile (that lives under <strong>Myself</strong>). The StrongerGolf vocabulary &amp; launch-monitor cross-map now live under <strong>Practice → Resources → Definitions</strong>.</p>
+  <p class="intro-note">App-level preferences — separate from your golfer profile (that lives under <strong>Golfer Profile</strong>). The StrongerGolf vocabulary &amp; launch-monitor cross-map now live under <strong>Practice → Resources → Definitions</strong>.</p>
   <div class="profile-card">
     <h3>Appearance</h3>
     <div class="set-row">
@@ -356,35 +360,18 @@
       <div><div class="set-label">Units</div><div class="set-sub">Set each kind of measurement independently — golf in yards while the weather is in °C, if that is how you think. Stored values never change; only what you see.</div></div>
       <div class="unit-toggle" id="unit-toggle"></div>
     </div>
-    <div class="set-row set-row-stack">
-      <div><div class="set-label">Compare against</div><div class="set-sub">The benchmark every &ldquo;Shots Expected&rdquo; and strokes-gained figure is measured against, across the whole app.</div></div>
-      <div class="unit-toggle" id="escmp-toggle"></div>
-    </div>
+  </div>
+  <!-- Its own card: this is not an appearance preference. It changes the benchmark every
+       expected-shots and strokes-gained figure in the app is read against, which is a
+       statement about whose golf you are measuring yourself by. -->
+  <div class="profile-card">
+    <h3>Compare Against</h3>
+    <p class="gen-note">The benchmark every &ldquo;Shots Expected&rdquo; and strokes-gained figure is measured against, across the whole app. Your own numbers always come from <em>your</em> handicap and stats — this only sets what sits beside them.</p>
+    <div class="unit-toggle" id="escmp-toggle"></div>
   </div>
   <!-- One page that answers "what is feeding the model, and how good is that data". Built in
        JS (buildMyData) because the list of sources is going to keep growing. -->
   <div id="mydata-wrap"></div>
-  <div class="profile-card">
-    <h3>Data</h3>
-    <p class="gen-note">Your bag, performance numbers, swing data and profile are saved in this browser. Export a backup, import it on another device, or reset to the original demo bag.</p>
-    <div class="btn-row">
-      <button class="btn" onclick="exportData()">Export JSON</button>
-      <button class="btn" onclick="triggerImportFile()">Import JSON</button>
-      <button class="btn" onclick="resetData()">Reset to Demo</button>
-      <input type="file" id="import-file" accept="application/json" style="display:none" onchange="importData(event)">
-    </div>
-  </div>
-  <div class="profile-card">
-    <h3>Data Provenance <span style="font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;letter-spacing:.05em;color:var(--muted);text-transform:none">how every number is sourced</span></h3>
-    <p class="gen-note">Every data point is labelled by how trustworthy its source is. Calculations inherit the weakest source of their inputs — only maths built purely on Captured data earns Verified.</p>
-    <div class="prov-legend">
-      <div class="prov-legend-item"><span class="sg-prov" style="color:var(--green);background:rgba(0,133,63,.12)">Captured</span> measured by a device — launch monitor, GPS, putt timer.</div>
-      <div class="prov-legend-item"><span class="sg-prov" style="color:var(--green);background:rgba(0,133,63,.12)">✓ Verified</span> calculated directly from Captured data.</div>
-      <div class="prov-legend-item"><span class="sg-prov" style="color:var(--sky);background:rgba(26,90,170,.12)">Input</span> typed in by you — specs, baselines, typical-round stats.</div>
-      <div class="prov-legend-item"><span class="sg-prov" style="color:var(--dp-loft);background:rgba(196,150,30,.16)">Presumed</span> assumed / interviewed / app default — not measured.</div>
-    </div>
-    <p class="gen-note" style="margin-top:10px">Down the road, answering profile questions (e.g. capturing your full-bag dispersion) can unlock features like full course strategy — but interviewed answers are labelled <em>Presumed</em>, not Captured, until backed by measured data (a Trackman session, on-course tracking, etc.).</p>
-  </div>
 </div>
 
 <div class="toast" id="toast"></div>

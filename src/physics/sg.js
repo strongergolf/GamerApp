@@ -127,7 +127,22 @@ function effHcpForLie(lie){
     if(sa!=null) return clamp((sa-72)*0.93);
     return own;
   }
-  return own;                                          // tee, rough, sand — no per-category input exists
+  if(lie==='tee'){                                    // driving skill <- fairways hit
+    const fir=num(pf.firPct);
+    return fir==null ? own : clamp((0.62-fir/100)*46.0);      // 62%->0, 25%->~17
+  }
+  return own;                                          // rough, sand — no per-category input exists
+}
+/* What a lie's skill number came FROM, so the profile can say whether a field is doing any
+   work. Returns 'stat' when a typed round stat drives it and 'index' when it fell back. */
+function effHcpSource(lie){
+  const pf=STATE.profile||{};
+  const has=v=>!(v===''||v==null||isNaN(parseFloat(v)));
+  if(lie==='green')   return has(pf.puttsRound)?'stat':'index';
+  if(lie==='fairway') return has(pf.girPct)?'stat':'index';
+  if(lie==='tee')     return has(pf.firPct)?'stat':'index';
+  if(lie==='atg')     return (has(pf.upDownPct)||has(pf.scoringAvg))?'stat':'index';
+  return 'index';
 }
 
 /* Re-render the scenario output inside the open L1 card */
@@ -135,4 +150,4 @@ function effHcpForLie(lie){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { SR, SR_RECOVERY_OVER_ROUGH, parseHcp, srForPlayer, srInterp, effHcpForLie });
+Object.assign(window, { SR, SR_RECOVERY_OVER_ROUGH, parseHcp, srForPlayer, srInterp, effHcpForLie, effHcpSource });

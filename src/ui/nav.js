@@ -121,7 +121,6 @@ function refreshAll(){
   buildPostRound();
   buildSpecs();
   if(typeof buildBackups==='function') buildBackups();
-  buildGapping();
   buildProfile();
   buildMyData();
   if(typeof buildEsCompareToggle==='function') buildEsCompareToggle();

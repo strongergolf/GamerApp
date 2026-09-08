@@ -1436,3 +1436,15 @@ body.theme-dark .gr-a{color:var(--green2)} body.theme-dark .gr-b{color:var(--c-w
 .bk-sort{display:inline-flex;align-items:center;gap:6px;flex:0 0 auto;font-family:Arial,sans-serif;font-size:.55rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
 .bk-sort select.strat-select{width:auto;max-width:150px;font-size:.8rem}
 @media(min-width:430px){.bk-search{flex:1 1 190px}}
+
+/* Sub-heads inside a folded card — quieter than an h3, still a real break. */
+.mydata-sub{font-family:Arial,sans-serif;font-size:.58rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:18px 0 6px;padding-top:12px;border-top:1px solid var(--border)}
+
+/* Golfer Profile — the per-area skill each round stat resolves to. Filled chips are driven by
+   a stat you entered; outlined ones are still riding on the handicap index. */
+.pf-drive-row{display:flex;flex-wrap:wrap;gap:6px}
+.pf-drive{display:inline-flex;align-items:baseline;gap:5px;padding:4px 9px;border:1px dashed var(--border2);border-radius:20px;font-family:ui-monospace,monospace;font-size:.72rem;color:var(--muted)}
+.pf-drive.on{border-style:solid;border-color:var(--green);background:rgba(0,133,63,.08);color:var(--ink)}
+.pf-drive b{font-family:Arial,sans-serif;font-size:.62rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.pf-drive.on b{color:var(--green)}
+.pf-drive i{font-style:normal;font-size:.55rem;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
