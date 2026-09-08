@@ -115,13 +115,13 @@ function refreshAll(){
   buildHoleOverlay();
   buildCourses();
   buildRoundTracker();
-  buildLongTerm();
   buildPlanShot();
   buildPostShot();
   buildPostRound();
   buildSpecs();
   if(typeof buildBackups==='function') buildBackups();
   buildProfile();
+  if(typeof buildImport==='function') buildImport();
   buildMyData();
   if(typeof buildEsCompareToggle==='function') buildEsCompareToggle();
   buildGames();

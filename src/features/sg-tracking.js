@@ -237,3 +237,211 @@ function sgRoundsHtml(){
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
 Object.assign(window, { sgAddRound, sgDeleteRound, sgRefreshRounds, sgRoundsHtml, sgScenario, sgSummaryHtml, sgUpdateTotals, scoringBenchmarkHtml });
+
+/* ============================================================
+   IMPORTING ROUNDS FROM ELSEWHERE
+
+   WHAT IS ACTUALLY POSSIBLE, checked rather than assumed (Sept 2026):
+     • 18Birdies   — no CSV/Excel export at all; their own help centre says so. A GDPR /
+                      CCPA data-portability request is the only way the data comes out.
+     • Garmin Golf — no scorecard export in the app; only a whole-account personal-data
+                      request. (The R10 launch monitor is the exception and does export CSV.)
+     • Arccos      — no official export, but an API that community tools already read.
+     • Trackman    — a real, documented Data API with CSV distribution, but it is a partner
+                      integration, not something a golfer can self-serve.
+     • Shot Scope / TheGrint — could not confirm either way; treat as unknown.
+
+   So almost nothing offers a self-serve feed a browser could subscribe to, and this app has
+   no server to hold API credentials or take a webhook. What every one of them CAN produce,
+   one way or another, is a file. So the file is the interface: bring whatever you can get out
+   — an export, a data-portability dump, a spreadsheet you keep yourself — and this reads it.
+   The column names differ per service, so it sniffs rather than demanding a fixed format.
+   ============================================================ */
+const RD_ALIASES = {
+  date:   ['date','round date','played','play date','datetime','start time','teetime','tee time'],
+  course: ['course','course name','club','venue','facility'],
+  gross:  ['score','gross','total','total score','gross score','strokes'],
+  holes:  ['holes','hole count','holes played'],
+  fir:    ['fir','fairways','fairways hit','fw','fairway hit','fairways hit %','fir %','driving accuracy'],
+  firOf:  ['fairway opportunities','possible fairways','fairways possible','fw att'],
+  gir:    ['gir','greens','greens in regulation','greens hit','gir %','greens in reg'],
+  putts:  ['putts','total putts','putt','number of putts','putts per round'],
+  ud:     ['up and down','up & down','up-and-down','scrambling','scramble','up/down','scrambling %','up and down %']
+};
+function rdNorm(s){ return String(s||'').trim().toLowerCase().replace(/[_\s]+/g,' ').replace(/["']/g,''); }
+/* Split one CSV line, honouring quotes and doubled quotes inside them. */
+function rdSplit(line){
+  const out=[]; let cur='', q=false;
+  for(let i=0;i<line.length;i++){
+    const ch=line[i];
+    if(q){
+      if(ch==='"'){ if(line[i+1]==='"'){ cur+='"'; i++; } else q=false; }
+      else cur+=ch;
+    } else if(ch==='"'){ q=true; }
+    else if(ch===','){ out.push(cur); cur=''; }
+    else cur+=ch;
+  }
+  out.push(cur); return out;
+}
+/* Map this file's header row onto the fields we understand. Anything unrecognised is ignored
+   rather than guessed at — a wrong column silently feeding the skill model is worse than a
+   missing one, because the app would go on stating a number nobody could account for. */
+function rdMapHeader(cells){
+  const map={};
+  cells.forEach((c,i)=>{
+    const n=rdNorm(c);
+    Object.keys(RD_ALIASES).forEach(k=>{ if(map[k]==null && RD_ALIASES[k].indexOf(n)>-1) map[k]=i; });
+  });
+  return map;
+}
+function rdNum(v){
+  if(v==null) return null;
+  const m=String(v).replace(/[%\s]/g,'').match(/-?\d+(\.\d+)?/);
+  return m?parseFloat(m[0]):null;
+}
+/* COUNT OR PERCENTAGE? Both turn up, and getting it wrong is not cosmetic: a GIR column
+   reading "11" out of 18 holes is 61%, but taken at face value it sets the model to an 11%
+   GIR and every expected-strokes figure in the app shifts behind it. The rule: a bare number
+   no larger than the opportunities is a COUNT; anything above that, or carrying a % sign, is
+   already a percentage; "8/14" is explicit. 0.57 is a fraction. Where a service states its own
+   opportunities column, that wins over any assumption.
+   The one real assumption is fairway opportunities when no column gives them — 14 in a round
+   of 18, the usual number of par 4s and 5s. Stated here rather than buried. */
+function rdOpportunities(kind, holes){
+  const h=holes||18;
+  return kind==='fir' ? Math.max(1,Math.round(h*14/18)) : h;
+}
+function rdPct(raw, kind, holes, explicitOf){
+  if(raw==null||String(raw).trim()==='') return null;
+  const txt=String(raw);
+  if(/\//.test(txt)){ const p=txt.split('/').map(rdNum); if(p[1]) return (p[0]/p[1])*100; }
+  const n=rdNum(txt); if(n==null) return null;
+  if(/%/.test(txt)) return n;                              /* said so itself */
+  if(n>0 && n<=1.0001) return n*100;                       /* a fraction */
+  const of = explicitOf!=null ? explicitOf : rdOpportunities(kind, holes);
+  return (n<=of) ? (n/of)*100 : n;                         /* count vs already-a-percentage */
+}
+function rdParseCsv(text){
+  const lines=text.replace(/^\ufeff/,'').split(/\r?\n/).filter(l=>l.trim()!=='');
+  if(lines.length<2) return {rows:[], map:{}, headers:[]};
+  const headers=rdSplit(lines[0]);
+  const map=rdMapHeader(headers);
+  const at=(cells,k)=>map[k]==null?null:cells[map[k]];
+  const rows=[];
+  for(let i=1;i<lines.length;i++){
+    const c=rdSplit(lines[i]);
+    const holes=rdNum(at(c,'holes'))||18;
+    const firOf=rdNum(at(c,'firOf'));
+    const r={
+      id:'imp'+Date.now()+'_'+i,
+      date:(at(c,'date')||'').trim().slice(0,10),
+      course:(at(c,'course')||'').trim(),
+      gross:rdNum(at(c,'gross')),
+      holes:holes,
+      firPct:rdPct(at(c,'fir'),'fir',holes,firOf),
+      girPct:rdPct(at(c,'gir'),'gir',holes,null),
+      putts:rdNum(at(c,'putts')),
+      udPct:rdPct(at(c,'ud'),'ud',holes,null),
+      imported:true
+    };
+    if(r.gross!=null||r.putts!=null||r.girPct!=null) rows.push(r);
+  }
+  return {rows, map, headers};
+}
+/* Averaging the imported rounds into the four Typical Round Stats is the whole point: those
+   feed effHcpForLie, which sets the skill the app models the golfer at everywhere. An import
+   that only stored rounds would be a filing cabinet. */
+function rdAverages(rows){
+  const avg=k=>{ const v=rows.map(r=>r[k]).filter(x=>x!=null&&!isNaN(x)); return v.length?v.reduce((a,b)=>a+b,0)/v.length:null; };
+  return { firPct:avg('firPct'), girPct:avg('girPct'), puttsRound:avg('putts'), scoringAvg:avg('gross'), upDownPct:avg('udPct') };
+}
+window.rdPending = null;
+function rdPickFile(){ const el=document.getElementById('import-file-rounds'); if(el) el.click(); }
+function rdReadFile(e){
+  const f=e.target.files&&e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const parsed=rdParseCsv(String(r.result));
+      if(!parsed.rows.length){
+        window.rdPending={error:'Nothing readable in that file.', headers:parsed.headers};
+      } else {
+        window.rdPending={file:f.name, rows:parsed.rows, map:parsed.map, headers:parsed.headers, avg:rdAverages(parsed.rows)};
+      }
+    }catch(err){ window.rdPending={error:'Could not read that file.'}; }
+    buildImport();
+  };
+  r.readAsText(f); e.target.value='';
+}
+function rdCancel(){ window.rdPending=null; buildImport(); }
+/* Commit: rounds are stored, and the averages become the profile's round stats — which is
+   what makes them reach the model. Provenance moves to Captured for the stats that came from
+   real posted rounds rather than a typed estimate. */
+function rdCommit(){
+  const P=window.rdPending; if(!P||!P.rows) return;
+  STATE.scoring=STATE.scoring||{rounds:[]}; STATE.scoring.rounds=STATE.scoring.rounds||[];
+  const seen=new Set(STATE.scoring.rounds.map(r=>[r.date,r.course,r.gross].join('|')));
+  let added=0;
+  P.rows.forEach(r=>{ const k=[r.date,r.course,r.gross].join('|'); if(!seen.has(k)){ STATE.scoring.rounds.unshift(r); seen.add(k); added++; } });
+  const a=P.avg, pf=STATE.profile;
+  const put=(k,v,dp)=>{ if(v!=null&&!isNaN(v)) pf[k]=String(Math.round(v*Math.pow(10,dp))/Math.pow(10,dp)); };
+  put('firPct',a.firPct,0); put('girPct',a.girPct,0); put('puttsRound',a.puttsRound,1);
+  put('scoringAvg',a.scoringAvg,1); put('upDownPct',a.upDownPct,0);
+  pf.statsSource='imported'; pf.statsRounds=(STATE.scoring.rounds||[]).length; pf.statsImportedAt=new Date().toISOString().slice(0,10);
+  window.rdPending=null; saveState();
+  if(typeof refreshAll==='function') refreshAll(); else buildImport();
+  if(typeof toast==='function') toast(added+' round'+(added===1?'':'s')+' imported \u2014 round stats updated');
+}
+const RD_SERVICES = [
+  ['Trackman','Range and course sessions. A documented data API exists but it is a partner integration \u2014 export a session to CSV and bring the file.'],
+  ['Arccos','No official export; community tools read its API and write CSV.'],
+  ['Shot Scope','Check the web dashboard for a round export.'],
+  ['Garmin Golf','No scorecard export in the app \u2014 use Garmin\u2019s personal-data request. (The R10 launch monitor does export CSV.)'],
+  ['18Birdies','No CSV export; a data-portability request is the only route.'],
+  ['TheGrint','Check the web account for a round export.'],
+  ['Your own spreadsheet','Any CSV with date, score, fairways, greens, putts columns.']
+];
+function buildImport(){
+  const wrap=document.getElementById('import-wrap'); if(!wrap) return;
+  const P=window.rdPending;
+  const pf=STATE.profile||{};
+  const n=((STATE.scoring||{}).rounds||[]).length;
+  const got=k=>P&&P.map&&P.map[k]!=null;
+  const one=(lbl,v,dp)=>`<div class="stat-cell"><div class="stat-label">${lbl}</div><div class="stat-value">${
+    v==null||isNaN(v)?'\u2014':(Math.round(v*Math.pow(10,dp))/Math.pow(10,dp))}</div></div>`;
+  let panel='';
+  if(P&&P.error){
+    panel=`<div class="rd-panel err"><b>${escapeHtml(P.error)}</b>
+      ${P.headers&&P.headers.length?`<div class="rd-cols">Columns found: ${P.headers.map(x=>escapeHtml(x)).join(' \u00b7 ')}</div>`:''}
+      <div class="btn-row"><button class="btn" onclick="rdCancel()">Close</button></div></div>`;
+  } else if(P){
+    const miss=['date','gross','fir','gir','putts','ud'].filter(k=>!got(k));
+    panel=`<div class="rd-panel">
+      <b>${escapeHtml(P.file)}</b> \u2014 ${P.rows.length} round${P.rows.length===1?'':'s'} read.
+      <div class="detail-stats" style="margin-top:8px">
+        ${one('Scoring avg',P.avg.scoringAvg,1)}${one('Fairways %',P.avg.firPct,0)}
+        ${one('GIR %',P.avg.girPct,0)}${one('Putts',P.avg.puttsRound,1)}${one('Up &amp; down %',P.avg.upDownPct,0)}
+      </div>
+      ${miss.length?`<div class="rd-cols">No column matched: ${miss.join(', ')} \u2014 those stats stay as they are.</div>`:''}
+      <p class="gen-note" style="margin:8px 0 0">Importing stores the rounds and sets your Typical Round Stats to these averages, which is what makes them reach the model.</p>
+      <div class="btn-row"><button class="btn btn-primary" onclick="rdCommit()">Import ${P.rows.length}</button><button class="btn" onclick="rdCancel()">Cancel</button></div>
+    </div>`;
+  }
+  wrap.innerHTML=`<div class="profile-card">
+    <h3>Rounds &amp; Sessions <span class="card-sub">bring your scoring data in from wherever you track it</span></h3>
+    <p class="gen-note">Drop in a CSV of your rounds and StrongerGolf reads the columns it recognises, stores the rounds, and sets your Typical Round Stats from their averages \u2014 which is what drives &ldquo;Shots Expected&rdquo;, strokes gained and the Hole Overlay. ${
+      n?`<b>${n}</b> round${n===1?'':'s'} on file${pf.statsSource==='imported'&&pf.statsImportedAt?`, last import ${pf.statsImportedAt}`:''}.`:'No rounds on file yet.'}</p>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="rdPickFile()">Import rounds (CSV)</button>
+      <input type="file" id="import-file-rounds" accept=".csv,text/csv" style="display:none" onchange="rdReadFile(event)">
+    </div>
+    ${panel}
+    <h4 class="mydata-sub">Where the file comes from</h4>
+    <p class="gen-note">None of these offer a live feed a browser can subscribe to, and there is no StrongerGolf server to hold credentials or receive one. A file is the interface \u2014 whatever each service will give you.</p>
+    <div class="prov-legend">
+      ${RD_SERVICES.map(x=>`<div class="prov-legend-item"><b style="color:var(--ink)">${x[0]}</b> \u2014 ${x[1]}</div>`).join('')}
+    </div>
+  </div>`;
+}
+
+Object.assign(window, { RD_ALIASES, RD_SERVICES, rdParseCsv, rdAverages, rdMapHeader, rdSplit, rdPct, rdOpportunities, rdNum, rdNorm, rdPickFile, rdReadFile, rdCancel, rdCommit, buildImport });

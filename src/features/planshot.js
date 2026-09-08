@@ -612,27 +612,10 @@ function psSet(key,val,reRenderDetail){
 }
 function psOpenTerm(key){ psOpenKey=key; psRenderEquation(); psRenderDetail(); psRenderDirection(); }
 
-/* Goals — season arc from the profile (goal handicap, volume). Lives under Locker Room → Myself. */
-function buildLongTerm(){
-  const wrap=document.getElementById('longterm-wrap'); if(!wrap) return;
-  const pf=STATE.profile||{};
-  const cell=(label,val)=>`<div class="stat-cell"><div class="stat-label">${label}</div><div class="stat-value">${val||'—'}</div></div>`;
-  wrap.innerHTML=`<div class="profile-card" style="margin-top:0">
-    <h3>Handicap Goal</h3>
-    <div class="detail-stats">
-      ${cell('Current', pf.handicap)}
-      ${cell('Goal', pf.goalHcp)}
-      ${cell('Rounds / yr', pf.roundsPerYear)}
-      ${cell('Practice / yr', pf.practicePerYear)}
-    </div>
-    <p class="gen-note" style="margin-top:10px">Set these in the Golfer Profile above. Your goal handicap drives the SG diamond goal ring.</p>
-  </div>
-  <div class="profile-card">
-    <h3>Milestones <span style="font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;color:var(--muted);text-transform:none">preview</span></h3>
-    <p class="gen-note">Season targets and dated milestones — tie each to a link in the causal chain and track the trend. Coming soon.</p>
-  </div>`;
-}
-
+/* The Goals card (handicap goal + milestones) and its #longterm-wrap host were removed from
+   Golfer Profile: the card restated four numbers the form above it already showed, and the
+   Milestones half was a "coming soon" placeholder. The goal handicap itself still lives on the
+   profile as Hdcp Index Goal and still drives the SG diamond's goal ring. */
 /* ============================================================
    POST-ROUND — close-the-loop debrief: capture the strokes-gained-driving numbers, then a short
    structured review while the round is fresh. Transient; the snapshot can be pushed to the Locker
@@ -773,6 +756,6 @@ function buildPostShot(){
 }
 
 // Expose for inline handlers and the renderAll orchestrator.
-Object.assign(window, { buildPlanShot, buildPostShot, buildPostRound, psSet, psSetSit, psPostSet, psRoundSet, psRoundStep, psApplyRoundBaselines, psOpenTerm, buildLongTerm,
+Object.assign(window, { buildPlanShot, buildPostShot, buildPostRound, psSet, psSetSit, psPostSet, psRoundSet, psRoundStep, psApplyRoundBaselines, psOpenTerm,
   pseSetIdx, pseResetSetup, psTgtSetIdx, psRenderDirection,
   PS_WIND_HEAD, PS_WIND_TAIL, PS_CROSS_YPM, PS_ELEV_K });

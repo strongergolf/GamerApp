@@ -427,28 +427,18 @@ function buildProfile(){
   if(_pg) _pg.innerHTML=`
     <div class="edit-subhead">Player</div>
     <div class="edit-field"><label>Name</label><input id="pf-name" value="${escapeHtml(pf.name||'')}"></div>
-    <div class="edit-field"><label>Handedness <span style="font-weight:400;text-transform:none;letter-spacing:0">— visuals currently drawn RH</span></label>${sel('pf-handed',['','RH','LH'],pf.handedness||'RH')}</div>
-    <div class="edit-field"><label>Handicap</label><input id="pf-hcp" value="${escapeHtml(pf.handicap||'')}" placeholder="e.g. 8 or +2"></div>
-    <div class="edit-field"><label>Goal Handicap</label><input id="pf-goalhcp" value="${escapeHtml(pf.goalHcp||'')}" placeholder="e.g. 5"></div>
-    <!-- REFERENCE ONLY, and collapsed because of it. Nothing below reaches a model: the
-         handicap service and member number are for looking up, the glove size is for buying,
-         and rounds / practice per year are printed on Pre-Shot but are not an input to
-         anything. They stay because they are worth having written down; they fold away so the
-         page leads with the fields that change what the app tells you. The inputs stay in the
-         DOM while closed, so saveProfile still reads them by id. -->
+    <div class="edit-field"><label>Handedness</label>${sel('pf-handed',['','RH','LH'],pf.handedness||'RH')}</div>
+    <div class="edit-field"><label>Hdcp Index</label><input id="pf-hcp" value="${escapeHtml(pf.handicap||'')}" placeholder="e.g. 8 or +2"></div>
+    <div class="edit-field"><label>Hdcp Index Goal</label><input id="pf-goalhcp" value="${escapeHtml(pf.goalHcp||'')}" placeholder="e.g. 5"></div>
+    <!-- The handicap service and member number are the two fields a future sync needs to
+         know WHICH record to pull, so they stay even though nothing reads them yet. Glove
+         size left for Causation -> Body, which already collects it; rounds and practice per
+         year fed only the Goals card, which is gone. -->
     <details class="pf-ref" style="grid-column:1/-1"${window.pfRefOpen?' open':''} ontoggle="window.pfRefOpen=this.open">
-      <summary>Reference details <span>service, member number, glove, volume &mdash; not used in any calculation</span></summary>
+      <summary>Handicap service <span>where your index is held &mdash; for a future sync</span></summary>
       <div class="edit-grid">
-        <div class="edit-field"><label>Handicap Service</label>${sel('pf-hcpsvc',['','GHIN (USGA)','Golf Canada','Golf Australia','CONGU (GB&I)','Golf NZ','Other'],pf.hcpService||'')}</div>
-        <div class="edit-field"><label>Handicap / GHIN ID</label><input id="pf-hcpid" value="${escapeHtml(pf.hcpId||'')}" placeholder="Member number"></div>
-        <div class="edit-field"><label>Rounds per Year</label><input id="pf-rounds" type="number" value="${escapeHtml(pf.roundsPerYear||'')}"></div>
-        <div class="edit-field"><label>Practice Shots per Year (est.)</label><input id="pf-practice" type="number" value="${escapeHtml(pf.practicePerYear||'')}"></div>
-        <div class="edit-field"><label>Glove Size</label>${sel('pf-glove',[
-          '','Men\'s S','Men\'s M','Men\'s M/L','Men\'s L','Men\'s XL','Men\'s XXL',
-          'Men\'s Cadet S','Men\'s Cadet M','Men\'s Cadet M/L','Men\'s Cadet L','Men\'s Cadet XL',
-          'Women\'s S','Women\'s M','Women\'s M/L','Women\'s L','Women\'s XL',
-          'Women\'s Cadet S','Women\'s Cadet M','Women\'s Cadet M/L','Women\'s Cadet L'
-        ],pf.gloveSize||'')}</div>
+        <div class="edit-field"><label>Service</label>${sel('pf-hcpsvc',['','GHIN (USGA)','Golf Canada','Golf Australia','CONGU (GB&I)','Golf NZ','Other'],pf.hcpService||'')}</div>
+        <div class="edit-field"><label>Member / GHIN number</label><input id="pf-hcpid" value="${escapeHtml(pf.hcpId||'')}" placeholder="Member number"></div>
       </div>
     </details>
     <div class="edit-subhead">Swing Speed</div>
@@ -525,9 +515,11 @@ function saveProfile(){
   /* pf-handed = the profile's own control; the Assess swing card has a pf-hand twin —
      both read/write STATE.profile.handedness ('RH'/'LH') and stay in sync via rebuilds */
   pf.handedness=document.getElementById('pf-handed')?.value??pf.handedness;
+  /* glove size now lives on Causation -> Body only; rounds/practice per year are no longer
+     collected here. Keep whatever is stored rather than clearing it. */
   pf.gloveSize=document.getElementById('pf-glove')?.value??pf.gloveSize;
   pf.roundsPerYear=document.getElementById('pf-rounds')?.value??pf.roundsPerYear;
-  pf.practicePerYear=document.getElementById('pf-practice').value;
+  pf.practicePerYear=document.getElementById('pf-practice')?.value??pf.practicePerYear;
   /* round baselines */
   pf.scoringAvg=document.getElementById('pf-scoreavg')?.value??pf.scoringAvg;
   pf.goalHcp=document.getElementById('pf-goalhcp')?.value??pf.goalHcp;
@@ -540,7 +532,7 @@ function saveProfile(){
   pf.usualTee=document.getElementById('pf-usualtee')?.value??pf.usualTee;
   pf.homeStimp=document.getElementById('pf-homestimp')?.value??pf.homeStimp;
   if(pf.homeStimp!==''&&pf.homeStimp!=null){ const hs=parseFloat(pf.homeStimp); if(!isNaN(hs)) STATE.stimp=hs; }
-  pf.hcpService=document.getElementById('pf-hcpsvc').value;
+  pf.hcpService=document.getElementById('pf-hcpsvc')?.value??pf.hcpService;
   pf.hcpId=document.getElementById('pf-hcpid').value;
   pf.ballMake=document.getElementById('ball-make').value;
   pf.ballModel=document.getElementById('ball-model').value;
