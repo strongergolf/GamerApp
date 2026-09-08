@@ -430,16 +430,27 @@ function buildProfile(){
     <div class="edit-field"><label>Handedness <span style="font-weight:400;text-transform:none;letter-spacing:0">— visuals currently drawn RH</span></label>${sel('pf-handed',['','RH','LH'],pf.handedness||'RH')}</div>
     <div class="edit-field"><label>Handicap</label><input id="pf-hcp" value="${escapeHtml(pf.handicap||'')}" placeholder="e.g. 8 or +2"></div>
     <div class="edit-field"><label>Goal Handicap</label><input id="pf-goalhcp" value="${escapeHtml(pf.goalHcp||'')}" placeholder="e.g. 5"></div>
-    <div class="edit-field"><label>Handicap Service</label>${sel('pf-hcpsvc',['','GHIN (USGA)','Golf Canada','Golf Australia','CONGU (GB&I)','Golf NZ','Other'],pf.hcpService||'')}</div>
-    <div class="edit-field"><label>Handicap / GHIN ID</label><input id="pf-hcpid" value="${escapeHtml(pf.hcpId||'')}" placeholder="Member number"></div>
-    <div class="edit-field"><label>Rounds per Year</label><input id="pf-rounds" type="number" value="${escapeHtml(pf.roundsPerYear||'')}"></div>
-    <div class="edit-field"><label>Practice Shots per Year (est.)</label><input id="pf-practice" type="number" value="${escapeHtml(pf.practicePerYear||'')}"></div>
-    <div class="edit-field"><label>Glove Size</label>${sel('pf-glove',[
-      '','Men\'s S','Men\'s M','Men\'s M/L','Men\'s L','Men\'s XL','Men\'s XXL',
-      'Men\'s Cadet S','Men\'s Cadet M','Men\'s Cadet M/L','Men\'s Cadet L','Men\'s Cadet XL',
-      'Women\'s S','Women\'s M','Women\'s M/L','Women\'s L','Women\'s XL',
-      'Women\'s Cadet S','Women\'s Cadet M','Women\'s Cadet M/L','Women\'s Cadet L'
-    ],pf.gloveSize||'')}</div>
+    <!-- REFERENCE ONLY, and collapsed because of it. Nothing below reaches a model: the
+         handicap service and member number are for looking up, the glove size is for buying,
+         and rounds / practice per year are printed on Pre-Shot but are not an input to
+         anything. They stay because they are worth having written down; they fold away so the
+         page leads with the fields that change what the app tells you. The inputs stay in the
+         DOM while closed, so saveProfile still reads them by id. -->
+    <details class="pf-ref" style="grid-column:1/-1"${window.pfRefOpen?' open':''} ontoggle="window.pfRefOpen=this.open">
+      <summary>Reference details <span>service, member number, glove, volume &mdash; not used in any calculation</span></summary>
+      <div class="edit-grid">
+        <div class="edit-field"><label>Handicap Service</label>${sel('pf-hcpsvc',['','GHIN (USGA)','Golf Canada','Golf Australia','CONGU (GB&I)','Golf NZ','Other'],pf.hcpService||'')}</div>
+        <div class="edit-field"><label>Handicap / GHIN ID</label><input id="pf-hcpid" value="${escapeHtml(pf.hcpId||'')}" placeholder="Member number"></div>
+        <div class="edit-field"><label>Rounds per Year</label><input id="pf-rounds" type="number" value="${escapeHtml(pf.roundsPerYear||'')}"></div>
+        <div class="edit-field"><label>Practice Shots per Year (est.)</label><input id="pf-practice" type="number" value="${escapeHtml(pf.practicePerYear||'')}"></div>
+        <div class="edit-field"><label>Glove Size</label>${sel('pf-glove',[
+          '','Men\'s S','Men\'s M','Men\'s M/L','Men\'s L','Men\'s XL','Men\'s XXL',
+          'Men\'s Cadet S','Men\'s Cadet M','Men\'s Cadet M/L','Men\'s Cadet L','Men\'s Cadet XL',
+          'Women\'s S','Women\'s M','Women\'s M/L','Women\'s L','Women\'s XL',
+          'Women\'s Cadet S','Women\'s Cadet M','Women\'s Cadet M/L','Women\'s Cadet L'
+        ],pf.gloveSize||'')}</div>
+      </div>
+    </details>
     <div class="edit-subhead">Swing Speed</div>
     <div class="edit-field" style="grid-column:1/-1"><label>Driver Swing Speed (${unitLabel('speed')})</label>
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">

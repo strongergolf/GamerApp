@@ -1448,3 +1448,12 @@ body.theme-dark .gr-a{color:var(--green2)} body.theme-dark .gr-b{color:var(--c-w
 .pf-drive b{font-family:Arial,sans-serif;font-size:.62rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .pf-drive.on b{color:var(--green)}
 .pf-drive i{font-style:normal;font-size:.55rem;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+
+/* Golfer Profile - the collapsed reference block. Quiet enough to skip, obvious enough to find. */
+.pf-ref{border-top:1px solid var(--border);margin-top:6px;padding-top:10px}
+.pf-ref>summary{cursor:pointer;list-style:none;font-family:Arial,sans-serif;font-size:.6rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.pf-ref>summary::-webkit-details-marker{display:none}
+.pf-ref>summary::before{content:"b8";display:inline-block;margin-right:7px;transition:transform .15s}
+.pf-ref[open]>summary::before{transform:rotate(90deg)}
+.pf-ref>summary span{font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;letter-spacing:.03em;text-transform:none;color:var(--muted);opacity:.85}
+.pf-ref>.edit-grid{margin-top:10px}
