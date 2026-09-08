@@ -30,10 +30,18 @@ function sgFlagstick(baseX,baseY,topX,topY,dir){
    from Input or Presumed stays Input/Presumed (not Verified).
      captured = measured by a device (launch monitor, GPS, putt timer)
      verified = calculated directly from captured data
+     synced   = pulled from an authoritative external record the golfer authenticated to
      input    = typed in by the user (specs, baselines, typical-round stats)
      presumed = assumed / interviewed / app default — NOT measured */
 const SG_PROV = {
   captured: { label:'Captured', color:'var(--green)', bg:'rgba(0,133,63,.12)' },
+  /* SYNCED — pulled from an authoritative external record the golfer authenticated to, rather
+     than typed. A handicap index from GHIN or Golf Canada is the case this exists for: no
+     device measured it, so it is not Captured, and it is not calculated from Captured data, so
+     it is not Verified — but it is a federation's audited record of posted scores, which is a
+     long way above a number somebody typed. Stretching Verified to cover it would have broken
+     that label's one rule, so it gets its own. */
+  synced:   { label:'Synced',   color:'var(--sky)',   bg:'rgba(26,90,170,.18)' },
   verified: { label:'Verified', color:'var(--green)', bg:'rgba(0,133,63,.12)' },
   input:    { label:'Input',    color:'var(--sky)',   bg:'rgba(26,90,170,.12)' },
   presumed: { label:'Presumed', color:'var(--dp-loft)', bg:'rgba(196,150,30,.16)' }
@@ -41,7 +49,7 @@ const SG_PROV = {
 /* Inline provenance badge. kind ∈ captured|verified|input|presumed. */
 function sgProv(kind){
   const p=SG_PROV[kind]||SG_PROV.presumed;
-  const tick=kind==='verified'?'✓ ':'';
+  const tick=kind==='verified'?'✓ ':kind==='synced'?'↻ ':'';
   return `<span class="sg-prov" style="color:${p.color};background:${p.bg}">${tick}${p.label}</span>`;
 }
 /* Resolve the provenance of a calculation from its inputs' provenance (weakest wins;
@@ -49,6 +57,7 @@ function sgProv(kind){
 function sgProvOf(...kinds){
   if(kinds.includes('presumed')) return 'presumed';
   if(kinds.includes('input')) return 'input';
+  if(kinds.includes('synced')) return 'synced';      /* between typed and measured */
   return kinds.length ? 'verified' : 'presumed';
 }
 

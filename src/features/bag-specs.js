@@ -435,8 +435,9 @@ function buildProfile(){
          size left for Causation -> Body, which already collects it; rounds and practice per
          year fed only the Goals card, which is gone. -->
     <details class="pf-ref" style="grid-column:1/-1"${window.pfRefOpen?' open':''} ontoggle="window.pfRefOpen=this.open">
-      <summary>Handicap service <span>where your index is held &mdash; for a future sync</span></summary>
+      <summary>Handicap service <span>where your index is held</span></summary>
       <div class="edit-grid">
+        <p class="gen-note" style="grid-column:1/-1;margin:0 0 4px">Your index is ${pf.hcpProv==='synced'?sgProv('synced'):sgProv('input')} today. Signing in to your federation would make it ${sgProv('synced')} — their audited record of posted scores rather than a number typed here. That needs a StrongerGolf server to hold the credentials (a browser cannot), so the fields below record <em>which</em> account to pull, ready for it.</p>
         <div class="edit-field"><label>Service</label>${sel('pf-hcpsvc',['','GHIN (USGA)','Golf Canada','Golf Australia','CONGU (GB&I)','Golf NZ','Other'],pf.hcpService||'')}</div>
         <div class="edit-field"><label>Member / GHIN number</label><input id="pf-hcpid" value="${escapeHtml(pf.hcpId||'')}" placeholder="Member number"></div>
       </div>
@@ -634,6 +635,7 @@ function buildMyData(){
       <div class="prov-legend">
         <div class="prov-legend-item"><span class="sg-prov" style="color:var(--green);background:rgba(0,133,63,.12)">Captured</span> measured by a device — launch monitor, GPS, putt timer.</div>
         <div class="prov-legend-item"><span class="sg-prov" style="color:var(--green);background:rgba(0,133,63,.12)">✓ Verified</span> calculated directly from Captured data.</div>
+        <div class="prov-legend-item"><span class="sg-prov" style="color:var(--sky);background:rgba(26,90,170,.18)">↻ Synced</span> pulled from an authoritative record you signed in to — a federation handicap index.</div>
         <div class="prov-legend-item"><span class="sg-prov" style="color:var(--sky);background:rgba(26,90,170,.12)">Input</span> typed in by you — specs, baselines, typical-round stats.</div>
         <div class="prov-legend-item"><span class="sg-prov" style="color:var(--dp-loft);background:rgba(196,150,30,.16)">Presumed</span> assumed / interviewed / app default — not measured.</div>
       </div>

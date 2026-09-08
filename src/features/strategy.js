@@ -614,15 +614,49 @@ window.stratCacheEpoch = 0;
 /* Map view: centre + zoom, so the hole can be scrolled into like the D-Plane viewer. */
 window.stratView = window.stratView || { cx:CF_W/2, cy:CF_H/2, z:1 };
 const STRAT_ZMIN = 1, STRAT_ZMAX = 8;
+/* THE FRAME IS THE HOLE, not the field it is drawn in.
+   Holes are traced into a fixed 1000x1400 field, and a hole that runs 388 yards straight up
+   the middle used maybe a fifth of the width — so the map was mostly empty green, and it was
+   empty on the device with the least room to spare. Cropping to the hole's own extent (plus a
+   margin for the miss) lets the same picture live in a much shorter box. Zoom and pan then
+   work within that crop rather than the whole field. */
+const STRAT_BOX_RATIO = 0.95;      /* width : height of the map box */
+function stratHoleBox(hole){
+  if(!hole) return {x:0,y:0,w:CF_W,h:CF_H};
+  let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;
+  const eat=p=>{ if(!p||p.x==null) return; if(p.x<x0)x0=p.x; if(p.x>x1)x1=p.x; if(p.y<y0)y0=p.y; if(p.y>y1)y1=p.y; };
+  eat(hole.tee); eat(hole.pin);
+  (hole.green||[]).forEach(eat);
+  (hole.fairway||[]).forEach(eat);
+  (hole.hazards||[]).forEach(h=>(h.pts||[]).forEach(eat));
+  if(x1<x0||y1<y0) return {x:0,y:0,w:CF_W,h:CF_H};
+  /* Margin scales with the hole, because a miss scales with the hole: enough room either side
+     to see where a bad one finishes, which is the point of a dispersion pattern. */
+  const padX=Math.max(90,(x1-x0)*0.45), padY=Math.max(70,(y1-y0)*0.10);
+  x0-=padX; x1+=padX; y0-=padY; y1+=padY;
+  /* The picture must never be STRETCHED — the dispersion ovals and every yardage would then
+     be drawn at two different scales — so the crop is padded to a target ratio rather than
+     squeezed to it. The target is the box's shape, not the field's: the field is 1000x1400,
+     and inheriting that made the map 480px tall on a 375px phone whatever the hole looked
+     like. A near-square box is ~20% shorter for the same hole, and the padding lands to the
+     SIDES, which is exactly where a miss goes. */
+  let w=x1-x0, h=y1-y0;
+  const want=STRAT_BOX_RATIO;
+  if(w/h>want){ const nh=w/want; y0-=(nh-h)/2; h=nh; } else { const nw=h*want; x0-=(nw-w)/2; w=nw; }
+  return {x:x0, y:y0, w, h};
+}
 function stratViewBox(){
-  const v=window.stratView, w=CF_W/v.z, h=CF_H/v.z;
+  const v=window.stratView, B=stratHoleBox(window.stratBoxHole);
+  const w=B.w/v.z, h=B.h/v.z;
+  if(v.cx==null||v.boxKey!==`${B.x}|${B.y}|${B.w}`){ v.cx=B.x+B.w/2; v.cy=B.y+B.h/2; v.boxKey=`${B.x}|${B.y}|${B.w}`; }
   /* keep the hole on screen — the centre can only roam by what the zoom hides */
-  const mx=Math.max(0,(CF_W-w)/2), my=Math.max(0,(CF_H-h)/2);
-  v.cx=Math.max(CF_W/2-mx, Math.min(CF_W/2+mx, v.cx));
-  v.cy=Math.max(CF_H/2-my, Math.min(CF_H/2+my, v.cy));
+  const mx=Math.max(0,(B.w-w)/2), my=Math.max(0,(B.h-h)/2);
+  const cx0=B.x+B.w/2, cy0=B.y+B.h/2;
+  v.cx=Math.max(cx0-mx, Math.min(cx0+mx, v.cx));
+  v.cy=Math.max(cy0-my, Math.min(cy0+my, v.cy));
   return { x:v.cx-w/2, y:v.cy-h/2, w, h };
 }
-function stratResetView(){ window.stratView={cx:CF_W/2, cy:CF_H/2, z:1}; buildHoleOverlay(); }
+function stratResetView(){ window.stratView={cx:null, cy:null, z:1}; buildHoleOverlay(); }
 
 /* ---------- PIN MODE: put the flag where the sheet says ----------
    A pin sheet arrives days before a tournament and is the most concrete piece of preparation
@@ -1507,6 +1541,7 @@ function buildHoleOverlay(){
     wrap.innerHTML=head+`<div class="lvl-soon-note">Hole ${hole.num||hi+1} needs a tee, a pin and a scale before it can be optimised. Holes imported from OpenStreetMap get all three automatically; a hand-traced hole needs the <b>calibrate</b> tool (or just a tee, a pin and the hole yardage).</div>`;
     return;
   }
+  window.stratBoxHole=hole;          /* the crop follows the hole on screen */
   const chain=stratOChain(hole);
   /* Score every shot on BOTH lines, tee to green, rather than only the one being edited —
      the map shows whole plans now, and the numbers behind them have to exist to be drawn. */
@@ -1563,12 +1598,12 @@ function buildHoleOverlay(){
      Optimal is computed for every shot whether or not anyone asks, so it is simply shown —
      the recommendation for the situation, taking the dispersion pattern into account. Yours
      sits beside it saying what to expect from the shot you have picked. Each card answers the
-     two questions a decision actually turns on: how often does this come off, and what is it
-     worth on average. The likelihood leads (fairway or green, whichever this shot is playing
-     to) and the remaining outcomes follow as chips, so the number that matters is not buried
-     among five that do not. Dropped in this pass: "if perfect" and the dispersion gap. They
-     were the same story the likelihood tells, told in a second currency — a shot that holds
-     the fairway 60% of the time IS the dispersion cost, stated in a unit you can picture. */
+     five things a decision turns on and no more: how far the shot is, where it most likely
+     finishes, what it is worth in strokes gained, what it leaves to the middle of the green,
+     and the shots expected from there. Everything else that used to sit here — "if perfect",
+     the dispersion gap, a chip per surface — told one of those five again in another
+     currency. A shot that finds the fairway 60% of the time IS its dispersion cost, said in a
+     unit you can picture. */
   const CARD_LABEL={O:'Optimal', S:'Your shot'};
   const oStep=chain[n-1];
   const oRes=(oStep&&oStep.res)?oStep.res:null;
@@ -1578,36 +1613,32 @@ function buildHoleOverlay(){
     const head=`<span class="ss-ln ln-${l}">${CARD_LABEL[l]}</span><span class="ss-sub">${l}-${n}</span>`;
     if(!r) return `<div class="sh-strip-line">${head}<span class="ss-none">—</span></div>`;
     if(r.blocked) return `<div class="sh-strip-line">${head}<span class="ss-none"><i>${blockedTxt(r)}</i></span></div>`;
-    /* Which surface this shot is playing TO — a drive is judged on fairways, an approach on
-       greens, and a par 3 tee shot is an approach however you got there. Read it off the
-       outcome mix rather than the shot number, so a layup and a go-for-it on the same hole
-       are each judged on what they are actually trying to hold. */
-    const m=r.lieMix, holdKey=((m.green||0)>=(m.fairway||0))?'green':'fairway';
-    const holdPct=Math.round((m[holdKey]||0)*100);
-    const rest=mixOrder.filter(k=>k!==holdKey&&m[k]>0.004)
-      .map(k=>`<span class="mix-chip mix-${k}">${CHIP_SHORT[k]} ${pct(m[k])}</span>`).join('');
+    /* WHERE IT FINISHES. The single most likely surface, named, rather than a row of chips
+       for every surface it might touch: standing over the ball you want to know what this shot
+       usually does, and the tail is what the SG number already prices in. */
+    const m=r.lieMix;
+    const best=mixOrder.filter(k=>m[k]>0).sort((x,y)=>m[y]-m[x])[0]||'fairway';
+    const bestPct=Math.round((m[best]||0)*100);
     const swing=(r.shot.detail&&r.shot.detail!=='full swing')?` ${r.shot.detail}`:'';
     const sg=r.sgActual
       ? `<span class="ss-pair"><b class="ss-sg${r.sg>=0?'':' neg'}">${r.sg>=0?'+':''}${r.sg.toFixed(2)}</b> <span>SG, measured</span></span>`
-      : (r.sg!=null?`<span class="ss-pair"><b class="ss-sg${r.sg>=0?'':' neg'}">${r.sg>=0?'+':''}${r.sg.toFixed(2)}</b> <span>SG on average</span></span>`:'');
+      : (r.sg!=null?`<span class="ss-pair"><b class="ss-sg${r.sg>=0?'':' neg'}">${r.sg>=0?'+':''}${r.sg.toFixed(2)}</b> <span>SG</span></span>`:'');
     const left=r.sgActual?r.expAfter:r.mean;
-    /* Why this is "optimal" when the other card may show a better average: the optimiser
-       minimises a RISK-WEIGHTED score, not raw expected strokes, so under a conservative
-       posture it will spend a few hundredths avoiding a big number. Naming the decision and
-       the posture on the card is what keeps that from reading as a contradiction. */
-    /* the posture labels carry their own explanation in a parenthetical, which is right in the
-       preferences list and far too long on a card — take the name and leave the gloss */
-    const postureShort=stratLabel('riskPosture').split(/\s+—\s+| \(/)[0].toLowerCase();
+    /* the optimiser minimises a RISK-WEIGHTED score, so it can sit a little behind on raw
+       average; naming its decision and posture keeps that from reading as a contradiction */
+    const postureShort=stratLabel('riskPosture').split(/\s+\u2014\s+| \(/)[0].toLowerCase();
     const why=(l==='O')
-      ? `<span class="ss-why" title="The optimiser minimises a risk-weighted score under your posture — ${escapeHtml(stratLabel('riskPosture').toLowerCase())} — so it can sit a little behind on raw average to avoid the big miss.">${
-          oRes&&oRes.best&&oRes.best.category?escapeHtml(oRes.best.category.toLowerCase()):'best play'} · ${escapeHtml(postureShort)}</span>`
+      ? `<span class="ss-why" title="The optimiser minimises a risk-weighted score under your posture \u2014 ${escapeHtml(stratLabel('riskPosture').toLowerCase())} \u2014 so it can sit a little behind on raw average to avoid the big miss.">${
+          oRes&&oRes.best&&oRes.best.category?escapeHtml(oRes.best.category.toLowerCase()):'best play'} \u00b7 ${escapeHtml(postureShort)}</span>`
       : '';
     return `<div class="sh-strip-line${l==='O'?' is-opt':''}">${head}
       <span class="ss-club">${r.shot.label}${swing}</span>
-      <span class="ss-pair"><b>${holdPct}%</b> <span>${holdKey==='green'?'green':'fairway'}</span></span>
+      <span class="ss-pair"><b>${fmtYd(r.geoYd)}</b> <span>shot</span></span>
+      <span class="ss-pair"><b class="mix-ink mix-${best}">${CF_LIE_LABEL[best]}</b> <span>${bestPct}% lands</span></span>
       ${sg}
-      <span class="ss-pair"><b>${left!=null?left.toFixed(2):'—'}</b> <span>shots left</span></span>
-      <span class="ss-chips">${rest}</span>${why}</div>`;
+      <span class="ss-pair"><b>${r.toMidYd!=null?fmtYd(r.toMidYd):'\u2014'}</b> <span>to middle</span></span>
+      <span class="ss-pair"><b>${left!=null?left.toFixed(2):'\u2014'}</b> <span>shots left</span></span>
+      ${why}</div>`;
   }).join('');
   const table=`<div class="sh-strip">${strip}</div>`;
   /* verdict across the three lines that actually produced a shot */
@@ -1713,52 +1744,13 @@ function buildHoleOverlay(){
     return `<div class="cv-row"><span class="cv-lbl">Cover</span>${items}${
       carry!=null?`<span class="cv-carry">${shot.label} carries <b>${fmtYd(carry)}</b></span>`:''}</div>`;
   })();
-  /* Does the shape fit the fairway? The practical half of the landing-heading model, and the
-     one number that settles it: re-score the SAME shot with the tilt taken out, and the
-     difference in fairway rate is what this club's curve is worth on this hole. */
-  const fit=stratShapeFit(hole, shots.S);
-  let fitNote='';
-  if(fit){
-    const rS=shots.S;
-    const flat=aimScore(hole, rS.from, rS.aim, stratSkill(), stratPosture(),
-                        Object.assign({}, rS.sig, {tiltDeg:0}));
-    const dFwy = flat ? ((rS.lieMix.fairway||0)-(flat.lieMix.fairway||0))*100 : null;
-    /* Descriptive, not advisory. The measured worth is the claim; the with/against reading is
-       only a description of the geometry. An earlier draft here said an aligned shape "keeps
-       more of the pattern on the short grass" — the app's own numbers do not support that
-       (see the note on aimLandingTilt), and a readout must not out-run its model. */
-    const side=t=>t>0?'left':'right', mag=v=>Math.abs(v).toFixed(1);
-    const fwTxt = fit.straight
-      ? 'The fairway runs straight through the landing zone, so the shape crosses it.'
-      : `The fairway bends <b>${mag(fit.fairway)}° ${side(fit.fairway)}</b> through the landing zone, so the shape works <b>${fit.withHole?'with':'against'}</b> the hole.`;
-    /* Say the two rates rather than the difference. "+2.4 points of fairway" was my own
-       shorthand for percentage points of fairways hit, and it reads just as easily as
-       strokes, or as a score out of 100. Two numbers need no glossary. */
-    const shaped = (rS.lieMix.fairway||0)*100;
-    const straightPct = flat ? (flat.lieMix.fairway||0)*100 : null;
-    const worth = straightPct==null ? ''
-      : Math.abs(dFwy)<0.5
-        ? ` It holds this fairway <b>${Math.round(shaped)}%</b> of the time — the same as hitting it straight.`
-        : ` It holds this fairway <b>${Math.round(shaped)}%</b> of the time, against <b>${Math.round(straightPct)}%</b> hit straight.`;
-    fitNote=`<div class="sh-fit${fit.withHole?' ok':''}">Your <b>${fit.club}</b> ${
-      fit.shape.toLowerCase()}s about <b>${fmtYd(fit.curve)}</b>, landing <b>${mag(fit.tilt)}° ${side(fit.tilt)}</b> of its start line. ${
-      fwTxt}${worth}</div>`;
-  }
-  /* Closed by default: the panel is sized to match the map, and the caption above already
-     names the pair in play. Open it only when you want to change one — and since changing
-     one rebuilds this whole panel, the open state has to survive that rebuild or the box
-     snaps shut under your hand after every edit. */
-  const prefBox=`<details class="sh-prefs"${window.stratPrefsOpen?' open':''} ontoggle="window.stratPrefsOpen=this.open">
-      <summary>My strategy — what S plays</summary>
-      <div class="sh-pref-grid">
-        <label><span>Tee target</span>${stratSelect('teeTarget')}</label>
-        <label><span>Tee club</span>${stratSelect('teeClub')}</label>
-        <label><span>Approach target</span>${stratSelect('approachTarget')}</label>
-        <label><span>Approach depth</span>${stratSelect('approachDistance')}</label>
-        <label><span>Risk posture</span>${stratSelect('riskPosture')}</label>
-      </div>
-      <div class="sh-pref-foot">The first four place <b class="ln-S">S</b>. The risk posture is <b class="ln-O">O</b>'s objective — it changes what the optimiser is trying to do, not where you aim.</div>
-    </details>`;
+  /* GONE, for now, at Mark's call: the shape-fit sentence (it reported a curve worth zero
+     fairway points on a straight hole \u2014 true and useless), the cover numbers, the strategy
+     preference box and its caption, the pin-sheet row, and the round / pin-sheet tables. This
+     tab is now one question: what is the best way to play this hole, and how does the shot I
+     picked compare. Everything removed is still built and exported \u2014 stratShapeFit,
+     cfCoverNumbers, stratRoundTable, stratPinSheetGrid, the pin-sheet functions \u2014 so putting
+     any of it back is a line of markup, not a rewrite. */
   /* Controls span the top, where you reach for them and where they cost the map nothing.
      The map then takes the width its portrait aspect can actually use, and everything else
      goes beside it — which is where the 467px of empty letterbox used to be.
@@ -1778,30 +1770,15 @@ function buildHoleOverlay(){
           <button type="button" class="strat-mode-btn" onclick="stratResetAim()">↺ reset</button>
         </div>
         ${anchorRow}
-        ${pinRow}
       </div>
     </div>
     <div class="strat-hole-grid">
       <div class="strat-hole-map">${renderHoleSVG(hole,{viewBox:stratViewBox(), overlay:`<g id="strat-overlay">${stratOverlay(hole,chains,n)}</g>`})}</div>
       <div class="sh-side">
         ${table}
-        <div class="sh-below-notes">
-          ${verdict}
-          <div class="sh-pref-note">${prefWhy}</div>
-          ${coverRow}
-          ${fitNote}
-          ${prefBox}
-        </div>
+        ${verdict?`<div class="sh-below-notes">${verdict}</div>`:''}
       </div>
-    </div>
-    <details class="pg-wrap"${window.stratRoundOpen?' open':''} ontoggle="window.stratRoundOpen=this.open;if(this.open)buildHoleOverlay()">
-      <summary>The round — every hole, one number</summary>
-      <div class="pg-body">${window.stratRoundOpen?stratRoundTable():''}</div>
-    </details>
-    <details class="pg-wrap"${window.stratSheetOpen?' open':''} ontoggle="window.stratSheetOpen=this.open;if(this.open)buildHoleOverlay()">
-      <summary>Pin sheet — every green on one screen</summary>
-      <div class="pg-body">${window.stratSheetOpen?stratPinSheetGrid():''}</div>
-    </details>`;
+    </div>`;
   stratDragInit(wrap);
 }
 
@@ -1851,14 +1828,20 @@ function stratDragInit(wrap){
     const now=Date.now(); if(now-last<50) return; last=now;
     const svg=wrap.querySelector('.strat-hole-map svg'); if(!svg) return;
     const r=svg.getBoundingClientRect(); const v=window.stratView;
-    v.cx-=(e.clientX-panFrom.x)/r.width*(CF_W/v.z);
-    v.cy-=(e.clientY-panFrom.y)/r.height*(CF_H/v.z);
+    /* Step through the CROP, not the whole field. The map is framed on the hole now, so
+       scaling a drag by the 1000x1400 field made the picture slide faster than the finger. */
+    const B=stratHoleBox(window.stratBoxHole);
+    v.cx-=(e.clientX-panFrom.x)/r.width*(B.w/v.z);
+    v.cy-=(e.clientY-panFrom.y)/r.height*(B.h/v.z);
     panFrom={x:e.clientX,y:e.clientY};
     buildHoleOverlay();
   };
   wrap.addEventListener('pointerdown',e=>{
     if(!e.target.closest||!e.target.closest('.strat-hole-map')) return;
-    if(e.pointerType==='mouse'&&e.button===1){ mode='pan'; panFrom={x:e.clientX,y:e.clientY}; }
+    /* Right-click pans, as in the D-Plane viewer. Left-click places the shot, so the right
+       button had no job here, and a zoomed-in map with no way to move is a map of one corner.
+       Middle-drag still pans too, for anyone already used to it. */
+    if(e.pointerType==='mouse'&&(e.button===1||e.button===2)){ mode='pan'; panFrom={x:e.clientX,y:e.clientY}; }
     else { if(window.stratShot.active==='O'&&!window.stratShot.pinMode) return; mode='aim'; }
     try{ wrap.setPointerCapture(e.pointerId); }catch(_){}
     if(mode==='aim') setAim(e,true);
@@ -1869,6 +1852,8 @@ function stratDragInit(wrap){
   });
   const end=e=>{ if(!mode) return; if(mode==='aim') setAim(e,true); mode=null; panFrom=null;
     if(anchorDirty){ anchorDirty=false; saveState(); } };
+  /* ...and the browser menu must not open on top of the pan it just started. */
+  wrap.addEventListener('contextmenu',e=>{ if(e.target.closest&&e.target.closest('.strat-hole-map')) e.preventDefault(); });
   wrap.addEventListener('pointerup',end);
   wrap.addEventListener('pointercancel',end);
   /* Scroll to zoom, anchored on the cursor so the point under the pointer stays put. */
@@ -1894,7 +1879,7 @@ Object.assign(window, {
   SHOT_LAT_MAX, SHOT_LAT_STEP, SHOT_RECOVERY_MAX_YD, SHOT_POSTURES, SHOT_POSTURE_LABEL,
   stratSetPosture, SHOT_HOLE_SD, SHOT_POS_SD, SHOT_TARGET_MIN_GAIN, normCdf, tournamentCtx, shotZ,
   stratTourInputs, stratSetTour,
-  stratSkill, stratViewBox, stratResetView,
+  stratSkill, stratViewBox, stratHoleBox, STRAT_BOX_RATIO, stratResetView,
   SHOT_COL, SHOT_LINES, SHOT_LABEL, SHOT_MAX, stratPosture, stratCurrent, stratGreenMid,
   stratClearLines, stratResetAim, stratSetShotNum, stratSetLine,
   stratScoreShot, stratOChain, stratBallFor, stratLineAim,
