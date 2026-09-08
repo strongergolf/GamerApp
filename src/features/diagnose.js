@@ -858,7 +858,11 @@ function buildStrategyPrefs(){
     <div class="strat-note strat-summary">${stratSummary()}</div>`;
 }
 function buildCourseStrategy(){
-  const wrap=document.getElementById('course-strategy-wrap'); if(!wrap) return;
+  /* No host on the Hole Overlay tab any more, but this function is ALSO the "course data
+     changed" signal (import, trace, delete), so it must still refresh the overlay when there
+     is nothing of its own to draw. */
+  const wrap=document.getElementById('course-strategy-wrap');
+  if(!wrap){ if(typeof buildHoleOverlay==='function') buildHoleOverlay(); return; }
   const clubs=STATE.clubs.filter(c=>c.type!=='putter');
   let draws=0,fades=0,straight=0;
   const rows=clubs.map(c=>{
