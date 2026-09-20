@@ -74,7 +74,7 @@ function buildPartialsTable(){
         /* CARRY leads: it is the number you fly the ball, and the one you aim at a
            front edge or a bunker lip with. Total follows underneath — it matters once
            the ball is down, which is a second question. */
-        html+=`<td><div class="carry-cell">${aCarry!=null?Math.round(aCarry):'—'}<small>${t} total</small></div></td>`;
+        html+=`<td><div class="carry-cell">${aCarry!=null?Math.round(aCarry):'—'}<small>${t} ttl</small></div></td>`;
       }
     });
     html+=`</tr>`;
@@ -295,17 +295,44 @@ function renderCalc(target){
         </div>
       </div>`;
     }
+    /* THE LINE, then the detail. Collapsed, a card is one line: which club, what the shot
+       does, and how far off a practised number it asks you to play. The three mini-stats that
+       used to sit under every card are now the Impact / Launch / Flight strip, and only on the
+       card you actually picked \u2014 eight options each showing nine numbers is a spreadsheet,
+       not a decision.
+       "% of full" is gone entirely: it described the SWING rather than the shot, and the clock
+       reading beside it already says the same thing in the language a golfer swings in. The
+       \u00b1 to anchor takes the weight it lost \u2014 that is the number being judged. */
+    const swingFrac=Math.max(0.3, Math.min(1.15, (o.pctFull||100)/100));
+    const dp=(STATE.dplane||{})[o.club.id]||{};
+    const anatomy = selected ? shotStageHTML({
+      impact:[
+        {k:'Vert. Face', v:dp.vFace!=null?`${Math.round(dp.vFace)}\u00b0`:null},
+        {k:'Vert. Path', v:dp.aoa!=null?`${dp.aoa>0?'+':''}${dp.aoa.toFixed(1)}\u00b0`:null},
+        {k:'Club', v:p.cspd?`${mphNum(p.cspd*swingFrac)} ${unitLabel('speed')}`:null,
+         title:'Scaled from your full-swing clubhead speed by this swing\u2019s share of full carry \u2014 estimated, not measured.'}
+      ],
+      launch:[
+        {k:'Vert. Launch', v:`${fl.launch}\u00b0`},
+        {k:'Ball', v:p.bspd?`${mphNum(p.bspd*swingFrac)} ${unitLabel('speed')}`:null,
+         title:'Scaled from your full-swing ball speed by this swing\u2019s share of full carry \u2014 estimated, not measured.'},
+        {k:'Spin', v:`${(fl.spin/1000).toFixed(1)}k`}
+      ],
+      flight:[
+        {k:'Apex', v:`${ftNum(fl.height)} ${ftUnit()}`},
+        {k:'Carry', v:`${ydNum(estCarry)} ${ydUnit()}`},
+        {k:'TTL', v:`${ydNum(target)} ${ydUnit()}`},
+        {k:'L/R 86%', v:(typeof disp86==='function'&&estCarry>0)?`\u00b1${ydNum(disp86(estCarry),1)} ${ydUnit()}`:null, dim:true},
+        {k:'Lands', v:checkDesc, dim:true}
+      ]
+    }) : '';
     return `<div class="calc-result-card ${selected?'best':''}" onclick="selectApproachResult(${i})" style="cursor:pointer">
       <div class="calc-card-header">
         <div class="calc-club-badge" style="color:${color}">${o.club.label}<small>${o.club.loft}</small></div>
         <div class="calc-head-main">Carry ${ydNum(estCarry)} <em>${backs?'&minus;':'+'}</em> ${backs?'Back':'Roll'} ${ydNum(Math.abs(estRoll))} ${ydUnit()}</div>
-        <div class="calc-head-anchor" style="color:${color}">${clockPos}<span>${diffStr}</span></div>
+        <div class="calc-head-anchor anchor-lead" style="color:${color}">${clockPos}<span>${diffStr}</span></div>
       </div>
-      <div class="calc-card-body">
-        <div class="calc-mini-stat"><div class="calc-mini-label">Launch / Spin</div><div class="calc-mini-val">${fl.launch}° · ${(fl.spin/1000).toFixed(1)}k</div></div>
-        <div class="calc-mini-stat"><div class="calc-mini-label">Height / Check</div><div class="calc-mini-val">${ftNum(fl.height)}${ftUnit()} · ${checkDesc}</div></div>
-        <div class="calc-mini-stat"><div class="calc-mini-label">% of Full</div><div class="calc-mini-val">${o.pctFull}%</div></div>
-      </div>
+      ${anatomy}
     </div>`;
   }).join('');
   const flightWrapEl=document.getElementById('approach-flight-wrap');

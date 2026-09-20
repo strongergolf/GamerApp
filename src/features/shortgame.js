@@ -288,8 +288,10 @@ function renderChipDial(){
        Colour still bands the underlying RATIO, not the raw numbers, so it means the same thing
        at every target distance: green stops soonest, gold runs furthest. Descriptive, not a
        judgement — a runner is the right shot more often than not.
-       The middle carries launch and spin, which differ per club and appear nowhere else on the
-       card; it used to repeat the carry and roll now shown on the right. */
+       The middle is now empty by design: it carried launch and spin, and the Launch stage of
+       the anatomy states both the moment the card is selected. Printing them twice on one card
+       is the redundancy this pass exists to remove -- collapsed, the split IS the shot;
+       expanded, the anatomy is the detail. */
     const ratio = carry>0.05 ? roll/carry : 0;
     /* always one decimal, so the split reads as a column down the stack — ydNum(4.0,1)
        returns the NUMBER 4, which would print "4 : 16" beside "3.3 : 16.7".
@@ -302,13 +304,37 @@ function renderChipDial(){
     const rc = ratio<=1 ? 'var(--green)' : ratio<=3 ? 'var(--sky)' : 'var(--gold)';
     const rowLaunch=(typeof chipLaunch==='function'?chipLaunch(loft):loft*0.68)+(window.chipStanceLaunchAdj||0);
     const rowSpin=typeof chipSpin==='function'?chipSpin(carry,loft):0;
+    /* Same rule as Approach: one line collapsed, the full Impact / Launch / Flight picture on
+       the card you picked. A chip has no modelled clubhead speed \u2014 nothing in the app measures
+       or derives one at these speeds \u2014 so that cell prints an em dash rather than a number
+       invented to fill the grid. */
+    const netAbs=(typeof sgNet==='function')?sgNet().abs:null;
+    const anatomy = selected ? shotStageHTML({
+      impact:[
+        {k:'Vert. Face', v:`${loft.toFixed(0)}\u00b0`, title:'The club\u2019s loft as delivered \u2014 its own loft plus whatever the setup adds or takes away.'},
+        {k:'Vert. Path', v:netAbs&&netAbs.vertPath!=null?`${netAbs.vertPath>0?'+':''}${netAbs.vertPath.toFixed(0)}\u00b0`:null},
+        {k:'Club', v:null, dim:true, title:'Not modelled for chips \u2014 nothing in the app measures or derives clubhead speed at these distances.'}
+      ],
+      launch:[
+        {k:'Vert. Launch', v:`${rowLaunch.toFixed(0)}\u00b0`},
+        {k:'Ball', v:null, dim:true, title:'Not modelled for chips.'},
+        {k:'Spin', v:`${rowSpin.toLocaleString()} rpm`}
+      ],
+      flight:[
+        {k:'Apex', v:null, dim:true, title:'Not modelled for chips \u2014 the trajectory drawing above shows the shape.'},
+        {k:'Carry', v:`${ydNum(carry,1).toFixed(1)} ${ydUnit()}`},
+        {k:'TTL', v:`${ydNum(total,1).toFixed(1)} ${ydUnit()}`},
+        {k:'Roll', v:`${ydNum(roll,1).toFixed(1)} ${ydUnit()}`, dim:true}
+      ]
+    }) : '';
     return `<div class="calc-result-card ${selected?'best':''}"
         onclick="selectChipClub(${i})" style="cursor:pointer${!practical&&!selected?';opacity:.5':''}">
       <div class="calc-card-header">
         <div class="calc-club-badge" style="color:${tc}">${c.label}<small>${c.loft}</small></div>
-        <div class="calc-head-main">${rowLaunch.toFixed(0)}° launch <em>·</em> ${(rowSpin/1000).toFixed(1)}k${noteStr}</div>
+        <div class="calc-head-main">${noteStr||''}</div>
         <div class="calc-head-anchor sg-split" style="color:${rc}">${splitStr}</div>
       </div>
+      ${anatomy}
     </div>`;
   }).join('');
   const flightWrapEl=document.getElementById('chip-flight-wrap');

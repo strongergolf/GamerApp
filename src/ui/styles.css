@@ -1457,3 +1457,17 @@ body.theme-dark .gr-a{color:var(--green2)} body.theme-dark .gr-b{color:var(--c-w
 .pf-ref[open]>summary::before{transform:rotate(90deg)}
 .pf-ref>summary span{font-family:ui-monospace,monospace;font-size:.55rem;font-weight:400;letter-spacing:.03em;text-transform:none;color:var(--muted);opacity:.85}
 .pf-ref>.edit-grid{margin-top:10px}
+
+/* SHOT ANATOMY — Impact / Launch / Flight, shown on the selected card only.
+   One labelled row per stage, wrapping to as many lines as the phone needs. */
+.shot-anatomy{border-top:1px solid var(--border);margin:8px 0 0;padding:8px 2px 2px;display:flex;flex-direction:column;gap:7px}
+.sa-stage{display:flex;align-items:baseline;gap:4px 10px;flex-wrap:wrap}
+.sa-stage-name{flex:0 0 100%;font-family:Arial,sans-serif;font-size:.5rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.sa-cells{display:flex;flex-wrap:wrap;gap:4px 14px;flex:1 1 auto}
+.sa-cell{display:inline-flex;align-items:baseline;gap:5px}
+.sa-k{font-family:ui-monospace,monospace;font-size:.56rem;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.sa-v{font-family:ui-monospace,monospace;font-size:.82rem;font-weight:700;color:var(--ink)}
+.sa-cell.dim .sa-v{font-weight:600;color:var(--muted)}
+@media(min-width:430px){.sa-stage-name{flex:0 0 58px}}
+/* The +/- to anchor is the number being judged on an Approach card, so it leads. */
+.calc-head-anchor.anchor-lead span{font-size:.92rem;font-weight:800;color:inherit;letter-spacing:.01em}

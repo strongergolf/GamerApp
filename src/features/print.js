@@ -48,7 +48,7 @@ function prFullTable(clubIds){
       +`<td><span class="big">${total!=null?total:'&mdash;'}</span></td>`
       +`<td>${d86!=null?'&plusmn;'+d86:'&mdash;'}</td></tr>`;
   });
-  const head=`<tr><th>Club</th><th>Carry</th><th>Total</th><th>86% L/R</th></tr>`;
+  const head=`<tr><th>Club</th><th>Carry</th><th>TTL</th><th>86% L/R</th></tr>`;
   return `<table class="ref"><thead>${head}</thead><tbody>${body}</tbody></table>`;
 }
 /* CHIP REFERENCE — the carry-to-roll split per club, matching the Short Game tab.
@@ -171,7 +171,7 @@ function prCatalogue(){
   rows.forEach(r=>{ (groups[r.where]=groups[r.where]||[]).push(r); });
   const order=Object.keys(groups).sort((a,b)=> a==='Current Bag'?-1 : b==='Current Bag'?1 : a.localeCompare(b));
   const cell=v=>(v==null||v==='')?'&mdash;':String(v);
-  const head=`<tr><th>Club</th><th>Make &amp; model</th><th>Loft</th><th>Lie</th><th>Length</th><th>Shaft</th><th>Yr</th><th>Carry</th><th>Total</th></tr>`;
+  const head=`<tr><th>Club</th><th>Make &amp; model</th><th>Loft</th><th>Lie</th><th>Length</th><th>Shaft</th><th>Yr</th><th>Carry</th><th>TTL</th></tr>`;
   const body=order.map(g=>{
     const list=groups[g].slice();
     return `<div class="mtitle" style="margin-top:12px">${g} <span style="font-weight:400">&middot; ${list.length}</span></div>`

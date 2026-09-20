@@ -76,3 +76,41 @@ function sgToggleTheme(on){
 sgApplyTheme();
 
 Object.assign(window, { SG_RED, SG_BALL_FILL, SG_BALL_STROKE, sgBall, sgFlagstick, SG_PROV, sgProv, sgProvOf, sgApplyTheme, sgToggleTheme });
+
+/* ============================================================
+   THE ANATOMY OF A SHOT — Impact, Launch, Flight
+
+   Mark's framing, and it is the right one because it is CAUSAL: what the club does to the
+   ball, what the ball leaves at, where it ends up. Each stage has three numbers and no more,
+   because the horizontal half of each is deliberately zeroed out — centred contact, square
+   face and path, no spin axis — so what is left is the vertical story that actually differs
+   between a 9-iron and a wedge, or between a full swing and a 9 o'clock one.
+
+     IMPACT   Vert. Face   Vert. Path   Club Speed
+     LAUNCH   Launch       Ball Speed   Spin
+     FLIGHT   Apex         Carry        Total          (+ the lateral tendency, which is the
+                                                        one horizontal number worth keeping)
+
+   The display rule this serves: the ONE line a golfer reads standing over the ball is always
+   visible; the full picture is one tap away and never more than one tap away. A shot card is
+   a headline with a body, not a wall.
+
+   A stage's cell may be null, and prints as an em dash rather than a guess — a chip has no
+   modelled clubhead speed, and inventing one to fill the grid would put a number on screen
+   that nothing in the app stands behind. */
+const SHOT_STAGES = ['Impact','Launch','Flight'];
+function shotStageHTML(stages){
+  return `<div class="shot-anatomy">` + SHOT_STAGES.map(name=>{
+    const cells=stages[name.toLowerCase()]||[];
+    if(!cells.length) return '';
+    return `<div class="sa-stage">
+      <span class="sa-stage-name">${name}</span>
+      <div class="sa-cells">${cells.map(c=>`
+        <span class="sa-cell${c.dim?' dim':''}"${c.title?` title="${escapeHtml(c.title)}"`:''}>
+          <span class="sa-k">${c.k}</span>
+          <span class="sa-v">${c.v==null||c.v===''?'&mdash;':c.v}</span>
+        </span>`).join('')}</div>
+    </div>`;
+  }).join('') + `</div>`;
+}
+Object.assign(window, { SHOT_STAGES, shotStageHTML });

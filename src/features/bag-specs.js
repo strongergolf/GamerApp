@@ -72,7 +72,7 @@ function buildSpecs(){
       `<div class="sc-id"><span class="sc-name">${c.make} ${c.model}</span></div>`+   /* year · shaft moved into the dropdown (Physical Spec) for a tighter mobile row */
       mini('Length',c.length,'sm-w-len')+mini('Loft',loftCell(c),'sm-w-deg')+mini('Lie',c.lie,'sm-w-deg')+
       `<div class="sc-sep"></div>`+
-      mini('Carry '+ydUnit(),hasC?ydNum(carry):'—','sm-w-yd')+mini('Total '+ydUnit(),total?ydNum(total):'—','sm-w-yd')+
+      mini('Carry '+ydUnit(),hasC?ydNum(carry):'—','sm-w-yd')+mini('TTL '+ydUnit(),total?ydNum(total):'—','sm-w-yd')+
       mini('86% L/R',d86!=null?ydNum(d86,1):'—','sm-w-lr')+
       `<div class="specs-chevron">▾</div>`;
     const group=document.createElement('div'); group.className='specs-rep-group';

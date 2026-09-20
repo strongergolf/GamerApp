@@ -165,7 +165,7 @@ function toggleDetail(c,row,group,inner){
     </div>
     <div class="detail-stats">
       ${statCell('Carry',ydNum(p.carry),ydUnit(),'hl-carry')}
-      ${statCell('Total',p.total?ydNum(p.total):'—',ydUnit(),'')}
+      ${statCell('TTL',p.total?ydNum(p.total):'—',ydUnit(),'')}
       ${statCell('Ball Speed',mphNum(p.bspd),mphUnit(),'hl-speed')}
       ${statCell('Club Speed',mphNum(p.cspd),mphUnit(),'hl-speed')}
       ${statCell('Vert. Launch',(p.launch!=null?p.launch:'—'),'°','')}
