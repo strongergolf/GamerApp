@@ -86,6 +86,14 @@ function chipSpin(carryYd, loftDeg){ return Math.round(chipSpinRaw(carryYd,loftD
 /* Green-slope → rollout multiplier, CALIBRATED AT STIMP 9.5. deg = slope of the run-out,
    + = uphill (less roll), − = downhill (more roll). Piecewise-linear anchors preserve the old
    categorical values: +6→0.38 (very up), +3→0.62 (up), 0→1.0, −3→1.50, −6→2.20. */
+/* Checked against the putting model's friction physics, which is derived rather than fitted.
+   UPHILL the two agree closely — +3° gives 0.62 here against 0.53 derived, +6° gives 0.38
+   against 0.36. DOWNHILL they part company on purpose: pure rolling friction says ×9.0 at -3°
+   and goes negative at -6° (the ball never stops), because on a slope that steep gravity
+   cancels a putting green's friction outright. A CHIP is not a pure roll — it arrives with a
+   bounce and a skid whose effective friction is far higher than a putt's — so these
+   conservative numbers are the right ones and the derivation is simply outside its domain.
+   Worth revisiting only with measured downhill chip data. */
 const CHIP_SLOPE_ANCHORS=[[-6,2.20],[-3,1.50],[0,1.0],[3,0.62],[6,0.38]];
 function chipSlopeMult(deg){
   const e=Math.max(-6,Math.min(6,deg||0)), A=CHIP_SLOPE_ANCHORS;
@@ -149,8 +157,19 @@ function chipStanceRoll(){ return (typeof window!=='undefined'&&window.chipStanc
 function chipElevRoll(){ const v=(typeof window!=='undefined')?window.chipElevRollMult:1; return (typeof v==='number'&&v>0)?v:1; }
 /* Pure model roll-per-unit-carry (no per-shot conditions, no user calibration) — the calibration
    maths compares measured roll against this. */
+/* GREEN SPEED → ROLLOUT, on the same physics the Putting tab derives from.
+   This carried an exponent of 1.3 with nothing behind it, while putting's puttEffDist derives
+   its green-speed term from the Stimpmeter directly: a ball released at 6 ft/s rolls the stimp
+   distance S, so friction deceleration a = v0^2/(2S), and roll distance for a given arrival
+   speed is v^2/(2a) — PROPORTIONAL to S. Exponent 1.0, and that derivation checks out against
+   the app's own putting model to four decimal places.
+   Two models of one ball rolling on one green should not disagree about green speed. The 1.3
+   was reading about 7% long at stimp 12 and 9% short at stimp 7, and the extra was very likely
+   standing in for firmness — fast greens are usually firm — which this app now models
+   separately in chipFirm, so it was being counted twice.
+   Nothing moves at stimp 9.5, where Mark's roll ladder is calibrated; only greens away from it. */
 function chipRollFactor(loftDeg, stimp, slope){
-  return chipRollRatio(loftDeg) * Math.pow(stimp/9.5, 1.3) * chipSlopeFactor(slope, stimp);
+  return chipRollRatio(loftDeg) * (stimp/9.5) * chipSlopeFactor(slope, stimp);
 }
 function chipRollout(carry, loftDeg, stimp, slope, baseline){
   const m = baseline ? 1 : chipFirm()*chipLie()*chipStanceRoll()*chipElevRoll();
