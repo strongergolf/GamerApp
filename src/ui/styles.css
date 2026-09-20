@@ -1460,17 +1460,24 @@ body.theme-dark .gr-a{color:var(--green2)} body.theme-dark .gr-b{color:var(--c-w
 
 /* SHOT ANATOMY — Impact / Launch / Flight, shown on the selected card only.
    One labelled row per stage, wrapping to as many lines as the phone needs. */
-.shot-anatomy{border-top:1px solid var(--border);margin:8px 0 0;padding:8px 2px 2px;display:flex;flex-direction:column;gap:7px}
+.shot-anatomy{border-top:1px solid var(--border);margin:8px 0 0;padding:9px 2px 2px;display:flex;flex-direction:column;gap:9px}
 .sa-stage{display:flex;align-items:baseline;gap:4px 10px;flex-wrap:wrap}
-.sa-stage-name{flex:0 0 100%;font-family:Arial,sans-serif;font-size:.5rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
-.sa-cells{display:flex;flex-wrap:wrap;gap:4px 14px;flex:1 1 auto}
+.sa-stage-name{flex:0 0 100%;font-family:Arial,sans-serif;font-size:.56rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.sa-cells{display:flex;flex-wrap:wrap;gap:6px 16px;flex:1 1 auto}
 .sa-cell{display:inline-flex;align-items:baseline;gap:5px}
-.sa-k{font-family:ui-monospace,monospace;font-size:.56rem;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
-.sa-v{font-family:ui-monospace,monospace;font-size:.82rem;font-weight:700;color:var(--ink)}
+.sa-k{font-family:ui-monospace,monospace;font-size:.64rem;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.sa-v{font-family:ui-monospace,monospace;font-size:1.02rem;font-weight:700;color:var(--ink)}
 .sa-cell.dim .sa-v{font-weight:600;color:var(--muted)}
 @media(min-width:430px){.sa-stage-name{flex:0 0 58px}}
 /* The +/- to anchor is the number being judged on an Approach card, so it leads. */
-.calc-head-anchor.anchor-lead span{font-size:.92rem;font-weight:800;color:inherit;letter-spacing:.01em}
+.calc-head-anchor.anchor-lead span{font-size:1.15rem;font-weight:800;color:inherit;letter-spacing:.01em}
+/* Carry + roll is the other half of the Approach headline, so it is sized to the anchor
+   rather than sitting a step under it. Big numbers, small words: at this size the words
+   "Carry" and "Roll" spelled out in full pushed the line past a 375px screen and wrapped it,
+   which is a worse read than either size problem it was solving. */
+.calc-result-card .calc-head-main{font-size:1.02rem;white-space:nowrap}
+.calc-result-card .calc-head-main i{font-style:normal;font-size:.58rem;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-left:4px}
+.calc-result-card .calc-head-main em{font-style:normal;opacity:.6;margin:0 1px}
 
 /* Putting — the working behind the aim number, folded away by default. */
 .putt-working{margin-top:10px;border-top:1px solid var(--border);padding-top:8px}

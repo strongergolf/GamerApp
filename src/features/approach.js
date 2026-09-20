@@ -343,7 +343,7 @@ function renderCalc(target){
     return `<div class="calc-result-card ${selected?'best':''}" onclick="selectApproachResult(${i})" style="cursor:pointer">
       <div class="calc-card-header">
         <div class="calc-club-badge" style="color:${color}">${o.club.label}<small>${o.club.loft}</small></div>
-        <div class="calc-head-main">Carry ${ydNum(estCarry)} <em>${backs?'&minus;':'+'}</em> ${backs?'Back':'Roll'} ${ydNum(Math.abs(estRoll))} ${ydUnit()}</div>
+        <div class="calc-head-main">${ydNum(estCarry)}<i>carry</i> <em>${backs?'&minus;':'+'}</em> ${ydNum(Math.abs(estRoll))}<i>${backs?'back':'roll'}</i> <i>${ydUnit()}</i></div>
         <div class="calc-head-anchor anchor-lead" style="color:${color}">${clockPos}<span>${diffStr}</span></div>
       </div>
       ${anatomy}

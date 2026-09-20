@@ -178,6 +178,20 @@ function chipRatioStr(R){
   if(!isFinite(R)||R<=0) return '1 : 0';
   return R>=1 ? `1 : ${R.toFixed(1)}` : `${(1/R).toFixed(1)} : 1`;
 }
+/* APEX OF A CHIP \u2014 yes, it can be estimated, and in inches where that is the honest unit.
+   At chip speeds the ball is close enough to a ballistic arc that the symmetric-parabola
+   relation holds to within a few inches: a projectile launched at theta and landing level
+   peaks a quarter of the way up its own run, apex = carry x tan(theta) / 4. Backspin adds a
+   little lift and moves the peak past halfway, so this reads slightly LOW on a high-spinning
+   wedge \u2014 which is the right direction to be wrong in for a number you are going to try to
+   fly under a branch.
+   Returned in FEET because that is the unit a 4-foot chip wants; the caller decides whether
+   to print inches. Presumed \u2014 geometry, not measurement. */
+function chipApexFt(carryYd, launchDeg){
+  const c=parseFloat(carryYd), t=parseFloat(launchDeg);
+  if(!(c>0)||!(t>0)) return null;
+  return (c*3) * Math.tan(t*Math.PI/180) / 4;      /* yards to feet, then the quarter-run rule */
+}
 function chipClubs(){
   return STATE.clubs
     .filter(c=>{ const l=parseFloat(c.loft); return l>=34&&l<=70; })
@@ -194,4 +208,4 @@ function selectChipClub(i){ window.chipSelectedIdx=i; renderChipDial(); }
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { CHIP_ROLL_ANCHORS, CHIP_SLOPE_ANCHORS, CHIP_FIRM_MODEL, CHIP_STANCE_MODEL, chipArchetype, chipCarryForTotal, chipCalibrated, chipClubs, chipElevRoll, chipFirm, chipFirmModel, chipLaunch, chipLaunchRaw, chipLie, chipLiveRollRatio, chipRatioStr, chipRollFactor, chipRollRatio, chipRollout, chipSlopeDeg, chipSlopeFactor, chipSlopeMult, chipSlopeVal, chipSpin, chipSpinRaw, chipStance, chipStanceRoll, chipUserLaunchOff, chipUserRollMult, chipUserSpinMult, selectChipClub });
+Object.assign(window, { CHIP_ROLL_ANCHORS, CHIP_SLOPE_ANCHORS, CHIP_FIRM_MODEL, CHIP_STANCE_MODEL, chipArchetype, chipCarryForTotal, chipCalibrated, chipClubs, chipElevRoll, chipFirm, chipFirmModel, chipLaunch, chipLaunchRaw, chipLie, chipApexFt, chipLiveRollRatio, chipRatioStr, chipRollFactor, chipRollRatio, chipRollout, chipSlopeDeg, chipSlopeFactor, chipSlopeMult, chipSlopeVal, chipSpin, chipSpinRaw, chipStance, chipStanceRoll, chipUserLaunchOff, chipUserRollMult, chipUserSpinMult, selectChipClub });

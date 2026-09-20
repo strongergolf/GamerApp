@@ -212,20 +212,23 @@ function renderPutt(){
   res.innerHTML=`
     <div class="putt-result-card">
       <h4>Required Break</h4>
-      <div class="putt-stat-grid" style="grid-template-columns:repeat(2,1fr)">
+      <!-- A putt has TWO intents, not one: where to aim it and how hard to roll it. Effective
+           distance was buried in the working among the inputs; it belongs on the face beside
+           the aim, so a golfer who reads only this card still has both halves. -->
+      <div class="putt-stat-grid" style="grid-template-columns:repeat(3,1fr)">
         <div class="putt-stat"><div class="putt-stat-val">${fmtIn(edgeOffsetIn,1)}</div><div class="putt-stat-lbl">Outside edge</div></div>
         <div class="putt-stat"><div class="putt-stat-val">${cupW.toFixed(2)}×</div><div class="putt-stat-lbl">Cup widths</div></div>
+        <div class="putt-stat"><div class="putt-stat-val">${effVal}</div><div class="putt-stat-lbl">Roll it as</div></div>
       </div>
       <details class="putt-working"${window.puttWorkingOpen?' open':''} ontoggle="window.puttWorkingOpen=this.open">
         <summary>How that number is built</summary>
         <div class="putt-sum">
           <div class="putt-sum-row" style="grid-template-columns:repeat(3,1fr)">
             ${sumCell('Break to Centre',fmtIn(breakIn,1))}
-            ${sumCell('Effective Dist',effVal)}
             ${sumCell('Pace Past',fmtIn(pace))}
-          </div>
-          <div class="putt-sum-row" style="grid-template-columns:repeat(4,1fr)">
             ${sumCell('Distance',fmtFt(dist))}
+          </div>
+          <div class="putt-sum-row" style="grid-template-columns:repeat(3,1fr)">
             ${sumCell('Stimp',stimp.toFixed(1))}
             ${sumCell('Up / Downhill',fmtSlopeElev(elevIn))}
             ${sumCell('Sidehill',`${grade}%`)}

@@ -321,8 +321,12 @@ function renderChipDial(){
         {k:'Spin', v:`${rowSpin.toLocaleString()} rpm`}
       ],
       flight:[
-        {k:'Apex', v:null, dim:true, title:'Not modelled for chips \u2014 the trajectory drawing above shows the shape.'},
+        {k:'Apex', v:(function(){ const ft=(typeof chipApexFt==='function')?chipApexFt(carry,rowLaunch):null;
+            return ft==null?null:(ft<3?`${fmtIn(ft*12,0)}`:`${ftNum(ft,1)} ${ftUnit()}`); })(),
+         title:'Estimated from the launch angle and the carry \u2014 geometry, not measurement. Reads slightly low on a high-spinning wedge.'},
         {k:'Carry', v:`${ydNum(carry,1).toFixed(1)} ${ydUnit()}`},
+        {k:'% to target', v:total>0?`${Math.round(carry/total*100)}%`:null,
+         title:'The share of the whole shot that flies \u2014 the landing spot to pick out and hit.'},
         {k:'TTL', v:`${ydNum(total,1).toFixed(1)} ${ydUnit()}`},
         {k:'Roll', v:`${ydNum(roll,1).toFixed(1)} ${ydUnit()}`, dim:true}
       ]
@@ -407,7 +411,13 @@ function buildChipSVG(carryYd, rollYd, loftDeg, opts){
 
   /* Labels */
   const peakY=groundY-peakH;
-  const carryLabel=`<text x="${landX.toFixed(1)}" y="${Math.max(7,peakY-4)}" text-anchor="middle" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="7" fill="var(--c-wedge)">${ydNum(carryYd,1)}${ydUnit()} carry</text>`;
+  /* The carry number, and under it the share of the whole shot it represents \u2014 same size,
+     because on a chip the landing spot IS the intent: "land it 60% of the way" is a thing you
+     can pick out on the grass and hit, where "land it 12.1 yards" is a thing you have to
+     measure first. */
+  const _pctTo = (carryYd+rollYd)>0 ? Math.round(carryYd/(carryYd+rollYd)*100) : null;
+  const carryLabel=`<text x="${landX.toFixed(1)}" y="${Math.max(7,peakY-4)}" text-anchor="middle" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="7" fill="var(--c-wedge)">${ydNum(carryYd,1)}${ydUnit()} carry</text>`
+    + (_pctTo==null?'':`<text x="${landX.toFixed(1)}" y="${Math.max(15,peakY+4)}" text-anchor="middle" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="7" fill="var(--c-wedge)" opacity="0.85">${_pctTo}% to target</text>`);
   const rollMidY=Math.min(H+10, groundAt(landX+rollPx/2)+14);
   const rollLabel=rollPx>22?`<text x="${(landX+rollPx/2).toFixed(1)}" y="${rollMidY.toFixed(1)}" text-anchor="middle" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="7" fill="var(--green)">${ydNum(rollYd,1)}${ydUnit()} roll</text>`:'';
 
