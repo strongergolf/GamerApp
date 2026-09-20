@@ -163,16 +163,35 @@ function toggleDetail(c,row,group,inner){
       <div class="detail-club-spec" style="font-size:.88rem;color:var(--ink2)">${c.make} ${c.model}<br><span style="color:var(--ink2)">${c.shaft} · ${c.length}</span></div>
       <div style="margin-left:auto;align-self:center" title="Data provenance for this club's stock numbers">${typeof sgProv==='function'?sgProv(p.prov||'input'):''}</div>
     </div>
-    <div class="detail-stats">
-      ${statCell('Carry',ydNum(p.carry),ydUnit(),'hl-carry')}
-      ${statCell('TTL',p.total?ydNum(p.total):'—',ydUnit(),'')}
-      ${statCell('Ball Speed',mphNum(p.bspd),mphUnit(),'hl-speed')}
-      ${statCell('Club Speed',mphNum(p.cspd),mphUnit(),'hl-speed')}
-      ${statCell('Vert. Launch',(p.launch!=null?p.launch:'—'),'°','')}
-      ${statCell('Spin Rate',(p.spin!=null?p.spin.toLocaleString():'—'),'rpm','hl-spin')}
-      ${statCell('Max Height',(p.ht!=null?ftNum(p.ht):'—'),ftUnit(),'')}
-      ${statCell('Land Angle',(p.land!=null?p.land:'—'),'°','hl-land')}
-    </div>
+    ${(function(){
+      /* The same Impact / Launch / Flight anatomy the Approach and Short Game cards use.
+         Stock Shots is where the numbers are richest — this is the club's measured full
+         swing — so it is the one place all nine cells can be filled from stored data rather
+         than derived: Vert. Face and Vert. Path come from the club's own D-Plane tendencies,
+         everything else from its performance record. The eight-cell grid this replaces was
+         the same figures in entry order rather than in the order a shot happens. */
+      const dp=(STATE.dplane||{})[c.id]||{};
+      const d86=(typeof disp86==='function'&&p.carry>0)?disp86(p.carry):null;
+      return shotStageHTML({
+        impact:[
+          {k:'Vert. Face', v:dp.vFace!=null?`${Math.round(dp.vFace)}°`:null},
+          {k:'Vert. Path', v:dp.aoa!=null?`${dp.aoa>0?'+':''}${dp.aoa.toFixed(1)}°`:null},
+          {k:'Club', v:p.cspd!=null?`${mphNum(p.cspd)} ${mphUnit()}`:null}
+        ],
+        launch:[
+          {k:'Vert. Launch', v:p.launch!=null?`${p.launch}°`:null},
+          {k:'Ball', v:p.bspd!=null?`${mphNum(p.bspd)} ${mphUnit()}`:null},
+          {k:'Spin', v:p.spin!=null?`${p.spin.toLocaleString()} rpm`:null}
+        ],
+        flight:[
+          {k:'Apex', v:p.ht!=null?`${ftNum(p.ht)} ${ftUnit()}`:null},
+          {k:'Carry', v:p.carry!=null?`${ydNum(p.carry)} ${ydUnit()}`:null},
+          {k:'TTL', v:p.total!=null?`${ydNum(p.total)} ${ydUnit()}`:null},
+          {k:'Land', v:p.land!=null?`${p.land}°`:null, dim:true},
+          {k:'L/R 86%', v:d86!=null?`±${ydNum(d86,1)} ${ydUnit()}`:null, dim:true}
+        ]
+      });
+    })()}
     <div id="es-bag-${c.id}" class="expected-shots-strip"></div>
     <div class="flight-wrap">
       <div class="flight-row">

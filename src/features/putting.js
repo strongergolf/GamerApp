@@ -198,8 +198,16 @@ function renderPutt(){
   const res=document.getElementById('putt-result-wrap'); if(!res) return;
   const eff=(typeof puttEffDist==='function')?puttEffDist(dist,elevIn,stimp,pace):null;
   const effVal=eff?(eff.ok?fmtFt(eff.ft,1):`<span style="color:#e88494">won’t stop</span>`):'—';
-  /* Putt Summary — two labelled rows:
-     distance · stimp · up/downhill amount · sidehill %  /  pace past · effective distance · break to centre */
+  /* THE ANSWER, then the working.
+     A putt has no Impact / Launch / Flight to speak of — nothing flies, there is no apex and
+     no carry — so the shot anatomy used on the other tabs is not forced on it here. What does
+     carry over is the rule behind it: the number you act on stays visible, and everything
+     feeding it is one tap away.
+     Standing over a putt you act on ONE thing: where to aim. That is outside edge and cup
+     widths, and they stay on the face of the card. The seven cells underneath were the
+     working — and four of them (distance, stimp, up/downhill, sidehill) restated sliders
+     sitting directly above, which is the app telling you what you just told it. They fold
+     away, with the three that are genuinely derived kept nearest the top. */
   const sumCell=(l,v)=>`<div class="putt-sum-cell"><div class="putt-sum-val">${v}</div><div class="putt-sum-lbl">${l}</div></div>`;
   res.innerHTML=`
     <div class="putt-result-card">
@@ -208,19 +216,22 @@ function renderPutt(){
         <div class="putt-stat"><div class="putt-stat-val">${fmtIn(edgeOffsetIn,1)}</div><div class="putt-stat-lbl">Outside edge</div></div>
         <div class="putt-stat"><div class="putt-stat-val">${cupW.toFixed(2)}×</div><div class="putt-stat-lbl">Cup widths</div></div>
       </div>
-      <div class="putt-sum">
-        <div class="putt-sum-row" style="grid-template-columns:repeat(4,1fr)">
-          ${sumCell('Distance',fmtFt(dist))}
-          ${sumCell('Stimp',stimp.toFixed(1))}
-          ${sumCell('Up / Downhill',fmtSlopeElev(elevIn))}
-          ${sumCell('Sidehill',`${grade}%`)}
+      <details class="putt-working"${window.puttWorkingOpen?' open':''} ontoggle="window.puttWorkingOpen=this.open">
+        <summary>How that number is built</summary>
+        <div class="putt-sum">
+          <div class="putt-sum-row" style="grid-template-columns:repeat(3,1fr)">
+            ${sumCell('Break to Centre',fmtIn(breakIn,1))}
+            ${sumCell('Effective Dist',effVal)}
+            ${sumCell('Pace Past',fmtIn(pace))}
+          </div>
+          <div class="putt-sum-row" style="grid-template-columns:repeat(4,1fr)">
+            ${sumCell('Distance',fmtFt(dist))}
+            ${sumCell('Stimp',stimp.toFixed(1))}
+            ${sumCell('Up / Downhill',fmtSlopeElev(elevIn))}
+            ${sumCell('Sidehill',`${grade}%`)}
+          </div>
         </div>
-        <div class="putt-sum-row" style="grid-template-columns:repeat(3,1fr)">
-          ${sumCell('Pace Past',fmtIn(pace))}
-          ${sumCell('Effective Dist',effVal)}
-          ${sumCell('Break to Centre',fmtIn(breakIn,1))}
-        </div>
-      </div>
+      </details>
     </div>`;
   const svgWrap=document.getElementById('putt-svg-wrap'); if(!svgWrap) return;
   svgWrap.innerHTML=buildPuttSVG(dist,breakIn,dir==='straight'?'lr':dir,slopeCategoryFromElev(elevIn),pace);

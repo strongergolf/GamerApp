@@ -269,7 +269,21 @@ function renderCalc(target){
        Roll is no longer floored at zero. A high-spin wedge into a receptive green routinely
        finishes short of its pitch mark — Mark's X is 76 carry to 73 total — so clamping at 0
        was overwriting a real, and useful, outcome with a rule of thumb. */
-    const baseRoll=approachRolloutYds(fl0.spin,fl0.height);
+    /* ROLLOUT FROM THE CLUB'S OWN PAIR, not a generic bucket.
+       approachRolloutYds sorts a shot into 1/2/4/5/7 yards by spin and height, which knows
+       nothing about the club in hand — so the X, stored at 76 carry against 73 total, was
+       shown here as "carry 72 + roll 1" while Stock Shots and the Distance Matrix both said
+       76 and 73. One club, one full swing, two answers on the same tab.
+       The club's measured carry:total ratio is the better authority: it IS the rollout, and
+       using it makes this card agree with the matrix by construction rather than by luck. The
+       bucket model stays as the fallback for a club with no stored total.
+       The same known limitation as the matrix applies: one ratio serves every rung, so a club
+       that checks back on a full swing is modelled as checking back on its 8:00 too. Refining
+       that needs per-rung rollout data. */
+    const _pr=STATE.partials[o.club.id]||{};
+    const _fullTotal=_pr.full!=null?_pr.full:(p.total!=null?p.total:p.carry);
+    const _ratio=(p.carry>0&&_fullTotal>0)?(p.carry/_fullTotal):null;
+    const baseRoll=(_ratio!=null)?(target-target*_ratio):approachRolloutYds(fl0.spin,fl0.height);
     const estRoll=Math.round(baseRoll*stm.rollMult)+(window.approachGreenFirmness||0);
     const estCarry=target-estRoll;
     const backs=estRoll<0;

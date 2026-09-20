@@ -1471,3 +1471,11 @@ body.theme-dark .gr-a{color:var(--green2)} body.theme-dark .gr-b{color:var(--c-w
 @media(min-width:430px){.sa-stage-name{flex:0 0 58px}}
 /* The +/- to anchor is the number being judged on an Approach card, so it leads. */
 .calc-head-anchor.anchor-lead span{font-size:.92rem;font-weight:800;color:inherit;letter-spacing:.01em}
+
+/* Putting — the working behind the aim number, folded away by default. */
+.putt-working{margin-top:10px;border-top:1px solid var(--border);padding-top:8px}
+.putt-working>summary{cursor:pointer;list-style:none;font-family:Arial,sans-serif;font-size:.55rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.putt-working>summary::-webkit-details-marker{display:none}
+.putt-working>summary::before{content:"\25b8";display:inline-block;margin-right:7px;transition:transform .15s}
+.putt-working[open]>summary::before{transform:rotate(90deg)}
+.putt-working .putt-sum{margin-top:8px}
