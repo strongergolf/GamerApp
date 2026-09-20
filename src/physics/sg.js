@@ -101,6 +101,44 @@ function srForPlayer(lie,dist,hcp){
    reusing the same srForPlayer adjustment as the scratch/hcp columns.
    Anchors (scratch → ~bogey): GIR 66%→25%, putts/rd 29.5→34, U&D 60%→25%,
    scoring avg ≈ par + handicap. */
+/* ============================================================
+   HOW CARRY SCALES WITH SPEED  \u2014  the app's one distance-scaling law
+
+   Carry does NOT scale linearly with ball speed, and several parts of this app used to
+   assume it did. A ball launched 10% slower does not fly 10% shorter: it loses the speed
+   AND spends less time aloft, so the loss compounds. Over the range a golfer actually
+   covers \u2014 a partial swing, or one player's speed against another's \u2014 the relation is a
+   power law, carry = k * ballSpeed^CARRY_SPEED_EXP.
+
+   The exponent is FITTED FROM THIS BAG rather than borrowed: a log-log regression of carry
+   against ball speed over Mark's 13 clubs gives 1.36 for the whole bag, 1.28 for irons and
+   wedges, 1.52 for the woods. 1.35 is the whole-bag figure and the one used here. It is a
+   local fit across lofts, not a same-club speed sweep, so treat it as the right order rather
+   than a precise constant \u2014 but it is unambiguously above 1, which is the thing that matters,
+   because every linear use of it erred in the same direction: flattering slow speeds.
+
+   Cross-check on the same data: smash factor (ball/club) reads D 1.50, 7i 1.32, 9i 1.26,
+   PW 1.18 against Trackman tour averages of 1.49, 1.33, 1.28, 1.23 \u2014 close enough that the
+   speed numbers feeding this fit are sound. The wedges are the exception; see the note on
+   SMASH_FLOOR below. */
+const CARRY_SPEED_EXP = 1.35;
+/* carry ratio -> the ball-speed ratio that produced it */
+function speedRatioForCarry(carryRatio){
+  const r = parseFloat(carryRatio);
+  if(!(r > 0)) return null;
+  return Math.pow(r, 1 / CARRY_SPEED_EXP);
+}
+/* ball-speed ratio -> the carry ratio it produces */
+function carryRatioForSpeed(speedRatio){
+  const r = parseFloat(speedRatio);
+  if(!(r > 0)) return null;
+  return Math.pow(r, CARRY_SPEED_EXP);
+}
+/* Full-swing smash below this is outside what is physically reported even for a lob wedge,
+   and usually means a stored ball speed or club speed is wrong rather than the golfer being
+   remarkable. Surfaced as a data warning, never silently corrected \u2014 it is his measurement
+   to keep or change. */
+const SMASH_FLOOR = 0.95;
 function effHcpForLie(lie){
   const pf=STATE.profile||{};
   const num=v=>{ if(v===''||v==null) return null; const n=parseFloat(v); return isNaN(n)?null:n; };
@@ -150,4 +188,4 @@ function effHcpSource(lie){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { SR, SR_RECOVERY_OVER_ROUGH, parseHcp, srForPlayer, srInterp, effHcpForLie, effHcpSource });
+Object.assign(window, { SR, SR_RECOVERY_OVER_ROUGH, CARRY_SPEED_EXP, SMASH_FLOOR, speedRatioForCarry, carryRatioForSpeed, parseHcp, srForPlayer, srInterp, effHcpForLie, effHcpSource });

@@ -171,6 +171,15 @@ function toggleDetail(c,row,group,inner){
          everything else from its performance record. The eight-cell grid this replaces was
          the same figures in entry order rather than in the order a shot happens. */
       const dp=(STATE.dplane||{})[c.id]||{};
+      /* A full-swing smash factor below SMASH_FLOOR is outside what is reported even for a lob
+         wedge, so it usually means one of the two stored speeds is wrong rather than the
+         golfer being remarkable. Said out loud next to the pair, and never corrected behind
+         his back — they are his measurements. */
+      const _smash=(p.bspd>0&&p.cspd>0)?(p.bspd/p.cspd):null;
+      const _floor=(typeof SMASH_FLOOR!=='undefined')?SMASH_FLOOR:0.95;
+      const _smashNote=(_smash!=null&&_smash<_floor)
+        ? `<p class="gen-note smash-warn">Smash factor <b>${_smash.toFixed(2)}</b> — ball speed divided by club speed. Below about ${_floor} is outside what a full swing produces even with a lob wedge, so one of these two speeds is probably off rather than the strike. Worth a look next time you are on a monitor.</p>`
+        : '';
       const d86=(typeof disp86==='function'&&p.carry>0)?disp86(p.carry):null;
       return shotStageHTML({
         impact:[
@@ -190,7 +199,7 @@ function toggleDetail(c,row,group,inner){
           {k:'Land', v:p.land!=null?`${p.land}°`:null, dim:true},
           {k:'L/R 86%', v:d86!=null?`±${ydNum(d86,1)} ${ydUnit()}`:null, dim:true}
         ]
-      });
+      }) + _smashNote;
     })()}
     <div id="es-bag-${c.id}" class="expected-shots-strip"></div>
     <div class="flight-wrap">

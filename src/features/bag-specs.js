@@ -574,14 +574,20 @@ function generateFromSwingSpeed(){
   const target=parseFloat(document.getElementById('pf-ss')?.value);
   const base=STATE.profile.driverSwingSpeed;
   if(!target||!base){ toast('Enter a driver swing speed'); return; }
+  /* SPEED scales linearly \u2014 it is the input \u2014 but CARRY does not follow it one for one.
+     This used to multiply every carry by the raw speed ratio, which flatters a slower swing:
+     at 95 mph against a 110 mph baseline it kept 86.4% of the distance where the bag's own
+     carry-to-speed relation says 82.0%, about 5% long across every club, compounding into a
+     ladder that would never match the range. */
   const ratio=target/base;
+  const cRatio=(typeof carryRatioForSpeed==='function')?carryRatioForSpeed(ratio):ratio;
   STATE.clubs.forEach(c=>{const p=STATE.performance[c.id];if(!p)return;
-    if(p.carry!=null)p.carry=Math.round(p.carry*ratio);
-    if(p.total!=null)p.total=Math.round(p.total*ratio);
+    if(p.carry!=null)p.carry=Math.round(p.carry*cRatio);
+    if(p.total!=null)p.total=Math.round(p.total*cRatio);
     if(p.bspd!=null)p.bspd=Math.round(p.bspd*ratio);
     if(p.cspd!=null)p.cspd=Math.round(p.cspd*ratio);
   });
-  Object.keys(STATE.partials).forEach(id=>{const pr=STATE.partials[id];['full','tq','half','third'].forEach(k=>{if(pr[k]!=null)pr[k]=Math.round(pr[k]*ratio);});});
+  Object.keys(STATE.partials).forEach(id=>{const pr=STATE.partials[id];['full','tq','half','third'].forEach(k=>{if(pr[k]!=null)pr[k]=Math.round(pr[k]*cRatio);});});
   STATE.profile.driverSwingSpeed=target;
   saveState(); refreshAll(); toast('Ladder generated — refine from real data');
 }

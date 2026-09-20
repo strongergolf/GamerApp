@@ -105,13 +105,35 @@ function wedgeModel(){
     const c=STATE.clubs.find(x=>x.id===id); if(!c) return null;
     const p=perf(id); const pr=STATE.partials[id]||{};
     const fl=p.launch||25, fs=p.spin||8000, fh=p.ht||75;
-    /* 8:00 flight numbers continue the rung-to-rung steps the ¾/½ model already uses
-       (−2° launch, ×0.88 spin, ×0.85 height per rung down). Presumed, like its carry. */
+    /* PER-RUNG FLIGHT, FROM THIS CLUB'S OWN LADDER.
+       This used to be a fixed ladder \u2014 spin x0.88/0.76/0.64 and height x0.85/0.70/0.55 per
+       rung \u2014 applied to every club regardless of how far apart its rungs actually are. They
+       are not remotely alike: the 7i's 9:00 carries 84% of its full swing, the S wedge's
+       carries 59%. One multiplier for both means the same number is too low for one club and
+       too high for the other, and it was: at 9:00 the fixed 0.76 understated 7-iron spin by
+       ~14% and overstated sand-wedge spin by ~12%; at 8:00 the spread was -19% to +16%.
+       Now each rung's numbers follow the speed drop the club's own measured carries imply.
+         spin   ~ ball speed at roughly constant spin loft, so spin scales with speedRatio
+         apex   ~ carry for partial swings of one club (observed: tour 3/4 8-iron loses about
+                  as much height as distance), so it scales with carryRatio
+         launch  falls on a shorter swing, scaled by the speed drop and capped at 8 deg \u2014
+                  beyond that a wedge would be launching lower than its own bounce allows */
+    const _ratio=k=>(pr.full>0&&pr[k]!=null)?pr[k]/pr.full:null;
+    const _spd=k=>{ const r=_ratio(k); return r==null?null:(typeof speedRatioForCarry==='function'?speedRatioForCarry(r):r); };
+    /* Saturating rather than hard-capped: a flat Math.min(8,...) made the sand wedge launch
+       21 deg at BOTH 9:00 and 8:00, since both drops cleared the cap. tanh approaches the same
+       8 deg ceiling without ever flattening, so a shorter swing always launches lower than a
+       longer one, which is the behaviour the number exists to describe. */
+    const _launch=k=>{ const v=_spd(k); if(v==null) return fl;
+      const drop=8*Math.tanh(25.5*(1-v)/8);
+      return Math.max(5, +(fl-drop).toFixed(1)); };
+    const _spin=k=>{ const v=_spd(k); return v==null?fs:Math.round(fs*v); };
+    const _ht=k=>{ const r=_ratio(k); return r==null?fh:Math.round(fh*r); };
     return {id,label:c.label,loft:c.loft,type:c.type,
       carries:{full:pr.full,tq:pr.tq,half:pr.half,third:pr.third},
-      launch:{full:fl,tq:Math.max(8,fl-2),half:Math.max(6,fl-4),third:Math.max(5,fl-6)},
-      spin:{full:fs,tq:Math.round(fs*0.88),half:Math.round(fs*0.76),third:Math.round(fs*0.64)},
-      height:{full:fh,tq:Math.round(fh*0.85),half:Math.round(fh*0.70),third:Math.round(fh*0.55)}};
+      launch:{full:fl,tq:_launch('tq'),half:_launch('half'),third:_launch('third')},
+      spin:{full:fs,tq:_spin('tq'),half:_spin('half'),third:_spin('third')},
+      height:{full:fh,tq:_ht('tq'),half:_ht('half'),third:_ht('third')}};
   }).filter(Boolean);
   /* Extend through fairway wood: every non-putter, non-driver club not already a partial
      club is added as a FULL-swing option, so a big plays-like number still maps to a club.
@@ -317,7 +339,11 @@ function renderCalc(target){
        "% of full" is gone entirely: it described the SWING rather than the shot, and the clock
        reading beside it already says the same thing in the language a golfer swings in. The
        \u00b1 to anchor takes the weight it lost \u2014 that is the number being judged. */
-    const swingFrac=Math.max(0.3, Math.min(1.15, (o.pctFull||100)/100));
+    /* Speed does not fall as fast as carry does \u2014 see CARRY_SPEED_EXP. Scaling the displayed
+       ball and club speeds LINEARLY with the carry fraction, as this did, understated a 9:00
+       8-iron's ball speed by about 5 mph and a 9:00 sand wedge's by about 7. */
+    const _cr=Math.max(0.2, Math.min(1.15, (o.pctFull||100)/100));
+    const swingFrac=(typeof speedRatioForCarry==='function')?speedRatioForCarry(_cr):_cr;
     const dp=(STATE.dplane||{})[o.club.id]||{};
     const anatomy = selected ? shotStageHTML({
       impact:[
