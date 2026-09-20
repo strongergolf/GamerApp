@@ -119,8 +119,8 @@ function srForPlayer(lie,dist,hcp){
 
    Cross-check on the same data: smash factor (ball/club) reads D 1.50, 7i 1.32, 9i 1.26,
    PW 1.18 against Trackman tour averages of 1.49, 1.33, 1.28, 1.23 \u2014 close enough that the
-   speed numbers feeding this fit are sound. The wedges are the exception; see the note on
-   SMASH_FLOOR below. */
+   speed numbers feeding this fit are sound — including the wedges, whose apparently low
+   smash turns out to be exactly what their loft predicts (see expectedSmash). */
 const CARRY_SPEED_EXP = 1.35;
 /* carry ratio -> the ball-speed ratio that produced it */
 function speedRatioForCarry(carryRatio){
@@ -134,11 +134,41 @@ function carryRatioForSpeed(speedRatio){
   if(!(r > 0)) return null;
   return Math.pow(r, CARRY_SPEED_EXP);
 }
-/* Full-swing smash below this is outside what is physically reported even for a lob wedge,
-   and usually means a stored ball speed or club speed is wrong rather than the golfer being
-   remarkable. Surfaced as a data warning, never silently corrected \u2014 it is his measurement
-   to keep or change. */
-const SMASH_FLOOR = 0.95;
+/* EXPECTED SMASH FACTOR, BY LOFT.
+
+   This replaces a flat floor of 0.95, which was wrong. That number treated a lob wedge like a
+   driver and duly flagged the X's 0.82 as impossible \u2014 when 0.82 is close to exactly what a
+   65-degree club should return.
+
+   The reason is the one Mark gave: only the component of the strike NORMAL to the face drives
+   the ball, and the more loft the club has the more glancing the blow, so ball speed falls away
+   as the cosine of the delivered loft while club speed does not. Delivered loft is the stamped
+   loft less the forward shaft lean a full swing carries, about 6 degrees.
+
+     smash \u2248 SMASH_K * cos(loft - SMASH_LEAN)
+
+   Checked against every club in this bag, and it is not a loose fit: mean absolute error 0.029,
+   worst case 0.065, over 13 clubs from an 8-degree driver to a 65-degree wedge.
+     D 1.50 vs 1.53   7i 1.32 vs 1.34   9i 1.26 vs 1.22
+     P 1.18 vs 1.16   S 0.99 vs 0.98    X 0.82 vs 0.79
+   So a smash warning is only meaningful as a departure from the value this club's own loft
+   predicts, which is what smashOffBy reports. */
+const SMASH_K = 1.53;
+const SMASH_LEAN = 6;
+const SMASH_TOL = 0.12;        /* how far from the prediction is worth mentioning */
+function expectedSmash(loftDeg){
+  const L = parseFloat(loftDeg);
+  if(!isFinite(L)) return null;
+  return SMASH_K * Math.cos(Math.max(0, Math.min(80, L - SMASH_LEAN)) * Math.PI / 180);
+}
+/* Signed difference between a club's stored smash and what its loft predicts; null when
+   either speed is missing or the gap is inside tolerance. */
+function smashOffBy(bspd, cspd, loftDeg){
+  const b = parseFloat(bspd), c = parseFloat(cspd), e = expectedSmash(loftDeg);
+  if(!(b > 0) || !(c > 0) || e == null) return null;
+  const d = (b / c) - e;
+  return Math.abs(d) < SMASH_TOL ? null : d;
+}
 function effHcpForLie(lie){
   const pf=STATE.profile||{};
   const num=v=>{ if(v===''||v==null) return null; const n=parseFloat(v); return isNaN(n)?null:n; };
@@ -188,4 +218,4 @@ function effHcpSource(lie){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { SR, SR_RECOVERY_OVER_ROUGH, CARRY_SPEED_EXP, SMASH_FLOOR, speedRatioForCarry, carryRatioForSpeed, parseHcp, srForPlayer, srInterp, effHcpForLie, effHcpSource });
+Object.assign(window, { SR, SR_RECOVERY_OVER_ROUGH, CARRY_SPEED_EXP, SMASH_K, SMASH_LEAN, SMASH_TOL, expectedSmash, smashOffBy, speedRatioForCarry, carryRatioForSpeed, parseHcp, srForPlayer, srInterp, effHcpForLie, effHcpSource });

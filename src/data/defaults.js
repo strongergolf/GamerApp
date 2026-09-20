@@ -84,7 +84,10 @@ const DEFAULT_DATA = {
     P:      {carry:128, total:130, bspd:100, cspd:85, launch:25, spin:8500, ht:75, land:49, prov:"input"},
     W:      {carry:115, total:116, bspd:90, cspd:83, launch:27, spin:9000, ht:75, land:49, prov:"input"},
     S:      {carry:99, total:98, bspd:80, cspd:81, launch:29, spin:9500, ht:75, land:49, prov:"input"},
-    X:      {carry:76, total:73, bspd:64, cspd:78, launch:32.2, spin:10300, ht:75, land:49, prov:"presumed"},
+    /* Re-set by Mark to 70/67. Ball speed follows the carry through carry ~ ballSpeed^1.35
+       (64 -> 60), and club speed then follows from the loft's expected smash, 60/0.79 = 76.
+       Spin tracks club speed at unchanged spin loft; apex tracks carry. */
+    X:      {carry:70, total:67, bspd:60, cspd:76, launch:32.2, spin:10000, ht:69, land:49, prov:"input"},
     Pu:     {carry:null, total:null, bspd:null, cspd:null, launch:null, spin:null, ht:null, land:null}
   },
   /* partial swings — total distances (carry + green rollout), single source.
@@ -101,7 +104,7 @@ const DEFAULT_DATA = {
     P:      {full:130, tq:116, half:100, third:82, conf:[true, false, false, false]},
     W:      {full:116, tq:100, half:76, third:50, conf:[true, false, false, false]},
     S:      {full:98, tq:76, half:58, third:44, conf:[true, false, true, false]},
-    X:      {full:73, tq:68, half:58, third:46, conf:[false, false, false, false]}
+    X:      {full:67, tq:62, half:53, third:42, conf:[false, false, false, false]}
   },
   /* per-club stock-shot D-plane tendencies (horizontal face/path + attack angle, degrees).
      hFace/hPath: left(−)/right(+) of target. Stock shape & curve derived (face vs path,

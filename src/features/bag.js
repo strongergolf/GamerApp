@@ -171,16 +171,13 @@ function toggleDetail(c,row,group,inner){
          everything else from its performance record. The eight-cell grid this replaces was
          the same figures in entry order rather than in the order a shot happens. */
       const dp=(STATE.dplane||{})[c.id]||{};
-      /* A full-swing smash factor below SMASH_FLOOR is outside what is reported even for a lob
-         wedge, so it usually means one of the two stored speeds is wrong rather than the
-         golfer being remarkable. Said out loud next to the pair, and never corrected behind
-         his back — they are his measurements. */
-      const _smash=(p.bspd>0&&p.cspd>0)?(p.bspd/p.cspd):null;
-      const _floor=(typeof SMASH_FLOOR!=='undefined')?SMASH_FLOOR:0.95;
-      const _smashNote=(_smash!=null&&_smash<_floor)
-        ? `<p class="gen-note smash-warn">Smash factor <b>${_smash.toFixed(2)}</b> — ball speed divided by club speed. Below about ${_floor} is outside what a full swing produces even with a lob wedge, so one of these two speeds is probably off rather than the strike. Worth a look next time you are on a monitor.</p>`
-        : '';
-      const d86=(typeof disp86==='function'&&p.carry>0)?disp86(p.carry):null;
+      /* A smash factor only means something against what this club's LOFT predicts \u2014 0.82 is
+         alarming on a 7-iron and unremarkable on a 65-degree wedge. See expectedSmash. */
+      const _off=(typeof smashOffBy==='function')?smashOffBy(p.bspd,p.cspd,parseFloat(c.loft)):null;
+      const _exp=(typeof expectedSmash==='function')?expectedSmash(parseFloat(c.loft)):null;
+      const _smashNote=(_off==null)?'':
+        `<p class="gen-note smash-warn">Smash factor <b>${(p.bspd/p.cspd).toFixed(2)}</b> against about <b>${_exp.toFixed(2)}</b> for ${c.loft} of loft \u2014 ${
+          _off>0?'higher':'lower'} than the face angle alone explains, so one of the two stored speeds may be off. Worth a look next time you are on a monitor.</p>`;
       return shotStageHTML({
         impact:[
           {k:'Vert. Face', v:dp.vFace!=null?`${Math.round(dp.vFace)}°`:null},

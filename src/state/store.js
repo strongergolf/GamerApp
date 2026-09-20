@@ -76,13 +76,28 @@ function estThirdCarry(p){
    once per browser and then recorded, so it fixes the stale figure without ever reaching back
    over something the golfer edits later. Bump DATA_VERSION and add an entry to correct a
    number after release; anything a user can edit in My Bag stays theirs from then on. */
-const DATA_VERSION = 1;
+const DATA_VERSION = 2;
 const DATA_FIXES = [
   { v:1, note:'S wedge stock shot 99 carry / 98 total', apply(st){
       const p=st.performance && st.performance.S;
       if(p && p.carry!=null){ p.carry=99; p.total=98; }
       /* keep the ladder's full rung with it, or Approach and My Bag disagree by a yard */
       if(st.partials && st.partials.S) st.partials.S.full=98;
+  }},
+  { v:2, note:'X wedge 70 carry / 67 total, with the speeds that go with it', apply(st){
+      const p = st.performance && st.performance.X;
+      if(p && p.carry!=null){
+        p.carry=70; p.total=67; p.bspd=60; p.cspd=76; p.spin=10000; p.ht=69;
+        p.prov='input';
+      }
+      /* the ladder's full rung is the club's TOTAL (see the G and S rows), and the rungs
+         below it were Presumed extrapolations, so they rescale with it */
+      const pr = st.partials && st.partials.X;
+      if(pr && pr.full){
+        const k = 67/pr.full;
+        ['full','tq','half','third'].forEach(key=>{ if(pr[key]!=null) pr[key]=Math.round(pr[key]*k); });
+        pr.full=67;
+      }
   }}
 ];
 function applyDataFixes(st, fromVersion){
