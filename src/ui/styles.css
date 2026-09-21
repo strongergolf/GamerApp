@@ -672,12 +672,6 @@ body.theme-dark .sgv-prov{color:var(--gold)}
 .putt-stat-val{font-family:Arial,sans-serif;font-size:1.5rem;font-weight:800;color:var(--gold2);line-height:1}
 .putt-stat-lbl{font-family:ui-monospace,monospace;font-size:.59rem;text-transform:uppercase;letter-spacing:.07em;color:#7aa899;margin-top:3px}
 .putt-conditions{font-family:ui-monospace,monospace;font-size:.84rem;letter-spacing:.06em;color:#7aa899;text-align:center;margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.1)}
-.putt-sum{margin-top:12px;padding-top:9px;border-top:1px solid rgba(255,255,255,0.1)}
-.putt-sum-row{display:grid;gap:6px}
-.putt-sum-row+.putt-sum-row{margin-top:8px}
-.putt-sum-cell{text-align:center;min-width:0}
-.putt-sum-val{font-family:Arial,sans-serif;font-size:.92rem;font-weight:800;color:#f4f0e8;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.putt-sum-lbl{font-family:ui-monospace,monospace;font-size:.5rem;text-transform:uppercase;letter-spacing:.06em;color:#7aa899;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .putt-field{margin-bottom:12px}
 .putt-field label{display:block;font-family:ui-monospace,monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:4px}
 .putt-field input,.putt-field select{width:100%;padding:7px 9px;font-family:Arial,sans-serif;font-size:1rem;font-weight:700;color:var(--ink);background:var(--bg2);border:1px solid var(--border2);border-radius:6px;outline:none}
@@ -1460,15 +1454,21 @@ body.theme-dark .gr-a{color:var(--green2)} body.theme-dark .gr-b{color:var(--c-w
 
 /* SHOT ANATOMY — Impact / Launch / Flight, shown on the selected card only.
    One labelled row per stage, wrapping to as many lines as the phone needs. */
-.shot-anatomy{border-top:1px solid var(--border);margin:8px 0 0;padding:9px 2px 2px;display:flex;flex-direction:column;gap:9px}
-.sa-stage{display:flex;align-items:baseline;gap:4px 10px;flex-wrap:wrap}
-.sa-stage-name{flex:0 0 100%;font-family:Arial,sans-serif;font-size:.56rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
-.sa-cells{display:flex;flex-wrap:wrap;gap:6px 16px;flex:1 1 auto}
-.sa-cell{display:inline-flex;align-items:baseline;gap:5px}
-.sa-k{font-family:ui-monospace,monospace;font-size:.64rem;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
-.sa-v{font-family:ui-monospace,monospace;font-size:1.02rem;font-weight:700;color:var(--ink)}
+.shot-anatomy{border-top:1px solid var(--border);margin:8px 0 0;padding:10px 0 2px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));row-gap:10px}
+.sa-stage{display:flex;flex-direction:column;gap:8px;padding:0 10px;border-left:1px solid var(--border);min-width:0}
+.sa-stage:first-child{border-left:0;padding-left:2px}
+.sa-stage-name{font-family:Arial,sans-serif;font-size:.56rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);padding-bottom:4px;border-bottom:1px solid var(--border)}
+.sa-cells{display:flex;flex-direction:column;gap:8px}
+.sa-cell{display:flex;flex-direction:column;gap:1px;min-width:0}
+.sa-k{font-family:ui-monospace,monospace;font-size:.56rem;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sa-v{font-family:ui-monospace,monospace;font-size:.98rem;font-weight:700;color:var(--ink);white-space:nowrap}
+.sa-v small{font-size:.56rem;font-weight:600;letter-spacing:.03em;color:var(--muted);margin-left:3px}
 .sa-cell.dim .sa-v{font-weight:600;color:var(--muted)}
-@media(min-width:430px){.sa-stage-name{flex:0 0 58px}}
+/* Whole-shot numbers (lateral tendency, landing, roll) sit under all three columns. */
+.sa-extra{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px 20px;border-top:1px dashed var(--border);padding:8px 2px 0}
+.sa-extra .sa-cell{flex-direction:row;align-items:baseline;gap:6px}
+.sa-extra .sa-v{font-size:.86rem}
+@media(min-width:430px){.sa-stage{padding:0 14px}.sa-v{font-size:1.04rem}}
 /* The +/- to anchor is the number being judged on an Approach card, so it leads. */
 .calc-head-anchor.anchor-lead span{font-size:1.15rem;font-weight:800;color:inherit;letter-spacing:.01em}
 /* Carry + roll is the other half of the Approach headline, so it is sized to the anchor
@@ -1485,7 +1485,13 @@ body.theme-dark .gr-a{color:var(--green2)} body.theme-dark .gr-b{color:var(--c-w
 .putt-working>summary::-webkit-details-marker{display:none}
 .putt-working>summary::before{content:"\25b8";display:inline-block;margin-right:7px;transition:transform .15s}
 .putt-working[open]>summary::before{transform:rotate(90deg)}
-.putt-working .putt-sum{margin-top:8px}
+/* The working uses the shot-anatomy columns; the card is always dark, so recolour for it. */
+.putt-working .shot-anatomy{border-top:0;margin-top:6px}
+.putt-result-card .sa-stage,.putt-result-card .sa-stage-name{border-color:rgba(255,255,255,0.12)}
+.putt-result-card .sa-k,.putt-result-card .sa-stage-name,.putt-result-card .sa-v small{color:#7aa899}
+.putt-result-card .sa-v{color:#f4f0e8}
+.putt-result-card .sa-cell.dim .sa-v{color:#9fb8ae}
+.putt-result-card .sa-cell.sa-key .sa-v{color:var(--gold2)}
 
 /* A stored speed pair that cannot be right — stated, not silently corrected. */
 .smash-warn{margin:8px 2px 0;padding:7px 10px;border-left:3px solid var(--gold);background:rgba(196,150,30,.10);border-radius:0 7px 7px 0}

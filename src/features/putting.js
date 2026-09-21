@@ -208,7 +208,6 @@ function renderPutt(){
      working — and four of them (distance, stimp, up/downhill, sidehill) restated sliders
      sitting directly above, which is the app telling you what you just told it. They fold
      away, with the three that are genuinely derived kept nearest the top. */
-  const sumCell=(l,v)=>`<div class="putt-sum-cell"><div class="putt-sum-val">${v}</div><div class="putt-sum-lbl">${l}</div></div>`;
   res.innerHTML=`
     <div class="putt-result-card">
       <h4>Required Break</h4>
@@ -220,20 +219,28 @@ function renderPutt(){
         <div class="putt-stat"><div class="putt-stat-val">${cupW.toFixed(2)}×</div><div class="putt-stat-lbl">Cup widths</div></div>
         <div class="putt-stat"><div class="putt-stat-val">${effVal}</div><div class="putt-stat-lbl">Roll it as</div></div>
       </div>
+      <!-- The working, in the same three columns as the shot anatomy on the other tabs, and
+           for the same reason: left to right is cause to effect. The putt as read, the green
+           and the pace it is rolled at, then the break and the one deduction that turns it
+           into an aim point — the hole radius, shown as its own line rather than hidden. -->
       <details class="putt-working"${window.puttWorkingOpen?' open':''} ontoggle="window.puttWorkingOpen=this.open">
         <summary>How that number is built</summary>
-        <div class="putt-sum">
-          <div class="putt-sum-row" style="grid-template-columns:repeat(3,1fr)">
-            ${sumCell('Break to Centre',fmtIn(breakIn,1))}
-            ${sumCell('Pace Past',fmtIn(pace))}
-            ${sumCell('Distance',fmtFt(dist))}
-          </div>
-          <div class="putt-sum-row" style="grid-template-columns:repeat(3,1fr)">
-            ${sumCell('Stimp',stimp.toFixed(1))}
-            ${sumCell('Up / Downhill',fmtSlopeElev(elevIn))}
-            ${sumCell('Sidehill',`${grade}%`)}
-          </div>
-        </div>
+        ${shotStageHTML({
+          putt:[
+            {k:'Distance', v:fmtFt(dist)},
+            {k:'Up / Down', v:fmtSlopeElev(elevIn)},
+            {k:'Sidehill', v:`${grade}%`}
+          ],
+          green:[
+            {k:'Stimp', v:stimp.toFixed(1)},
+            {k:'Pace Past', v:fmtIn(pace)}
+          ],
+          break:[
+            {k:'To Centre', v:fmtIn(breakIn,1)},
+            {k:'Hole Radius', v:`&minus;${fmtIn(HOLE_R,1)}`, dim:true},
+            {k:'Outside Edge', v:fmtIn(edgeOffsetIn,1), key:true}
+          ]
+        }, ['Putt','Green','Break'])}
       </details>
     </div>`;
   const svgWrap=document.getElementById('putt-svg-wrap'); if(!svgWrap) return;

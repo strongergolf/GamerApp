@@ -95,22 +95,40 @@ Object.assign(window, { SG_RED, SG_BALL_FILL, SG_BALL_STROKE, sgBall, sgFlagstic
    visible; the full picture is one tap away and never more than one tap away. A shot card is
    a headline with a body, not a wall.
 
-   A stage's cell may be null, and prints as an em dash rather than a guess — a chip has no
-   modelled clubhead speed, and inventing one to fill the grid would put a number on screen
-   that nothing in the app stands behind. */
+   A stage's cell may be null, and prints as an em dash rather than a guess — a number with
+   nothing in the app standing behind it is worse than a gap. (Chip speeds are no longer
+   gaps: they are estimated from launch and carry, shown dim, and say so on hover.) */
 const SHOT_STAGES = ['Impact','Launch','Flight'];
-function shotStageHTML(stages){
-  return `<div class="shot-anatomy">` + SHOT_STAGES.map(name=>{
+/* COLUMNS, not rows: the three stages sit side by side, each a stack of three, so reading
+   down a column is one stage and reading across is cause to effect. The rows this replaced
+   wrapped at different points on every card, which made the same number move around.
+   Anything past the nine — the lateral tendency, a landing description, a roll — is a
+   property of the whole shot rather than of one stage, so it rides in `stages.extra`
+   under all three columns instead of stretching one of them.
+   A trailing unit ("95 mph", "1,200 rpm") is split off and set small, so the number keeps
+   the weight and a column stays narrow enough for a phone.
+   `names` lets another tab reuse the layout with its own stages (Putting's working). */
+function saValue(v){
+  if(v==null||v==='') return '&mdash;';
+  const m=String(v).match(/^(.*\d)\s+([^\d<]+)$/);
+  return m ? `${m[1]}<small>${m[2]}</small>` : v;
+}
+function saCell(c){
+  return `<span class="sa-cell${c.dim?' dim':''}${c.key?' sa-key':''}"${c.title?` title="${escapeHtml(c.title)}"`:''}>
+      <span class="sa-k">${c.k}</span>
+      <span class="sa-v">${saValue(c.v)}</span>
+    </span>`;
+}
+function shotStageHTML(stages, names){
+  const cols=(names||SHOT_STAGES).map(name=>{
     const cells=stages[name.toLowerCase()]||[];
     if(!cells.length) return '';
     return `<div class="sa-stage">
       <span class="sa-stage-name">${name}</span>
-      <div class="sa-cells">${cells.map(c=>`
-        <span class="sa-cell${c.dim?' dim':''}"${c.title?` title="${escapeHtml(c.title)}"`:''}>
-          <span class="sa-k">${c.k}</span>
-          <span class="sa-v">${c.v==null||c.v===''?'&mdash;':c.v}</span>
-        </span>`).join('')}</div>
+      <div class="sa-cells">${cells.map(saCell).join('')}</div>
     </div>`;
-  }).join('') + `</div>`;
+  }).join('');
+  const extra=(stages.extra||[]).filter(Boolean);
+  return `<div class="shot-anatomy">${cols}${extra.length?`<div class="sa-extra">${extra.map(saCell).join('')}</div>`:''}</div>`;
 }
-Object.assign(window, { SHOT_STAGES, shotStageHTML });
+Object.assign(window, { SHOT_STAGES, shotStageHTML, saCell, saValue });

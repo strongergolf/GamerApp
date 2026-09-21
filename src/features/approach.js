@@ -349,19 +349,24 @@ function renderCalc(target){
       impact:[
         {k:'Vert. Face', v:dp.vFace!=null?`${Math.round(dp.vFace)}\u00b0`:null},
         {k:'Vert. Path', v:dp.aoa!=null?`${dp.aoa>0?'+':''}${dp.aoa.toFixed(1)}\u00b0`:null},
-        {k:'Club', v:p.cspd?`${mphNum(p.cspd*swingFrac)} ${unitLabel('speed')}`:null,
+        {k:'Club Speed', v:p.cspd?`${mphNum(p.cspd*swingFrac)} ${mphUnit()}`:null,
          title:'Scaled from your full-swing clubhead speed by this swing\u2019s share of full carry \u2014 estimated, not measured.'}
       ],
       launch:[
         {k:'Vert. Launch', v:`${fl.launch}\u00b0`},
-        {k:'Ball', v:p.bspd?`${mphNum(p.bspd*swingFrac)} ${unitLabel('speed')}`:null,
+        {k:'Ball Speed', v:p.bspd?`${mphNum(p.bspd*swingFrac)} ${mphUnit()}`:null,
          title:'Scaled from your full-swing ball speed by this swing\u2019s share of full carry \u2014 estimated, not measured.'},
-        {k:'Spin', v:`${(fl.spin/1000).toFixed(1)}k`}
+        {k:'Spin', v:`${(Math.round(fl.spin/50)*50).toLocaleString()} rpm`}
       ],
       flight:[
         {k:'Apex', v:`${ftNum(fl.height)} ${ftUnit()}`},
         {k:'Carry', v:`${ydNum(estCarry)} ${ydUnit()}`},
-        {k:'TTL', v:`${ydNum(target)} ${ydUnit()}`},
+        {k:'TTL', v:`${ydNum(target)} ${ydUnit()}`}
+      ],
+      /* Whole-shot, not one stage: same land angle the trajectory drawing uses, so the
+         strip and the picture agree \u2014 and it lines up with Stock Shots, which shows Land too. */
+      extra:[
+        {k:'Land', v:`${Math.round((p.land||45)*(stm.landMult||1))}\u00b0`, dim:true},
         {k:'L/R 86%', v:(typeof disp86==='function'&&estCarry>0)?`\u00b1${ydNum(disp86(estCarry),1)} ${ydUnit()}`:null, dim:true},
         {k:'Lands', v:checkDesc, dim:true}
       ]

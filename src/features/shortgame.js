@@ -288,10 +288,10 @@ function renderChipDial(){
        Colour still bands the underlying RATIO, not the raw numbers, so it means the same thing
        at every target distance: green stops soonest, gold runs furthest. Descriptive, not a
        judgement — a runner is the right shot more often than not.
-       The middle is now empty by design: it carried launch and spin, and the Launch stage of
-       the anatomy states both the moment the card is selected. Printing them twice on one card
-       is the redundancy this pass exists to remove -- collapsed, the split IS the shot;
-       expanded, the anatomy is the detail. */
+       The middle holds the % TO TARGET: the share of the shot that flies is the landing spot
+       you pick out and hit, and read down the stack it compares the options at a glance
+       (a 7-iron lands 20% of the way, a lob wedge 60%). Launch and spin stay off the line --
+       the Launch column states both the moment the card is selected. */
     const ratio = carry>0.05 ? roll/carry : 0;
     /* always one decimal, so the split reads as a column down the stack — ydNum(4.0,1)
        returns the NUMBER 4, which would print "4 : 16" beside "3.3 : 16.7".
@@ -309,15 +309,29 @@ function renderChipDial(){
        or derives one at these speeds \u2014 so that cell prints an em dash rather than a number
        invented to fill the grid. */
     const netAbs=(typeof sgNet==='function')?sgNet().abs:null;
+    const pctTo = total>0 ? Math.round(carry/total*100) : null;
+    /* SPEEDS, estimated from the same geometry the apex already uses. At chip speeds the flight
+       is near enough ballistic that carry = v^2 sin(2 theta) / g gives the launch speed from the
+       launch angle and the carry alone (10 yd at 35 deg -> ~22 mph, in line with monitor data).
+       Drag makes this read a touch LOW, the same direction as the apex.
+       Club speed then divides by the smash the DELIVERED loft predicts (SMASH_K x cos loft) \u2014
+       the same face-angle law Stock Shots checks measured smash against. The delivered loft is
+       already the Vert. Face cell, so no shaft-lean allowance is subtracted a second time. */
+    const ballMph = (carry>0.3 && rowLaunch>3)
+      ? Math.sqrt(carry*3*32.174/Math.sin(2*rowLaunch*Math.PI/180))*0.6818 : null;
+    const chipSmash = (typeof SMASH_K==='number') ? SMASH_K*Math.cos(Math.min(80,loft)*Math.PI/180) : null;
+    const clubMph = (ballMph!=null && chipSmash>0.3) ? ballMph/chipSmash : null;
     const anatomy = selected ? shotStageHTML({
       impact:[
         {k:'Vert. Face', v:`${loft.toFixed(0)}\u00b0`, title:'The club\u2019s loft as delivered \u2014 its own loft plus whatever the setup adds or takes away.'},
         {k:'Vert. Path', v:netAbs&&netAbs.vertPath!=null?`${netAbs.vertPath>0?'+':''}${netAbs.vertPath.toFixed(0)}\u00b0`:null},
-        {k:'Club', v:null, dim:true, title:'Not modelled for chips \u2014 nothing in the app measures or derives clubhead speed at these distances.'}
+        {k:'Club Speed', v:clubMph!=null?`${mphNum(clubMph)} ${mphUnit()}`:null, dim:true,
+         title:'Estimated: ball speed divided by the smash factor this delivered loft predicts. Not measured.'}
       ],
       launch:[
         {k:'Vert. Launch', v:`${rowLaunch.toFixed(0)}\u00b0`},
-        {k:'Ball', v:null, dim:true, title:'Not modelled for chips.'},
+        {k:'Ball Speed', v:ballMph!=null?`${mphNum(ballMph)} ${mphUnit()}`:null, dim:true,
+         title:'Estimated from launch angle and carry as a ballistic arc \u2014 geometry, not measurement. Reads slightly low.'},
         {k:'Spin', v:`${rowSpin.toLocaleString()} rpm`}
       ],
       flight:[
@@ -325,17 +339,19 @@ function renderChipDial(){
             return ft==null?null:(ft<3?`${fmtIn(ft*12,0)}`:`${ftNum(ft,1)} ${ftUnit()}`); })(),
          title:'Estimated from the launch angle and the carry \u2014 geometry, not measurement. Reads slightly low on a high-spinning wedge.'},
         {k:'Carry', v:`${ydNum(carry,1).toFixed(1)} ${ydUnit()}`},
-        {k:'% to target', v:total>0?`${Math.round(carry/total*100)}%`:null,
-         title:'The share of the whole shot that flies \u2014 the landing spot to pick out and hit.'},
-        {k:'TTL', v:`${ydNum(total,1).toFixed(1)} ${ydUnit()}`},
-        {k:'Roll', v:`${ydNum(roll,1).toFixed(1)} ${ydUnit()}`, dim:true}
+        {k:'TTL', v:`${ydNum(total,1).toFixed(1)} ${ydUnit()}`}
+      ],
+      /* % to target is on the card's own line now, for every option, so it is not repeated here. */
+      extra:[
+        {k:'Roll', v:`${ydNum(roll,1).toFixed(1)} ${ydUnit()}`, dim:true},
+        {k:'Ratio', v:typeof chipRatioStr==='function'?chipRatioStr(ratio):null, dim:true}
       ]
     }) : '';
     return `<div class="calc-result-card ${selected?'best':''}"
         onclick="selectChipClub(${i})" style="cursor:pointer${!practical&&!selected?';opacity:.5':''}">
       <div class="calc-card-header">
         <div class="calc-club-badge" style="color:${tc}">${c.label}<small>${c.loft}</small></div>
-        <div class="calc-head-main">${noteStr||''}</div>
+        <div class="calc-head-main">${pctTo!=null?`${pctTo}%<i>to target</i>`:''}${noteStr||''}</div>
         <div class="calc-head-anchor sg-split" style="color:${rc}">${splitStr}</div>
       </div>
       ${anatomy}

@@ -171,6 +171,9 @@ function toggleDetail(c,row,group,inner){
          everything else from its performance record. The eight-cell grid this replaces was
          the same figures in entry order rather than in the order a shot happens. */
       const dp=(STATE.dplane||{})[c.id]||{};
+      /* Computed here, not borrowed: the ladder's own d86 lives in buildLadder's loop and is
+         out of scope in this function, which threw on every club opened. */
+      const d86=(typeof disp86==='function'&&p.carry)?disp86(p.carry):null;
       /* A smash factor only means something against what this club's LOFT predicts \u2014 0.82 is
          alarming on a 7-iron and unremarkable on a 65-degree wedge. See expectedSmash. */
       const _off=(typeof smashOffBy==='function')?smashOffBy(p.bspd,p.cspd,parseFloat(c.loft)):null;
@@ -182,17 +185,22 @@ function toggleDetail(c,row,group,inner){
         impact:[
           {k:'Vert. Face', v:dp.vFace!=null?`${Math.round(dp.vFace)}°`:null},
           {k:'Vert. Path', v:dp.aoa!=null?`${dp.aoa>0?'+':''}${dp.aoa.toFixed(1)}°`:null},
-          {k:'Club', v:p.cspd!=null?`${mphNum(p.cspd)} ${mphUnit()}`:null}
+          {k:'Club Speed', v:p.cspd!=null?`${mphNum(p.cspd)} ${mphUnit()}`:null}
         ],
         launch:[
           {k:'Vert. Launch', v:p.launch!=null?`${p.launch}°`:null},
-          {k:'Ball', v:p.bspd!=null?`${mphNum(p.bspd)} ${mphUnit()}`:null},
+          {k:'Ball Speed', v:p.bspd!=null?`${mphNum(p.bspd)} ${mphUnit()}`:null},
           {k:'Spin', v:p.spin!=null?`${p.spin.toLocaleString()} rpm`:null}
         ],
         flight:[
           {k:'Apex', v:p.ht!=null?`${ftNum(p.ht)} ${ftUnit()}`:null},
           {k:'Carry', v:p.carry!=null?`${ydNum(p.carry)} ${ydUnit()}`:null},
-          {k:'TTL', v:p.total!=null?`${ydNum(p.total)} ${ydUnit()}`:null},
+          {k:'TTL', v:p.total!=null?`${ydNum(p.total)} ${ydUnit()}`:null}
+        ],
+        /* Smash earns a place here and nowhere else: this is the one card where both speeds
+           are measured, so their ratio is a real number rather than an estimate over an estimate. */
+        extra:[
+          {k:'Smash', v:(p.bspd&&p.cspd)?(p.bspd/p.cspd).toFixed(2):null, dim:true},
           {k:'Land', v:p.land!=null?`${p.land}°`:null, dim:true},
           {k:'L/R 86%', v:d86!=null?`±${ydNum(d86,1)} ${ydUnit()}`:null, dim:true}
         ]
