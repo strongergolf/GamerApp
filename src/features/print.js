@@ -56,7 +56,7 @@ function prFullTable(clubIds){
    those three columns were the same split restated three times. The split itself is the useful
    thing standing over the ball: what share of the shot flies, and where to land it. */
 function prChipTable(){
-  const clubs=(typeof PARTIAL_CLUBS!=='undefined'?PARTIAL_CLUBS:['7i','8i','9i','P','W','S','X'])
+  const clubs=prPartialIds()
     .map(id=>(STATE.clubs||[]).find(c=>c.id===id)).filter(Boolean);
   let body='';
   clubs.forEach(c=>{
@@ -77,9 +77,14 @@ function prChipNote(){
   const txt=(typeof chipSetupSummary==='function')?chipSetupSummary():`stimp ${STATE.stimp.toFixed(1)}`;
   return `<div class="chip-note">Same split at every distance &middot; ${txt}</div>`;
 }
+/* The partial-swing clubs, from the bag as it stands (see partialClubIds in approach.js) —
+   the print card has to show the clubs actually being carried, not a fixed list of ids. */
+function prPartialIds(){
+  return (typeof partialClubIds==='function') ? partialClubIds() : [];
+}
 /* Longer clubs (driver / woods / hybrids / long irons) not in the partial set, longest first. */
 function prStockClubIds(){
-  const partial=new Set(typeof PARTIAL_CLUBS!=='undefined'?PARTIAL_CLUBS:[]);
+  const partial=new Set(prPartialIds());
   return (STATE.clubs||[]).filter(c=>c.type!=='putter'&&!partial.has(c.id))
     .slice().sort((a,b)=>((perf(b.id).total||perf(b.id).carry||0)-(perf(a.id).total||perf(a.id).carry||0)))
     .map(c=>c.id);
@@ -108,7 +113,7 @@ function prConditionsNote(){
 /* Single-sided card: Full-Swing Stock Shots (whole bag) on the left; Partial Approach
    Shots over the Chip Shot Matrix on the right. */
 function prCard(){
-  const partialIds=(typeof PARTIAL_CLUBS!=='undefined'?PARTIAL_CLUBS:['7i','8i','9i','P','W','S','X']);
+  const partialIds=prPartialIds();
   return `<section class="card">
     <div class="head">${PR_ARC}${prMark}${prConditionsNote()}</div>
     <div class="cols">

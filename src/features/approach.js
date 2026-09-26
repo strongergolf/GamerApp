@@ -3,7 +3,21 @@
 /* ============================================================
    PARTIALS / LOOKUP / CALCULATOR  (single-source)
    ============================================================ */
-const PARTIAL_CLUBS=['7i','8i','9i','P','W','S','X'];
+/* THE PARTIAL-SWING CLUBS — derived from the bag, not a fixed list of ids.
+   This was ['7i','8i','9i','P','W','S','X'], which was correct for the bag as shipped and
+   wrong the moment a club could be added or taken out: a new 61° L wedge got no partials
+   ladder and no place in the Distance Matrix, and an id that had left the bag threw on
+   `c.label` of undefined. The question it is really asking is "which clubs do I hit partial
+   swings with", and the answer is the scoring clubs: irons and wedges from the 7-iron down.
+   Keyed on TYPE and LOFT, like the gapping rules in bag-specs, and sorted by loft so the
+   matrix still reads 7i → X. Reproduces the old list exactly for the default bag. */
+const PARTIAL_MIN_LOFT = 34;
+function partialClubIds(){
+  return (STATE.clubs||[])
+    .filter(c=>(c.type==='iron'||c.type==='wedge') && (parseFloat(c.loft)||0)>=PARTIAL_MIN_LOFT)
+    .sort((a,b)=>(parseFloat(a.loft)||0)-(parseFloat(b.loft)||0))
+    .map(c=>c.id);
+}
 /* Approach distance is held in YARDS whatever is displayed — renderCalc and the whole
    club/swing engine read yards. Only the readouts convert. */
 function apSetDist(v){
@@ -30,9 +44,9 @@ function buildPartialsTable(){
   const rows=[{label:'11:00 — Full',key:'full',ci:0},{label:'10:00 — ¾',key:'tq',ci:1},{label:'9:00 — ½',key:'half',ci:2},{label:'8:00 — ⅓',key:'third',ci:3}];
   /* Clubs as rows, swing types as columns */
   let html=`<thead><tr><th style="text-align:left;padding-left:12px;min-width:70px">Club</th>${rows.map(sw=>`<th>${sw.label}</th>`).join('')}</tr></thead><tbody>`;
-  PARTIAL_CLUBS.forEach(id=>{
-    const c=STATE.clubs.find(x=>x.id===id);
-    const pr=STATE.partials[id];
+  partialClubIds().forEach(id=>{
+    const c=STATE.clubs.find(x=>x.id===id); if(!c) return;
+    const pr=STATE.partials[id]||{};
     html+=`<tr><td style="padding-left:12px;white-space:nowrap">
       <span style="font-family:Arial,sans-serif;font-weight:800;font-size:1.05rem;letter-spacing:.02em;color:var(--ink);display:block;line-height:1.1">${c.label}</span>
       <span style="font-family:ui-monospace,monospace;font-size:.64rem;font-weight:700;color:var(--ink2);display:block;margin-top:1px">${c.loft}</span>
@@ -88,7 +102,7 @@ function buildLookupTable(){
   const swingName={full:'full',tq:'10:00',half:'9:00',third:'8:00'};
   const swingOrder={full:0,tq:1,half:2,third:3};
   const map={};
-  PARTIAL_CLUBS.forEach(id=>{const c=STATE.clubs.find(x=>x.id===id);['full','tq','half','third'].forEach(k=>{const d=STATE.partials[id][k];if(d==null)return;(map[d]=map[d]||[]).push({label:`${c.label} ${swingName[k]}`,cls:swingTag[k],order:swingOrder[k]});});});
+  partialClubIds().forEach(id=>{const c=STATE.clubs.find(x=>x.id===id); if(!c) return; const pr=STATE.partials[id]||{};['full','tq','half','third'].forEach(k=>{const d=pr[k];if(d==null)return;(map[d]=map[d]||[]).push({label:`${c.label} ${swingName[k]}`,cls:swingTag[k],order:swingOrder[k]});});});
   const dists=Object.keys(map).map(Number).sort((a,b)=>b-a);
   let html=`<thead><tr><th>Target Distance</th><th>Club Options</th></tr></thead><tbody>`;
   dists.forEach(d=>{const opts=map[d].sort((a,b)=>a.order-b.order);const tags=opts.map(o=>`<span class="opt-tag ${o.cls}">${o.label}</span>`).join(' ');html+=`<tr><td><span class="lookup-dist">${d} yd</span></td><td>${tags}</td></tr>`;});
@@ -101,7 +115,7 @@ function buildLookupTable(){
    the ladder's ~12-13 point step (62 · 75 · 87 · 100). */
 const SWINGS=[{key:'third',short:'8:00 ⅓',effort:62},{key:'half',short:'9:00 ½',effort:75},{key:'tq',short:'10:00 ¾',effort:87},{key:'full',short:'11:00 Full',effort:100}];
 function wedgeModel(){
-  const partial=PARTIAL_CLUBS.map(id=>{
+  const partial=partialClubIds().map(id=>{
     const c=STATE.clubs.find(x=>x.id===id); if(!c) return null;
     const p=perf(id); const pr=STATE.partials[id]||{};
     const fl=p.launch||25, fs=p.spin||8000, fh=p.ht||75;
@@ -138,7 +152,7 @@ function wedgeModel(){
   /* Extend through fairway wood: every non-putter, non-driver club not already a partial
      club is added as a FULL-swing option, so a big plays-like number still maps to a club.
      (Driver is excluded — "through fairway wood".) */
-  const partialIds=new Set(PARTIAL_CLUBS);
+  const partialIds=new Set(partialClubIds());
   const longer=STATE.clubs
     .filter(c=>c.type!=='putter'&&c.id!=='D'&&!partialIds.has(c.id))
     .map(c=>{
@@ -396,4 +410,4 @@ function initCalc(){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { apSetDist, apSyncUnitLabels, PARTIAL_CLUBS, SWINGS, CLUB_RANGE_SLACK_YD, buildLookupTable, buildPartialsTable, calcSuggestions, clubTypeOf, clubRanges, clubUsableRange, FULL_ONLY_MAX_REACH_YD, initCalc, interpFlight, renderCalc, selectApproachResult, wedgeModel });
+Object.assign(window, { apSetDist, apSyncUnitLabels, partialClubIds, PARTIAL_MIN_LOFT, SWINGS, CLUB_RANGE_SLACK_YD, buildLookupTable, buildPartialsTable, calcSuggestions, clubTypeOf, clubRanges, clubUsableRange, FULL_ONLY_MAX_REACH_YD, initCalc, interpFlight, renderCalc, selectApproachResult, wedgeModel });

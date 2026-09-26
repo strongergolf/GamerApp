@@ -119,10 +119,16 @@ function mergeDefaults(saved){
     } else { swing[k]=swingSaved[k]!==undefined?swingSaved[k]:swingBase[k]; }
   }
   /* Clubs: keep saved clubs, but append any DEFAULT club not present in saved state.
-     This ensures new clubs (e.g. putter) appear even for users with existing saved data. */
+     This ensures new clubs (e.g. putter) appear even for users with existing saved data.
+     RETIRED IDS are the exception, and they have to be: now that a club can genuinely be
+     taken OUT of the bag rather than only exchanged, "not present in saved state" no longer
+     means "new to this app" — it also means "the golfer took it out". Without this list the
+     next page load handed every removed default club straight back, and the bag crept over
+     fourteen on its own. bagRemoveClub records the id; bringing the club back clears it. */
+  const retired = new Set(Array.isArray(sv.retiredClubIds)?sv.retiredClubIds:[]);
   const savedClubs = sv.clubs||base.clubs;
   const savedIds = new Set(savedClubs.map(c=>c.id));
-  const clubs = [...savedClubs, ...base.clubs.filter(c=>!savedIds.has(c.id))];
+  const clubs = [...savedClubs, ...base.clubs.filter(c=>!savedIds.has(c.id)&&!retired.has(c.id))];
   clubs.forEach(c=>{ const m=migrateClubModel(c.model); if(m!==c.model) c.model=m; });
   /* Saved performance: merge with defaults so new clubs get empty perf entries */
   const performance = Object.assign({}, base.performance, sv.performance||{});
@@ -202,7 +208,15 @@ function mergeDefaults(saved){
       return out;
     });
     const have=new Set(svOther.map(idOf));
-    const missing=(base.otherClubs||[]).filter(o=>!have.has(idOf(o)));
+    /* A default inventory record is NOT missing when that club is in the bag — it is in play.
+       Without this test the backfill undid every club brought in from the collection: the
+       record was correctly removed when the club joined the bag, the next page load saw a
+       default record "missing" from the save and put it back, and the club existed twice —
+       once in the bag and once in the collection, ready to be added again. The identity is
+       the same make|model|loft used above, read off the bag's own loft string. */
+    const bagIds=new Set((clubs||[]).map(c=>
+      [(c.make||'').trim().toLowerCase(),(migrateClubModel(c.model)||'').trim().toLowerCase(),parseFloat(c.loft)].join('|')));
+    const missing=(base.otherClubs||[]).filter(o=>!have.has(idOf(o)) && !bagIds.has(idOf(o)));
     if(missing.length) otherClubs=[...otherClubs, ...missing];
     /* A rename can make two inventory records identical — the same wedge, entered twice under
        its two spellings. Collapse them, keeping the first and taking from the second only the

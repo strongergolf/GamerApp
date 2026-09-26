@@ -11,8 +11,12 @@ function buildSpecs(){
   const bl=document.getElementById('bag-section-label');
   if(bl){
     const n=(STATE.clubs||[]).length;
-    bl.innerHTML='In the Bag <span style="font-weight:400;color:'+(n>MAX_BAG_CLUBS?'var(--red,#d96070)':'var(--muted)')+'">'
-      +'· '+n+' of '+MAX_BAG_CLUBS+(n>MAX_BAG_CLUBS?' — over the limit':'')+'</span>';
+    const editing=(typeof bagEditOn==='function'&&bagEditOn());
+    bl.innerHTML='<span>In the Bag <span style="font-weight:400;color:'+(n>MAX_BAG_CLUBS?'var(--red,#d96070)':'var(--muted)')+'">'
+      +'· '+n+' of '+MAX_BAG_CLUBS+(n>MAX_BAG_CLUBS?' — over the limit':'')+'</span></span>'
+      +(editing
+        ? '<span class="bge-hint">Mark clubs to take out, and clubs below to put in</span>'
+        : '<button class="print-btn" onclick="bagEditStart()" title="Take clubs out and put clubs in together — they do not have to match">⇅ Change the bag</button>');
   }
   /* Ball listing at top */
   const bw=document.getElementById('ball-specs-wrap');
@@ -75,7 +79,11 @@ function buildSpecs(){
     const p=perf(c.id), carry=p.carry||0, total=p.total||0;
     const hasC=c.type!=='putter'&&carry>0;
     const d86=hasC?disp86(carry):null;                                     /* single 86% L/R lateral (yd) */
-    const row=document.createElement('div'); row.className='specs-club-row spec-card';
+    /* In edit mode the row is a mark, not a link into the club's detail: one tap says "this
+       one is coming out". Out of edit mode it behaves exactly as it always did. */
+    const editing=(typeof bagEditOn==='function'&&bagEditOn());
+    const markedOut=editing&&window.bagEdit.out.has(c.id);
+    const row=document.createElement('div'); row.className='specs-club-row spec-card'+(markedOut?' bge-out':'');
     row.innerHTML=
       `<span class="spec-club ${c.type}">${c.label}</span>`+
       `<div class="sc-id"><span class="sc-name">${c.make} ${c.model}</span></div>`+   /* year · shaft moved into the dropdown (Physical Spec) for a tighter mobile row */
@@ -83,9 +91,10 @@ function buildSpecs(){
       `<div class="sc-sep"></div>`+
       mini('Carry '+ydUnit(),hasC?ydNum(carry):'—','sm-w-yd')+mini('TTL '+ydUnit(),total?ydNum(total):'—','sm-w-yd')+
       mini('86% L/R',d86!=null?ydNum(d86,1):'—','sm-w-lr')+
-      `<div class="specs-chevron">▾</div>`;
+      (editing ? `<div class="bge-mark${markedOut?' on':''}">${markedOut?'OUT':'Take out'}</div>`
+               : `<div class="specs-chevron">▾</div>`);
     const group=document.createElement('div'); group.className='specs-rep-group';
-    row.addEventListener('click',()=>toggleSpecs(c,row,group));
+    row.addEventListener('click',()=> editing ? bagEditToggleOut(c.id) : toggleSpecs(c,row,group));
     wrap.appendChild(row); wrap.appendChild(group);
     /* 7-column gap row aligned under each spec column */
     const thisCarry=carryOf(c);
@@ -247,6 +256,189 @@ function swapIntoBag(clubId, o){
   if(typeof toast==='function') toast(`${o.make} ${o.model} (${o.effLoft}°) swapped in — ${displaced.make} ${displaced.model} to the collection`);
   return true;
 }
+/* ============================================================
+   CHANGING THE BAG — add and remove, not only exchange
+
+   Every bag change used to be a 1-for-1 exchange, because a club IS a slot: STATE.performance,
+   .partials, .dplane and .missTendency are all keyed by the club's id, so "removing" a club
+   meant overwriting its slot with another one. That works for like-for-like — a new gap wedge
+   for the old gap wedge, keeping the slot's measured ladder — and not at all for the change a
+   golfer actually makes: two long clubs out, one long club and a wedge in. A 61° L wedge has
+   no business inheriting a hybrid's yardages, and the forced pairing meant it did.
+   So the exchange stays (it is the right tool for a straight replacement, and it preserves
+   measurement), and true add / remove join it underneath the staging editor below.
+   ============================================================ */
+
+/* A club's own ladder ratios, averaged over the bag, for seeding a club that has none.
+   Two hardcoded ladders existed for this — 0.92/0.84 in the add form, 0.92/0.78 in the swap —
+   and neither matched the bag: Mark's 7i runs .93/.84/.73 and his 9i .89/.79/.67. Taking the
+   mean of what is actually in the bag beats either guess, and it follows the player. */
+function bagLadderRatios(){
+  let tq=0,half=0,n=0;
+  Object.values(STATE.partials||{}).forEach(p=>{
+    if(!p||!(p.full>0)) return;
+    if(p.tq>0&&p.half>0){ tq+=p.tq/p.full; half+=p.half/p.full; n++; }
+  });
+  return n ? {tq:tq/n, half:half/n} : {tq:0.92, half:0.81};
+}
+function seedPartialsFor(id, baseCarry){
+  if(!(baseCarry>0)) return;
+  const r=bagLadderRatios();
+  const seeded={ full:Math.round(baseCarry), tq:Math.round(baseCarry*r.tq), half:Math.round(baseCarry*r.half),
+                 conf:[false,false,false,false] };
+  seeded.third=(typeof estThirdCarry==='function')?estThirdCarry(seeded):Math.round(baseCarry*0.68);
+  STATE.partials[id]=seeded;
+}
+/* An inventory record for a club leaving the bag, carrying its measured numbers with it so a
+   club resting in the collection is not silently downgraded to a guess (same rule as the
+   exchange path — see swapIntoBag). */
+function bagClubToRecord(c){
+  const rec={ label:c.label, effLoft:parseFloat(c.loft)||null, make:c.make, model:c.model,
+    shaft:c.shaft, length:c.length, lie:c.lie, year:c.year, swt:c.swt,
+    bag:'Removed from bag', type:c.type };
+  if(c.grip) rec.grip=c.grip;
+  if(c.weightOz) rec.weightOz=c.weightOz;
+  const p=(typeof perf==='function')?perf(c.id):null;
+  if(p&&p.carry!=null&&p.prov!=='presumed'){ rec.carry=p.carry; if(p.total!=null) rec.total=p.total; }
+  return rec;
+}
+/* A readable, stable id for a club joining the bag: its label where that is free ('L', '3i'),
+   because ids show up in saved data and in the few places the app special-cases a club. */
+function bagNewClubId(label){
+  const base=String(label||'club').replace(/[^A-Za-z0-9]/g,'') || 'club';
+  const taken=new Set((STATE.clubs||[]).map(c=>c.id));
+  if(!taken.has(base)) return base;
+  for(let n=2;n<99;n++){ if(!taken.has(base+n)) return base+n; }
+  return base+Date.now();
+}
+/* REMOVE — the club leaves the bag for the collection, and everything keyed to its id goes
+   with it. Leaving those entries behind would hand a future club with the same id someone
+   else's dispersion and D-Plane numbers. */
+function bagRemoveClub(clubId){
+  const i=(STATE.clubs||[]).findIndex(c=>c.id===clubId); if(i<0) return null;
+  const c=STATE.clubs[i];
+  const rec=bagClubToRecord(c);
+  STATE.clubs.splice(i,1);
+  [STATE.performance, STATE.partials, STATE.dplane, STATE.missTendency,
+   (STATE.dispersion||{}).strikeCorr].forEach(m=>{ if(m) delete m[clubId]; });
+  STATE.otherClubs=STATE.otherClubs||[];
+  STATE.otherClubs.push(rec);
+  /* Remember that a DEFAULT club was taken out, or the next load treats it as a club the app
+     has just shipped and puts it back (see mergeAndFix). */
+  if(typeof DEFAULT_DATA!=='undefined' && (DEFAULT_DATA.clubs||[]).some(d=>d.id===clubId)){
+    STATE.retiredClubIds=STATE.retiredClubIds||[];
+    if(!STATE.retiredClubIds.includes(clubId)) STATE.retiredClubIds.push(clubId);
+  }
+  return rec;
+}
+/* ADD — a collection club joins the bag in a slot of its own. Its stats are estimated from
+   loft the same way the exchange does it, and stored numbers still beat the estimate. */
+function bagAddFromCollection(o, preEst){
+  if(!o) return null;
+  if((STATE.clubs||[]).length>=MAX_BAG_CLUBS) return null;
+  const label=o.label || (typeof autoLabelForLoft==='function'?autoLabelForLoft(o.effLoft):null) || '?';
+  const id=bagNewClubId(label);
+  const club={ id, type:o.type||bkTypeOf(o), label,
+    make:o.make||'', model:o.model||'', shaft:o.shaft||'', length:o.length||'—',
+    loft:(o.effLoft!=null?o.effLoft+'°':'—'), origLoft:(o.effLoft!=null?o.effLoft+'°':''),
+    lie:o.lie||'—', swt:o.swt||'—', year:o.year||new Date().getFullYear() };
+  if(o.grip) club.grip=o.grip;
+  if(o.weightOz) club.weightOz=o.weightOz;
+  STATE.clubs.push(club);
+  if(club.type!=='putter'){
+    /* preEst is the estimate taken BEFORE this change was applied. It matters: the clubs a
+       new one is being estimated against are often the very clubs going out in the same
+       change, and interpolating after they have left stretches the estimate across the hole
+       they leave. A 20° driving iron replacing a 19° hybrid and a 23° utility came out at
+       223 yd carry that way — interpolated between a 15° fairway wood and a 27° 5-iron. */
+    const est=preEst||estimatePerfForLoft(o.effLoft, id);
+    const measured=(o.carry!=null)?{carry:o.carry, total:(o.total!=null?o.total:o.carry)}:null;
+    if(est||measured){
+      STATE.performance[id]=Object.assign({},est||{},measured||{},{prov:measured?'input':'presumed'});
+      seedPartialsFor(id, (measured?measured.carry:null)||(est&&(est.total||est.carry)));
+    }
+  }
+  const idx=(STATE.otherClubs||[]).indexOf(o);
+  if(idx>-1) STATE.otherClubs.splice(idx,1);
+  /* Back in the bag — it is no longer retired. */
+  if(Array.isArray(STATE.retiredClubIds)) STATE.retiredClubIds=STATE.retiredClubIds.filter(x=>x!==id);
+  return club;
+}
+
+/* ---- The staging editor ------------------------------------------------------------
+   Marks, not moves. A bag change is several decisions that only make sense together — the
+   count has to come back to fourteen — so nothing is committed until the whole change is
+   made, and the bar at the foot of the screen does the arithmetic while it is being made. */
+window.bagEdit = window.bagEdit || null;   /* {out:Set<clubId>, in:Set<inventory index>} */
+function bagEditOn(){ return !!window.bagEdit; }
+function bagEditStart(){
+  window.bagEdit={out:new Set(), in:new Set()};
+  window.bkOpen=null; buildSpecs(); buildBackups(); bagEditBar();
+}
+function bagEditCancel(){ window.bagEdit=null; buildSpecs(); buildBackups(); bagEditBar(); }
+function bagEditToggleOut(id){
+  if(!bagEditOn()) return;
+  const s=window.bagEdit.out; s.has(id)?s.delete(id):s.add(id);
+  buildSpecs(); bagEditBar();
+}
+function bagEditToggleIn(i){
+  if(!bagEditOn()) return;
+  const s=window.bagEdit.in; s.has(i)?s.delete(i):s.add(i);
+  buildBackups(); bagEditBar();
+}
+function bagEditCount(){
+  const e=window.bagEdit||{out:new Set(),in:new Set()};
+  const now=(STATE.clubs||[]).length;
+  return {now, out:e.out.size, in:e.in.size, after:now-e.out.size+e.in.size};
+}
+/* The running total, and whether it can be applied. Fewer than fourteen is legal — you may
+   carry thirteen — so only going OVER blocks. */
+function bagEditBar(){
+  const bar=document.getElementById('bag-edit-bar'); if(!bar) return;
+  if(!bagEditOn()){ bar.innerHTML=''; bar.classList.remove('on'); return; }
+  const {now,out,in:inn,after}=bagEditCount();
+  const over=after-MAX_BAG_CLUBS;
+  const names=(set,fn)=>[...set].map(fn).filter(Boolean).join(', ');
+  const outNames=names(window.bagEdit.out, id=>{const c=STATE.clubs.find(x=>x.id===id); return c&&c.label;});
+  const inNames=names(window.bagEdit.in, i=>{const o=(STATE.otherClubs||[])[i]; return o&&(o.label||(o.effLoft+'°'));});
+  bar.classList.add('on');
+  bar.innerHTML=`<div class="bge-inner">
+    <div class="bge-sums">
+      <span class="bge-count${over>0?' bad':''}">${now} → <b>${after}</b><i>of ${MAX_BAG_CLUBS}</i></span>
+      <span class="bge-list"><em>out</em> ${outNames||'—'}</span>
+      <span class="bge-list"><em>in</em> ${inNames||'—'}</span>
+    </div>
+    <div class="bge-btns">
+      ${over>0?`<span class="bge-warn">${over} too many — take ${over} more out</span>`:''}
+      <button class="btn" onclick="bagEditCancel()">Cancel</button>
+      <button class="btn btn-accent" ${over>0||(out+inn)===0?'disabled':''} onclick="bagEditApply()">Apply</button>
+    </div>
+  </div>`;
+}
+/* Apply: every club marked OUT leaves, then every club marked IN joins. Removals run first so
+   a straight fourteen-for-fourteen change never breaches the limit halfway through. */
+function bagEditApply(){
+  if(!bagEditOn()) return;
+  const {after}=bagEditCount();
+  if(after>MAX_BAG_CLUBS){ if(typeof toast==='function') toast('That would leave '+after+' clubs'); return; }
+  const outIds=[...window.bagEdit.out];
+  /* resolve the inventory RECORDS before anything moves — the indexes shift as clubs leave */
+  const inRecs=[...window.bagEdit.in].map(i=>(STATE.otherClubs||[])[i]).filter(Boolean);
+  /* and estimate each incoming club against the bag AS IT STANDS, before the outgoing clubs
+     take their yardages with them (see bagAddFromCollection) */
+  const preEsts=inRecs.map(o=>estimatePerfForLoft(o.effLoft, null));
+  const gone=outIds.map(id=>{ const c=STATE.clubs.find(x=>x.id===id); const lbl=c?c.label:id; bagRemoveClub(id); return lbl; });
+  const added=inRecs.map((o,k)=>{ const c=bagAddFromCollection(o, preEsts[k]); return c?c.label:null; }).filter(Boolean);
+  window.bagEdit=null;
+  saveState(); refreshAll(); bagEditBar();
+  if(typeof toast==='function'){
+    const bits=[];
+    if(gone.length) bits.push('out: '+gone.join(', '));
+    if(added.length) bits.push('in: '+added.join(', '));
+    toast(`Bag updated — ${bits.join(' · ')} · now ${(STATE.clubs||[]).length} clubs`);
+  }
+}
+
 /* From Current Bag: the replacement list under an expanded club. */
 function selectReplacement(clubId,oIdx){
   const c=STATE.clubs.find(x=>x.id===clubId); if(!c) return;
@@ -736,7 +928,21 @@ function bkSave(el){
    when you are looking for something to fill a gap. */
 window.bkView = window.bkView || { q:'', type:'', sort:'location' };
 function bkSetView(k,v){ window.bkView[k]=v; window.bkOpen=null; buildBackups(); }
-function bkTypeOf(o){ return o.type||((o.effLoft>=44)?'wedge':(o.effLoft>=24)?'iron':'wood'); }
+/* A collection club's TYPE decides its colour, which filter it answers to, and — now that a
+   club can join the bag from here — what it becomes when it does. Loft alone got that wrong
+   at the top of the bag: a 20° driving iron is not a wood, and modern 2, 3 and 4 irons live
+   at 18–24° where this returned 'wood'. The LABEL is the better witness where it exists,
+   because it is what the golfer calls the club: "3" or "4i" is an iron, "3w" a wood, "H" a
+   hybrid. Loft still decides when there is no label to go on. */
+function bkTypeOf(o){
+  if(o.type) return o.type;
+  const L=String(o.label||'').trim();
+  if(/^(p|pu|putter)$/i.test(L)) return 'putter';
+  if(/w$/i.test(L) || /^(d|h|u)$/i.test(L)) return 'wood';      /* 3w · driver · hybrid · utility */
+  if(/^\d{1,2}i?$/.test(L)) return 'iron';                      /* 3 · 4i · 9 */
+  if(/^[a-z]{1,2}$/i.test(L)) return 'wedge';                   /* P · G · S · L · X */
+  return (o.effLoft>=44)?'wedge':(o.effLoft>=24)?'iron':'wood';
+}
 const BK_TYPES=[['','All'],['wood','Woods'],['iron','Irons'],['wedge','Wedges'],['putter','Putters']];
 const BK_SORTS=[['location','Location'],['loft','Loft'],['label','Label'],['name','Make & model'],['year','Year']];
 function buildBackups(){
@@ -763,11 +969,14 @@ function buildBackups(){
      the panel below fills them, and they travel with the club into the bag.
      Make and model share one line, and the shaft moved into the panel, for the same reason
      the bag rows did it: a second line sets the height of every row on a phone. */
+  const editing=(typeof bagEditOn==='function'&&bagEditOn());
   const card=r=>{
-    const o=r.o, i=r.i, open=window.bkOpen===i;
+    const o=r.o, i=r.i, open=!editing&&window.bkOpen===i;
+    const markedIn=editing&&window.bagEdit.in.has(i);
     const carry=parseFloat(o.carry)||0, total=parseFloat(o.total)||0;
     const d86=(carry>0&&typeof disp86==='function')?disp86(carry):null;
-    let h='<div class="specs-club-row spec-card'+(open?' selected':'')+'" onclick="bkToggle('+i+')" style="cursor:pointer">'
+    let h='<div class="specs-club-row spec-card'+(open?' selected':'')+(markedIn?' bge-in':'')
+      +'" onclick="'+(editing?'bagEditToggleIn('+i+')':'bkToggle('+i+')')+'" style="cursor:pointer">'
       + '<span class="spec-club '+bkTypeOf(o)+'">'+escapeHtml(o.label||DASH_JS)+'</span>'
       + '<div class="sc-id"><span class="sc-name">'+escapeHtml([o.make,o.model].filter(Boolean).join(' ')||DASH_JS)+'</span></div>'
       + miniCell('Length', o.length||DASH_JS,'sm-w-len')
@@ -777,7 +986,9 @@ function buildBackups(){
       + miniCell('Carry '+ydUnit(), carry>0?ydNum(carry):DASH_JS,'sm-w-yd')
       + miniCell('TTL '+ydUnit(), total>0?ydNum(total):DASH_JS,'sm-w-yd')
       + miniCell('86% L/R', d86!=null?ydNum(d86,1):DASH_JS,'sm-w-lr')
-      + '<div class="specs-chevron">'+(open?UP_JS:DOWN_JS)+'</div></div>';
+      + (editing ? '<div class="bge-mark'+(markedIn?' on':'')+'">'+(markedIn?'IN':'Put in')+'</div>'
+                 : '<div class="specs-chevron">'+(open?UP_JS:DOWN_JS)+'</div>')
+      + '</div>';
     if(open){
       h+='<div class="specs-rep-group open"><div class="specs-rep-group-inner" style="padding:10px 14px">'
         + '<div class="edit-grid">'+BK_FIELDS.map(f=>bkField(i,f[0],f[1],o[f[1]],f[2])).join('')+'</div>'
@@ -991,4 +1202,7 @@ function logHcpSnapshot(){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { GREENSIDE_WEDGE_LOFT, MAX_BAG_CLUBS, WEDGE_LABEL_BANDS, autoLabelForLoft, bagIsFull, MY_DATA_SOURCES, buildMyData, buildUnitToggle, renderStrikeCal, setStrikeCorr, buildProfile, buildSpecs, ballEditJump, clearBallForm, estimatePerfForLoft, exportData, exportClubsCsv, clubCatalogue, CAT_COLS, generateFromSwingSpeed, hcpTrendHtml, importData, logHcpSnapshot, pfDirtyInit, pfDrivesHTML, pfMaybeSave, repMatches, resetData, buildEsCompareToggle, backupSlotPicker, backupToBag, bkToggle, bkSpec, bkField, bkSave, bkSetView, bkTypeOf, BK_FIELDS, miniCell, buildBackups, removeToBackups, swapIntoBag, saveCalibration, saveClub, saveProfile, sel, selectReplacement, syncPartialsForClub, toggleSpecs });
+Object.assign(window, { bagEditOn, bagEditStart, bagEditCancel, bagEditToggleOut, bagEditToggleIn,
+  bagEditApply, bagEditBar, bagEditCount, bagRemoveClub, bagAddFromCollection, bagClubToRecord,
+  bagNewClubId, bagLadderRatios, seedPartialsFor,
+  GREENSIDE_WEDGE_LOFT, MAX_BAG_CLUBS, WEDGE_LABEL_BANDS, autoLabelForLoft, bagIsFull, MY_DATA_SOURCES, buildMyData, buildUnitToggle, renderStrikeCal, setStrikeCorr, buildProfile, buildSpecs, ballEditJump, clearBallForm, estimatePerfForLoft, exportData, exportClubsCsv, clubCatalogue, CAT_COLS, generateFromSwingSpeed, hcpTrendHtml, importData, logHcpSnapshot, pfDirtyInit, pfDrivesHTML, pfMaybeSave, repMatches, resetData, buildEsCompareToggle, backupSlotPicker, backupToBag, bkToggle, bkSpec, bkField, bkSave, bkSetView, bkTypeOf, BK_FIELDS, miniCell, buildBackups, removeToBackups, swapIntoBag, saveCalibration, saveClub, saveProfile, sel, selectReplacement, syncPartialsForClub, toggleSpecs });

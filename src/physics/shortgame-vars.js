@@ -62,17 +62,24 @@ const SG_VARS = {
       ] },
     { key:'face', label:'Face Orientation', sub:'Effective Loft, Bounce & Aim', def:'square',
       /* rot = degrees the face is rotated open about the shaft axis (+ = open). Loft, bounce
-         and where the face POINTS all fall out of that one number — see sgFaceGeom. The
-         rotations below are the ones that reproduce Mark's specified loft steps (+2 / +4 / +6)
-         on a 51° club at a 64° lie. Note what comes with them: a face rotated 4.6° open points
-         about 4.7° right of the path, so the aim line has to move the same amount left. That
-         consequence was missing from the model entirely, and it is the one that misses greens. */
+         and where the face POINTS all fall out of that one number — see sgFaceGeom.
+         RE-ANCHORED 2026-09-26 to the rotations a golfer actually makes, at Mark's direction:
+         a 10 / 20 / 30° ladder, where way open is the full quarter-turn a flop is played with.
+         The loft that follows is +4.4 / +8.8 / +13.1° — where the old table asserted +2 / +4 /
+         +6, which implied a "way open" face of under 14° of rotation. That was not a flop, and
+         it is why the lob shot never produced lob-shot numbers: a 51° gap wedge way open now
+         delivers 58° of loft rather than 51, which is the shot being asked for.
+         Closed stays SMALL at −5°: a chip face is hooded a touch, never turned a quarter-turn
+         shut, and closing eats the bounce it opens (see the bounce term in sgRawNet).
+         Note what rotation brings with it: the face points right by about the rotation itself,
+         so way open needs ~33° of aim correction left. That is the number that misses greens,
+         and the model had nothing to say about it before. */
       opts:[
-        { id:'closed',  label:'Slightly Closed', rot:-4.6 },
-        { id:'square',  label:'Square',          rot:0    },
-        { id:'sopen',   label:'Slightly Open',   rot:+4.6 },
-        { id:'open',    label:'Open',            rot:+9.1 },
-        { id:'wayopen', label:'Way Open',        rot:+13.7 }
+        { id:'closed',  label:'Slightly Closed', rot:-5  },
+        { id:'square',  label:'Square',          rot:0   },
+        { id:'sopen',   label:'Slightly Open',   rot:+10 },
+        { id:'open',    label:'Open',            rot:+20 },
+        { id:'wayopen', label:'Way Open',        rot:+30 }
       ] }
   ],
   pivot: [
