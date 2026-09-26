@@ -29,6 +29,7 @@ import './physics/sg.js';
 import './physics/chip.js';
 import './physics/shortgame-vars.js';
 import './physics/putting.js';
+import './physics/trajectory.js';
 import './physics/driver.js';
 
 import './features/bag.js';
@@ -42,6 +43,7 @@ import './features/planshot.js';
 import './features/effyards.js';
 import './features/print.js';
 import './features/bag-specs.js';
+import './features/ballflight-check.js';
 import './features/shortgame.js';
 import './features/putting.js';
 import './features/club-form.js';

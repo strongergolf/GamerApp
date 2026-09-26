@@ -40,7 +40,27 @@ function fsInterp(bspd){
   return FS_TABLE[FS_TABLE.length-1];
 }
 
+/* THE CARRY NUMBER NOW COMES FROM THE FLIGHT MODEL, not from this table.
+   The table is an OPTIMIZED-launch reference — best case, not expected case — and seeding the
+   optimizer with a real golfer's own numbers made that impossible to miss: it credited 165 mph
+   / 12° / 2,500 rpm with 296 yd of carry against a measured 275. At tour ball speeds it is
+   further out still: 170 mph reads 325 where tour AVERAGE at 167 is 275. No set of physical
+   drag and lift coefficients reproduces it, which is the tell.
+   physics/trajectory.js integrates the flight from the same three inputs and is fitted to
+   TrackMan's measured tour averages across the whole bag (1.5 yd mean error). It puts that
+   same drive at 266 — 9 short of measured, most of which is the model's own known driver bias.
+   The table stays for what it is good for: the LAUNCH AND SPIN WINDOWS below, which are a
+   fitting reference and do not depend on the carry figure attached to them. */
 function driverCarryModel(bspd, launch, spin){
+  if(typeof ballCarry==='function'){
+    const c=ballCarry(bspd, launch, spin);
+    if(c!=null) return Math.round(c);
+  }
+  return driverCarryModelFS(bspd, launch, spin);
+}
+/* The Foresight table's own carry interpolation, kept so the windows and the fallback have a
+   definition and so the two models can be compared rather than one quietly replacing the other. */
+function driverCarryModelFS(bspd, launch, spin){
   const [,spLo,spHi,cMax,cMin] = fsInterp(bspd);
   /* Spin: within window interpolates carry; outside applies distance penalty */
   let baseCarry;
@@ -61,18 +81,22 @@ function driverCarryModel(bspd, launch, spin){
   return Math.round(baseCarry+laPenalty);
 }
 
+/* The WINDOWS come from the Foresight table; the CARRIES at their edges are computed by the
+   flight model, so every carry on this panel is produced by one model. Mixing them was what
+   made "leaving on the table" read 30 yd for a drive that was fine. */
 function driverOptimalZones(bspd){
   const [,spLo,spHi,cMax,cMin] = fsInterp(bspd);
-  const midSpin = Math.round((spLo+spHi)/2/50)*50;
-  const midCarry = Math.round((cMax+cMin)/2);
+  const loSpin=Math.round(spLo/50)*50, hiSpin=Math.round(spHi/50)*50;
+  const model=(sp)=> (typeof ballCarry==='function') ? ballCarry(bspd, 12, sp) : null;
+  const mMax=model(loSpin), mMin=model(hiSpin);
   return {
-    bestCarry: Math.round(cMax),        /* best = lowest spin in window */
-    bestLaunch: 12,                     /* centre of 10-14° window */
-    bestSpin: Math.round(spLo/50)*50,   /* low end = most carry */
-    spinLo: Math.round(spLo/50)*50,
-    spinHi: Math.round(spHi/50)*50,
-    carryMax: Math.round(cMax),
-    carryMin: Math.round(cMin),
+    bestCarry: Math.round(mMax!=null?mMax:cMax),   /* best = lowest spin in the window */
+    bestLaunch: 12,                                /* centre of the 10–14° window */
+    bestSpin: loSpin,
+    spinLo: loSpin,
+    spinHi: hiSpin,
+    carryMax: Math.round(mMax!=null?mMax:cMax),
+    carryMin: Math.round(mMin!=null?mMin:cMin),
   };
 }
 
@@ -161,7 +185,7 @@ function updateDriverOpt(){
     <div class="drv-zone best">
       <div class="drv-zone-label">Carry Range</div>
       <div class="drv-zone-val">${opt.carryMin}–${opt.carryMax} yd</div>
-      <div class="drv-zone-delta" style="color:var(--muted)">at ${bspd} mph · Foresight ref</div>
+      <div class="drv-zone-delta" style="color:var(--muted)">at ${bspd} mph · flight model</div>
     </div>
     <div class="drv-zone ${carry>=opt.carryMin?'best':'lose'}">
       <div class="drv-zone-label">Leaving on Table</div>
@@ -312,5 +336,5 @@ function lmParseImport(text,name){
   if(typeof toast==='function') toast('Imported — review, then Save session');
 }
 
-Object.assign(window, { FS_TABLE, LM_BRANDS, DRV_FALLBACK, buildDriverOptimizerHTML, buildDriverTrajSVG, driverCarryModel, driverOptimalZones, fsInterp, updateDriverOpt,
+Object.assign(window, { FS_TABLE, LM_BRANDS, DRV_FALLBACK, driverCarryModelFS, buildDriverOptimizerHTML, buildDriverTrajSVG, driverCarryModel, driverOptimalZones, fsInterp, updateDriverOpt,
   lmSessions, lmSectionHTML, lmRenderSection, lmSaveSession, lmLoadSession, lmDeleteSession, lmImportFile, lmMapFields, lmParseImport });

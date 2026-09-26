@@ -18,6 +18,7 @@ function buildSpecs(){
         ? '<span class="bge-hint">Mark clubs to take out, and clubs below to put in</span>'
         : '<button class="print-btn" onclick="bagEditStart()" title="Take clubs out and put clubs in together — they do not have to match">⇅ Change the bag</button>');
   }
+  if(typeof buildBallFlightCheck==='function') buildBallFlightCheck();
   /* Ball listing at top */
   const bw=document.getElementById('ball-specs-wrap');
   if(bw){

@@ -1545,3 +1545,43 @@ body.theme-dark .gr-a{color:var(--green2)} body.theme-dark .gr-b{color:var(--c-w
   .bge-sums{gap:8px}
   .bge-inner{padding:9px 11px}
 }
+
+/* ---- BALL-FLIGHT CHECK — stored numbers against the flight model ---- */
+.bfc-pattern{color:var(--ink2);font-weight:600}
+.bfc-table{display:flex;flex-direction:column;gap:6px;margin:10px 0}
+.bfc-row{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;align-items:center;
+  background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:8px 11px}
+.bfc-row.ok{opacity:.72}
+.bfc-club{display:flex;align-items:baseline;gap:5px}
+.bfc-club .spec-club{font-size:1rem}
+.bfc-club small{font-family:ui-monospace,monospace;font-size:.56rem;color:var(--muted)}
+.bfc-nums{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.bfc-n{font-family:ui-monospace,monospace;font-size:.86rem;font-weight:700;color:var(--ink)}
+.bfc-n i{font-style:normal;font-size:.5rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-right:4px}
+.bfc-gap{font-family:ui-monospace,monospace;font-size:.72rem;font-weight:700;border-radius:20px;padding:2px 8px}
+.bfc-gap.ok{color:var(--green);background:var(--green-pale)}
+.bfc-gap.long{color:#8a5e00;background:var(--gold-pale)}
+.bfc-gap.short{color:#b8455a;background:rgba(217,96,112,.13)}
+body.theme-dark .bfc-gap.long{color:var(--gold2);background:rgba(255,210,74,.12)}
+body.theme-dark .bfc-gap.short{color:#e88494;background:rgba(217,96,112,.16)}
+body.theme-dark .bfc-gap.ok{color:var(--green2);background:rgba(0,133,63,.16)}
+/* The three levers: each is what ONE number would have to be for the shot to add up. */
+.bfc-levers{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px}
+.bfc-lever{display:inline-flex;align-items:baseline;gap:6px;background:var(--bg2);border:1px solid var(--border2);
+  border-radius:8px;padding:4px 9px;cursor:pointer;font-family:ui-monospace,monospace;transition:border-color .15s}
+.bfc-lever:hover{border-color:var(--gold2)}
+.bfc-lever-k{font-size:.5rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.bfc-lever-v{font-size:.82rem;font-weight:700;color:var(--ink)}
+.bfc-lever-v i{font-style:normal;font-size:.5rem;color:var(--muted);margin-left:2px}
+.bfc-lever-d{font-size:.6rem;color:var(--ink2)}
+/* Arithmetic, not a finding: still shown, because WHICH lever cannot do it is information. */
+.bfc-lever.unlikely{opacity:.5;border-style:dashed}
+.bfc-lever.unlikely .bfc-lever-v{color:var(--muted)}
+.bfc-lever.dead{cursor:default;border-style:dashed;color:var(--muted);font-size:.62rem;opacity:.75}
+.bfc-lever.dead:hover{border-color:var(--border2)}
+.bfc-note{grid-column:1/-1;font-family:ui-monospace,monospace;font-size:.58rem;color:var(--muted);line-height:1.4}
+.bfc-fitted{grid-column:1/-1;font-family:ui-monospace,monospace;font-size:.56rem;color:var(--gold2);
+  text-transform:uppercase;letter-spacing:.06em}
+.bfc-fitted button{background:none;border:0;color:var(--muted);text-decoration:underline;cursor:pointer;
+  font-family:inherit;font-size:inherit;text-transform:none;letter-spacing:0;padding:0 0 0 6px}
+@media(max-width:480px){.bfc-row{grid-template-columns:1fr}.bfc-club{grid-column:1/-1}}
