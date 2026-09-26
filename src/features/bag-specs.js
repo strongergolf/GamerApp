@@ -212,20 +212,10 @@ function estimatePerfForLoft(targetLoft, excludeId){
 function swapIntoBag(clubId, o){
   const c=STATE.clubs.find(x=>x.id===clubId); if(!c||!o) return false;
   const oInv=STATE.otherClubs.indexOf(o);
-  /* snapshot the outgoing club in inventory shape before its fields are overwritten */
-  const displaced={
-    label:c.label, effLoft:parseFloat(c.loft)||null, make:c.make, model:c.model,
-    shaft:c.shaft, length:c.length, lie:c.lie, year:c.year, swt:c.swt,
-    bag:'Removed from bag', type:c.type
-  };
-  if(c.grip) displaced.grip=c.grip;
-  if(c.weightOz) displaced.weightOz=c.weightOz;
-  /* Carry the club's MEASURED numbers out with it. Performance lives under the bag-slot id, so
-     without this a club sent to Locker Room leaves its yardages behind for whatever replaces it, and
-     coming back it would be re-estimated from loft — a measurement silently downgraded to a
-     guess by the act of resting a club for a fortnight. */
-  const dp=(typeof perf==='function')?perf(c.id):null;
-  if(dp&&dp.carry!=null&&dp.prov!=='presumed'){ displaced.carry=dp.carry; if(dp.total!=null) displaced.total=dp.total; }
+  /* Snapshot the outgoing club in inventory shape before its fields are overwritten — through
+     bagClubToRecord, the same writer the remove path uses, so the two cannot disagree about
+     what a club takes with it when it leaves the bag. */
+  const displaced=bagClubToRecord(c);
   c.label = o.label || autoLabelForLoft(o.effLoft) || c.label; c.make=o.make; c.model=o.model; c.shaft=o.shaft;
   if(o.length) c.length=o.length;
   if(o.effLoft!=null){ c.loft=o.effLoft+'°'; c.origLoft=o.effLoft+'°'; }
@@ -235,18 +225,16 @@ function swapIntoBag(clubId, o){
     /* Measured numbers on the inventory record beat an estimate from loft — that is the whole
        point of keeping them (see displaced above, and the PM Grind in defaults). */
     const est=estimatePerfForLoft(o.effLoft, clubId);
-    const measured = (o.carry!=null) ? {carry:o.carry, total:(o.total!=null?o.total:o.carry)} : null;
+    let measured=null;
+    CLUB_PERF_FIELDS.forEach(f=>{ if(o[f.key]!=null){ (measured=measured||{})[f.key]=o[f.key]; } });
+    if(measured&&measured.carry!=null&&measured.total==null) measured.total=measured.carry;
     if(est||measured){
       STATE.performance[clubId]=Object.assign({},est||{},measured||{},{prov:measured?'input':'presumed'});
       /* Keep the partial-swing ladder (what Approach/Short Game read) in step with the new
-         estimate so My Bag and the Play tabs show the same numbers. Rebuild full/¾/½ from the
-         estimated total (carry≈total here, no measured rollout split for an estimated club). */
-      const base=(measured?measured.carry:null)||(est&&(est.total||est.carry));
-      if(base){
-        const rebuilt={ full:Math.round(base), tq:Math.round(base*0.92), half:Math.round(base*0.78), conf:[false,false,false,false] };
-        rebuilt.third=estThirdCarry(rebuilt);
-        STATE.partials[clubId]=rebuilt;
-      }
+         club, so My Bag and the Play tabs show the same numbers. A ladder the incoming club
+         brought with it is measured and wins; otherwise seed one from the bag's own ratios. */
+      if(o.partials&&o.partials.full!=null) STATE.partials[clubId]=JSON.parse(JSON.stringify(o.partials));
+      else seedPartialsFor(clubId, (measured?measured.carry:null)||(est&&(est.total||est.carry)));
     }
   }
   /* complete the exchange: incoming club leaves the inventory, outgoing club joins it */
@@ -256,6 +244,121 @@ function swapIntoBag(clubId, o){
   if(typeof toast==='function') toast(`${o.make} ${o.model} (${o.effLoft}°) swapped in — ${displaced.make} ${displaced.model} to the collection`);
   return true;
 }
+/* ============================================================
+   ONE CLUB EDITOR, TWO LISTS
+
+   A club in the bag and a club in the collection were edited through two different panels:
+   different fields, different order, different save behaviour (a Save button on one, save-on-
+   blur on the other), and only the bag's could hold a stock shot. They are the same object —
+   a club you own — so the same editor describes both, and the fields below are the single
+   definition of what a club HAS. What differs between the two is only what is true of them:
+   a collection club has a location and no miss tendencies; a bag club has the reverse.
+
+   `bag` and `rec` name the two keys a field can have, because the bag stores loft as the
+   string "51°" and the inventory as the number 51 — a difference worth hiding here rather
+   than teaching to every caller. */
+const CLUB_SPEC_FIELDS = [
+  {label:'Label', bag:'label', rec:'label', attrs:'maxlength="2"', hint:'2 characters, yours to choose'},
+  {label:'Make',  bag:'make',  rec:'make'},
+  {label:'Model', bag:'model', rec:'model'},
+  {label:'Year',  bag:'year',  rec:'year'},
+  {label:'Shaft', bag:'shaft', rec:'shaft'},
+  {label:'Length',bag:'length',rec:'length'},
+  {label:'Eff. Loft', bag:'loft', rec:'effLoft'},
+  {label:'Orig. Loft',bag:'origLoft', rec:'origLoft'},
+  {label:'Lie',   bag:'lie',   rec:'lie'},
+  {label:'Swing Wt', bag:'swt', rec:'swt'},
+  {label:'Grip',  bag:'grip',  rec:'grip'},
+  {label:'Weight',bag:'weightOz', rec:'weightOz', unit:'mass'},
+  /* Where the club physically is. Only a collection club has an answer — a bag club is in
+     the bag — so it renders for one scope and not the other. */
+  {label:'Location', rec:'bag', recOnly:true}
+];
+/* THE STOCK SHOT, on both. A collection club could only ever hold a carry and a total, so a
+   spare with a full launch-monitor record lost everything else the moment it left the bag and
+   had it estimated from loft on the way back in. The record holds all eight now, and
+   bagAddFromCollection carries them into the bag with the club. */
+const CLUB_PERF_FIELDS = [
+  {label:'Carry', key:'carry', unit:'distance'}, {label:'Total', key:'total', unit:'distance'},
+  {label:'Ball Spd', key:'bspd', unit:'speed'},  {label:'Club Spd', key:'cspd', unit:'speed'},
+  {label:'Launch (°)', key:'launch'},            {label:'Spin (rpm)', key:'spin'},
+  {label:'Max Ht', key:'ht', unit:'short'},      {label:'Land (°)', key:'land'}
+];
+/* One field, one reader. scope is 'bag' (ref = club id) or 'col' (ref = inventory index). */
+function clubField(scope, ref, f, val, kind){
+  const u=f.unit;
+  const dp = u==='short'&&isMetric('short') ? 1 : (u==='mass' ? (isMetric('mass')?0:2) : 0);
+  const shown = (u&&val!=null&&val!=='') ? toDisplay(u,val,dp) : (val==null?'':val);
+  const lbl = u ? `${f.label} (${unitLabel(u)})` : f.label;
+  const hint = f.hint ? ` <span style="font-weight:400;text-transform:none;letter-spacing:0">— ${f.hint}</span>` : '';
+  return `<div class="edit-field"><label>${lbl}${hint}</label>`
+    + `<input data-scope="${scope}" data-ref="${escapeHtml(String(ref))}" data-kind="${kind}" data-key="${f.key||f[scope==='bag'?'bag':'rec']}"`
+    + `${u?` data-unit="${u}"`:''}${f.attrs?' '+f.attrs:''} value="${escapeHtml(String(shown))}"`
+    + ` onclick="event.stopPropagation()" onchange="clubFieldSave(this)"></div>`;
+}
+/* The grid both panels use. `perfOf` is the club's stock shot, wherever it lives. */
+function clubEditGrid(scope, ref, data, perfData){
+  const specs=CLUB_SPEC_FIELDS
+    .filter(f=>scope==='col' ? f.rec : !f.recOnly && f.bag)
+    .map(f=>clubField(scope, ref, f, data[f[scope==='bag'?'bag':'rec']], 'spec')).join('');
+  const isPutter=(scope==='bag') ? data.type==='putter' : (typeof bkTypeOf==='function'&&bkTypeOf(data)==='putter');
+  const perf=isPutter ? '' : `<div class="edit-subhead">Stock Shot</div>`
+    + CLUB_PERF_FIELDS.map(f=>clubField(scope, ref, f, (perfData||{})[f.key], 'perf')).join('');
+  return `<div class="edit-grid"><div class="edit-subhead">Physical Spec</div>${specs}${perf}</div>`;
+}
+/* Save ONE field as it is changed — the same forgiveness on both lists. It writes through to
+   STATE without re-rendering, because rebuilding a list under the finger typing into it is
+   what drove the collection's editor to save-on-blur in the first place. The Save button
+   still commits the lot and refreshes every surface. */
+function clubFieldSave(el){
+  const scope=el.getAttribute('data-scope'), ref=el.getAttribute('data-ref');
+  const key=el.getAttribute('data-key'), kind=el.getAttribute('data-kind'), u=el.getAttribute('data-unit');
+  const raw=el.value.trim();
+  /* UNTOUCHED FIELDS MUST NOT BE WRITTEN BACK. Converting out to metric and straight back in
+     does not land on the same number — 163 mph shows as 262 km/h and returns as 162.8 — so a
+     club would drift a little every time Save was pressed in the other unit system, and keep
+     drifting. If the box still reads what the stored value DISPLAYS as, nothing changed. */
+  const unchanged=(stored)=>{
+    if(!u || stored==null || raw==='') return false;
+    const dp = u==='short'&&isMetric('short') ? 1 : (u==='mass' ? (isMetric('mass')?0:2) : 0);
+    return String(toDisplay(u, stored, dp))===String(parseFloat(raw));
+  };
+  if(scope==='bag'){
+    const club=STATE.clubs.find(c=>c.id===ref); if(!club) return;
+    if(kind==='spec'){
+      if(unchanged(parseFloat(club[key]))) return;
+      if(u && raw!=='' && !isNaN(parseFloat(raw))) club[key]=String(Math.round(fromDisplay(u,parseFloat(raw))*100)/100);
+      else club[key]= key==='year'?(parseInt(raw)||club[key]):raw;
+    } else {
+      const p=STATE.performance[ref]=STATE.performance[ref]||{};
+      if(unchanged(p[key])) return;
+      if(raw===''){ p[key]=null; }
+      else if(isNaN(parseFloat(raw))){ p[key]=raw; }
+      else { const n=parseFloat(raw); p[key]= u ? Math.round(fromDisplay(u,n)*10)/10 : n; }
+      p.prov='input';
+    }
+  } else {
+    if(unchanged((STATE.otherClubs||[])[parseInt(ref,10)]?.[key])) return;
+    const o=(STATE.otherClubs||[])[parseInt(ref,10)]; if(!o) return;
+    if(raw===''){ delete o[key]; }
+    else if(key==='effLoft'||kind==='perf'){ const n=parseFloat(raw); if(!isNaN(n)) o[key]= u?Math.round(fromDisplay(u,n)*10)/10 : n; }
+    else if(key==='year'){ const n=parseInt(raw); if(!isNaN(n)) o[key]=n; }
+    else if(u&&!isNaN(parseFloat(raw))){ o[key]=String(Math.round(fromDisplay(u,parseFloat(raw))*100)/100); }
+    else { o[key]=raw; }
+    /* A label the golfer types is theirs and outranks the auto-labeller (autoLabelForLoft). */
+    if(key==='label'&&raw) o.userLabel=true;
+  }
+  saveState();
+}
+/* Commit everything in the open panel and propagate. One button, both lists. */
+function clubSaveAll(scope, ref){
+  document.querySelectorAll(`[data-scope="${scope}"][data-ref="${CSS.escape(String(ref))}"]`).forEach(clubFieldSave);
+  if(scope==='bag'){ saveClub(ref); return; }
+  const o=(STATE.otherClubs||[])[parseInt(ref,10)];
+  saveState(); buildBackups();
+  if(typeof toast==='function') toast(((o&&(o.label||o.model))||'Club')+' updated');
+}
+
 /* ============================================================
    CHANGING THE BAG — add and remove, not only exchange
 
@@ -298,8 +401,19 @@ function bagClubToRecord(c){
     bag:'Removed from bag', type:c.type };
   if(c.grip) rec.grip=c.grip;
   if(c.weightOz) rec.weightOz=c.weightOz;
+  /* The WHOLE stock shot travels with the club, not just carry and total: a spare with a
+     launch-monitor record used to lose its ball speed, spin, apex and landing angle the
+     moment it left the bag, and have them estimated from loft on the way back in — a
+     measurement quietly downgraded to a guess by resting a club for a fortnight. */
   const p=(typeof perf==='function')?perf(c.id):null;
-  if(p&&p.carry!=null&&p.prov!=='presumed'){ rec.carry=p.carry; if(p.total!=null) rec.total=p.total; }
+  if(p&&p.prov!=='presumed'){
+    CLUB_PERF_FIELDS.forEach(f=>{ if(p[f.key]!=null) rec[f.key]=p[f.key]; });
+  }
+  /* The PARTIAL LADDER travels too. Its ¾ / ½ / ⅓ rungs are measured numbers in their own
+     right — the ones the Approach tab plays off — and rebuilding them from ratios when the
+     club comes back would quietly replace a measured ladder with an average one. */
+  const pr=(STATE.partials||{})[c.id];
+  if(pr && pr.full!=null) rec.partials=JSON.parse(JSON.stringify(pr));
   return rec;
 }
 /* A readable, stable id for a club joining the bag: its label where that is free ('L', '3i'),
@@ -352,10 +466,17 @@ function bagAddFromCollection(o, preEst){
        they leave. A 20° driving iron replacing a 19° hybrid and a 23° utility came out at
        223 yd carry that way — interpolated between a 15° fairway wood and a 27° 5-iron. */
     const est=preEst||estimatePerfForLoft(o.effLoft, id);
-    const measured=(o.carry!=null)?{carry:o.carry, total:(o.total!=null?o.total:o.carry)}:null;
+    /* Whatever the record measured beats the estimate, field by field — so a spare carrying a
+       full launch-monitor record arrives with all of it, and one carrying only a carry gets
+       the rest estimated around it. */
+    let measured=null;
+    CLUB_PERF_FIELDS.forEach(f=>{ if(o[f.key]!=null){ (measured=measured||{})[f.key]=o[f.key]; } });
+    if(measured&&measured.carry!=null&&measured.total==null) measured.total=measured.carry;
     if(est||measured){
       STATE.performance[id]=Object.assign({},est||{},measured||{},{prov:measured?'input':'presumed'});
-      seedPartialsFor(id, (measured?measured.carry:null)||(est&&(est.total||est.carry)));
+      /* A ladder the club brought with it is measured; only seed one when there is none. */
+      if(o.partials&&o.partials.full!=null) STATE.partials[id]=JSON.parse(JSON.stringify(o.partials));
+      else seedPartialsFor(id, (measured?measured.carry:null)||(est&&(est.total||est.carry)));
     }
   }
   const idx=(STATE.otherClubs||[]).indexOf(o);
@@ -488,35 +609,11 @@ function toggleSpecs(c,row,group){
   if(open) return;
   row.classList.add('selected');
   const p=perf(c.id);
-  /* `u` names a unit family (distance / short / speed). The label then shows the CURRENT
-     unit, the value is converted for display, and data-unit tells saveClub how to convert it
-     back — so storage stays canonical however the field is labelled. */
-  const sf=(label,key,val,kind,u)=>{
-    /* decimals per unit family: metres want one, grams none, ounces two (a putter head is
-       specified to the quarter-ounce and rounding it to 18 would lose the spec) */
-    const dp = u==='short'&&isMetric('short') ? 1 : (u==='mass' ? (isMetric('mass')?0:2) : 0);
-    const shown = u&&val!=null&&val!=='' ? toDisplay(u, val, dp) : (val==null?'':val);
-    const lbl = u ? `${label} (${unitLabel(u)})` : label;
-    return `<div class="edit-field"><label>${lbl}</label><input data-club="${c.id}" data-kind="${kind}" data-key="${key}"${u?` data-unit="${u}"`:''} value="${escapeHtml(shown)}"></div>`;
-  };
-  const putterExtra = c.type==='putter'
-    ? `${sf('Grip','grip',c.grip||'','spec')}${sf('Weight','weightOz',c.weightOz||'','spec','mass')}`
-    : '';
+  /* The same grid the collection's clubs get — see clubEditGrid. */
   const editHtml=`
     <div class="specs-edit-panel">
-      <div class="edit-grid">
-        <div class="edit-subhead">Physical Spec</div>
-        ${sf('Make','make',c.make,'spec')}${sf('Model','model',c.model,'spec')}${sf('Shaft','shaft',c.shaft,'spec')}
-        <div class="edit-field"><label>Label <span style="font-weight:400;text-transform:none;letter-spacing:0">— 2 characters, yours to choose</span></label><input data-club="${c.id}" data-kind="spec" data-key="label" maxlength="2" value="${escapeHtml(c.label||'')}"></div>
-        ${sf('Length','length',c.length,'spec')}${sf('Eff. Loft','loft',c.loft,'spec')}${sf('Lie','lie',c.lie,'spec')}
-        ${sf('Orig. Loft','origLoft',c.origLoft,'spec')}${sf('Swing Wt','swt',c.swt,'spec')}${sf('Year','year',c.year,'spec')}
-        ${putterExtra}
-        ${c.type!=='putter'?`<div class="edit-subhead">Stock Shot</div>
-        ${sf('Carry','carry',p.carry,'perf','distance')}${sf('Total','total',p.total,'perf','distance')}${sf('Ball Spd','bspd',p.bspd,'perf','speed')}
-        ${sf('Club Spd','cspd',p.cspd,'perf','speed')}${sf('Launch (°)','launch',p.launch,'perf')}${sf('Spin (rpm)','spin',p.spin,'perf')}
-        ${sf('Max Ht','ht',p.ht,'perf','short')}${sf('Land (°)','land',p.land,'perf')}`:''}
-      </div>
-      <div class="btn-row"><button class="btn btn-primary" onclick="saveClub('${c.id}')">Save ${c.label}</button>
+      ${clubEditGrid('bag', c.id, c, p)}
+      <div class="btn-row"><button class="btn btn-primary" onclick="event.stopPropagation();clubSaveAll('bag','${c.id}')">Save ${c.label}</button>
         <button class="btn" onclick="event.stopPropagation();removeToBackups('${c.id}')">Send to the collection</button></div>
     </div>`;
   const {effLoft,loftTol,matches}=repMatches(c);
@@ -562,31 +659,12 @@ function syncPartialsForClub(id){
   if(pr.half!=null) pr.half=Math.round(pr.half*r);
   if(pr.third!=null) pr.third=Math.round(pr.third*r);
 }
+/* COMMIT a bag club. The fields themselves were written by clubFieldSave as they changed —
+   including the unit round-trip guard that used to live here — so this is what has to happen
+   ONCE, after an edit: the numbers are the golfer's now, the partial ladder follows the new
+   total, and every surface in the app re-reads the bag. */
 function saveClub(id){
   const club=STATE.clubs.find(c=>c.id===id); const p=STATE.performance[id]=STATE.performance[id]||{};
-  document.querySelectorAll(`[data-club="${id}"]`).forEach(el=>{
-    const key=el.getAttribute('data-key'), kind=el.getAttribute('data-kind'); let v=el.value.trim();
-    const u=el.getAttribute('data-unit');
-    if(kind==='spec'){
-      /* spec fields are free text (shaft, grip), EXCEPT any carrying a unit family —
-         those must convert back to canonical or a weight typed in grams would be
-         stored as ounces and read back as a 500 oz putter */
-      if(u && v!=='' && !isNaN(parseFloat(v))) club[key]=String(Math.round(fromDisplay(u,parseFloat(v))*100)/100);
-      else club[key]= key==='year'?(parseInt(v)||club[key]):v;
-    }
-    else if(v===''){ p[key]=null; }
-    else if(isNaN(parseFloat(v))){ p[key]=v; }
-    else {
-      const n=parseFloat(v);
-      /* A field the user did not touch must not be written back. Converting out to metric and
-         straight back in does not land on the same number — 163 mph shows as 262 km/h and
-         returns as 162.8 — so an untouched club would drift a little every time it was
-         saved in the other unit system, and keep drifting. Compare what is IN the box against
-         what the stored value would DISPLAY as: if they agree, the user changed nothing. */
-      if(u && p[key]!=null && String(toDisplay(u, p[key], u==='short'&&isMetric('short')?1:0))===String(n)) return;
-      p[key]= u ? Math.round(fromDisplay(u,n)*10)/10 : n;
-    }
-  });
   p.prov='input';   /* user entered/confirmed these numbers → clears any Presumed (estimated) flag */
   syncPartialsForClub(id);
   saveState(); refreshAll();                              // propagate everywhere (no tab jump)
@@ -884,44 +962,11 @@ function buildMyData(){
    end the golfer is thinking from. */
 function bkToggle(i){ window.bkOpen = (window.bkOpen===i) ? null : i; buildBackups(); }
 const DASH_JS='\u2014', DEG_JS='\u00b0', UP_JS='\u25b4', DOWN_JS='\u25be', ELL_JS='\u2026', MID_JS='\u00b7';
-/* WHAT YOU CAN CHANGE HERE. A club out of the bag is still a club you own, and its specs get
-   corrected the same way — a re-loft, a new shaft, a grip. This panel was read-only, so the
-   only way to fix a spare club's loft was to swap it into the bag, edit it and swap it back:
-   two clubs shuffled to change one number. Fields save on BLUR, not per keystroke, so the
-   list is never rebuilt under the finger typing into it. */
-const BK_FIELDS=[
-  ['Label','label'],['Make','make'],['Model','model'],['Shaft','shaft'],
-  ['Loft','effLoft','deg'],['Lie','lie'],['Length','length'],['Swing Wt','swt'],
-  ['Year','year'],['Grip','grip'],['Weight','weightOz','mass'],['Location','bag'],
-  ['Carry','carry','distance'],['Total','total','distance']
-];
-function bkField(i,label,key,val,unit){
-  const conv = unit && unit!=='deg';
-  const dp = unit==='mass' ? (isMetric('mass')?0:2) : 0;
-  const v = (conv && val!=null && val!=='' && typeof toDisplay==='function')
-    ? toDisplay(unit,val,dp) : (val==null?'':val);
-  const lbl = (conv && typeof unitLabel==='function') ? label+' ('+unitLabel(unit)+')' : label;
-  return '<div class="edit-field"><label>'+lbl+'</label><input data-bk="'+i+'" data-key="'+key+'"'
-    + (unit?' data-unit="'+unit+'"':'') + ' value="'+escapeHtml(String(v))
-    + '" onclick="event.stopPropagation()" onchange="bkSave(this)"></div>';
-}
-function bkSave(el){
-  const i=parseInt(el.getAttribute('data-bk')), key=el.getAttribute('data-key'), u=el.getAttribute('data-unit');
-  const o=(STATE.otherClubs||[])[i]; if(!o) return;
-  const v=el.value.trim();
-  if(v===''){ delete o[key]; }
-  else if(key==='effLoft'){ const n=parseFloat(v); if(!isNaN(n)) o[key]=n; }
-  else if(key==='year'){ const n=parseInt(v); if(!isNaN(n)) o[key]=n; }
-  else if(u&&u!=='deg'&&!isNaN(parseFloat(v))){
-    const n=fromDisplay(u,parseFloat(v));
-    o[key] = (key==='carry'||key==='total') ? Math.round(n) : String(Math.round(n*100)/100);
-  }
-  else { o[key]=v; }
-  /* A label the golfer types is theirs and outranks the auto-labeller (see autoLabelForLoft). */
-  if(key==='label'&&v) o.userLabel=true;
-  saveState(); buildBackups();
-  if(typeof toast==='function') toast('Updated');
-}
+/* WHAT YOU CAN CHANGE HERE. A club out of the bag is still a club you own, and its specs
+   get corrected the same way — a re-loft, a new shaft, a grip — through the same editor the
+   bag uses (CLUB_SPEC_FIELDS / clubEditGrid above). This panel had its own field list and
+   its own save path, which is how the two drifted: no stock shot beyond carry and total,
+   no Save button, and a different field order. */
 /* SORT + FILTER. The collection runs to dozens of clubs across several bags and the only way
    to find one was to scroll. Location stays the default because it is how the clubs are
    physically arranged — it is where you would walk to fetch one — but loft is what you sort by
@@ -990,9 +1035,13 @@ function buildBackups(){
                  : '<div class="specs-chevron">'+(open?UP_JS:DOWN_JS)+'</div>')
       + '</div>';
     if(open){
-      h+='<div class="specs-rep-group open"><div class="specs-rep-group-inner" style="padding:10px 14px">'
-        + '<div class="edit-grid">'+BK_FIELDS.map(f=>bkField(i,f[0],f[1],o[f[1]],f[2])).join('')+'</div>'
-        + '<p class="gen-note" style="margin:6px 2px 0">Carry and total are optional '+DASH_JS+' fill them in and they travel with the club into the bag, instead of being estimated from its loft.</p>'
+      /* The same panel a bag club opens: same fields, same order, same Save. The only
+         differences are the ones that are true — a location instead of miss tendencies, and
+         "put it in the bag" instead of "send it to the collection". */
+      h+='<div class="specs-rep-group open"><div class="specs-rep-group-inner specs-edit-panel" style="padding:10px 14px">'
+        + clubEditGrid('col', i, o, o)
+        + '<p class="gen-note" style="margin:6px 2px 0">A stock shot is optional '+DASH_JS+' whatever you fill in travels with the club into the bag, instead of being estimated from its loft.</p>'
+        + '<div class="btn-row"><button class="btn btn-primary" onclick="event.stopPropagation();clubSaveAll(\'col\',\''+i+'\')">Save '+escapeHtml(o.label||'club')+'</button></div>'
         + backupSlotPicker(i) + '</div></div>';
     }
     return h;
@@ -1202,7 +1251,8 @@ function logHcpSnapshot(){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { bagEditOn, bagEditStart, bagEditCancel, bagEditToggleOut, bagEditToggleIn,
+Object.assign(window, { CLUB_SPEC_FIELDS, CLUB_PERF_FIELDS, clubField, clubEditGrid, clubFieldSave, clubSaveAll,
+  bagEditOn, bagEditStart, bagEditCancel, bagEditToggleOut, bagEditToggleIn,
   bagEditApply, bagEditBar, bagEditCount, bagRemoveClub, bagAddFromCollection, bagClubToRecord,
   bagNewClubId, bagLadderRatios, seedPartialsFor,
-  GREENSIDE_WEDGE_LOFT, MAX_BAG_CLUBS, WEDGE_LABEL_BANDS, autoLabelForLoft, bagIsFull, MY_DATA_SOURCES, buildMyData, buildUnitToggle, renderStrikeCal, setStrikeCorr, buildProfile, buildSpecs, ballEditJump, clearBallForm, estimatePerfForLoft, exportData, exportClubsCsv, clubCatalogue, CAT_COLS, generateFromSwingSpeed, hcpTrendHtml, importData, logHcpSnapshot, pfDirtyInit, pfDrivesHTML, pfMaybeSave, repMatches, resetData, buildEsCompareToggle, backupSlotPicker, backupToBag, bkToggle, bkSpec, bkField, bkSave, bkSetView, bkTypeOf, BK_FIELDS, miniCell, buildBackups, removeToBackups, swapIntoBag, saveCalibration, saveClub, saveProfile, sel, selectReplacement, syncPartialsForClub, toggleSpecs });
+  GREENSIDE_WEDGE_LOFT, MAX_BAG_CLUBS, WEDGE_LABEL_BANDS, autoLabelForLoft, bagIsFull, MY_DATA_SOURCES, buildMyData, buildUnitToggle, renderStrikeCal, setStrikeCorr, buildProfile, buildSpecs, ballEditJump, clearBallForm, estimatePerfForLoft, exportData, exportClubsCsv, clubCatalogue, CAT_COLS, generateFromSwingSpeed, hcpTrendHtml, importData, logHcpSnapshot, pfDirtyInit, pfDrivesHTML, pfMaybeSave, repMatches, resetData, buildEsCompareToggle, backupSlotPicker, backupToBag, bkToggle, bkSpec, bkSetView, bkTypeOf, miniCell, buildBackups, removeToBackups, swapIntoBag, saveCalibration, saveClub, saveProfile, sel, selectReplacement, syncPartialsForClub, toggleSpecs });
