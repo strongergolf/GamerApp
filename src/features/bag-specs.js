@@ -5,6 +5,15 @@
    SPECS — editable specs + performance + replacements
    ============================================================ */
 function buildSpecs(){
+  /* The bag's own heading carries the count against the fourteen the Rules allow, because
+     this page now shows the collection underneath and the two lists need telling apart at a
+     glance. Fourteen is the limit, not a target — thirteen is legal and common. */
+  const bl=document.getElementById('bag-section-label');
+  if(bl){
+    const n=(STATE.clubs||[]).length;
+    bl.innerHTML='In the Bag <span style="font-weight:400;color:'+(n>MAX_BAG_CLUBS?'var(--red,#d96070)':'var(--muted)')+'">'
+      +'· '+n+' of '+MAX_BAG_CLUBS+(n>MAX_BAG_CLUBS?' — over the limit':'')+'</span>';
+  }
   /* Ball listing at top */
   const bw=document.getElementById('ball-specs-wrap');
   if(bw){
@@ -235,7 +244,7 @@ function swapIntoBag(clubId, o){
   if(oInv>-1) STATE.otherClubs.splice(oInv,1);
   if(displaced.effLoft!=null) STATE.otherClubs.push(displaced);
   saveState(); refreshAll();
-  if(typeof toast==='function') toast(`${o.make} ${o.model} (${o.effLoft}°) swapped in — ${displaced.make} ${displaced.model} to Locker Room`);
+  if(typeof toast==='function') toast(`${o.make} ${o.model} (${o.effLoft}°) swapped in — ${displaced.make} ${displaced.model} to the collection`);
   return true;
 }
 /* From Current Bag: the replacement list under an expanded club. */
@@ -258,7 +267,7 @@ function backupSlotPicker(oIdx){
       <span class="bk-slot-loft">${escapeHtml(c.loft||'')}</span>
       <span class="rep-inline-delta ${d<=1?'exact':d<=3?'close':'off'}">${d===0?'=':'±'+(Math.round(d*10)/10)+'°'}</span>
     </button>`).join('');
-  return `<div class="bk-picker"><div class="bk-picker-lbl">Replace which club?</div>${rows}</div>`;
+  return `<div class="bk-picker"><div class="bk-picker-lbl">Swap into the bag — in place of which club?</div>${rows}</div>`;
 }
 function backupToBag(oIdx, clubId){
   const o=STATE.otherClubs[oIdx];
@@ -272,10 +281,10 @@ function removeToBackups(clubId){
   const c=STATE.clubs.find(x=>x.id===clubId); if(!c) return;
   const {matches,loftTol,effLoft}=repMatches(c);
   if(!matches.length){
-    if(typeof toast==='function') toast(`Nothing in Locker Room within ±${loftTol}° of ${effLoft}° to take its place`);
+    if(typeof toast==='function') toast(`Nothing in the collection within ±${loftTol}° of ${effLoft}° to take its place`);
     return;
   }
-  if(typeof toast==='function') toast(`Pick what replaces ${c.label} — it goes to Locker Room`);
+  if(typeof toast==='function') toast(`Pick what replaces ${c.label} — it goes to the collection`);
   const lbl=document.querySelector('.specs-rep-group.open .specs-rep-label');
   if(lbl){ lbl.classList.add('rep-flash'); setTimeout(()=>lbl.classList.remove('rep-flash'),1600);
            lbl.scrollIntoView({behavior:'smooth',block:'center'}); }
@@ -316,10 +325,10 @@ function toggleSpecs(c,row,group){
         ${sf('Max Ht','ht',p.ht,'perf','short')}${sf('Land (°)','land',p.land,'perf')}`:''}
       </div>
       <div class="btn-row"><button class="btn btn-primary" onclick="saveClub('${c.id}')">Save ${c.label}</button>
-        <button class="btn" onclick="event.stopPropagation();removeToBackups('${c.id}')">Remove from Current Bag</button></div>
+        <button class="btn" onclick="event.stopPropagation();removeToBackups('${c.id}')">Send to the collection</button></div>
     </div>`;
   const {effLoft,loftTol,matches}=repMatches(c);
-  const repLabel=`<div class="specs-rep-label">Add from Locker Room — ±${loftTol}° Effective Loft${c.type==='putter'?' · putters only':''} · tap to swap in</div>`;
+  const repLabel=`<div class="specs-rep-label">Swap in from the collection — ±${loftTol}° Effective Loft${c.type==='putter'?' · putters only':''} · tap to swap in</div>`;
   const repHtml=!matches.length?`<div class="specs-no-rep">Nothing in your other bags within ±${loftTol}° of ${effLoft}°. A club further away than that is hidden rather than missing — edit the spec fields above to enter it directly.</div>`:matches.map((o,i)=>{
     const d=o.effLoft-effLoft, ds=d===0?'=':d>0?`+${d}°`:`${d}°`, dc=d===0?'exact':Math.abs(d)<=1?'close':'off';
     /* Which bag it is sitting in does not help you CHOOSE a club — you pick on loft, model
@@ -490,12 +499,11 @@ function buildProfile(){
     <div class="edit-field" style="grid-column:1/-1"><label>Notes</label><input id="ball-notes" value="${escapeHtml(pf.ballNotes||'')}" placeholder="feel preference, conditions, wind performance, short game control…"></div>`;
   pfDirtyInit();
 }
-/* Clear the Edit Golf Ball form fields (does not persist until Save Edits). */
-/* The ball's edit form lives in the Locker Room now, with the other equipment admin, so the
-   summary card on Current Bag has to carry the reader across a tab rather than scroll them
-   down the page. Same gesture, one more hop. */
+/* The ball's summary card and its edit form are on the same page again, so this is a scroll
+   rather than a hop — the showGroupPage call stays for the cases that reach it from another
+   tab. (It targeted the Locker Room, which no longer exists as its own page.) */
 function ballEditJump(){
-  if(typeof showGroupPage==='function') showGroupPage('setup','backups');
+  if(typeof showGroupPage==='function') showGroupPage('setup','specs');
   setTimeout(()=>{
     const dd=document.getElementById('ball-edit-dd'); if(dd) dd.open=true;
     const g=document.getElementById('ball-grid'); if(g) g.scrollIntoView({behavior:'smooth',block:'center'});
@@ -647,7 +655,7 @@ function buildMyData(){
       </div>
       <p class="gen-note" style="margin-top:10px">Answering profile questions — capturing your full-bag dispersion, say — can unlock features like full course strategy, but an interviewed answer is <em>Presumed</em>, not Captured, until measured data backs it.</p>
       <h4 class="mydata-sub">Where it lives</h4>
-      <p class="gen-note">All of it — bag, performance numbers, swing data, courses and profile — is saved in this browser and nowhere else. Back it up, move it to another device, or start again from the demo bag. Backup and restore also sit in the <b>Locker Room</b>, beside the clubs.</p>
+      <p class="gen-note">All of it — bag, performance numbers, swing data, courses and profile — is saved in this browser and nowhere else. Back it up, move it to another device, or start again from the demo bag. Backup and restore also sit at the foot of <b>My Clubs</b>, beside the clubs themselves.</p>
       <div class="btn-row">
         <button class="btn" onclick="exportData()">Backup JSON</button>
         <button class="btn" onclick="triggerImportFile()">Restore</button>
@@ -739,7 +747,8 @@ function buildBackups(){
   let rows=all.map((o,i)=>({o,i}))
     .filter(r=>!V.type||bkTypeOf(r.o)===V.type)
     .filter(r=>!q||hay(r.o).includes(q));
-  const ctl='<div class="section-label" style="margin-top:2px">The Collection</div>'
+  const ctl='<div class="section-label" style="margin-top:2px">The Collection <span style="font-weight:400;color:var(--muted)">'
+    + MID_JS+' '+all.length+' club'+(all.length===1?'':'s')+' you own but are not carrying</span></div>'
     + '<div class="bk-controls">'
     + '<input class="bk-search" type="search" placeholder="Search make, model, shaft'+ELL_JS+'" value="'+escapeHtml(V.q||'')+'" oninput="bkSetView(\'q\',this.value)">'
     + '<div class="unit-row-btns bk-type">'+BK_TYPES.map(t=>'<button type="button" class="unit-btn'+(V.type===t[0]?' on':'')+'" onclick="bkSetView(\'type\',\''+t[0]+'\')">'+t[1]+'</button>').join('')+'</div>'
@@ -747,14 +756,27 @@ function buildBackups(){
     + BK_SORTS.map(t=>'<option value="'+t[0]+'"'+(V.sort===t[0]?' selected':'')+'>'+t[1]+'</option>').join('')+'</select></label></div>';
   if(!all.length){ wrap.innerHTML=ctl+'<div class="specs-no-rep">No spare clubs on file.</div>'; return; }
   if(!rows.length){ wrap.innerHTML=ctl+'<div class="specs-no-rep">Nothing matches '+DASH_JS+' <a href="#" onclick="window.bkView.q=\'\';bkSetView(\'type\',\'\');return false">clear the filters</a>.</div>'; return; }
+  /* THE SAME ROW AS THE BAG. Both lists live on one page now, so a collection club is read
+     down the same columns as the club it might replace — length, loft, lie, then what it
+     does: carry, total and the 86% lateral. A spare has no measured performance until one is
+     entered, so those print an em dash rather than an estimate; entering carry and total in
+     the panel below fills them, and they travel with the club into the bag.
+     Make and model share one line, and the shaft moved into the panel, for the same reason
+     the bag rows did it: a second line sets the height of every row on a phone. */
   const card=r=>{
     const o=r.o, i=r.i, open=window.bkOpen===i;
+    const carry=parseFloat(o.carry)||0, total=parseFloat(o.total)||0;
+    const d86=(carry>0&&typeof disp86==='function')?disp86(carry):null;
     let h='<div class="specs-club-row spec-card'+(open?' selected':'')+'" onclick="bkToggle('+i+')" style="cursor:pointer">'
       + '<span class="spec-club '+bkTypeOf(o)+'">'+escapeHtml(o.label||DASH_JS)+'</span>'
-      + '<div class="sc-id"><span class="sc-name">'+escapeHtml(o.model||o.make||DASH_JS)+'</span>'
-      + '<span class="sc-sub">'+escapeHtml([o.make,o.shaft].filter(Boolean).join(' '+MID_JS+' ')||'')+'</span></div>'
-      + miniCell('Loft', o.effLoft!=null?o.effLoft+DEG_JS:DASH_JS,'sm-w-deg')
+      + '<div class="sc-id"><span class="sc-name">'+escapeHtml([o.make,o.model].filter(Boolean).join(' ')||DASH_JS)+'</span></div>'
       + miniCell('Length', o.length||DASH_JS,'sm-w-len')
+      + miniCell('Loft', o.effLoft!=null?o.effLoft+DEG_JS:DASH_JS,'sm-w-deg')
+      + miniCell('Lie', o.lie||DASH_JS,'sm-w-deg')
+      + '<div class="sc-sep"></div>'
+      + miniCell('Carry '+ydUnit(), carry>0?ydNum(carry):DASH_JS,'sm-w-yd')
+      + miniCell('TTL '+ydUnit(), total>0?ydNum(total):DASH_JS,'sm-w-yd')
+      + miniCell('86% L/R', d86!=null?ydNum(d86,1):DASH_JS,'sm-w-lr')
       + '<div class="specs-chevron">'+(open?UP_JS:DOWN_JS)+'</div></div>';
     if(open){
       h+='<div class="specs-rep-group open"><div class="specs-rep-group-inner" style="padding:10px 14px">'
@@ -764,7 +786,10 @@ function buildBackups(){
     }
     return h;
   };
-  let html=ctl;
+  /* The rows go inside a .specs-wrap like the bag's, so the two lists sit in the same card
+     and scroll sideways together on a phone — without it the name column was squeezed out of
+     a 375px row and every collection club read as a bare label. */
+  let html=ctl+'<div class="specs-wrap" id="bk-list">';
   if(V.sort==='location'){
     const groups={};
     rows.forEach(r=>{ const g=r.o.bag||'Unfiled'; (groups[g]=groups[g]||[]).push(r); });
@@ -785,7 +810,7 @@ function buildBackups(){
     html+='<div class="ladder-divider">By '+nm+' <span style="opacity:.7">'+MID_JS+' '+rows.length+'</span></div>';
     rows.forEach(r=>{ html+=card(r); });
   }
-  wrap.innerHTML=html;
+  wrap.innerHTML=html+'</div>';
 }
 function bkSpec(l,v){ return (v==null||v==='')?'':`<div class="bk-spec"><span>${l}</span><b>${escapeHtml(String(v))}</b></div>`; }
 function miniCell(label,val,wCls){ return `<div class="spec-mini ${wCls}"><span class="sm-l">${label}</span><span class="sm-v">${val}</span></div>`; }
@@ -883,7 +908,7 @@ function clubCatalogue(){
       swt:c.swt, year:c.year, grip:c.grip, carry:p&&p.carry!=null?p.carry:'', total:p&&p.total!=null?p.total:''});
   });
   (STATE.otherClubs||[]).forEach(o=>{
-    rows.push({where:o.bag||'Locker Room', label:o.label, type:(typeof bkTypeOf==='function')?bkTypeOf(o):(o.type||''),
+    rows.push({where:o.bag||'The collection', label:o.label, type:(typeof bkTypeOf==='function')?bkTypeOf(o):(o.type||''),
       make:o.make, model:o.model, loft:o.effLoft!=null?o.effLoft+'\u00b0':'', origLoft:'', lie:o.lie,
       length:o.length, shaft:o.shaft, swt:o.swt, year:o.year, grip:o.grip,
       carry:o.carry!=null?o.carry:'', total:o.total!=null?o.total:''});

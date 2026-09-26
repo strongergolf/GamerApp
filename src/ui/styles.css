@@ -273,9 +273,17 @@ input[type=range].yard-slider::-moz-range-thumb{width:20px;height:20px;border-ra
 /* Mobile: scroll the My Bag club table sideways as a unit so Carry/Total/86% stay reachable
    and the gap-diff rows stay column-aligned, instead of being clipped off-screen. */
 @media(max-width:600px){
-  #specs-wrap{overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
-  #specs-wrap::-webkit-scrollbar{display:none}
-  #specs-wrap .specs-club-row.spec-card,#specs-wrap .spec-gap-row{min-width:31rem}
+  #specs-wrap,#bk-list{overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  #specs-wrap::-webkit-scrollbar,#bk-list::-webkit-scrollbar{display:none}
+  /* 38rem, not the 31rem this used to carry: the seven spec columns and their gaps came to
+     more than 31rem on their own, so the make-and-model column — the one flexible cell —
+     was squeezed to SEVEN PIXELS and every club on a phone read as a bare label with no
+     name. The row scrolls sideways anyway; it just has to be wide enough to hold its own
+     content first. Gaps tighten to 10px here to keep the scroll distance down. */
+  #specs-wrap .spec-card,#specs-wrap .spec-gap-row,#bk-list .spec-card{min-width:38rem;gap:10px}
+  #specs-wrap .sc-name,#bk-list .sc-name{min-width:8rem}
+  /* the expanded editor is a form, not a row — it must not take the row's min-width */
+  #bk-list .specs-rep-group{min-width:0}
 }
 .specs-rep-group{overflow:hidden;max-height:0;transition:max-height .35s ease}
 .specs-rep-group.open{max-height:3000px}

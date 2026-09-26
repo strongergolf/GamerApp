@@ -35,9 +35,11 @@ const GROUPS={
   ],
   /* Settings: the bag you play, the rest of the collection, you, and the app itself.
      Page ids keep their old names so deep links and saved data are untouched. */
+  /* My Clubs is Current Bag and Locker Room merged: one list of every club owned, the
+     fourteen in play at the top and the collection below. Two tabs answered "what have I
+     got?" in two places and made a swap a trip between them. */
   setup:[
-    {id:'specs',    label:'Current Bag'},
-    {id:'backups',  label:'Locker Room'},
+    {id:'specs',    label:'My Clubs'},
     {id:'profile',  label:'Golfer Profile'},
     {id:'reference',label:'The App'}
   ]

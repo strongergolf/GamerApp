@@ -220,60 +220,29 @@
   </details>
 </div>
 
-<!-- SPECS -->
+<!-- MY CLUBS — every club you own, on one page.
+     The fourteen you are playing at the top, the rest of the collection under them, then the
+     admin that creates or corrects a club. They were two tabs, Current Bag and Locker Room,
+     which meant the question "what have I got in a 58°?" was answered in two places and a
+     swap was a trip between them. The rows are the same shape in both sections on purpose:
+     one list of clubs you own, split by whether it is in play today. -->
 <div id="page-specs" class="page">
   <!-- Export/Import are shortcuts to the same functions as My App → Data (the full card, incl. Reset, lives there) -->
   <div class="section-label" style="margin-top:0;display:flex;align-items:center;justify-content:space-between;gap:10px">Golf Ball
     <button class="print-btn" onclick="printClubs()" title="Print every club you own — bag and locker — with its specs">⌘ Print catalogue</button>
   </div>
   <div class="specs-wrap" id="ball-specs-wrap"></div>
-  <div class="section-label" style="margin-top:18px">Clubs</div>
+
+  <div class="section-label" id="bag-section-label" style="margin-top:18px">In the Bag</div>
   <div class="specs-wrap" id="specs-wrap"></div>
 
+  <!-- The rest of the collection: same rows, same columns, one section down. -->
+  <div id="backups-wrap" style="margin-top:22px"></div>
 
-
-</div>
-
-<!-- GAMEPLAN — the round arc, one sub-tab per phase. The Hole Overlay leads: it is the
-     tool you actually reach for, so it opens the tab rather than sitting three levels deep
-     inside a collapsed dropdown. -->
-<div id="page-gameplan" class="page">
-  <div id="hole-overlay-wrap"></div>
-  <!-- The Course Strategy prototype (per-club ball flight + a caption pointing at the
-       strategy preferences) came off this tab with the rest of the strategy furniture. Its
-       builder stays: it is also the "course data changed" signal that refreshes the overlay,
-       and it renders wherever a #course-strategy-wrap exists. -->
-</div>
-
-<div id="page-preshot" class="page">
-  <p class="intro-note">First <b>Plan</b> the shot — read the situation, pick a target, build the true number. Then <b>Execute</b> your physical routine the same way every time. The effective-yardage equation is live — tap any term to open its detail and inputs.</p>
-  <div id="planshot-wrap"></div>
-</div>
-
-<div id="page-postshot" class="page">
-  <p class="intro-note">After the ball stops, run a quick, honest review — in order: what happened, how you executed, whether the plan fit, and what to adjust next time. Separating result from execution from plan is how you learn from a shot instead of just reacting to it.</p>
-  <div id="postshot-wrap"></div>
-</div>
-
-<div id="page-postround" class="page">
-  <p class="intro-note">Close the loop on the round you just played — log the numbers that drive strokes-gained, then a short structured debrief while it's fresh. Honest, consistent post-round data is what turns rounds into trend lines.</p>
-  <div id="postround-wrap"></div>
-</div>
-
-<div id="page-gpcourses" class="page">
-  <p class="intro-note">The courses you play. Import one from OpenStreetMap or trace it by hand — greens, fairways, bunkers, water and trees become the geometry every recommendation on the Strategy tab is computed against.</p>
-  <div id="course-editor-wrap"></div>
-  <div class="section-label" style="margin-top:24px">Round Strategy &amp; Live Tracking</div>
-  <div id="round-tracker-wrap"></div>
-</div>
-
-
-<!-- BACKUPS — the rest of the club collection (content built by buildBackups) -->
-<div id="page-backups" class="page">
-  <!-- LOCKER ROOM: the gear that is not in play, and the two places gear is created or
-       corrected. Adding a club and describing the ball are equipment admin, not decisions
-       about today's bag, so they live here rather than crowding Current Bag. -->
-  <details class="defs-dropdown" style="margin-top:0"><summary>Add a Club</summary>
+  <!-- Equipment admin — creating a club and describing the ball. Below the clubs themselves
+       because it is the rarest thing done here, and the reason it is on this page at all is
+       that a new club joins the list directly above it. -->
+  <details class="defs-dropdown" style="margin-top:22px"><summary>Add a Club</summary>
   <div class="add-club-wrap" id="add-club-wrap">
     <div class="add-club-body">
       <div class="edit-grid">
@@ -309,7 +278,7 @@
   </div>
   </details>
 
-  <details class="defs-dropdown" id="ball-edit-dd" style="margin-top:22px"><summary>Edit Golf Ball</summary>
+  <details class="defs-dropdown" id="ball-edit-dd" style="margin-top:14px"><summary>Edit Golf Ball</summary>
     <div class="profile-card" style="margin-bottom:0;border-radius:10px">
       <div class="edit-grid" id="ball-grid"></div>
       <div class="btn-row"><button class="btn btn-primary" onclick="saveProfile()">Save Edits</button><button class="btn" onclick="clearBallForm()">Clear</button></div>
@@ -324,8 +293,41 @@
       <button class="print-btn" onclick="triggerImportFile()" title="Restore from a JSON backup (confirms &amp; backs up first)">⬆ Restore</button>
     </span>
   </div>
-  <div id="backups-wrap" style="margin-top:10px"></div>
 </div>
+
+<!-- GAMEPLAN — the round arc, one sub-tab per phase. The Hole Overlay leads: it is the
+     tool you actually reach for, so it opens the tab rather than sitting three levels deep
+     inside a collapsed dropdown. -->
+<div id="page-gameplan" class="page">
+  <div id="hole-overlay-wrap"></div>
+  <!-- The Course Strategy prototype (per-club ball flight + a caption pointing at the
+       strategy preferences) came off this tab with the rest of the strategy furniture. Its
+       builder stays: it is also the "course data changed" signal that refreshes the overlay,
+       and it renders wherever a #course-strategy-wrap exists. -->
+</div>
+
+<div id="page-preshot" class="page">
+  <p class="intro-note">First <b>Plan</b> the shot — read the situation, pick a target, build the true number. Then <b>Execute</b> your physical routine the same way every time. The effective-yardage equation is live — tap any term to open its detail and inputs.</p>
+  <div id="planshot-wrap"></div>
+</div>
+
+<div id="page-postshot" class="page">
+  <p class="intro-note">After the ball stops, run a quick, honest review — in order: what happened, how you executed, whether the plan fit, and what to adjust next time. Separating result from execution from plan is how you learn from a shot instead of just reacting to it.</p>
+  <div id="postshot-wrap"></div>
+</div>
+
+<div id="page-postround" class="page">
+  <p class="intro-note">Close the loop on the round you just played — log the numbers that drive strokes-gained, then a short structured debrief while it's fresh. Honest, consistent post-round data is what turns rounds into trend lines.</p>
+  <div id="postround-wrap"></div>
+</div>
+
+<div id="page-gpcourses" class="page">
+  <p class="intro-note">The courses you play. Import one from OpenStreetMap or trace it by hand — greens, fairways, bunkers, water and trees become the geometry every recommendation on the Strategy tab is computed against.</p>
+  <div id="course-editor-wrap"></div>
+  <div class="section-label" style="margin-top:24px">Round Strategy &amp; Live Tracking</div>
+  <div id="round-tracker-wrap"></div>
+</div>
+
 
 <!-- PROFILE -->
 <div id="page-profile" class="page">
