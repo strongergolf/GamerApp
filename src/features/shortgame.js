@@ -148,15 +148,22 @@ function sgCalReset(){
 function renderSgVars(){
   const wrap=document.getElementById('sg-vars-wrap'); if(!wrap) return;
   const sel=sgSel();
+  /* What this option does at impact, from the same resolved effects the model uses — so the
+     line under a slider cannot drift from the maths. Ball position also prints the inches it
+     is defined by, and an open face prints the aim it forces. */
+  const d1=x=>`${x>0?'+':'−'}${Math.abs(x).toFixed(1)}`;
   const effSummary=v=>{
     const o=v.opts.find(x=>x.id===sel[v.key])||v.opts.find(x=>x.id===v.def);
-    if(!o||!o.eff) return '';
+    const e=(typeof sgOptEff==='function')?sgOptEff(o):(o&&o.eff)||{};
+    if(!o||!Object.keys(e).length) return v.tbd?'<div class="sgv-eff sgv-tbd">effect to be defined</div>':'';
     const parts=[];
-    if(o.eff.horizLean) parts.push(`${o.eff.horizLean>0?'+':''}${o.eff.horizLean}° lean`);
-    if(o.eff.vertPath)  parts.push(`${o.eff.vertPath<0?o.eff.vertPath+'° down path':'+'+o.eff.vertPath+'° up path'}`);
-    if(o.eff.vertLean)  parts.push(`${o.eff.vertLean>0?'+':''}${o.eff.vertLean}° vert lean`);
-    if(o.eff.loft)      parts.push(`${o.eff.loft>0?'+':''}${o.eff.loft}° loft`);
-    if(o.eff.bounce)    parts.push(`${o.eff.bounce>0?'+':''}${o.eff.bounce}° bounce`);
+    if(o.backIn!=null)  parts.push(`${o.backIn}" behind low point`);
+    if(o.rot)           parts.push(`${d1(o.rot)}° face rotation`);
+    if(e.horizLean)     parts.push(`${d1(e.horizLean)}° lean`);
+    if(e.vertPath)      parts.push(`${e.vertPath<0?d1(e.vertPath)+'° down path':d1(e.vertPath)+'° up path'}`);
+    if(e.loft)          parts.push(`${d1(e.loft)}° loft`);
+    if(e.bounce&&o.rot) parts.push(`${d1(e.bounce)}° bounce`);
+    if(e.faceRight)     parts.push(`aim ${Math.abs(e.faceRight).toFixed(1)}° ${e.faceRight>0?'left':'right'}`);
     return parts.length?`<div class="sgv-eff">${parts.join(' · ')}</div>`:(v.tbd?'<div class="sgv-eff sgv-tbd">effect to be defined</div>':'');
   };
   const varRow=v=>{
@@ -189,15 +196,25 @@ function renderSgVars(){
      because it is club-independent — the same setup costs a 7-iron chip and a lob wedge the
      same share of their own ball speed. */
   const spd=net.dSpeedPct;
+  /* Spin is a PERCENTAGE now, like ball speed, because what the setup changes is the split
+     between them — and a percentage is club-independent, where an rpm figure only means
+     something against a club and a distance. The rpm the shot actually carries is on the
+     option card, where the club and the carry are known. */
+  /* The face points RIGHT by dFaceRight, so the aim line moves LEFT by the same amount —
+     they carry the same sign here, one describing the club and the other the correction. */
+  const aim=net.dFaceRight;
+  const aimCell=Math.abs(aim)>=0.2
+    ? `<div class="sgv-shot-cell"><span class="sgv-k">${aim>0?'◀':'▶'} Aim</span><span class="sgv-v">${Math.abs(aim).toFixed(1)}&deg; ${aim>0?'left':'right'}</span></div>` : '';
   const readout=`
     <div class="sgv-readout">
       <div class="sgv-readout-head">Net Shot Effect ${provNote}</div>
       <div class="sgv-shot sgv-shot-3">
         <div class="sgv-shot-cell"><span class="sgv-k">${arrow(net.dLaunch)} Launch</span><span class="sgv-v">${fmt(net.dLaunch,'&deg;')}</span></div>
-        <div class="sgv-shot-cell"><span class="sgv-k">${arrow(net.dSpin)} Spin</span><span class="sgv-v">${fmt(net.dSpin,'',0)}</span></div>
+        <div class="sgv-shot-cell"><span class="sgv-k">${arrow(net.dSpinPct)} Spin</span><span class="sgv-v">${fmt(net.dSpinPct,'%',1)}</span></div>
         <div class="sgv-shot-cell"><span class="sgv-k">${arrow(spd)} Ball speed</span><span class="sgv-v">${fmt(spd,'%',1)}</span></div>
+        ${aimCell}
       </div>
-      <div class="sgv-readout-foot">vs the standard chip &mdash; Middle &middot; Vertical &middot; Square, delivering ~${sgRefDelivered().toFixed(0)}&deg;. <button type="button" class="sgv-reset" onclick="resetSgVars()">Reset to standard</button></div>
+      <div class="sgv-readout-foot">vs the standard chip &mdash; Middle &middot; Vertical &middot; Square, delivering ~${sgRefDelivered().toFixed(0)}&deg; of loft at ${sgRefSpinLoft().toFixed(0)}&deg; of spin loft. <button type="button" class="sgv-reset" onclick="resetSgVars()">Reset to standard</button></div>
     </div>`;
   wrap.innerHTML=`
     <div class="sgv-cat">
@@ -260,12 +277,34 @@ function renderChipDial(){
     const tc=typeColor(c);
     const note = carry<0.5 ? 'carry too short' : carry>25 ? 'pitch / full shot territory' : '';
     const noteStr = note ? ` <span style="color:var(--gold);font-size:.68rem">· ${note}</span>` : '';
+    /* THE THREE NUMBERS, each from ONE source, with the setup applied as a multiplier so the
+       club's calibration and the setup's effect can never be counted twice. Computed once,
+       here, because the trajectory drawing and the card underneath must not disagree — they
+       did: the drawing took its launch and spin from the model's equivalent-club loft while
+       the card recomputed its own.
+         delivered  the loft the face actually presents — stamped loft plus the setup's
+                    ABSOLUTE effect, so a standard chip with a 51° club reads 45°, exactly
+                    what the Net Shot Effect panel says it delivers. It used to read 51: the
+                    card printed the model's equivalent-club loft under a "loft as delivered"
+                    label, contradicting the panel two boxes below it.
+         launch     the club's own calibrated launch, scaled by the delivered-loft ratio.
+         spin       the club's own calibrated spin at this carry, times the setup's spin
+                    multiplier, which now comes from spin loft (see sgSpinMult). chipSpin is
+                    given the STAMPED loft, because its own loft term describes the club. */
+    const delivered=(typeof sgDelivered==='function')?sgDelivered(c.loft):loft;
+    const spinLoft=(typeof sgSpinLoftFor==='function')?sgSpinLoftFor(c.loft):null;
+    const lRatio=(typeof sgLaunchRatio==='function')?sgLaunchRatio():1;
+    /* The player's own launch offset is added AFTER the setup scaling, not scaled by it: it is
+       a measured bias in how they deliver the club, not a property of this setup. */
+    const rowLaunch=(typeof chipLaunchRaw==='function'?chipLaunchRaw(c.loft)*lRatio:loft*0.68)
+      +((typeof chipUserLaunchOff==='function')?chipUserLaunchOff():0)+(window.chipStanceLaunchAdj||0);
+    const rowSpin=Math.round(((typeof chipSpin==='function'?chipSpin(carry,c.loft):0)
+      *((typeof sgSpinMult==='function')?sgSpinMult():1))/50)*50;
     /* Selected shot's trajectory renders into the flight wrap above the shot options. */
     if(selected){
-      const effNote = Math.abs(sgDelta)>=0.5 ? ` <span style="color:var(--gold);font-weight:700">plays ${loft.toFixed(0)}° eff</span>` : '';
+      const effNote = Math.abs(sgDelta)>=0.5 ? ` <span style="color:var(--gold);font-weight:700">delivers ${delivered.toFixed(0)}°</span>` : '';
       const stanceAdj = window.chipStanceLaunchAdj||0;
-      const launch = (typeof chipLaunch==='function' ? chipLaunch(loft) : loft*0.68) + stanceAdj;
-      const spin = typeof chipSpin==='function' ? chipSpin(carry,loft) : 0;
+      const launch = rowLaunch, spin = rowSpin;
       const fk = window.chipFirmKey || 'avg';
       const fm = typeof chipFirmModel==='function' ? chipFirmModel(fk) : {check:''};
       const firmName = {vsoft:'very soft',soft:'soft',avg:'average',firm:'firm',vfirm:'very firm'}[fk]||fk;
@@ -302,8 +341,6 @@ function renderChipDial(){
        would each become their own line and stack the card three deep */
     const splitStr = `<u class="sg-row">${half(carry,'carry')}<b>:</b>${half(roll,'roll')}</u>`;
     const rc = ratio<=1 ? 'var(--green)' : ratio<=3 ? 'var(--sky)' : 'var(--gold)';
-    const rowLaunch=(typeof chipLaunch==='function'?chipLaunch(loft):loft*0.68)+(window.chipStanceLaunchAdj||0);
-    const rowSpin=typeof chipSpin==='function'?chipSpin(carry,loft):0;
     /* Same rule as Approach: one line collapsed, the full Impact / Launch / Flight picture on
        the card you picked. A chip has no modelled clubhead speed \u2014 nothing in the app measures
        or derives one at these speeds \u2014 so that cell prints an em dash rather than a number
@@ -319,11 +356,18 @@ function renderChipDial(){
        already the Vert. Face cell, so no shaft-lean allowance is subtracted a second time. */
     const ballMph = (carry>0.3 && rowLaunch>3)
       ? Math.sqrt(carry*3*32.174/Math.sin(2*rowLaunch*Math.PI/180))*0.6818 : null;
-    const chipSmash = (typeof SMASH_K==='number') ? SMASH_K*Math.cos(Math.min(80,loft)*Math.PI/180) : null;
+    /* Smash against DELIVERED loft, not spin loft, because SMASH_K (1.53) was fitted in that
+       convention — physics/sg.js takes stamped loft less a 6° lean allowance, which IS
+       delivered loft. The panel's speed RATIO uses spin loft, which is the more complete
+       angle, and can: a ratio cancels the constant. An absolute number cannot, and pairing a
+       constant with an angle it was not fitted against would cost ~4% here. Refit against
+       measured chip smash and this should move to spin loft with the rest of the model. */
+    const chipSmash = SMASH_K*Math.cos(Math.min(80,Math.max(0,delivered))*Math.PI/180);
     const clubMph = (ballMph!=null && chipSmash>0.3) ? ballMph/chipSmash : null;
     const anatomy = selected ? shotStageHTML({
       impact:[
-        {k:'Vert. Face', v:`${loft.toFixed(0)}\u00b0`, title:'The club\u2019s loft as delivered \u2014 its own loft plus whatever the setup adds or takes away.'},
+        {k:'Vert. Face', v:`${delivered.toFixed(0)}\u00b0`,
+         title:`The loft the face presents at impact: ${c.loft} stamped, ${(delivered-parseFloat(c.loft)).toFixed(1)}\u00b0 from the setup showing below.`},
         {k:'Vert. Path', v:netAbs&&netAbs.vertPath!=null?`${netAbs.vertPath>0?'+':''}${netAbs.vertPath.toFixed(0)}\u00b0`:null},
         {k:'Club Speed', v:clubMph!=null?`${mphNum(clubMph)} ${mphUnit()}`:null, dim:true,
          title:'Estimated: ball speed divided by the smash factor this delivered loft predicts. Not measured.'}
@@ -341,8 +385,12 @@ function renderChipDial(){
         {k:'Carry', v:`${ydNum(carry,1).toFixed(1)} ${ydUnit()}`},
         {k:'TTL', v:`${ydNum(total,1).toFixed(1)} ${ydUnit()}`}
       ],
-      /* % to target is on the card's own line now, for every option, so it is not repeated here. */
+      /* % to target is on the card's own line now, for every option, so it is not repeated here.
+         Spin loft leads the strip because it is the cause the whole setup panel acts through:
+         face minus path, and the angle that decides how the strike splits into speed and spin. */
       extra:[
+        {k:'Spin Loft', v:spinLoft!=null?`${spinLoft.toFixed(0)}°`:null, dim:true,
+         title:'Delivered loft minus attack angle — the angle between the path and the face. Ball speed follows its cosine, backspin its sine.'},
         {k:'Roll', v:`${ydNum(roll,1).toFixed(1)} ${ydUnit()}`, dim:true},
         {k:'Ratio', v:typeof chipRatioStr==='function'?chipRatioStr(ratio):null, dim:true}
       ]
