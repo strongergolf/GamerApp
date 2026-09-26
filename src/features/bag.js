@@ -213,9 +213,10 @@ function toggleDetail(c,row,group,inner){
         <div class="flight-col-top"><div class="flight-label">Overhead — Dispersion</div><div class="flight-svg-wrap">${buildTopSVG(c,p,{draggable:true,uid:'stock-'+c.id})}</div></div>
       </div>
     </div>
-    ${c.id==='D'?buildDriverOptimizerHTML():''}`;
+    ${isDriverClub(c)?buildDriverOptimizerHTML(p):''}`;
   renderExpectedShots(`es-bag-${c.id}`, p.total||p.carry, 'fairway');
-  if(c.id==='D' && typeof updateDriverOpt==='function') updateDriverOpt();
+  /* The optimizer belongs to whichever club is the driver, not to the id 'D'. */
+  if(isDriverClub(c) && typeof updateDriverOpt==='function') updateDriverOpt();
   if(typeof initApproachAimDrag==='function') initApproachAimDrag();   // wire the draggable dispersion oval
   group.classList.add('open');
   setTimeout(()=>group.scrollIntoView({behavior:'smooth',block:'nearest'}),50);

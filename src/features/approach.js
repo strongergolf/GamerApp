@@ -151,10 +151,12 @@ function wedgeModel(){
   }).filter(Boolean);
   /* Extend through fairway wood: every non-putter, non-driver club not already a partial
      club is added as a FULL-swing option, so a big plays-like number still maps to a club.
-     (Driver is excluded — "through fairway wood".) */
+     The driver is excluded — "through fairway wood" — and it is identified as the bag's
+     lowest-lofted wood rather than by the id 'D', which stopped being a safe assumption the
+     moment a driver could be swapped for one carrying its own id. */
   const partialIds=new Set(partialClubIds());
   const longer=STATE.clubs
-    .filter(c=>c.type!=='putter'&&c.id!=='D'&&!partialIds.has(c.id))
+    .filter(c=>c.type!=='putter'&&!(typeof isDriverClub==='function'&&isDriverClub(c))&&!partialIds.has(c.id))
     .map(c=>{
       const p=perf(c.id); const full=p.total||p.carry||null;
       const fl=p.launch||18, fs=p.spin||5500, fh=p.ht||90;

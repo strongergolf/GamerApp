@@ -665,8 +665,15 @@ function psychResources(){
 
 function ballRefHtml(){
   /* pull a compact read-only summary from the bag performance data */
-  const ids=['D','7i','P','S'];
-  const stats=ids.map(id=>{const c=STATE.clubs.find(x=>x.id===id);const p=perf(id);if(!c||!p)return '';return `<span class="lvl-ref-stat">${c.label}: <b>${ydNum(p.carry)}</b>${ydUnit()} · ${p.spin?p.spin.toLocaleString()+'rpm':'—'} · ${p.land!=null?p.land+'°':'—'} land</span>`;}).join('');
+  /* A SAMPLE of the bag, chosen by what each club is rather than by four hardcoded ids:
+     the driver, a mid iron, a pitching wedge and a sand wedge. The ids worked until a club
+     could be swapped out, at which point the sample quietly lost rows. */
+  const sample=[ (typeof bagDriver==='function'?bagDriver():null),
+                 (typeof bagClubNearLoft==='function'?bagClubNearLoft(35,3):null),
+                 (typeof bagClubNearLoft==='function'?bagClubNearLoft(47,3):null),
+                 (typeof bagClubNearLoft==='function'?bagClubNearLoft(56,3):null) ];
+  const seen=new Set();
+  const stats=sample.map(c=>{if(!c||seen.has(c.id))return '';seen.add(c.id);const p=perf(c.id);if(!p)return '';return `<span class="lvl-ref-stat">${c.label}: <b>${ydNum(p.carry)}</b>${ydUnit()} · ${p.spin?p.spin.toLocaleString()+'rpm':'—'} · ${p.land!=null?p.land+'°':'—'} land</span>`;}).join('');
   return `<div class="chain-caption">What the ball did — carry, launch, spin, height, descent and dispersion. This is the most directly measurable cause of score, and it's already captured in full on the <strong>Bag</strong> tab. A sample:</div>
     <div>${stats}</div>
     <div class="lvl-soon-note" style="margin-top:10px">Open the Bag tab to edit every club's full ball-flight profile and see trajectory &amp; dispersion plots.</div>`;

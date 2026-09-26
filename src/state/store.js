@@ -269,4 +269,39 @@ function saveState(){
 
 // Expose helpers on window for the staged ES-module migration.
 // NOTE: STATE itself is set directly on window by loadState (see note above).
-Object.assign(window, { STORE_KEY, CLUB_MODEL_RENAMES, DATA_VERSION, DATA_FIXES, applyDataFixes, deepClone, estThirdCarry, mergeAndFix, migrateClubModel, loadState, mergeDefaults, saveState });
+/* ============================================================
+   BAG QUERIES — "which club is the driver?", asked of the bag rather than of an id
+
+   Several surfaces used to answer that with `c.id==='D'`: the Driver Optimizer appeared
+   only on a club whose id was literally D, the Approach model excluded that same id from
+   its fairway-wood extension, and the Chain's ball-flight sample was four hardcoded ids.
+   That held only while the bag was fixed. Now that a club can be taken out and another put
+   in, a replaced driver arrives with an id derived from its label — 'Dr', 'D2' — and the
+   optimizer silently vanishes, the Approach model starts offering the driver as an approach
+   club, and the sample loses a row. None of those surfaces actually care about the id; they
+   care about which club in the bag is the driver, which the bag itself can answer.
+   ============================================================ */
+/* A driver is the lowest-lofted wood in the bag, and only if it is genuinely driver-lofted.
+   13° is the ceiling: the strongest drivers sit around 7–8°, a 3-wood starts at 13.5–15. */
+const DRIVER_MAX_LOFT = 13;
+function bagDriver(){
+  return ((window.STATE&&STATE.clubs)||[])
+    .filter(c=>c.type==='wood' && (parseFloat(c.loft)||99)<=DRIVER_MAX_LOFT)
+    .sort((a,b)=>(parseFloat(a.loft)||99)-(parseFloat(b.loft)||99))[0] || null;
+}
+function isDriverClub(c){ const d=bagDriver(); return !!(c&&d&&d.id===c.id); }
+/* The club nearest a given loft — how the app should reach for "a mid iron" or "the sand
+   wedge" when it wants a representative club rather than a specific one. */
+function bagClubNearLoft(loft, tol){
+  const t=(tol==null)?6:tol;
+  let best=null, bd=Infinity;
+  ((window.STATE&&STATE.clubs)||[]).forEach(c=>{
+    if(c.type==='putter') return;
+    const L=parseFloat(c.loft); if(!isFinite(L)) return;
+    const d=Math.abs(L-loft);
+    if(d<bd && d<=t){ bd=d; best=c; }
+  });
+  return best;
+}
+
+Object.assign(window, { STORE_KEY, CLUB_MODEL_RENAMES, DATA_VERSION, DATA_FIXES, applyDataFixes, deepClone, estThirdCarry, mergeAndFix, migrateClubModel, loadState, mergeDefaults, saveState, DRIVER_MAX_LOFT, bagDriver, isDriverClub, bagClubNearLoft });

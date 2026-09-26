@@ -435,7 +435,8 @@ function buildDplaneTendencies(){
 function buildDpShots(){
   const wrap=document.getElementById('dpshots-wrap'); if(!wrap) return;
   const clubs=STATE.clubs.filter(c=>c.type!=='putter');
-  let id=window.dpVisClub; if(!clubs.find(c=>c.id===id)) id=(clubs.find(c=>c.id==='7i')||clubs[0]||{}).id;
+  /* Default to a mid iron by LOFT — '7i' is not guaranteed to be in the bag. */
+  let id=window.dpVisClub; if(!clubs.find(c=>c.id===id)) id=((typeof bagClubNearLoft==='function'&&bagClubNearLoft(35,4))||clubs[0]||{}).id;
   window.dpVisClub=id;
   const opts=clubs.map(x=>`<option value="${x.id}"${x.id===id?' selected':''}>${x.label} — ${x.loft}</option>`).join('');
   const presetBtn=k=>`<button type="button" class="dpv-preset-btn" onclick="dpLoadShot('${k}')">${DP_SHOTS[k].lbl}</button>`;
@@ -524,7 +525,8 @@ function dpSceneDragInit(){
 function renderDPlaneVisual(){
   const host=document.getElementById('dplane-visual'); if(!host) return;
   const clubs=STATE.clubs.filter(c=>c.type!=='putter');
-  let id=window.dpVisClub; if(!clubs.find(c=>c.id===id)) id=(clubs.find(c=>c.id==='7i')||clubs[0]||{}).id;
+  /* Default to a mid iron by LOFT — '7i' is not guaranteed to be in the bag. */
+  let id=window.dpVisClub; if(!clubs.find(c=>c.id===id)) id=((typeof bagClubNearLoft==='function'&&bagClubNearLoft(35,4))||clubs[0]||{}).id;
   window.dpVisClub=id;
   const st=window.dpStrike=window.dpStrike||{th:0,hl:0};
   if(!window.dpSand||window.dpSand._club!==id) dpSeedSand(id);

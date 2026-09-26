@@ -523,6 +523,11 @@ body.theme-dark .btn-accent{color:#0C2340}
 .drv-carry-num{font-family:Arial,sans-serif;font-size:2.6rem;font-weight:800;color:var(--ink);line-height:1}
 .drv-carry-lbl{font-family:ui-monospace,monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:3px}
 .drv-carry-sub{font-family:ui-monospace,monospace;font-size:.62rem;color:var(--green);margin-top:4px;line-height:1.3}
+/* What this driver actually carries, beside what the model says it could — the gap is the
+   point of the tool, so it is on the face of it rather than a tab away. */
+.drv-carry-meas{font-family:ui-monospace,monospace;font-size:.58rem;color:var(--muted);margin-top:6px;
+  padding-top:5px;border-top:1px solid var(--border);line-height:1.3;cursor:help}
+.drv-carry-meas b{color:var(--ink2);font-size:.68rem}
 .drv-controls{flex:1;min-width:200px;display:flex;flex-direction:column;gap:7px}
 .drv-slider-label{display:flex;justify-content:space-between;font-family:ui-monospace,monospace;font-size:.62rem;color:var(--ink2);margin-bottom:2px;font-weight:500}
 .drv-val{font-family:Arial,sans-serif;font-size:.82rem;font-weight:800;color:var(--gold);letter-spacing:.02em}

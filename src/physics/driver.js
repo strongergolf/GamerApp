@@ -76,7 +76,17 @@ function driverOptimalZones(bspd){
   };
 }
 
-function buildDriverOptimizerHTML(){
+/* START FROM THE GOLFER'S OWN DRIVER. The three sliders opened at 153 mph / 11° / 2,400 rpm
+   whoever you were — a generic tour-ish driver — so the first thing the panel told you was
+   somebody else's ball flight, and finding your own meant dragging three sliders before the
+   tool said anything true. It is attached to a club whose measured numbers are one argument
+   away, so it opens on them and the sliders explore from there. Falls back to the generic
+   set when the club has no stored numbers. */
+const DRV_FALLBACK={bspd:153, launch:11, spin:2400};
+function buildDriverOptimizerHTML(p){
+  const v=k=>{ const n=p&&p[k]!=null?parseFloat(p[k]):NaN; return isFinite(n)?n:DRV_FALLBACK[k]; };
+  const clamp=(n,lo,hi,step)=>Math.min(hi,Math.max(lo,Math.round(n/step)*step));
+  const bspd=clamp(v('bspd'),100,200,1), launch=clamp(v('launch'),6,20,0.5), spin=clamp(v('spin'),1500,4500,50);
   return `<div class="drv-opt-section">
     <div class="drv-opt-wrap">
       <div class="drv-opt-body">
@@ -84,21 +94,22 @@ function buildDriverOptimizerHTML(){
           <div class="drv-carry-num" id="drv-carry-num">—</div>
           <div class="drv-carry-lbl">yards carry</div>
           <div class="drv-carry-sub" id="drv-carry-sub"></div>
+          ${p&&p.carry!=null?`<div class="drv-carry-meas" title="What this driver actually carries, from your stock shot. The model above assumes a neutral angle of attack and clean contact, so a gap is information — not an error in either number.">you carry <b>${ydNum(p.carry)}</b> ${ydUnit()}</div>`:''}
         </div>
         <div class="drv-controls">
           <div class="drv-slider-group">
-            <div class="drv-slider-label"><span>Ball Speed</span><span class="drv-val" id="drv-bspd-val">153 mph</span></div>
-            <input type="range" class="drv-slider" id="drv-bspd" min="100" max="200" step="1" value="153" oninput="updateDriverOpt()">
+            <div class="drv-slider-label"><span>Ball Speed</span><span class="drv-val" id="drv-bspd-val">${bspd} mph</span></div>
+            <input type="range" class="drv-slider" id="drv-bspd" min="100" max="200" step="1" value="${bspd}" oninput="updateDriverOpt()">
             <div class="drv-slider-limits"><span>100</span><span>200 mph</span></div>
           </div>
           <div class="drv-slider-group">
-            <div class="drv-slider-label"><span>Launch Angle</span><span class="drv-val" id="drv-launch-val">11°</span></div>
-            <input type="range" class="drv-slider" id="drv-launch" min="6" max="20" step="0.5" value="11" oninput="updateDriverOpt()">
+            <div class="drv-slider-label"><span>Launch Angle</span><span class="drv-val" id="drv-launch-val">${launch}°</span></div>
+            <input type="range" class="drv-slider" id="drv-launch" min="6" max="20" step="0.5" value="${launch}" oninput="updateDriverOpt()">
             <div class="drv-slider-limits"><span>6°</span><span>20°</span></div>
           </div>
           <div class="drv-slider-group">
-            <div class="drv-slider-label"><span>Spin Rate</span><span class="drv-val" id="drv-spin-val">2400 rpm</span></div>
-            <input type="range" class="drv-slider" id="drv-spin" min="1500" max="4500" step="50" value="2400" oninput="updateDriverOpt()">
+            <div class="drv-slider-label"><span>Spin Rate</span><span class="drv-val" id="drv-spin-val">${spin.toLocaleString()} rpm</span></div>
+            <input type="range" class="drv-slider" id="drv-spin" min="1500" max="4500" step="50" value="${spin}" oninput="updateDriverOpt()">
             <div class="drv-slider-limits"><span>1500</span><span>4500 rpm</span></div>
           </div>
         </div>
@@ -301,5 +312,5 @@ function lmParseImport(text,name){
   if(typeof toast==='function') toast('Imported — review, then Save session');
 }
 
-Object.assign(window, { FS_TABLE, LM_BRANDS, buildDriverOptimizerHTML, buildDriverTrajSVG, driverCarryModel, driverOptimalZones, fsInterp, updateDriverOpt,
+Object.assign(window, { FS_TABLE, LM_BRANDS, DRV_FALLBACK, buildDriverOptimizerHTML, buildDriverTrajSVG, driverCarryModel, driverOptimalZones, fsInterp, updateDriverOpt,
   lmSessions, lmSectionHTML, lmRenderSection, lmSaveSession, lmLoadSession, lmDeleteSession, lmImportFile, lmMapFields, lmParseImport });
