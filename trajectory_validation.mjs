@@ -34,6 +34,22 @@ for(const [name,b,l,s,carry,apex,land] of TM){
 const mae=sum/TM.length;
 console.log(`\ncarry MAE ${mae.toFixed(2)} yd · worst ${worst.toFixed(1)} yd (${worstClub})`);
 
+/* CARRY ALONE DOES NOT PIN THE MODEL DOWN, and this is the guard that says so.
+   An exhaustive grid search over the same coefficients found a fit with a BETTER carry error
+   than the one shipped (MAE 2.27 against 2.30, on the no-drag-crisis form) whose tour driver
+   apexed at 286 ft — nearly three times the measured 102 — and whose every iron peaked above
+   160. It fitted the distances by ballooning the ball and letting it fall out of the sky.
+   Two coefficient sets, same carries, completely different flights: the shape has to be
+   constrained too, or a future refit can wander into that branch and nothing would notice. */
+let apexWorst=0, landWorst=0, apexClub='', landClub='';
+for(const [name,b,l,s,carry,apex,land] of TM){
+  const f=window.ballFlight(b,l,s);
+  const ae=Math.abs(f.apexFt-apex)/apex*100, le=Math.abs(f.landAngle-land);
+  if(ae>apexWorst){ apexWorst=ae; apexClub=name; }
+  if(le>landWorst){ landWorst=le; landClub=name; }
+}
+console.log(`shape: apex worst ${apexWorst.toFixed(0)}% (${apexClub}) · landing angle worst ${landWorst.toFixed(1)}° (${landClub})`);
+
 /* the solvers must invert the model: feed a carry back in and get the input out again */
 const rt=[];
 for(const [name,b,l,s,carry] of TM){
@@ -45,6 +61,8 @@ for(const [name,b,l,s,carry] of TM){
 const rtMax=rt.length?Math.max(...rt):0;
 console.log(`solvers: ${rt.length} inversions, worst carry residual ${rtMax.toFixed(2)} yd`);
 
-const fail = mae>3 || worst>8 || rtMax>1;
+/* Apex is allowed 25% because the model is known to hold its lift a little too well late in
+   the flight (~8–17% high across this set); the ballooning branch misses by 180%. */
+const fail = mae>3 || worst>8 || rtMax>1 || apexWorst>25 || landWorst>6;
 console.log(fail ? 'TRAJECTORY VALIDATION: FAIL' : 'TRAJECTORY VALIDATION: PASS');
 process.exit(fail?1:0);
