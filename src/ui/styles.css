@@ -1935,3 +1935,57 @@ body.theme-dark .pm-sg-card b.neg{color:#e88494}
 @media(max-width:420px){.pm-sg-grid{grid-template-columns:repeat(2,1fr)}}
 .pm-holed{background:#00853f;color:#fff}
 .pm-reopen{background:none;border:0;padding:0 0 0 6px;font-family:ui-monospace,monospace;font-size:.6rem;color:var(--muted);text-decoration:underline;cursor:pointer}
+
+/* ---- PLAN MY ROUND: the setup card, the plan screen, and the frozen plan on the course ---- */
+.pm-plancard{padding:12px;border-radius:10px;border:1px solid var(--border2);background:var(--bg2);display:flex;flex-direction:column;gap:8px}
+.pm-plancard-h{font-family:Arial,sans-serif;font-size:.92rem;font-weight:800;color:var(--ink)}
+.pm-plancard-h span{font-size:.7rem;font-weight:400;color:var(--muted);margin-left:4px}
+.pm-plancard p{margin:0;font-family:Arial,sans-serif;font-size:.76rem;line-height:1.45;color:var(--ink2)}
+.pm-plancard p.pm-warn{color:#b8455a}
+.pm-plan-use{display:flex;gap:8px;align-items:center;font-family:Arial,sans-serif;font-size:.8rem;font-weight:700;color:var(--ink)}
+.pm-plan-use input{width:20px;height:20px;margin:0;accent-color:#00693a}
+.pm-plan-row{display:flex;gap:8px}
+.pm-plan-btn{flex:1;min-height:42px}
+.pm-plan-del{color:#b8455a}
+.pm-setup.pm-pv{gap:10px;padding-top:calc(14px + env(safe-area-inset-top))}
+.pm-pv-top{display:flex;align-items:center;gap:10px}
+.pm-pv-top h2{font-size:1.15rem;margin:0;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pm-pv-back{min-height:40px;padding:0 12px;border-radius:20px;border:1px solid var(--border2);background:var(--bg2);
+  font-family:Arial,sans-serif;font-size:.84rem;font-weight:800;color:var(--ink);cursor:pointer;flex:0 0 auto}
+.pm-pv-prog{font-family:ui-monospace,monospace;font-size:.9rem;font-weight:700;color:var(--ink)}
+.pm-pv-sum{display:flex;align-items:baseline;gap:10px}
+.pm-pv-sum b{font-family:Arial,sans-serif;font-size:2rem;font-weight:800;color:var(--ink)}
+.pm-pv-sum span{font-family:ui-monospace,monospace;font-size:.66rem;color:var(--muted)}
+.pm-ph{border:1px solid var(--border);border-radius:10px;padding:8px;background:var(--bg);display:flex;flex-direction:column;gap:6px}
+.pm-ph-h{display:flex;align-items:baseline;gap:8px;font-family:Arial,sans-serif}
+.pm-ph-h b{font-size:1.05rem;font-weight:800;color:var(--ink)}
+.pm-ph-h span{font-size:.74rem;color:var(--muted)}
+.pm-ph-h em{margin-left:auto;font-style:normal;font-family:ui-monospace,monospace;font-size:.74rem;font-weight:700;color:var(--ink2)}
+.pm-ph-none{margin:0;font-family:Arial,sans-serif;font-size:.74rem;line-height:1.4;color:var(--muted)}
+.pm-ph-opt{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:8px;text-align:left;width:100%;
+  min-height:44px;padding:6px 8px;border-radius:8px;border:1px solid var(--border2);background:var(--bg2);color:var(--ink);cursor:pointer}
+.pm-ph-opt.on{border-color:#00693a;box-shadow:0 0 0 1px #00693a inset}
+.pm-ph-k{font-family:Arial,sans-serif;font-size:.62rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);width:4.6rem}
+.pm-ph-opt.on .pm-ph-k{color:#00693a}
+.pm-ph-opt>b{font-family:ui-monospace,monospace;font-size:.78rem;color:var(--ink2)}
+.pm-ph-chain{display:flex;flex-direction:column;gap:3px;font-family:Arial,sans-serif;font-size:.84rem;color:var(--ink)}
+.pm-ch b{font-weight:800}
+.pm-ch i{display:block;font-style:normal;font-family:ui-monospace,monospace;font-size:.56rem;color:var(--muted)}
+.pm-ch-arrow{display:none}
+.pm-ph-note{min-height:38px;padding:0 10px;border-radius:8px;border:1px solid var(--border2);background:var(--bg2);
+  font-family:Arial,sans-serif;font-size:.84rem;color:var(--ink)}
+.pm-pv-foot{margin-top:6px}
+.pm-plan-log{margin:8px 0;font-family:ui-monospace,monospace;font-size:.62rem;line-height:1.5;color:var(--muted)}
+/* on the course: one line, gold like the line on the map */
+.pm-pstrip{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 8px;padding:6px 8px;border-radius:8px;
+  border-left:3px solid #f4d47a;background:var(--bg2);font-family:Arial,sans-serif;font-size:.78rem;color:var(--ink2)}
+.pm-pstrip-k{font-size:.6rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#a07a12}
+.pm-pstrip-c{display:flex;flex-wrap:wrap;align-items:baseline;gap:0 5px}
+.pm-pstrip-c i{font-style:normal;color:var(--muted)}
+.pm-pstrip-c span.done{opacity:.5}
+.pm-pstrip-c span.cur b{color:var(--ink);text-decoration:underline;text-decoration-color:#f4d47a;text-decoration-thickness:2px;text-underline-offset:3px}
+.pm-pstrip-a{font-family:ui-monospace,monospace;font-size:.62rem;color:var(--muted)}
+.pm-pstrip-n{flex-basis:100%;font-style:italic;color:var(--ink)}
+body.theme-dark .pm-pstrip-k{color:#f4d47a}
+body.theme-dark .pm-ph-opt.on{border-color:#79e08d;box-shadow:0 0 0 1px #79e08d inset}
+body.theme-dark .pm-ph-opt.on .pm-ph-k{color:#79e08d}
