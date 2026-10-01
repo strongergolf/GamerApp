@@ -2101,3 +2101,13 @@ body.theme-dark .pm-dc-card b.neg{color:#e88494}
 .pm-dp-ax em{flex-basis:100%;font-style:normal;font-family:ui-monospace,monospace;font-size:.56rem;color:var(--muted)}
 body.theme-dark .pm-dp-ax b.wide,body.theme-dark .pm-dp-pool b.wide{color:#e88494}
 body.theme-dark .pm-dp-ax b.tight,body.theme-dark .pm-dp-pool b.tight{color:#79e08d}
+
+/* ---- POST-ROUND: the long-and-left lean ---- */
+.pm-ln{margin-top:12px;display:flex;flex-direction:column;gap:6px}
+.pm-ln-row{display:flex;gap:10px;align-items:flex-start;padding:6px 0;border-top:1px solid var(--border)}
+.pm-ln-svg{flex:0 0 auto;background:var(--bg2);border-radius:8px}
+.pm-ln-txt{display:flex;flex-direction:column;gap:3px;font-family:Arial,sans-serif;font-size:.8rem;color:var(--ink2);min-width:0}
+.pm-ln-txt>b{font-size:.92rem;color:var(--ink)}
+.pm-ln-txt i{font-style:normal;font-family:ui-monospace,monospace;font-size:.6rem;color:var(--muted)}
+.pm-ln-v{color:#a07a12}
+body.theme-dark .pm-ln-v{color:#f4d47a}

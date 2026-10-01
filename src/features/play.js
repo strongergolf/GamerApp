@@ -1167,6 +1167,14 @@ function pmDispApply(){
 }
 function pmDispUndo(k){
   const L=pmState().dispLog||[], x=L[k]; if(!x||x.undone) return;
+  if(x.kind==='rho'){
+    const set=((STATE.dispersion=STATE.dispersion||{}).strikeCorr=(STATE.dispersion.strikeCorr||{}));
+    if(x.before==null) delete set[x.type]; else set[x.type]=x.before;
+    x.undone=Date.now();
+    pmDispChanged(`${x.label}: lean put back`);
+    if(typeof renderStrikeCal==='function') renderStrikeCal();
+    return;
+  }
   if(x.before.lat===1 && x.before.dep===1) delete STATE.dispCal; else STATE.dispCal=Object.assign({}, x.before);
   x.undone=Date.now();
   pmDispChanged('Dispersion model put back');
@@ -1213,10 +1221,118 @@ function pmDispCardHTML(){
       ${canApply?`<button type="button" class="btn pm-dc-apply" onclick="pmDispApply()">Fit the model to this</button>`:''}
       <div class="pm-dp-list">${rows}</div>
       ${Lg.length?`<div class="pm-dc-log"><div class="pm-dc-log-h">Model fitted from the course</div>
-        ${Lg.map(x=>`<div class="pm-dc-log-r"><span>Width ${pc(x.before.lat)} → ${pc(x.after.lat)}, length ${pc(x.before.dep)} → ${pc(x.after.dep)} <i>${pmWhen(x.at)}</i></span>
+        ${Lg.map(x=>`<div class="pm-dc-log-r"><span>${x.kind==='rho'
+            ? `${escapeHtml(x.label)} lean ρ ${x.before!=null?x.before.toFixed(2):'default'} → ${x.after.toFixed(2)}`
+            : `Width ${pc(x.before.lat)} → ${pc(x.after.lat)}, length ${pc(x.before.dep)} → ${pc(x.after.dep)}`} <i>${pmWhen(x.at)}</i></span>
           <button type="button" class="pm-dc-undo" onclick="pmDispUndo(${x.k})">Undo</button></div>`).join('')}</div>`:''}
+      ${pmLeanHTML(d)}
       <p class="pm-note">Left/right is measured only where the target is known: your frozen plan's aim, or the middle of the green on a full approach. Long/short is the miss along the same line against the target's distance, so it includes the day's roll. GPS and map-placement error is taken out of both.</p>
     </div>`;
+}
+
+/* ---- THE LEAN: does a long miss go left? ----
+   The model's pattern leans because one strike causes both misses (dispersion.js, STRIKE_CORR):
+   a toe hit draws and flies, a heel hit fades and drops. Its size is rho, the correlation
+   between the depth miss and the lateral miss toward the gear-effect side (left for a
+   right-hander, right for a left-hander), set per club type. Presumed until now. Measured here
+   from the same target-known shots as the dispersion above:
+     each club's own mean miss is removed first (an aim bias is not a lean),
+     each miss is put in units of the model's sigma at that club's carry, so a type pools its
+       clubs without the driver's yards swamping the hybrid's,
+     measurement error (GPS, a thumb on the map) is independent on the two axes, so it
+       inflates both variances and leaves their covariance alone, which would pull rho toward
+       zero. Its variance is subtracted from each axis before dividing, which undoes that.
+   Uncertainty is the Fisher interval (atanh(rho) +- 1.645/sqrt(dof-2)), 90%. The model's floor is
+   0, an upright pattern, so a measured negative rho applies as 0. */
+const PM_LEAN_MIN_DOF = 20;
+const PM_LEAN_TYPES = [['wood','Woods & hybrids'],['hybrid','Hybrids'],['iron','Irons'],['wedge','Wedges']];
+function pmLeanSide(){ return ((STATE.profile&&STATE.profile.handedness)||'RH')==='LH' ? 1 : -1; }   /* -1: left is the gear-effect side */
+function pmLeanMeasure(d){
+  const sgn=pmLeanSide(), by={};
+  Object.entries(d.shots).forEach(([id,list])=>{
+    const club=pmBagClub(id); if(!club) return;
+    const c=pmDispClub(id,list); const L=list.filter(x=>x.lat!=null&&x.al!=null);
+    if(L.length<2 || !c.modelLat || !c.modelDep) return;
+    const t=by[club.type]=by[club.type]||{sxy:0,sxx:0,syy:0,n:0,dof:0,pts:[],carries:[]};
+    const ma=L.reduce((s,x)=>s+x.al,0)/L.length, ml=L.reduce((s,x)=>s+x.lat,0)/L.length;
+    L.forEach(x=>{
+      const za=(x.al-ma)/c.modelDep, zl=sgn*(x.lat-ml)/c.modelLat;
+      t.sxy+=za*zl; t.sxx+=za*za - x.mv/(c.modelDep**2); t.syy+=zl*zl - x.mv/(c.modelLat**2);
+      t.pts.push({lat:x.lat-ml, al:x.al-ma});
+    });
+    t.n+=L.length; t.dof+=L.length-1; t.carries.push(c.carry);
+  });
+  Object.entries(by).forEach(([type,t])=>{
+    t.type=type;
+    t.rho = (t.sxx>0&&t.syy>0) ? Math.max(-0.99, Math.min(0.99, t.sxy/Math.sqrt(t.sxx*t.syy))) : null;
+    if(t.rho!=null && t.dof>3){
+      const z=Math.atanh(t.rho), se=1/Math.sqrt(t.dof-2);
+      t.lo=Math.tanh(z-1.645*se); t.hi=Math.tanh(z+1.645*se);
+    }
+    t.carry=pmMedian(t.carries);
+  });
+  return by;
+}
+/* the lean in degrees that a rho gives at a carry, by the model's own formula */
+function pmLeanDeg(rho, carry){
+  const sl=getDispersion(carry), sd=getDepthDispersion(carry);
+  return Math.max(-24, Math.min(24, Math.atan2(rho*sd, sl)*180/Math.PI));
+}
+/* a small scatter of the misses: right is right, up is long, the measured lean drawn through it */
+function pmLeanSVG(t){
+  const W=132, H=132, pad=8, m=Math.max(6, ...t.pts.map(p=>Math.max(Math.abs(p.lat),Math.abs(p.al))))*1.1;
+  const X=v=>W/2+v/m*(W/2-pad), Y=v=>H/2-v/m*(H/2-pad);
+  const sd=getDepthDispersion(t.carry||150)/1.645, sl=getDispersion(t.carry||150)/1.645;
+  /* the model's lean is the slope of the long miss on the lateral one, rho*sd/sl, rising toward
+     the gear-effect side (left for a right-hander) */
+  const lean=(r)=>{ const a=Math.atan2((r||0)*sd, sl), dx=pmLeanSide()*Math.cos(a)*m, dy=Math.sin(a)*m;
+    return `${X(dx).toFixed(1)},${Y(dy).toFixed(1)} ${X(-dx).toFixed(1)},${Y(-dy).toFixed(1)}`; };
+  return `<svg class="pm-ln-svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Misses: right to the right, long upward">
+      <line x1="${W/2}" y1="${pad}" x2="${W/2}" y2="${H-pad}" stroke="var(--border2)"/><line x1="${pad}" y1="${H/2}" x2="${W-pad}" y2="${H/2}" stroke="var(--border2)"/>
+      <text x="${W/2+3}" y="${pad+8}" font-size="8" fill="var(--muted)" font-family="ui-monospace,monospace">long</text>
+      <text x="${pad}" y="${H/2-3}" font-size="8" fill="var(--muted)" font-family="ui-monospace,monospace">L</text>
+      <text x="${W-pad-6}" y="${H/2-3}" font-size="8" fill="var(--muted)" font-family="ui-monospace,monospace">R</text>
+      <polyline points="${lean(strikeCorr(t.type))}" fill="none" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3,3"/>
+      ${t.rho!=null?`<polyline points="${lean(Math.max(0,t.rho))}" fill="none" stroke="#c99a1e" stroke-width="2"/>`:''}
+      ${t.pts.map(p=>`<circle cx="${X(p.lat).toFixed(1)}" cy="${Y(p.al).toFixed(1)}" r="2.4" fill="var(--ink2)" fill-opacity=".7"/>`).join('')}
+    </svg>`;
+}
+function pmLeanHTML(d){
+  const by=pmLeanMeasure(d); const T=PM_LEAN_TYPES.filter(([k])=>by[k]);
+  if(!T.length) return '';
+  const side=pmLeanSide()<0?'left':'right';
+  const rows=T.map(([k,label])=>{
+    const t=by[k], cur=strikeCorr(k), C=t.carry||150;
+    const ready=t.dof>=PM_LEAN_MIN_DOF && t.rho!=null, applyVal=t.rho!=null?Math.max(0,Math.min(0.9,Math.round(t.rho*100)/100)):null;
+    const differs=applyVal!=null && Math.abs(applyVal-cur)>=0.05;
+    return `<div class="pm-ln-row">${pmLeanSVG(t)}
+        <div class="pm-ln-txt"><b>${label}</b>
+          <div>measured <b class="pm-ln-v">ρ ${t.rho!=null?t.rho.toFixed(2):'—'}</b>${t.lo!=null?` <i>90%: ${t.lo.toFixed(2)} to ${t.hi.toFixed(2)}</i>`:''}</div>
+          <div>model ρ ${cur.toFixed(2)} <i>leans ${pmLeanDeg(cur,C).toFixed(1)}° at ${ydNum(C)}</i></div>
+          ${t.rho!=null?`<div><i>measured leans ${pmLeanDeg(Math.max(0,t.rho),C).toFixed(1)}° · ${t.n} shots, ${t.dof} dof</i></div>`:''}
+          ${!ready?`<div class="pm-dc-need">${PM_LEAN_MIN_DOF-t.dof} more before this can set the model</div>`
+            : differs?`<button type="button" class="btn pm-dc-apply" onclick="pmLeanApply('${k}')">Set lean to ${applyVal.toFixed(2)}</button>`
+            : `<div class="pm-dc-ok">The model already agrees</div>`}
+        </div></div>`;
+  }).join('');
+  return `<div class="pm-ln">
+      <div class="pm-dc-log-h">Long-and-${side} tendency</div>
+      <p class="pm-note">Does a long miss also go ${side}? Each dot is one shot's miss from that club's own average: right to the right, long upward. Gold is the lean measured, dashed is the model's.</p>
+      ${rows}
+    </div>`;
+}
+function pmLeanApply(type){
+  const d=pmDistShots(), t=pmLeanMeasure(d)[type]; if(!t||t.rho==null||t.dof<PM_LEAN_MIN_DOF) return;
+  const v=Math.max(0, Math.min(0.9, Math.round(t.rho*100)/100));
+  STATE.dispersion=STATE.dispersion||{strikeCorr:{}};
+  const set=STATE.dispersion.strikeCorr||(STATE.dispersion.strikeCorr={});
+  const before=(typeof set[type]==='number')?set[type]:null;
+  const label=(PM_LEAN_TYPES.find(x=>x[0]===type)||[type,type])[1];
+  if(!confirm(`Set the ${label.toLowerCase()} lean to ρ ${v.toFixed(2)} (was ${strikeCorr(type).toFixed(2)})?\n\nMeasured from ${t.n} shots on the course${t.rho<0?`; the measurement is ${t.rho.toFixed(2)}, and the model's floor is 0, an upright pattern`:''}. You can undo it here.`)) return;
+  const P=pmState(); (P.dispLog=P.dispLog||[]).push({kind:'rho', type, label, at:Date.now(), before, after:v, n:t.n});
+  set[type]=v;
+  pmDispChanged(`${label}: lean measured from the course`);
+  if(typeof renderStrikeCal==='function') renderStrikeCal();
 }
 
 /* ---- PLAN VS PLAYED, after the round ----
@@ -1978,6 +2094,7 @@ Object.assign(window, { PM_RESUME_HOURS, PM_NEAR_HOLE_YD, PM_GPS_MAX_ERR_M,
   pmToTournament, pmUnlockBegin, pmUnlockCancel, pmUnlockCheck, pmUnlockConfirm, pmUnlockHTML, pmTournHistoryHTML, PM_MIN_SPAN_YD,
   PM_AUTO_TEE_YD, PM_AUTO_NEAR_YD, PM_AUTO_FAR_YD, PM_AUTO_CONFIRM, PM_AUTO_HOLD_MS,
   pmHoleFit, pmRankHoles, pmAutoHold, pmAutoResume, pmAutoDetect, pmAutoBadge, pmAskSet, pmAskDone, pmAskHTML,
+  PM_LEAN_MIN_DOF, pmLeanSide, pmLeanMeasure, pmLeanDeg, pmLeanHTML, pmLeanApply,
   PM_MAP_ERR_YD, PM_DISP_MIN_DOF, pmPtErrYd, pmShotTarget, pmDispClub, pmDispPool, pmDispCal, pmDispApply, pmDispUndo, pmDispCardHTML,
   PM_DIST_MIN_N, pmDistShots, pmDistClub, pmDistApply, pmDistUndo, pmDistCardHTML,
   pmPlayerE, pmPlanReview, pmPlanReviewHTML, pmBagClub, pmClubName, pmShotSetClub, pmShotCxToggle, pmShotCx, pmShotCxNote, pmCxTxt,
