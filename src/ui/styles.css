@@ -1860,3 +1860,17 @@ body.theme-dark .pm-to-tourn{color:#e88494}
 .pm-unlock-go[disabled]{opacity:.4}
 .pm-unlock-go.ready{background:#6b1d2e;color:#fff;border-color:#6b1d2e}
 .pm-tabs{grid-template-columns:repeat(3,1fr)}
+
+/* ---- AUTO HOLE: the indicator, and the one-tap score for the hole just left ---- */
+.pm-auto{font-family:ui-monospace,monospace;font-size:.6rem;font-weight:700;color:#79e08d}
+.pm-auto.off{background:none;border:0;padding:0;color:#f4d47a;text-decoration:underline;cursor:pointer;font-size:.6rem;font-family:ui-monospace,monospace}
+.pm-ask{padding:10px 12px 12px;background:var(--surface);border-bottom:1px solid var(--border);box-shadow:0 4px 14px rgba(0,0,0,.12)}
+.pm-ask-h{font-family:Arial,sans-serif;font-size:.92rem;font-weight:800;color:var(--ink);margin:0 0 6px}
+.pm-ask-h span{font-size:.75rem;font-weight:700;color:var(--muted)}
+.pm-ask-sub{font-size:.72rem;color:var(--ink2);margin-top:8px}
+.pm-ask-row{display:flex;gap:6px}
+.pm-ask-row button{flex:1;min-height:46px;border-radius:10px;border:1px solid var(--border2);background:var(--bg2);
+  font-family:Arial,sans-serif;font-size:1.2rem;font-weight:800;color:var(--ink);cursor:pointer}
+.pm-ask-row button.on{background:var(--panel);color:#f4f0e8;border-color:transparent}
+.pm-ask-done{display:block;width:100%;margin-top:10px;min-height:42px;border-radius:10px;border:0;background:transparent;
+  font-family:Arial,sans-serif;font-size:.84rem;font-weight:700;color:var(--ink2);text-decoration:underline;cursor:pointer}
