@@ -105,6 +105,7 @@ function pmStart(){
   if(tOn && !confirm('Start a TOURNAMENT round?\n\nDistances only, with no adjustments. The rest of the app stays locked until you finish or discard this round.')) return;
   pmState().round={ id:'r'+Date.now(), courseKey:c.id||c.name, courseName:c.name||'Course',
                     startedAt:Date.now(), touched:Date.now(), start, cur:start, holes:{}, done:false,
+                    tee:(document.getElementById('pm-tee')||{}).value||null,
                     tournament: tOn ? {on:true, lockedAt:Date.now(), history:[]} : null };
   const pl=pmPlans()[pmCourseKey(c)], usePlan=!!(document.getElementById('pm-plan-use')||{}).checked;
   if(pl && usePlan) pmState().round.plan=pmPlanFreeze(c, pl);
@@ -360,7 +361,7 @@ function pmRenderBody(){
 function pmSetupSet(){
   const g=id=>document.getElementById(id), was=window.pmSetupSel||{};
   window.pmSetupSel={ c:parseInt((g('pm-course')||{}).value,10)||0, start:parseInt((g('pm-start')||{}).value,10)||0,
-                      tourn:!!(g('pm-tourn')||{}).checked };
+                      tourn:!!(g('pm-tourn')||{}).checked, tee:(g('pm-tee')||{}).value||null };
   if(was.c!==window.pmSetupSel.c) buildPlay();      /* the plan card is per course */
 }
 function pmSetupHTML(note){
@@ -379,6 +380,7 @@ function pmSetupHTML(note){
       ${note?`<p class="pm-warn">${escapeHtml(note)}</p>`:''}
       <label class="pm-field">Course<select id="pm-course" onchange="pmSetupSet()">${cs.map((c,i)=>`<option value="${i}"${i===cur?' selected':''}>${escapeHtml(c.name||'Course')}</option>`).join('')}</select></label>
       <label class="pm-field">Starting hole<select id="pm-start" onchange="pmSetupSet()"><option value="0">1st</option><option value="9"${sel.start===9?' selected':''}>10th</option></select></label>
+      ${c&&(c.tees||[]).length?`<label class="pm-field">Tees<select id="pm-tee" onchange="pmSetupSet()">${c.tees.map(t=>`<option value="${escapeHtml(t.name)}"${(sel.tee||(STATE.profile&&STATE.profile.usualTee))===t.name?' selected':''}>${escapeHtml(t.name)}${t.rating?` · ${t.rating} / ${t.slope||'?'}`:''}</option>`).join('')}</select></label>`:''}
       ${c?pmSetupPlanHTML(c):''}
       <label class="pm-tourn-opt"><input type="checkbox" id="pm-tourn" onchange="pmSetupSet()"${sel.tourn?' checked':''}>
         <span><b>Tournament round</b>Distances only, with nothing adjusted for elevation, slope, wind or weather.

@@ -662,6 +662,7 @@ function buildPostRound(){
   const wrap=document.getElementById('postround-wrap'); if(!wrap) return;
   const f=(label,key,opts)=>`<div class="edit-field"><label>${label}</label>${psRoundSel(key,['—',...opts])}</div>`;
   wrap.innerHTML=`
+    ${typeof whsCardHTML==='function'?whsCardHTML():''}
     ${typeof pmSgCardHTML==='function'?pmSgCardHTML():''}
     ${typeof pmPlanReviewHTML==='function'?pmPlanReviewHTML():''}
     ${typeof pmFourWayHTML==='function'?pmFourWayHTML():''}

@@ -94,7 +94,8 @@ function grStrokes(){
     const whole=Math.floor(Math.abs(amt))*Math.sign(amt||1);
     /* one per hole down the stroke index, wrapping for handicaps above 18 */
     for(let k=0;k<Math.abs(whole);k++){
-      const si=(k%n)+1, hi=r.holes.findIndex(h=>h.si===si);
+      /* receiving starts at SI 1; a PLUS handicap gives strokes back starting at SI 18 */
+      const si = amt<0 ? n-(k%n) : (k%n)+1, hi=r.holes.findIndex(h=>h.si===si);
       if(hi>=0) out[pi][hi]+= (amt<0?-1:1);
     }
   });

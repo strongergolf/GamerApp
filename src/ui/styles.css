@@ -2263,3 +2263,25 @@ body.theme-dark .sim-st em.neg,body.theme-dark .sim-cc b.o{color:#e88494}
 .pm-fw-card b.neg{color:#b8455a !important}
 body.theme-dark .pm-fw-cm>b,body.theme-dark .pm-fw-cm em b,body.theme-dark .pm-fw-l3 b{color:#79e08d}
 body.theme-dark .pm-fw-card b.neg{color:#e88494 !important}
+
+/* ---- POST-ROUND: ready to post ---- */
+.whs-tee{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0}
+.whs-tee label{display:flex;flex-direction:column;gap:3px;font-family:Arial,sans-serif;font-size:.68rem;font-weight:700;color:var(--muted);flex:1;min-width:6rem}
+.whs-tee select,.whs-tee input{min-height:40px;padding:0 8px;border-radius:8px;border:1px solid var(--border2);background:var(--bg2);
+  font-family:Arial,sans-serif;font-size:.95rem;color:var(--ink)}
+.whs-nines summary{cursor:pointer;font-family:Arial,sans-serif;font-size:.74rem;font-weight:700;color:var(--ink2);padding:4px 0}
+.whs-sum{margin-top:8px}
+.whs-scroll{overflow-x:auto;margin:8px 0}
+.whs-tbl{width:100%;border-collapse:collapse;font-family:Arial,sans-serif;font-size:.82rem;color:var(--ink)}
+.whs-tbl th{font-size:.58rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);padding:4px 3px;border-bottom:1px solid var(--border);text-align:center}
+.whs-tbl td{padding:3px;text-align:center;border-bottom:1px solid var(--border)}
+.whs-tbl td i{display:block;font-style:normal;font-family:ui-monospace,monospace;font-size:.52rem;color:var(--muted)}
+.whs-tbl td.whs-h{font-weight:800}
+.whs-tbl td.whs-g{font-weight:800}
+.whs-tbl td.whs-cap{color:#b8455a;font-weight:800}
+.whs-tbl tr.whs-filled td{color:var(--muted);font-style:italic}
+.whs-tbl tfoot th{font-size:.8rem;color:var(--ink);border-top:2px solid var(--border2);border-bottom:0}
+.whs-si{width:2.6rem;min-height:30px;padding:0 4px;border-radius:6px;border:1px solid var(--border2);background:var(--bg2);text-align:center;font-size:.8rem;color:var(--ink)}
+body.theme-dark .whs-tbl td.whs-cap{color:#e88494}
+.whs-sum div:last-child b{color:var(--ink)}
+body.theme-dark .whs-sum div:last-child b{color:var(--ink)}
