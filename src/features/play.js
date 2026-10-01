@@ -117,7 +117,9 @@ function pmStart(){
 }
 function pmGo(i){
   const r=pmRound(), n=pmHoles().length; if(!r||!n) return;
-  r.cur=((i%n)+n)%n; window.pmTarget=null; pmTouch(); buildPlay(); pmSyncButtons();
+  const leftE=(r.holes||{})[pmHoleNum(pmHoles()[r.cur], r.cur)];
+  if(leftE&&leftE.shots&&leftE.shots.length) leftE.done=true;   /* walked off = holed out */
+  r.cur=((i%n)+n)%n; window.pmTarget=null; window.pmPlacing=null; pmTouch(); buildPlay(); pmSyncButtons();
 }
 /* A hole changed BY HAND pauses auto-detection: the golfer's choice outranks the guess. */
 function pmStep(d){ const r=pmRound(); if(r){ pmAutoHold(); pmGo(r.cur+d); } }
@@ -129,6 +131,8 @@ function pmSetView(v){ window.pmView=v; buildPlay(); }
 function pmAdj(key, d){
   const h=pmHole(), r=pmRound(); if(!h||!r) return;
   const num=pmHoleNum(h, r.cur), e=pmEntry(num), par=h.par||4;
+  /* a hole with shots logged COUNTS its score from them; the steppers would disagree with it */
+  if(e.shots&&e.shots.length){ toast('This hole is counted from its shots \u2014 edit the shots'); return; }
   const base={s:par, p:2, pen:0}[key];
   let v=(e[key]==null)?base:(e[key]+d);
   if(key==='s') v=Math.max(1,Math.min(15,v));
@@ -142,6 +146,7 @@ function pmAdj(key, d){
 function pmSetFw(v){
   const h=pmHole(), r=pmRound(); if(!h||!r) return;
   const e=pmEntry(pmHoleNum(h,r.cur)); e.f=(e.f===v)?null:v;
+  e.fBy='hand';                 /* a tap outranks what the shot list implies */
   pmTouch(); buildPlay();
 }
 function pmToggleSand(){
@@ -169,6 +174,9 @@ function pmTotals(){
            threePutt:0, udMade:0, udAtt:0, pen:0, out:{s:0,par:0,n:0}, in:{s:0,par:0,n:0}};
   hs.forEach((h,i)=>{
     const e=(r.holes||{})[pmHoleNum(h,i)]; if(!e||e.s==null) return;
+    /* a hole being logged shot by shot is still IN PROGRESS until it is holed out or walked
+       off: counting its shots so far printed "-2 thru 1" after a drive and an approach */
+    if(e.shots&&e.shots.length&&!e.done&&i===r.cur) return;
     const par=h.par||4, d=pmDerived(h,e), half=i<9?t.out:t.in;
     t.strokes+=e.s; t.par+=par; t.played++; half.s+=e.s; half.par+=par; half.n++;
     if(e.p!=null){ t.putts+=e.p; t.puttHoles++; }
@@ -191,6 +199,8 @@ function pmFinish(){
   if(!t.played){ if(!confirm('No scores entered. End this round anyway?')) return; }
   else if(t.played<pmHoles().length && !confirm(`Only ${t.played} of ${pmHoles().length} holes have a score. End the round?`)) return;
   r.done=true; r.endedAt=Date.now(); r.totals=t;
+  /* strokes gained from the shots logged \u2014 computed now, never during the round */
+  try{ r.sg=pmRoundSG(r); }catch(_){ r.sg=null; }
   if(r.tournament) r.tournament.endedAt=r.endedAt;
   pmState().rounds.push(r); pmState().round=null; saveState();
   if(t.played && window.psRound){
@@ -242,6 +252,14 @@ function pmPos(hole){
     const d=p&&mid?cfDistYd(hole,p,mid):null;
     if(d!=null && d<=PM_NEAR_HOLE_YD) return {pt:p, src:'gps', acc:G.fix.acc};
     return {pt:hole.tee, src:'far', acc:G.fix.acc, away:d};
+  }
+  /* No usable GPS: where the ball is, if you have told us — the latest shot placed on this
+     hole. So the numbers and the casual analysis follow your round instead of staying on the
+     tee after you have logged the drive in the rough. */
+  const r=pmRound(), hs=pmHoles();
+  if(r && hs[r.cur]===hole){
+    const S=(pmEntry(pmHoleNum(hole,r.cur)).shots)||[];
+    for(let k=S.length-1;k>=0;k--){ const q=pmShotPt(hole,S[k]); if(q) return {pt:q, src:'shot', n:k+1}; }
   }
   return {pt:hole.tee, src:'tee'};
 }
@@ -354,6 +372,188 @@ function pmSetupHTML(note){
     </div>`;
 }
 
+
+/* ==================== EVERY SHOT: where it was played from ====================
+   Strokes gained needs, for each shot, WHERE IT WAS PLAYED FROM: the situation and the
+   distance to the hole. Not the shot's length — that falls out of consecutive starts, and a
+   holed ball is zero. So each hole keeps an ordered list of starts:
+       { lie, yd, src, pt?, ll?, pen?, edited? }
+   lie  tee | fairway | rough | sand | recovery | green   (the six situations the baselines price)
+   yd   distance to the hole in YARDS, always — a putt's feet are converted at the edge
+   src  how it was captured: 'gps' (Mark ball), 'map' (placed on the hole), 'manual' (typed)
+   pen  a penalty stroke AFTER this shot — the water ball, the OB tee shot
+   THREE WAYS IN, ONE ROW, ALL EDITABLE: GPS marks your position; placing a shot on the map
+   (tap or drag — no GPS needed, only the hole's scale) fills distance and situation from where
+   it sits; typing fills them by hand. Whatever filled a field, the field can be changed.
+   When a hole has shots, its score, putts and penalties are COUNTED from them, not entered.
+   Strokes gained is computed at Finish and never shown during the round. */
+const PM_LIES = [['tee','Tee'],['fairway','Fwy'],['rough','Rough'],['sand','Bunker'],['recovery','Recov.'],['green','Green']];
+const PM_LIE_NAME = {tee:'Tee', fairway:'Fairway', rough:'Rough', sand:'Bunker', recovery:'Recovery', green:'Green'};
+const PM_ARG_YD = 50;          /* around the green: within 50 yd of the hole (~30 from the edge, the Tour's line) */
+window.pmPlacing = (window.pmPlacing==null) ? null : window.pmPlacing;
+function pmCurEntry(){ const h=pmHole(), r=pmRound(); return (h&&r)?pmEntry(pmHoleNum(h,r.cur)):null; }
+function pmShots(e){ return (e.shots=e.shots||[]); }
+function pmShotsSync(e){
+  const S=e.shots||[];
+  if(!S.length) return;
+  const pens=S.filter(x=>x.pen).length;
+  e.s=S.length+pens; e.p=S.filter(x=>x.lie==='green').length; e.pen=pens;
+  /* Fairway hit, from where the second shot was played: the shot list already says it, so
+     the golfer should not have to say it twice. Missed left or right from where the ball was
+     placed against the tee-to-hole line. A tap on the fairway buttons still wins. */
+  const h=pmHole();
+  if(h && (h.par||4)>=4 && S.length>=2 && e.fBy!=='hand'){
+    const t=S[0], n=S[1], pin=cfPin(h), q=pmShotPt(h,n);
+    if(t.pen || n.lie==='rough' || n.lie==='sand' || n.lie==='recovery'){
+      let side='miss';
+      if(q && h.tee && pin){
+        const cr=(pin.x-h.tee.x)*(q.y-h.tee.y)-(pin.y-h.tee.y)*(q.x-h.tee.x);
+        side = cr>0 ? 'right' : 'left';
+      }
+      e.f=side;
+    } else if(n.lie==='fairway') e.f='hit';
+    else e.f=null;              /* driven onto the green: not a fairway attempt either way */
+  }
+}
+/* What the map says about a spot: the situation, and how far it is from today's hole. */
+function pmShotAuto(h, pt, idx){
+  const ypu=cfYardsPerUnit(h); if(ypu==null||!pt) return {};
+  const onTee = idx===0 && h.tee && Math.hypot(pt.x-h.tee.x, pt.y-h.tee.y)*ypu < PM_AUTO_TEE_YD;
+  const m = onTee ? 'tee' : cfLieAt(h, pt);
+  const lie = {tee:'tee', fairway:'fairway', green:'green', sand:'sand', trees:'recovery', rough:'rough'}[m] || 'rough';
+  const yd = cfDistToPinYd(h, pt);
+  return {lie, yd: yd!=null ? Math.round(yd*10)/10 : null};
+}
+function pmShotsChanged(e){ pmShotsSync(e); pmTouch(); buildPlay(); pmSyncButtons(); }
+/* a new shot on a hole marked finished means it was not finished */
+function pmShotAdding(e){ if(e&&e.done) e.done=false; }
+/* GPS: one tap where the ball lies, before you hit it. */
+function pmMarkBall(){
+  const h=pmHole(), e=pmCurEntry(), G=window.pmGps; if(!h||!e) return;
+  if(!G.fix || !h.geo || G.fix.acc>PM_GPS_MAX_ERR_M){ toast(h.geo?'Waiting for a GPS fix':'This course needs re-importing for GPS'); return; }
+  const pt=cfLatLonToField(h, G.fix.lat, G.fix.lon), S=pmShots(e); pmShotAdding(e);
+  const a=pmShotAuto(h, pt, S.length);
+  S.push({lie:a.lie||'fairway', yd:a.yd, src:'gps', pt, ll:{lat:G.fix.lat, lon:G.fix.lon, acc:G.fix.acc}});
+  pmShotsChanged(e);
+  if(a.lie==='green') toast(`Marked on the green \u2014 GPS is \u00b1${Math.round(G.fix.acc*3.28)} ft, so check the putt length`);
+}
+/* MAP: a new shot, placed straight away. It starts where the last one would have gone if you
+   know nothing else — the middle of the line from the previous start to the hole. */
+function pmShotAddOnMap(){
+  const h=pmHole(), e=pmCurEntry(); if(!h||!e) return;
+  const S=pmShots(e), prev=S.length?pmShotPt(h,S[S.length-1]):h.tee, pin=cfPin(h); pmShotAdding(e);
+  const pt = !S.length ? {x:h.tee.x, y:h.tee.y}
+           : (prev&&pin) ? {x:Math.round((prev.x+pin.x)/2), y:Math.round((prev.y+pin.y)/2)} : null;
+  const a=pt?pmShotAuto(h, pt, S.length):{};
+  S.push({lie:a.lie||'fairway', yd:a.yd, src:'map', pt});
+  window.pmPlacing=S.length-1; window.pmSheetOpen=false; window.pmView='map';
+  pmShotsChanged(e);
+}
+function pmShotPlace(i){ window.pmPlacing=i; window.pmSheetOpen=false; window.pmView='map'; buildPlay(); }
+function pmShotPlaceDone(){ window.pmPlacing=null; buildPlay(); }
+/* Dragging or tapping a placed shot: distance and situation follow it. Re-placing overwrites
+   both — the drag is the newer, more deliberate input — and they stay editable afterwards. */
+function pmShotPlaceAt(pt){
+  const h=pmHole(), e=pmCurEntry(), i=window.pmPlacing; if(!h||!e||i==null) return;
+  const S=pmShots(e), sh=S[i]; if(!sh) return;
+  const a=pmShotAuto(h, pt, i);
+  Object.assign(sh, {pt, lie:a.lie||sh.lie, yd:a.yd, src:'map', edited:false}); delete sh.ll;
+  pmShotsSync(e); pmTouch(); pmRenderBody();
+}
+function pmShotPt(h, sh){
+  if(sh.pt) return sh.pt;
+  if(sh.ll && h.geo) return cfLatLonToField(h, sh.ll.lat, sh.ll.lon);
+  return null;
+}
+function pmShotSetLie(i, lie){ const e=pmCurEntry(); if(!e||!e.shots||!e.shots[i]) return; e.shots[i].lie=lie; e.shots[i].edited=true; pmShotsChanged(e); }
+/* typed in the DISPLAYED unit — feet on the green, yards (or metres) elsewhere — stored in yards */
+function pmShotSetDist(i, val){
+  const e=pmCurEntry(); if(!e||!e.shots||!e.shots[i]) return;
+  const sh=e.shots[i], v=parseFloat(val);
+  if(!isFinite(v)||v<0){ sh.yd=null; }
+  else sh.yd = sh.lie==='green' ? Math.round(fromDisplay('short', v)/3*100)/100 : Math.round(fromDisplay('distance', v)*10)/10;
+  sh.edited=true; pmShotsSync(e); pmTouch(); pmSyncButtons();
+}
+function pmShotTogglePen(i){ const e=pmCurEntry(); if(!e||!e.shots||!e.shots[i]) return; e.shots[i].pen=!e.shots[i].pen; pmShotsChanged(e); }
+function pmShotDel(i){
+  const e=pmCurEntry(); if(!e||!e.shots) return;
+  e.shots.splice(i,1); if(window.pmPlacing!=null) window.pmPlacing=null;
+  if(!e.shots.length){ delete e.shots; }
+  pmShotsChanged(e);
+}
+/* "How many shots?" — the rows built from a count, with what is known filled in: the tee shot
+   at the hole's length, the last ones on the green when the putts are known. */
+function pmShotsFill(n){
+  const h=pmHole(), e=pmCurEntry(); if(!h||!e) return;
+  const putts = e.p!=null ? Math.min(e.p, n-1) : Math.min(2, n-1);
+  const holeYd = h.tee ? cfDistToPinYd(h, h.tee) : null;
+  e.shots=[];
+  for(let k=0;k<n;k++){
+    if(k===0) e.shots.push({lie:'tee', yd:holeYd!=null?Math.round(holeYd):null, src:'manual'});
+    else if(k>=n-putts) e.shots.push({lie:'green', yd:null, src:'manual'});
+    else e.shots.push({lie:'fairway', yd:null, src:'manual'});
+  }
+  pmShotsChanged(e);
+}
+function pmShotsClear(){
+  const e=pmCurEntry(); if(!e||!e.shots) return;
+  if(!confirm('Clear every shot logged on this hole?')) return;
+  delete e.shots; window.pmPlacing=null; pmTouch(); buildPlay(); pmSyncButtons();
+}
+
+
+/* Holed out: the shot list is complete and the hole counts. Walking off does the same. */
+function pmHoledOut(){
+  const e=pmCurEntry(); if(!e||!e.shots||!e.shots.length) return;
+  e.done=true; window.pmPlacing=null; pmTouch(); buildPlay(); pmSyncButtons();
+}
+function pmShotReopen(){ const e=pmCurEntry(); if(e){ e.done=false; pmTouch(); buildPlay(); pmSyncButtons(); } }
+
+/* ---- STROKES GAINED, after the round ----
+   Per shot: SG = E(start) - E(next start) - 1 - penalty, with E(holed) = 0, priced on the
+   app-wide benchmark (Settings). Summed by category the way the Tour reports it: off the tee
+   (tee shots on par 4s and 5s), approach, around the green (within PM_ARG_YD), putting.
+   A hole counts only when every shot on it has a distance; the rest are reported, not guessed. */
+function pmShotE(sh, hcp){
+  if(sh.yd==null) return null;
+  return srForPlayer(sh.lie, sh.lie==='green' ? Math.max(0.5, sh.yd*3) : Math.max(1, sh.yd), hcp);
+}
+function pmRoundSG(r){
+  const c=(STATE.courses||[]).find(x=>(x.id||x.name)===r.courseKey);
+  const hs=(c&&c.holes)||[];
+  const bench=(typeof esCmp==='function')?esCmp():{hcp:0, short:'scratch'};
+  const cat={ott:0, app:0, arg:0, putt:0}, n={ott:0, app:0, arg:0, putt:0};
+  let holes=0, incomplete=0, total=0, shots=0;
+  hs.forEach((h,i)=>{
+    const e=(r.holes||{})[pmHoleNum(h,i)]; const S=e&&e.shots;
+    if(!S||!S.length) return;
+    if(S.some(x=>x.yd==null||!x.lie)){ incomplete++; return; }
+    holes++;
+    S.forEach((sh,k)=>{
+      const a=pmShotE(sh, bench.hcp), nx=S[k+1], b=nx?pmShotE(nx, bench.hcp):0;
+      if(a==null||b==null) return;
+      const sg=a-b-1-(sh.pen?1:0);
+      const k2 = sh.lie==='green' ? 'putt' : (sh.lie==='tee' && (h.par||4)>=4) ? 'ott' : sh.yd<=PM_ARG_YD ? 'arg' : 'app';
+      cat[k2]+=sg; n[k2]++; total+=sg; shots++;
+      sh.sg=Math.round(sg*1000)/1000; sh.cat=k2;
+    });
+  });
+  return {bench:bench.short, total, cat, n, holes, incomplete, shots};
+}
+/* Post-Round: the strokes gained from the round just saved, measured shot by shot. */
+function pmSgCardHTML(){
+  const R=(STATE.play&&STATE.play.rounds)||[]; const r=R[R.length-1];
+  if(!r||!r.sg||!r.sg.holes) return '';
+  const g=r.sg, f=x=>`${x>=0?'+':''}${x.toFixed(2)}`;
+  const cell=(k,l)=>`<div class="pm-sg-cell"><span>${l}</span><b class="${g.cat[k]<0?'neg':''}">${g.n[k]?f(g.cat[k]):'\u2014'}</b><i>${g.n[k]} shot${g.n[k]===1?'':'s'}</i></div>`;
+  return `<div class="profile-card pm-sg-card">
+      <h3>Strokes Gained \u2014 ${escapeHtml(r.courseName||'last round')} <span style="font-weight:400">vs ${escapeHtml(g.bench)}</span></h3>
+      <div class="pm-sg-total"><b class="${g.total<0?'neg':''}">${f(g.total)}</b> <span>from ${g.shots} shots on ${g.holes} hole${g.holes===1?'':'s'}</span></div>
+      <div class="pm-sg-grid">${cell('ott','Off the tee')}${cell('app','Approach')}${cell('arg','Around the green')}${cell('putt','Putting')}</div>
+      ${g.incomplete?`<p class="gen-note">${g.incomplete} hole${g.incomplete===1?' has':'s have'} a shot with no distance, so ${g.incomplete===1?'it is':'they are'} left out rather than guessed.</p>`:''}
+    </div>`;
+}
+
 /* ==================== WHICH HOLE AM I ON? ====================
    Built on two inputs only — a position and the course map — and deliberately on nothing
    about where either comes from. The position is the phone's own location service (on
@@ -417,7 +617,8 @@ function pmAutoDetect(fix){
   const left=pmHoles()[cur], le=(r.holes||{})[pmHoleNum(left,cur)];
   if(!le || le.s==null) window.pmAskScore=cur;
   A.cand=null; A.n=0;
-  r.cur=best.i; window.pmTarget=null; pmTouch();
+  if(le&&le.shots&&le.shots.length) le.done=true;            /* walked off = holed out */
+  r.cur=best.i; window.pmTarget=null; window.pmPlacing=null; pmTouch();
   buildPlay(); pmSyncButtons();
   return true;
 }
@@ -539,6 +740,7 @@ function pmYours(h, P){
 function pmSrcText(h, pos){
   const G=window.pmGps;
   return pos.src==='gps' ? `GPS \u00b7 \u00b1${Math.round(pos.acc)} m`
+       : pos.src==='shot' ? `From shot ${pos.n}, where you placed it`
        : pos.src==='far' ? `GPS says you are ${pos.away!=null?ydNum(pos.away)+' '+ydUnit():'well'} from this green \u2014 from the tee`
        : pos.src==='coarse' ? `GPS \u00b1${Math.round(pos.acc)} m is too coarse \u2014 from the tee`
        : G.err ? `${G.err} \u2014 from the tee`
@@ -590,6 +792,18 @@ function pmMapHTML(h, r){
     ov+=tl(T.x, T.y-r0-fs*0.6, `${n(d1)} ${ydUnit()}`);
     if(d2!=null) ov+=tl(T.x, T.y+r0+fs*1.3, `${n(d2)} to middle`);
   }
+  /* THE SHOTS logged on this hole, numbered, joined start to start and on to the hole */
+  const Sx=(pmEntry(pmHoleNum(h,r.cur)).shots)||[];
+  if(Sx.length){
+    const pts=Sx.map(sh=>pmShotPt(h,sh)), pin=cfPin(h), rr=9/pxPerUnit, sw2=2/pxPerUnit;
+    let path=''; let prev=null;
+    pts.forEach(q=>{ if(q&&prev) path+=`<line x1="${prev.x}" y1="${prev.y}" x2="${q.x}" y2="${q.y}" stroke="#fff" stroke-opacity=".85" stroke-width="${sw2.toFixed(1)}"/>`; if(q) prev=q; });
+    if(prev&&pin) path+=`<line x1="${prev.x}" y1="${prev.y}" x2="${pin.x}" y2="${pin.y}" stroke="#fff" stroke-opacity=".45" stroke-width="${sw2.toFixed(1)}" stroke-dasharray="${(4/pxPerUnit).toFixed(1)},${(4/pxPerUnit).toFixed(1)}"/>`;
+    ov+=path;
+    pts.forEach((q,i)=>{ if(!q) return; const on=window.pmPlacing===i;
+      ov+=`<circle cx="${q.x}" cy="${q.y}" r="${(on?rr*1.35:rr).toFixed(1)}" fill="${on?'#f4d47a':'#fff'}" stroke="#14351d" stroke-width="${(2/pxPerUnit).toFixed(1)}"/>
+        <text x="${q.x}" y="${(q.y+rr*0.42).toFixed(1)}" text-anchor="middle" font-family="Arial,sans-serif" font-weight="800" font-size="${(11/pxPerUnit).toFixed(1)}" fill="#14351d">${i+1}</text>`; });
+  }
   /* you: a blue dot with its accuracy as a ring, the way every map app draws it */
   if(pos.src==='gps'){
     const ypu=cfYardsPerUnit(h)||1, accU=(pos.acc*1.09361)/ypu;
@@ -605,8 +819,11 @@ function pmMapHTML(h, r){
         <div><span>Back</span><b>${n(gn&&gn.back)}</b></div>
         ${gn&&gn.pin!=null?`<div class="pm-float-pin">pin ${n(gn.pin)}</div>`:''}
       </div>`;
-  return `<div class="pm-mapwrap" style="height:${vh}px">
-      ${fmb}
+  const placing = window.pmPlacing!=null && Sx[window.pmPlacing];
+  return `<div class="pm-mapwrap${placing?' pm-placing':''}" style="height:${vh}px">
+      ${placing?`<div class="pm-place-banner">Shot ${window.pmPlacing+1}: tap or drag on the hole
+          <b>${PM_LIE_NAME[Sx[window.pmPlacing].lie]||''} \u00b7 ${Sx[window.pmPlacing].yd==null?'\u2014':(Sx[window.pmPlacing].lie==='green'?ftNum(Sx[window.pmPlacing].yd*3)+' '+ftUnit():ydNum(Sx[window.pmPlacing].yd)+' '+ydUnit())}</b>
+          <button type="button" onclick="pmShotPlaceDone()">Done</button></div>`:fmb}
       <div class="pm-map" id="pm-map">${renderHoleSVG(h,{viewBox:box, overlay:ov})}</div>
       <div class="pm-src pm-src-float">${pmSrcText(h,pos)}${gpsBtn}</div>
       ${T?`<button type="button" class="pm-clear" onclick="pmClearTarget()" aria-label="Clear the measured spot">\u2715 target</button>`:
@@ -618,6 +835,7 @@ function pmMapHTML(h, r){
    casual round, the score in a tournament one — and expanded it is the working and the card. */
 function pmSheetHTML(h, r, c){
   const e=pmEntry(pmHoleNum(h,r.cur)), par=h.par||4, d=pmDerived(h,e);
+  const S=e.shots||[];
   const open=!!window.pmSheetOpen;
   const n=v=>v==null?'\u2014':ydNum(v);
   const sgTxt=x=>x==null?'':`${x>=0?'+':''}${x.toFixed(2)}`;
@@ -634,9 +852,18 @@ function pmSheetHTML(h, r, c){
   const plans = c.strat ? `${c.opt&&c.opt.r?plan(c.opt.r.planMatches?'Optimal = yours':'Optimal','ln-O',c.opt.r):(blockedTxt?`<div class="pm-plan-note">${blockedTxt}</div>`:'')}
       ${plan(c.mine&&c.mine.src==='target'?'Your target':'Your plan','ln-S',c.mine)}` : '';
   const scoreLine=`<button type="button" class="pm-score-line" onclick="pmToggleSheet()" aria-expanded="${open}">
-      <span>Score <b>${e.s!=null?e.s:'\u2014'}</b></span><span>Putts <b>${e.p!=null?e.p:'\u2014'}</b></span>
+      ${S.length&&!e.done?`<span>Shots so far <b>${S.length}</b></span>`:`<span>Score <b>${e.s!=null?e.s:'\u2014'}</b></span><span>Putts <b>${e.p!=null?e.p:'\u2014'}</b></span>`}
       <span class="pm-score-caret">${open?'\u25be':'\u25b4'}</span></button>`;
-  if(!open) return `<div class="pm-sheet">${plans}${scoreLine}</div>`;
+  const G=window.pmGps, gpsOk=!!(G.fix && h.geo && G.fix.acc<=PM_GPS_MAX_ERR_M);
+  /* THE SHOT BAR — always there, collapsed or not: the one tap you make standing over the ball */
+  const shotBar=`<div class="pm-shotbar">
+      ${e.done?`<span class="pm-shotbar-n">Holed in ${e.s} <button type="button" class="pm-reopen" onclick="pmShotReopen()">reopen</button></span>`
+       :`<span class="pm-shotbar-n">${S.length?`Shot ${S.length+1}`:'Shot 1'}</span>
+      ${gpsOk?`<button type="button" class="pm-mark" onclick="pmMarkBall()">\u25ce Mark ball</button>`:''}
+      <button type="button" class="pm-mark pm-mark-map" onclick="pmShotAddOnMap()">\u271a On the map</button>
+      ${S.length&&S[S.length-1].lie==='green'?`<button type="button" class="pm-mark pm-holed" onclick="pmHoledOut()">\u2713 Holed</button>`:''}`}
+    </div>`;
+  if(!open) return `<div class="pm-sheet">${plans}${shotBar}${scoreLine}</div>`;
   /* ---- expanded ---- */
   const covers=(c.gn&&!c.gn.onGreen) ? cfCoverNumbers(h, c.pos.pt, cfGreenMid(h)||cfPin(h)).filter(x=>!x.inside&&x.cover>5).slice(0,4) : [];
   const mixOrder=['fairway','green','rough','sand','trees','water','oob'];
@@ -658,16 +885,19 @@ function pmSheetHTML(h, r, c){
       <span class="pm-step-v">${val==null?'\u2014':val}</span>
       <button type="button" onclick="pmAdj('${key}',1)" aria-label="${label} plus one">+</button></div></div>`;
   return `<div class="pm-sheet open">
-      ${plans}${scoreLine}
+      ${plans}${shotBar}${scoreLine}
       ${detail}
       ${covers.length?`<div class="pm-covers">${covers.map(x=>`<div class="pm-cover"><span>${escapeHtml(x.label)}</span>reach <b>${n(x.starts)}</b> \u00b7 carry <b>${n(x.cover)}</b></div>`).join('')}</div>`:''}
+      ${pmShotListHTML(h, e)}
       <div class="pm-score">
-        ${step('s','Score',e.s)}
-        ${step('p','Putts',e.p)}
+        ${S.length?`<div class="pm-step-row"><span class="pm-step-l">${e.done?'Score':'So far'}</span><span class="pm-derived">${e.s} <i>counted from ${S.length} shot${S.length===1?'':'s'}${e.pen?` + ${e.pen} penalty`:''}</i></span></div>
+          <div class="pm-step-row"><span class="pm-step-l">Putts</span><span class="pm-derived">${e.p}</span></div>`
+        :`${step('s','Score',e.s)}
+        ${step('p','Putts',e.p)}`}
         ${par>=4?`<div class="pm-step-row"><span class="pm-step-l">Fairway</span><div class="pm-seg">
           ${[['left','\u2190 Left'],['hit','Hit'],['right','Right \u2192']].map(([k,l])=>`<button type="button" class="${e.f===k?'on':''}" onclick="pmSetFw('${k}')" aria-pressed="${e.f===k}">${l}</button>`).join('')}
         </div></div>`:''}
-        ${step('pen','Penalties',e.pen==null?0:e.pen)}
+        ${S.length?'':step('pen','Penalties',e.pen==null?0:e.pen)}
         <div class="pm-chips">
           <button type="button" class="pm-chip${e.sand?' on':''}" onclick="pmToggleSand()" aria-pressed="${!!e.sand}">Bunker</button>
           ${d.gir!=null?`<span class="pm-chip ro${d.gir?' on':''}">${d.gir?'GIR':'Missed green'}</span>`:''}
@@ -678,18 +908,76 @@ function pmSheetHTML(h, r, c){
       </div>
     </div>`;
 }
+
+/* The shot list in the expanded sheet: one row per shot, every field editable, the source of
+   each shown — GPS, placed on the map, or typed — so a number is never more trusted than it is. */
+function pmShotListHTML(h, e){
+  const S=e.shots||[];
+  if(!S.length){
+    const par=h.par||4, opts=[]; for(let v=Math.max(1,par-1); v<=par+4; v++) opts.push(v);
+    return `<div class="pm-shots pm-shots-empty">
+        <div class="pm-shots-h">Shots <span>for strokes gained after the round</span></div>
+        <div class="pm-shots-fill">How many shots? ${opts.map(v=>`<button type="button" onclick="pmShotsFill(${v})">${v}</button>`).join('')}</div>
+        <p class="pm-note">Or mark each ball by GPS, or place it on the map, as you go.</p>
+      </div>`;
+  }
+  const srcTxt={gps:'GPS', map:'map', manual:'typed'};
+  const rows=S.map((sh,i)=>{
+    const green=sh.lie==='green';
+    const val = sh.yd==null ? '' : green ? ftNum(sh.yd*3) : ydNum(sh.yd);
+    return `<div class="pm-shot${window.pmPlacing===i?' placing':''}${sh.yd==null?' missing':''}">
+        <div class="pm-shot-top">
+          <span class="pm-shot-n">${i+1}</span>
+          <div class="pm-shot-lies">${PM_LIES.map(([k,l])=>`<button type="button" class="${sh.lie===k?'on':''}" onclick="pmShotSetLie(${i},'${k}')">${l}</button>`).join('')}</div>
+        </div>
+        <div class="pm-shot-bot">
+          <label class="pm-shot-d"><input type="number" inputmode="decimal" min="0" step="${green?0.5:1}" value="${val}" placeholder="\\u2014"
+            onchange="pmShotSetDist(${i},this.value)"><i>${green?ftUnit():ydUnit()} to hole</i></label>
+          <span class="pm-shot-src">${srcTxt[sh.src]||sh.src}${sh.edited?', edited':''}</span>
+          <button type="button" class="pm-shot-btn" onclick="pmShotPlace(${i})" title="Place this shot on the map">\u271a map</button>
+          <button type="button" class="pm-shot-btn${sh.pen?' on':''}" onclick="pmShotTogglePen(${i})" title="A penalty stroke after this shot">+1 pen</button>
+          <button type="button" class="pm-shot-btn pm-shot-del" onclick="pmShotDel(${i})" aria-label="Delete shot ${i+1}">\u2715</button>
+        </div>
+      </div>`;
+  }).join('');
+  return `<div class="pm-shots">
+      <div class="pm-shots-h">Shots <span>where each was played from</span>
+        <button type="button" class="pm-shots-clear" onclick="pmShotsClear()">clear</button></div>
+      ${rows}
+      <button type="button" class="pm-shot-add" onclick="pmShotsAddTyped()">+ Add a shot</button>
+    </div>`;
+}
+function pmShotsAddTyped(){ const e=pmCurEntry(); if(!e) return; pmShotAdding(e); const S=pmShots(e); const last=S[S.length-1];
+  S.push({lie:last&&last.lie==='green'?'green':'fairway', yd:null, src:'manual'}); pmShotsChanged(e); }
+
 /* Tap the hole to measure. A tap, not a drag: the finger has to come up within a few pixels
    of where it went down, so scrolling the sheet or a stray brush is not a measurement. */
 if(!window.pmMapHooked){
   window.pmMapHooked=true;
   let down=null;
+  const ptAt=(ev)=>{
+    const m=document.querySelector('#pm-map'); const svg=m&&m.querySelector('svg'); if(!svg) return null;
+    const rc=svg.getBoundingClientRect(); if(!rc.width) return null;
+    const vb=(svg.getAttribute('viewBox')||'').split(/\s+/).map(Number); if(vb.length!==4) return null;
+    return { x:Math.round(vb[0]+(ev.clientX-rc.left)/rc.width*vb[2]), y:Math.round(vb[1]+(ev.clientY-rc.top)/rc.height*vb[3]) };
+  };
+  let dragLast=0;
   document.addEventListener('pointerdown', ev=>{
-    const m=ev.target.closest&&ev.target.closest('#pm-map'); down=m?{x:ev.clientX, y:ev.clientY}:null;
+    const m=ev.target.closest&&ev.target.closest('#pm-map'); down=m?{x:ev.clientX, y:ev.clientY, placing:window.pmPlacing!=null}:null;
+    /* placing: the shot jumps to the finger at once, then follows it */
+    if(down&&down.placing){ const q=ptAt(ev); if(q) pmShotPlaceAt(q); ev.preventDefault(); }
+  });
+  document.addEventListener('pointermove', ev=>{
+    if(!down||!down.placing) return;
+    const now=Date.now(); if(now-dragLast<60) return; dragLast=now;
+    const q=ptAt(ev); if(q) pmShotPlaceAt(q);
   });
   document.addEventListener('pointerup', ev=>{
     if(!down) return;
     const m=ev.target.closest&&ev.target.closest('#pm-map');
-    const moved=Math.hypot(ev.clientX-down.x, ev.clientY-down.y); down=null;
+    const moved=Math.hypot(ev.clientX-down.x, ev.clientY-down.y);
+    if(down.placing){ const q=ptAt(ev); if(q) pmShotPlaceAt(q); down=null; return; }
+    down=null;
     if(!m||moved>10) return;
     const svg=m.querySelector('svg'); if(!svg) return;
     const rc=svg.getBoundingClientRect(); if(!rc.width) return;
@@ -707,7 +995,7 @@ function pmCardHTML(){
     const cls=diff==null?'':diff<=-2?'eagle':diff===-1?'birdie':diff===0?'par':diff===1?'bogey':'dbl';
     return `<button type="button" class="pm-card-row${i===r.cur?' cur':''}" onclick="pmAutoHold();pmGo(${i});pmSetView('map')">
       <span>${num}</span><span>${par}</span><span class="pm-sc ${cls}">${e.s!=null?e.s:'·'}</span>
-      <span>${e.p!=null?e.p:''}</span><span>${par>=4?(e.f==='hit'?'✓':e.f==='left'?'←':e.f==='right'?'→':''):''}</span></button>`;
+      <span>${e.p!=null?e.p:''}</span><span>${par>=4?(e.f==='hit'?'✓':e.f==='left'?'←':e.f==='right'?'→':e.f==='miss'?'✗':''):''}</span></button>`;
   };
   /* The nine's FULL par, as a printed card shows it, with the running score beside it. Summing
      par over only the holes played printed "Out 11 / 11" three holes in, which reads as a
@@ -846,4 +1134,7 @@ Object.assign(window, { PM_RESUME_HOURS, PM_NEAR_HOLE_YD, PM_GPS_MAX_ERR_M,
   pmStrategyAllowed, pmSetTarget, pmClearTarget, pmToggleSheet, pmToggleStrat, pmMapBox, pmOptimal, pmYours, pmMapHTML, pmSheetHTML,
   pmToTournament, pmUnlockBegin, pmUnlockCancel, pmUnlockCheck, pmUnlockConfirm, pmUnlockHTML, pmTournHistoryHTML, PM_MIN_SPAN_YD,
   PM_AUTO_TEE_YD, PM_AUTO_NEAR_YD, PM_AUTO_FAR_YD, PM_AUTO_CONFIRM, PM_AUTO_HOLD_MS,
-  pmHoleFit, pmRankHoles, pmAutoHold, pmAutoResume, pmAutoDetect, pmAutoBadge, pmAskSet, pmAskDone, pmAskHTML });
+  pmHoleFit, pmRankHoles, pmAutoHold, pmAutoResume, pmAutoDetect, pmAutoBadge, pmAskSet, pmAskDone, pmAskHTML,
+  PM_LIES, PM_LIE_NAME, PM_ARG_YD, pmCurEntry, pmHoledOut, pmShotReopen, pmShotAdding, pmShots, pmShotsSync, pmShotAuto, pmMarkBall, pmShotAddOnMap, pmShotPlace, pmShotPlaceDone,
+  pmShotPlaceAt, pmShotPt, pmShotSetLie, pmShotSetDist, pmShotTogglePen, pmShotDel, pmShotsFill, pmShotsClear, pmShotsAddTyped,
+  pmShotE, pmRoundSG, pmSgCardHTML, pmShotListHTML });
