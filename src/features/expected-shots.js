@@ -84,7 +84,12 @@ function renderExpectedShots(id, dist, lie){
   const lieLabel=lie==='green'?`${dist}ft from cup`:lie==='atg'?`${dist}yd (around green)`:`${dist}yd from fairway`;
   /* "my actual" — expected strokes using the per-category effective handicap implied
      by the player's typical-round baselines */
-  const myEff=typeof effHcpForLie==='function'?effHcpForLie(lie):null;
+  /* playerHcpFor, not effHcpForLie directly: the same function the Hole Overlay prices every
+     position with, so "me" here and "shots left" there are one number for one shot. It keys
+     on the shot TYPE — an approach from rough is still an approach, and GIR % is the stat
+     that describes it — where effHcpForLie('rough') fell back to the bare index. */
+  const myEff=typeof playerHcpFor==='function'?playerHcpFor(lie, lie==='green'?null:dist)
+             :(typeof effHcpForLie==='function'?effHcpForLie(lie):null);
   const myActual=myEff!=null?srForPlayer(lie,dist,myEff):null;
   const myStr=myActual!=null?myActual.toFixed(2):'—';
   const myColor=myActual==null?'var(--muted)':(myActual<=cmpSR?'#5fcf8f':'#f4f0e8');

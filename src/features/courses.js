@@ -596,8 +596,11 @@ function cfDistToHazardYd(hole,pt,type){
   (hole.hazards||[]).forEach(z=>{ if(!type||z.type===type) best=Math.min(best,cfDistToPoly(pt,z.pts)); });
   return isFinite(best)?best*ypu:null;
 }
-/* Resolve a handicap for the SG baselines: explicit arg, else the golfer profile. */
+/* Resolve a handicap for the SG baselines: explicit arg, else the golfer profile.
+   PLAYER passes through untouched — it is resolved per position, by shot type, inside
+   cfExpectedStrokes (see playerHcpFor in physics/sg.js). */
 function cfHcp(hcp){
+  if(hcp===PLAYER) return PLAYER;
   const raw=(hcp!=null&&hcp!=='')?hcp:((STATE.profile&&STATE.profile.handicap)||0);
   return (typeof parseHcp==='function')?parseHcp(raw):(parseFloat(raw)||0);
 }
@@ -611,7 +614,12 @@ function cfExpectedStrokes(hole,pt,hcp,lieOverride){
   /* lieOverride lets a caller price a sample by where it PITCHED rather than where it
      stopped (see cfCarryLie). Without it the lie mix could report water while the strokes
      were still being taken off the green the ball never legally reached. */
-  const lie=lieOverride||cfLieAt(hole,pt), h=cfHcp(hcp);
+  const lie=lieOverride||cfLieAt(hole,pt);
+  /* The golfer's skill for the shot this position leaves: putting on the green, otherwise
+     around-the-green blending into approach by distance. A number passed in (a benchmark)
+     is used as given, at every position. */
+  const hRaw=cfHcp(hcp);
+  const h=(hRaw===PLAYER) ? playerHcpFor(lie==='green'?'green':'off', d) : hRaw;
   /* Worst lies, worst first. The optimiser minimises expected strokes, so getting these
      magnitudes right IS the avoidance priority — no separate rule needed:
        OUT OF BOUNDS  stroke AND distance: you replay the shot, so two strokes on top of a

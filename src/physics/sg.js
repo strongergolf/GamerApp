@@ -201,6 +201,46 @@ function effHcpForLie(lie){
   }
   return own;                                          // rough, sand — no per-category input exists
 }
+/* ============================================================
+   THE PLAYER — one definition, used by every surface that models the golfer
+
+   Skill depends on the KIND OF SHOT being played next, not on the lie it is played from.
+   A GIR percentage describes approach play whether the ball sits in fairway or rough; the
+   lie's own cost is already in the baseline tables srForPlayer reads. So:
+       on the green              → putting skill        (← putts per round)
+       on the tee                → driving skill        (← fairways hit)
+       within ATG_NEAR_YD of pin → around-the-green     (← up-and-down %)
+       beyond ATG_FAR_YD         → approach skill       (← GIR %)
+   Between the two around-the-green bounds the two skills are BLENDED rather than switched.
+   A hard step at 30 yd would hand the aim-point optimiser a cliff in expected strokes that
+   has nothing to do with golf, and it would aim at the cliff.
+   Every category falls back to the golfer's own index when its stat is blank (effHcpForLie),
+   so with an empty profile all four agree and nothing changes.
+
+   This used to be split: Shots Expected strips priced "me" per category, while the Hole
+   Overlay priced every position on the raw index. They agreed only while the profile stats
+   were blank — the first GIR % typed in would have put them a tenth of a stroke apart on
+   the same shot. */
+const ATG_NEAR_YD = 30;
+const ATG_FAR_YD = 50;
+const PLAYER = 'player';      /* sentinel accepted wherever a handicap is: "the golfer, per shot" */
+function playerHcpFor(lie, distYd){
+  if(lie==='green') return effHcpForLie('green');
+  if(lie==='tee')   return effHcpForLie('tee');
+  if(lie==='atg' && distYd==null) return effHcpForLie('atg');
+  const d=parseFloat(distYd);
+  if(!isFinite(d)) return effHcpForLie('fairway');
+  if(d<=ATG_NEAR_YD) return effHcpForLie('atg');
+  if(d>=ATG_FAR_YD)  return effHcpForLie('fairway');
+  const t=(d-ATG_NEAR_YD)/(ATG_FAR_YD-ATG_NEAR_YD);
+  return effHcpForLie('atg')*(1-t) + effHcpForLie('fairway')*t;
+}
+/* A fingerprint of everything the player model reads, so caches keyed on "the player" notice
+   when the golfer edits a stat. The sentinel alone never changes and would serve stale plans. */
+function playerModelKey(){
+  const pf=STATE.profile||{};
+  return [pf.handicap, pf.puttsRound, pf.girPct, pf.upDownPct, pf.scoringAvg, pf.firPct].join(',');
+}
 /* What a lie's skill number came FROM, so the profile can say whether a field is doing any
    work. Returns 'stat' when a typed round stat drives it and 'index' when it fell back. */
 function effHcpSource(lie){
@@ -218,4 +258,4 @@ function effHcpSource(lie){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { SR, SR_RECOVERY_OVER_ROUGH, CARRY_SPEED_EXP, SMASH_K, SMASH_LEAN, SMASH_TOL, expectedSmash, smashOffBy, speedRatioForCarry, carryRatioForSpeed, parseHcp, srForPlayer, srInterp, effHcpForLie, effHcpSource });
+Object.assign(window, { ATG_NEAR_YD, ATG_FAR_YD, PLAYER, playerHcpFor, playerModelKey, SR, SR_RECOVERY_OVER_ROUGH, CARRY_SPEED_EXP, SMASH_K, SMASH_LEAN, SMASH_TOL, expectedSmash, smashOffBy, speedRatioForCarry, carryRatioForSpeed, parseHcp, srForPlayer, srInterp, effHcpForLie, effHcpSource });

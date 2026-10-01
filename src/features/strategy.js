@@ -839,7 +839,7 @@ function stratRoundHole(hole, hcp){
     }
   }
   if(out.yards>0 && typeof srForPlayer==='function'){
-    out.o=srForPlayer('tee', out.yards, hcp);   // a hole that long, played to the baseline
+    out.o=srForPlayer('tee', out.yards, stratHcpNum(hcp,'tee'));   // a hole that long, played to the baseline
     out.method='baseline';
   }
   return out;
@@ -849,7 +849,7 @@ function stratRoundHole(hole, hcp){
 let STRAT_ROUND=null;
 function stratRoundKey(course){
   const k=course.id||course.name;
-  return [k, (course.holes||[]).length, stratPosture(), stratSkill(),
+  return [k, (course.holes||[]).length, stratPosture(), stratSkillKey(),
           (cfActiveSheet(k)||{}).id||'-', window.stratCacheEpoch||0,
           JSON.stringify(STATE.strategy||{})].join('|');
 }
@@ -926,7 +926,12 @@ function stratSheetProgress(){
    was the fourth definition of "the player" in the app, and a 106 yd fairway shot read 2.68
    here against 2.81 on Approach. The comparison benchmark still exists, once, app-wide, in
    Settings, where comparing yourself to scratch belongs; this is not that question. */
-function stratSkill(){ return cfHcp(); }
+function stratSkill(){ return PLAYER; }
+/* A cache key for "the player". The sentinel never changes, so on its own it would keep
+   serving a plan made before the golfer typed in their GIR. */
+function stratSkillKey(){ return PLAYER+'['+playerModelKey()+']'; }
+/* srForPlayer wants a number; this turns the player sentinel into one for a given shot. */
+function stratHcpNum(hcp, lie, d){ return hcp===PLAYER ? playerHcpFor(lie, d) : hcp; }
 /* Two lines is enough: O is the optimiser's answer, S is whatever you select against it. */
 const SHOT_LINES = ['S','O'];
 const SHOT_COL = { S:'#ffd24a', O:'#79e08d' };
@@ -1129,7 +1134,7 @@ function stratScoreShot(hole, from, aim, end){
   const onTee = hole.tee && Math.abs(from.x-hole.tee.x)<2 && Math.abs(from.y-hole.tee.y)<2;
   const holeYd = cfDistYd(hole,hole.tee,hole.pin);
   r.expBefore = (onTee && holeYd!=null && typeof srForPlayer==='function')
-    ? srForPlayer('tee', holeYd, stratSkill())
+    ? srForPlayer('tee', holeYd, playerHcpFor('tee'))
     : cfExpectedStrokes(hole,from,stratSkill());
   /* Where the ball FINISHED, if that is on record. Then strokes gained is measured from the
      one position that actually happened rather than averaged over the ones that might
@@ -1141,9 +1146,35 @@ function stratScoreShot(hole, from, aim, end){
     r.endYd=Math.hypot(end.x-from.x,end.y-from.y)*ypu;
   }
   r.sgActual = !!(end && r.expAfter!=null);
-  r.sg=(r.expBefore!=null)?(r.expBefore-(r.sgActual?r.expAfter:r.mean)-1):null;
+  /* STROKES GAINED IS MEASURED AGAINST THE BENCHMARK, not against you.
+     The shot's outcome — where the ball goes — comes from YOUR clubs and YOUR dispersion; that
+     is the player model and it is what "shots left" reports. But strokes gained prices the
+     start and the finish on someone else's baseline, by definition: it was SG against the
+     golfer's own expectation, which made an ordinary shot read ~0 every time and meant the
+     overlay's "SG" and the Approach tab's "SG" were two different quantities under one name.
+     The benchmark is the app-wide one chosen in Settings (scratch unless changed). */
+  const bench=(typeof esCmp==='function')?esCmp():{hcp:0, short:'scratch'};
+  r.sgBench=bench.short;
+  const sgBefore = (onTee && holeYd!=null) ? srForPlayer('tee', holeYd, bench.hcp)
+                                            : cfExpectedStrokes(hole,from,bench.hcp);
+  const sgAfter = r.sgActual ? cfExpectedStrokes(hole,end,bench.hcp)
+                             : stratBenchMean(hole, from, aim, sig, bench.hcp);
+  r.sg=(sgBefore!=null && sgAfter!=null) ? (sgBefore-sgAfter-1) : null;
   r.sgFromTee=!!onTee;
   return r;
+}
+/* The same dispersion pattern as aimScore, priced on a benchmark's baseline instead of the
+   golfer's — the "after" half of strokes gained. Kept separate from aimScore because the
+   optimiser calls that thousands of times and never needs this; only a displayed shot does. */
+function stratBenchMean(hole, from, aim, sig, hcp){
+  const s=aimSamples(hole,from,aim,sig); if(!s.length) return null;
+  let sum=0, w=0;
+  for(let i=0;i<s.length;i++){
+    const lie=cfCarryLie(hole, s[i].land, s[i].pt);
+    const e=cfExpectedStrokes(hole,s[i].pt,hcp,lie); if(e==null) continue;
+    sum+=e*s[i].w; w+=s[i].w;
+  }
+  return w ? sum/w : null;
 }
 
 /* The optimiser's whole path through the hole, tee to green. Cached per hole/posture so
@@ -1153,7 +1184,7 @@ function stratOChain(hole){
      "cIdx|hIdx|posture|skill", which is only correct while the hole being solved is the hole
      on screen — the moment anything iterates the course (the round walkthrough does) it
      hands back the selected hole's plan for every hole in turn. */
-  const key=stratPosture()+'|'+stratSkill()+'|'+(window.stratCacheEpoch||0);
+  const key=stratPosture()+'|'+stratSkillKey()+'|'+(window.stratCacheEpoch||0);
   const hit=STRAT_CHAINS.get(hole);
   if(hit && hit.key===key) return hit.chain;
   const chain=[]; let from={x:hole.tee.x, y:hole.tee.y};
@@ -1621,8 +1652,8 @@ function buildHoleOverlay(){
     const bestPct=Math.round((m[best]||0)*100);
     const swing=(r.shot.detail&&r.shot.detail!=='full swing')?` ${r.shot.detail}`:'';
     const sg=r.sgActual
-      ? `<span class="ss-pair"><b class="ss-sg${r.sg>=0?'':' neg'}">${r.sg>=0?'+':''}${r.sg.toFixed(2)}</b> <span>SG, measured</span></span>`
-      : (r.sg!=null?`<span class="ss-pair"><b class="ss-sg${r.sg>=0?'':' neg'}">${r.sg>=0?'+':''}${r.sg.toFixed(2)}</b> <span>SG</span></span>`:'');
+      ? `<span class="ss-pair"><b class="ss-sg${r.sg>=0?'':' neg'}">${r.sg>=0?'+':''}${r.sg.toFixed(2)}</b> <span>SG vs ${escapeHtml(r.sgBench||'scratch')}, measured</span></span>`
+      : (r.sg!=null?`<span class="ss-pair"><b class="ss-sg${r.sg>=0?'':' neg'}">${r.sg>=0?'+':''}${r.sg.toFixed(2)}</b> <span>SG vs ${escapeHtml(r.sgBench||'scratch')}</span></span>`:'');
     const left=r.sgActual?r.expAfter:r.mean;
     /* the optimiser minimises a RISK-WEIGHTED score, so it can sit a little behind on raw
        average; naming its decision and posture keeps that from reading as a contradiction */
@@ -1870,7 +1901,7 @@ function stratDragInit(wrap){
   },{passive:false});
 }
 
-Object.assign(window, {
+Object.assign(window, { stratBenchMean, stratSkillKey, stratHcpNum,
   AIM_Z, AIM_W, AIM_CI90, AIM_LAT_SWEEP, AIM_LAT_STEP, AIM_NODES, aimSetNodes,
   aimSigmaLat, aimSigmaDist, aimSamples, aimObjective, aimTail, aimScore, aimClubs,
   optimiseAim, stratSetCourse, stratSetHole, buildHoleOverlay,
