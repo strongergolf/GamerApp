@@ -44,6 +44,7 @@ import './features/effyards.js';
 import './features/print.js';
 import './features/bag-specs.js';
 import './features/ballflight-check.js';
+import './features/play.js';
 import './features/shortgame.js';
 import './features/putting.js';
 import './features/club-form.js';
@@ -61,4 +62,6 @@ window.addEventListener('DOMContentLoaded', () => {
   renderAll();
   initConditions();
   if (typeof initCalc === 'function') initCalc();
+  /* a round left open resumes straight into Play — see pmBoot */
+  if (typeof pmBoot === 'function') pmBoot();
 });

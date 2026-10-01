@@ -756,6 +756,6 @@ function buildPostShot(){
 }
 
 // Expose for inline handlers and the renderAll orchestrator.
-Object.assign(window, { buildPlanShot, buildPostShot, buildPostRound, psSet, psSetSit, psPostSet, psRoundSet, psRoundStep, psApplyRoundBaselines, psOpenTerm,
+Object.assign(window, { psRound, buildPlanShot, buildPostShot, buildPostRound, psSet, psSetSit, psPostSet, psRoundSet, psRoundStep, psApplyRoundBaselines, psOpenTerm,
   pseSetIdx, pseResetSetup, psTgtSetIdx, psRenderDirection,
   PS_WIND_HEAD, PS_WIND_TAIL, PS_CROSS_YPM, PS_ELEV_K });

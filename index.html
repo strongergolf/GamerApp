@@ -19,6 +19,9 @@
     <div class="brand-wordmark"><span class="brand-stronger">Stronger</span><span class="brand-golf">Golf</span></div>
   </div>
   <div class="header-app-name">Player's App</div>
+  <!-- PLAY GOLF NOW: the one door into on-course mode. Becomes "● Hole 7 · +2" while a round is
+       open, so the way back in is also the reminder that a round is running. -->
+  <button type="button" class="pm-launch" data-pm-btn onclick="pmOpen()" aria-label="Play golf now">▶ Play</button>
 </div>
 
 <nav class="nav-groups">
@@ -29,6 +32,9 @@
   <div class="ngroup" data-group="setup" onclick="showGroup('setup',this)">Settings</div>
 </nav>
 <nav class="nav-sub" id="nav-sub"></nav>
+
+<!-- PLAY MODE: full-screen, over everything, built by buildPlay (features/play.js) -->
+<div id="play-mode" class="pm" hidden role="dialog" aria-label="Play golf now"></div>
 
 <!-- BAG -->
 <div id="page-bag" class="page active">

@@ -922,14 +922,13 @@ function buildRoundTracker(){
       <p class="intro-note" style="margin-top:6px">Overlay your <b>86% dispersion</b> on each mapped hole to pick tee aim &amp; approach targets that minimise expected score (or follow your chosen strategy). Needs a mapped hole plus your bag distances &amp; dispersion — the Target Selection box in <b>Pre-Shot Routine</b> feeds this.</p>
     </div>
     <div class="profile-card">
-      <h3>Live Round Tracking <span class="proto-badge">skeleton</span></h3>
-      ${r?`
-        <div style="font-family:ui-monospace,monospace;font-size:.7rem;color:var(--muted)">Round in progress · ${escapeHtml(r.course||'course')} · started ${new Date(r.startedAt).toLocaleTimeString()}</div>
-        <p class="intro-note" style="margin-top:8px">Coming: log each shot (lie · distance · club · result), capture location manually or via <b>GPS</b>, estimate ball &amp; impact/swing data, and get a <b>real-time next-shot recommendation</b> that adapts to this round's results.</p>
-        <button class="btn" style="margin-top:10px" onclick="endRound()">End round</button>`
+      <h3>Play a Round</h3>
+      ${(typeof pmRound==='function'&&pmRound())?`
+        <div style="font-family:ui-monospace,monospace;font-size:.7rem;color:var(--muted)">Round in progress · ${escapeHtml(pmRound().courseName||'course')} · started ${new Date(pmRound().startedAt).toLocaleTimeString()}</div>
+        <button class="btn btn-primary" style="margin-top:10px" onclick="pmOpen()">Resume round</button>`
       :`
-        <p class="intro-note" style="margin-top:6px">Track a round in real time: manual or GPS shot locations, estimated ball/impact data, and live shot recommendations that learn from how you're hitting it today.</p>
-        <button class="btn btn-primary" style="margin-top:8px" onclick="startRound()">Start round</button>`}
+        <p class="intro-note" style="margin-top:6px">Distances from GPS, the hole map and your scorecard, full-screen on your phone. The same mode the <b>▶ Play</b> button opens from any page; a finished round fills in Post-Round for you.</p>
+        <button class="btn btn-primary" style="margin-top:8px" onclick="pmOpen()">Play golf now</button>`}
     </div>`;
 }
 
