@@ -13,9 +13,8 @@
 // allows recording the round. It prohibits elevation, measured wind, and anything that
 // interprets — a recommended line or club from where the ball lies. Nothing here does any of
 // those: it measures, maps and records. The strategy engine, plays-like yardage and the
-// putting break calculator are deliberately not reachable from inside Play. A Committee using
-// Model Local Rule G-5 (no distance-measuring devices) is the one case this does not yet cover
-// — that is the tournament toggle, which comes next.
+// putting break calculator are deliberately not reachable from inside Play, and a TOURNAMENT
+// round locks the rest of the app away until the round ends (see pmTourn).
 //
 // THE ROUND IS PERSISTED on every entry, in STATE.play.round. A phone that locks mid-round
 // often reloads the tab when it wakes; the round has to be exactly where it was when it does.
@@ -41,6 +40,22 @@ function pmEntry(num){
 }
 function pmTouch(){ const r=pmRound(); if(r){ r.touched=Date.now(); saveState(); } }
 
+/* ---------------- TOURNAMENT ROUNDS ----------------
+   Chosen when the round starts and LOCKED for it: there is no switch to turn it off mid-round,
+   only finishing or discarding the round. A toggle that could be flicked off for one look at
+   the strategy engine and back on would make the mode worthless as an assurance, to the
+   golfer or to anyone they show it to.
+   While it is on, Play is the only screen. The rest of the app is where the tools the Rules
+   prohibit during a round live — the aim-point optimiser, plays-like yardage, the putting
+   break calculator — so leaving Play is what has to be closed, not each tool in turn.
+   DISTANCE-ONLY, at Mark's call: GPS and straight-line distances stay on. What is excluded is
+   every ADJUSTMENT (elevation, slope, wind, temperature, humidity, altitude), which is exactly
+   the line Rule 4.3a(1) draws. Nothing inside Play adjusts a distance, casual round or not, so
+   a tournament round shows the same numbers; what changes is that nothing else is reachable. */
+function pmTourn(){ const r=pmRound(); return !!(r&&r.tournament&&r.tournament.on); }
+window.pmLockAsk = false;
+function pmLockDismiss(){ window.pmLockAsk=false; buildPlay(); }
+
 /* ---------------- OPEN / CLOSE ---------------- */
 window.pmView = window.pmView || 'dist';
 function pmIsOpen(){ return document.body.classList.contains('playing'); }
@@ -54,6 +69,12 @@ function pmOpen(){
   buildPlay();
 }
 function pmClose(fromPop){
+  /* A tournament round keeps Play on screen. The back button is pushed back into Play, and
+     the close button asks instead — finish the round, or keep playing. */
+  if(pmTourn()){
+    if(fromPop){ try{ history.pushState({pm:1},''); }catch(_){} }
+    window.pmLockAsk=true; buildPlay(); return;
+  }
   document.body.classList.remove('playing');
   const el=document.getElementById('play-mode'); if(el) el.hidden=true;
   pmGpsStop(); pmWake(false);
@@ -80,9 +101,19 @@ function pmStart(){
   const cSel=document.getElementById('pm-course'), sSel=document.getElementById('pm-start');
   const cs=STATE.courses||[]; const c=cs[parseInt(cSel?cSel.value:0,10)||0]; if(!c){ toast('Import a course first'); return; }
   const start=parseInt(sSel?sSel.value:0,10)||0;
+  const tOn=!!(document.getElementById('pm-tourn')||{}).checked;
+  if(tOn && !confirm('Start a TOURNAMENT round?\n\nDistances only, with no adjustments. The rest of the app stays locked until you finish or discard this round.')) return;
   pmState().round={ id:'r'+Date.now(), courseKey:c.id||c.name, courseName:c.name||'Course',
-                    startedAt:Date.now(), touched:Date.now(), start, cur:start, holes:{}, done:false };
-  saveState(); window.pmView='dist'; pmGpsStart(false); buildPlay(); pmSyncButtons();
+                    startedAt:Date.now(), touched:Date.now(), start, cur:start, holes:{}, done:false,
+                    tournament: tOn ? {on:true, lockedAt:Date.now()} : null };
+  saveState(); window.pmView='dist'; window.pmLockAsk=false;
+  /* Ask for location HERE, on the Start tap, rather than behind a separate "Use GPS" button.
+     The browser needs a user gesture to prompt, and this is the one moment the golfer knows
+     exactly why the app wants it. Only when the course can use it — a course with no map
+     reference would be asking for nothing. */
+  const c0=(c.holes||[])[start];
+  pmGpsStart(!!(c0&&c0.geo));
+  buildPlay(); pmSyncButtons();
 }
 function pmGo(i){
   const r=pmRound(), n=pmHoles().length; if(!r||!n) return;
@@ -159,6 +190,7 @@ function pmFinish(){
   if(!t.played){ if(!confirm('No scores entered. End this round anyway?')) return; }
   else if(t.played<pmHoles().length && !confirm(`Only ${t.played} of ${pmHoles().length} holes have a score. End the round?`)) return;
   r.done=true; r.endedAt=Date.now(); r.totals=t;
+  if(r.tournament) r.tournament.endedAt=r.endedAt;
   pmState().rounds.push(r); pmState().round=null; saveState();
   if(t.played && window.psRound){
     Object.assign(window.psRound, { score:t.toPar, fir:t.fir, gir:t.gir, putts:t.puttHoles?t.putts:'',
@@ -259,10 +291,12 @@ function buildPlay(){
   if(!r){ el.innerHTML=pmSetupHTML(); return; }
   const hs=pmHoles(), h=pmHole();
   if(!h){ el.innerHTML=pmSetupHTML('That course is no longer in the app.'); return; }
-  const t=pmTotals();
+  const t=pmTotals(), T=pmTourn();
+  el.classList.toggle('pm-tourn', T);
   el.innerHTML=`
     <div class="pm-top">
-      <button type="button" class="pm-x" onclick="pmClose()" aria-label="Leave Play — the round stays open">✕</button>
+      ${T?`<button type="button" class="pm-x pm-lock" onclick="pmClose()" aria-label="Tournament round — the app is locked">&#x1F512;</button>`
+         :`<button type="button" class="pm-x" onclick="pmClose()" aria-label="Leave Play — the round stays open">✕</button>`}
       <button type="button" class="pm-arrow" onclick="pmStep(-1)" aria-label="Previous hole">‹</button>
       <div class="pm-hole">
         <div class="pm-hole-t">Hole ${pmHoleNum(h,r.cur)} <span>par ${h.par||4}</span></div>
@@ -270,9 +304,11 @@ function buildPlay(){
       </div>
       <button type="button" class="pm-arrow" onclick="pmStep(1)" aria-label="Next hole">›</button>
     </div>
+    ${T?`<div class="pm-badge">Tournament · distances only, no adjustments</div>`:''}
+    ${T&&window.pmLockAsk?pmLockHTML():''}
     <div class="pm-body" id="pm-body"></div>
     <nav class="pm-tabs" aria-label="Play">
-      ${[['dist','Distances','◎'],['hole','Hole','▲'],['card','Card','☰']].map(([k,l,i])=>
+      ${[['dist','Distances','◎'],['hole','Hole','▲'],['card','Card','☰'],['bag','Bag','≡']].map(([k,l,i])=>
         `<button type="button" class="pm-tab${window.pmView===k?' on':''}" onclick="pmSetView('${k}')" aria-pressed="${window.pmView===k}"><span aria-hidden="true">${i}</span>${l}</button>`).join('')}
     </nav>`;
   pmRenderBody();
@@ -280,7 +316,8 @@ function buildPlay(){
 function pmRenderBody(){
   const body=document.getElementById('pm-body'); if(!body) return;
   const h=pmHole(), r=pmRound(); if(!h||!r) return;
-  body.innerHTML = window.pmView==='hole' ? pmHoleHTML(h) : window.pmView==='card' ? pmCardHTML() : pmDistHTML(h, r);
+  body.innerHTML = window.pmView==='hole' ? pmHoleHTML(h) : window.pmView==='card' ? pmCardHTML()
+                 : window.pmView==='bag' ? pmBagHTML() : pmDistHTML(h, r);
 }
 function pmSetupHTML(note){
   const cs=STATE.courses||[];
@@ -296,6 +333,9 @@ function pmSetupHTML(note){
       ${note?`<p class="pm-warn">${escapeHtml(note)}</p>`:''}
       <label class="pm-field">Course<select id="pm-course">${cs.map((c,i)=>`<option value="${i}"${i===cur?' selected':''}>${escapeHtml(c.name||'Course')}</option>`).join('')}</select></label>
       <label class="pm-field">Starting hole<select id="pm-start"><option value="0">1st</option><option value="9">10th</option></select></label>
+      <label class="pm-tourn-opt"><input type="checkbox" id="pm-tourn">
+        <span><b>Tournament round</b>Distances only, with nothing adjusted for elevation, slope, wind or weather.
+        The rest of the app is locked until the round is finished or discarded.</span></label>
       <button type="button" class="btn btn-primary pm-go" onclick="pmStart()">Start round</button>
       <p class="pm-note">Distances, the hole map and your scorecard — nothing that recommends a club or a line, so it stays inside what the Rules allow a player to use. Your round is saved as you go and survives the phone locking.</p>
     </div>`;
@@ -395,11 +435,47 @@ function pmCardHTML(){
     </div>`;
 }
 
+/* The close button during a tournament round. Not a dead button: it says why the app is
+   locked and points at the way out, which is ending the round. */
+function pmLockHTML(){
+  const r=pmRound(), at=r&&r.tournament?new Date(r.tournament.lockedAt):null;
+  return `<div class="pm-lock-ask" role="alertdialog" aria-label="Tournament round">
+      <p><b>Tournament round in progress.</b> The rest of the app is locked${at?` since ${at.toLocaleTimeString([], {hour:'numeric', minute:'2-digit'})}`:''} —
+      it holds tools the Rules do not allow during a round. Finish or discard the round on the card to unlock it.</p>
+      <div class="pm-lock-btns">
+        <button type="button" class="btn" onclick="pmLockDismiss()">Keep playing</button>
+        <button type="button" class="btn btn-primary" onclick="window.pmLockAsk=false;pmSetView('card')">Go to the card</button>
+      </div>
+    </div>`;
+}
+/* YOUR CLUB DISTANCES, as stored: the carry and total from Stock Shots, and nothing done to
+   them. Rule 4.3a(3) allows using information gathered BEFORE the round, club distances
+   included, and this is the chart a player would otherwise carry on paper. Without it a
+   locked app would take that away for the whole round.
+   Deliberately the STOCK numbers, never the environmentally adjusted ones: adjusting for
+   today's temperature, altitude or air is interpreting conditions, which is the one thing a
+   tournament round rules out. */
+function pmBagHTML(){
+  const rows=(STATE.clubs||[]).filter(c=>c.type!=='putter').map(c=>{
+    const p=(typeof perf==='function'?perf(c.id):STATE.performance[c.id])||{};
+    return `<div class="pm-bag-row"><span class="spec-club ${c.type}">${escapeHtml(c.label)}</span>
+      <span class="pm-bag-loft">${escapeHtml(c.loft||'')}</span>
+      <span class="pm-bag-n"><b>${p.carry!=null?ydNum(p.carry):'—'}</b><i>carry</i></span>
+      <span class="pm-bag-n"><b>${p.total!=null?ydNum(p.total):'—'}</b><i>total</i></span></div>`;
+  }).join('');
+  return `<div class="pm-bag">${rows}</div>
+    <p class="pm-note">Your stock distances in ${ydUnit()}, as stored — not adjusted for today’s conditions.</p>`;
+}
+
 /* On load: a round left open recently is resumed straight into Play, because the most likely
    reason the app is loading mid-round is that the phone locked and the browser reloaded it. */
 function pmBoot(){
   const r=pmRound();
-  if(r && Date.now()-(r.touched||r.startedAt) > PM_RESUME_HOURS*3600e3){ /* stale: leave it, but do not jump into it */ }
+  /* A TOURNAMENT round resumes however old it is: the lock has to hold until the golfer ends
+     it, and an app that quietly unlocked itself after eight hours would not be a lock. Ending
+     it is one tap on the screen it reopens to. */
+  if(r && r.tournament && r.tournament.on){ pmOpen(); }
+  else if(r && Date.now()-(r.touched||r.startedAt) > PM_RESUME_HOURS*3600e3){ /* stale: leave it, but do not jump into it */ }
   else if(r){ pmOpen(); }
   pmSyncButtons();
 }
@@ -407,4 +483,5 @@ function pmBoot(){
 Object.assign(window, { PM_RESUME_HOURS, PM_NEAR_HOLE_YD, PM_GPS_MAX_ERR_M,
   pmState, pmRound, pmCourse, pmHoles, pmHole, pmEntry, pmIsOpen, pmOpen, pmClose, pmStart, pmGo, pmStep,
   pmSetView, pmAdj, pmSetFw, pmToggleSand, pmDerived, pmTotals, pmFmtToPar, pmFinish, pmAbandon,
-  pmGpsStart, pmGpsStop, pmPos, pmGreenNumbers, pmSyncButtons, buildPlay, pmRenderBody, pmBoot });
+  pmGpsStart, pmGpsStop, pmPos, pmGreenNumbers, pmSyncButtons, buildPlay, pmRenderBody, pmBoot,
+  pmTourn, pmLockDismiss, pmLockHTML, pmBagHTML });

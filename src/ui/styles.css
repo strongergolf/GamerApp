@@ -1769,3 +1769,32 @@ body.theme-dark .pm-sc.birdie,body.theme-dark .pm-sc.eagle{color:#e88494}
 .pm-go{min-height:50px;font-size:1rem}
 .pm-note{font-family:Arial,sans-serif;font-size:.78rem;line-height:1.5;color:var(--muted)}
 .pm-warn{color:#b8455a;font-weight:700}
+
+/* ---- TOURNAMENT ROUND ----
+   Unmistakable at a glance, to the golfer and to a marker looking over their shoulder: the top
+   bar changes colour and a badge states the terms. The exit becomes a lock. */
+.pm.pm-tourn .pm-top{background:#6b1d2e}
+.pm-lock{font-size:1.1rem}
+.pm-badge{background:#6b1d2e;color:#f4d6dc;text-align:center;font-family:ui-monospace,monospace;font-size:.62rem;
+  font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:0 10px 7px}
+.pm-lock-ask{margin:10px 14px 0;padding:12px 14px;border-radius:10px;border:1px solid #b8455a;background:rgba(184,69,90,.08)}
+.pm-lock-ask p{margin:0 0 10px;font-family:Arial,sans-serif;font-size:.82rem;line-height:1.5;color:var(--ink)}
+.pm-lock-btns{display:flex;gap:8px}
+.pm-lock-btns .btn{flex:1;min-height:44px}
+.pm-tourn-opt{display:flex;gap:10px;align-items:flex-start;padding:12px;border-radius:10px;border:1px solid var(--border2);
+  background:var(--surface);cursor:pointer}
+.pm-tourn-opt input{width:22px;height:22px;margin:1px 0 0;flex:0 0 auto;accent-color:#6b1d2e}
+.pm-tourn-opt span{font-family:Arial,sans-serif;font-size:.76rem;line-height:1.45;color:var(--muted)}
+.pm-tourn-opt b{display:block;font-size:.92rem;color:var(--ink);margin-bottom:2px}
+
+/* ---- BAG: stock distances, as stored ---- */
+.pm-bag{display:flex;flex-direction:column;border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.pm-bag-row{display:grid;grid-template-columns:2.6rem 3rem 1fr 1fr;align-items:center;gap:6px;padding:8px 12px;
+  border-top:1px solid var(--border);background:var(--surface)}
+.pm-bag-row:first-child{border-top:0}
+.pm-bag-row .spec-club{font-size:1.15rem}
+.pm-bag-loft{font-family:ui-monospace,monospace;font-size:.66rem;color:var(--muted)}
+.pm-bag-n{text-align:right}
+.pm-bag-n b{font-family:Arial,sans-serif;font-size:1.25rem;font-weight:800;color:var(--ink)}
+.pm-bag-n i{font-style:normal;font-family:ui-monospace,monospace;font-size:.56rem;color:var(--muted);margin-left:4px}
+.pm-tabs{grid-template-columns:repeat(4,1fr)}
