@@ -441,8 +441,10 @@ input[type=range].yard-slider::-moz-range-thumb{width:20px;height:20px;border-ra
 /* dark theme lightens --gold, so white text loses contrast — flip to navy */
 body.theme-dark .btn-accent{color:#0C2340}
 .btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
-.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(120%);background:var(--panel);color:#f4f0e8;font-family:Arial,sans-serif;font-size:.82rem;font-weight:700;letter-spacing:.06em;padding:11px 22px;border-radius:8px;border:1px solid var(--gold);z-index:2000;transition:transform .3s ease;box-shadow:0 4px 16px rgba(0,0,0,.25)}
-.toast.show{transform:translateX(-50%) translateY(0)}
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(120%);visibility:hidden;opacity:0;background:var(--panel);color:#f4f0e8;font-family:Arial,sans-serif;font-size:.82rem;font-weight:700;letter-spacing:.06em;padding:11px 22px;border-radius:8px;border:1px solid var(--gold);z-index:2000;transition:transform .3s ease,opacity .2s ease,visibility .3s;box-shadow:0 4px 16px rgba(0,0,0,.25)}
+/* Hidden, not just pushed down: translateY(120%) of an EMPTY toast is ~26px, which left a dark
+   pill peeking up at the bottom of every page — right where the overlay's sheet now sits. */
+.toast.show{transform:translateX(-50%) translateY(0);visibility:visible;opacity:1}
 
 /* EXPECTED SHOTS STRIP */
 .expected-shots-strip{margin-top:8px}
@@ -1585,3 +1587,72 @@ body.theme-dark .bfc-gap.ok{color:var(--green2);background:rgba(0,133,63,.16)}
 .bfc-fitted button{background:none;border:0;color:var(--muted);text-decoration:underline;cursor:pointer;
   font-family:inherit;font-size:inherit;text-transform:none;letter-spacing:0;padding:0 0 0 6px}
 @media(max-width:480px){.bfc-row{grid-template-columns:1fr}.bfc-club{grid-column:1/-1}}
+
+/* ---- HOLE OVERLAY LAYOUT (2026-10): title line, layers, map sized to the screen, sheet ---- */
+/* One title line: ‹ hole · yards › with the course, the pin and the ball on a muted line under it. */
+.ho-title{display:flex;align-items:center;gap:6px;margin:4px 0 6px}
+.ho-nav{flex:0 0 40px;height:40px;border:1px solid var(--border2);border-radius:8px;background:var(--bg2);
+  color:var(--ink);font-size:1.5rem;line-height:1;cursor:pointer;padding:0 0 3px}
+.ho-nav:active{transform:scale(.96)}
+.ho-title-main{flex:1;min-width:0;text-align:center}
+.ho-t1{display:flex;align-items:baseline;justify-content:center;gap:8px}
+/* The hole name IS the jump-to dropdown, so it is styled as a heading rather than a form field. */
+.ho-hole{appearance:none;-webkit-appearance:none;border:0;background:transparent;color:var(--ink);
+  font-family:Arial,sans-serif;font-size:1.05rem;font-weight:800;letter-spacing:.01em;padding:2px 14px 2px 2px;
+  cursor:pointer;text-align:center;max-width:100%;
+  background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);
+  background-position:calc(100% - 7px) 55%,calc(100% - 3px) 55%;background-size:4px 4px;background-repeat:no-repeat}
+.ho-yd{font-family:ui-monospace,monospace;font-size:.9rem;font-weight:700;color:var(--ink2)}
+.ho-t2{display:flex;align-items:baseline;justify-content:center;flex-wrap:wrap;gap:0 2px;
+  font-family:ui-monospace,monospace;font-size:.58rem;color:var(--muted);line-height:1.5}
+.ho-course{appearance:none;-webkit-appearance:none;border:0;background:transparent;color:var(--muted);
+  font-family:inherit;font-size:inherit;padding:0;cursor:pointer;text-decoration:underline dotted;max-width:55vw}
+.ho-t2-x{white-space:normal}
+/* A select is as wide as its LONGEST option by default, which left a gap after a short course
+   name. field-sizing sizes it to the chosen one where supported; elsewhere it is just wider. */
+.ho-hole,.ho-course{field-sizing:content}
+
+/* Layer chips — the detail that used to be permanent rows, on request. */
+.ho-layers{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin:0 0 8px}
+.ho-chip{font-family:ui-monospace,monospace;font-size:.6rem;font-weight:700;letter-spacing:.04em;
+  color:var(--muted);background:transparent;border:1px solid var(--border2);border-radius:20px;padding:5px 11px;cursor:pointer}
+.ho-chip.on{color:var(--ink);background:var(--bg2);border-color:var(--ink2)}
+.ho-pin{margin:0 0 8px}
+.ho-pin .sh-pin-row{margin:0}
+
+/* The map: its width is set inline by stratMapSize, and the crop is padded to that shape. */
+#hole-overlay-wrap .strat-hole-grid{gap:14px;align-items:flex-start;flex-wrap:nowrap}
+#hole-overlay-wrap .strat-hole-map{flex:0 0 auto;max-width:100%}
+#hole-overlay-wrap .strat-hole-map svg{border-radius:10px}
+
+/* The sheet: beside the map on a wide screen, under it on a phone. */
+.ho-sheet{gap:8px}
+.ho-sheet-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.ho-steps{display:flex;gap:4px}
+.ho-step{min-width:38px;height:36px;border:1px solid var(--border2);border-radius:8px;background:var(--bg2);
+  font-family:ui-monospace,monospace;font-size:.78rem;font-weight:800;color:var(--muted);cursor:pointer}
+.ho-step.on{color:var(--ink);border-color:var(--ink2);background:var(--surface)}
+.ho-sheet-ctl{display:flex;gap:6px;align-items:center}
+.ho-expand{width:38px;height:36px;border:1px solid var(--border2);border-radius:8px;background:var(--bg2);
+  color:var(--ink);font-size:1rem;cursor:pointer}
+/* Collapsed: the answer, two lines — what to hit and what it leaves, for each plan. */
+.ho-sum{display:flex;flex-direction:column;gap:4px;cursor:pointer}
+.ho-sum-line{display:grid;grid-template-columns:4.6rem auto 1fr auto;align-items:baseline;gap:8px;
+  padding:6px 9px;border:1px solid var(--border);border-radius:8px;background:var(--surface)}
+.ho-sum-k{font-family:ui-monospace,monospace;font-size:.72rem;font-weight:800}
+.ho-sum-club{font-family:ui-monospace,monospace;font-size:.72rem;font-weight:800;color:var(--ink2);
+  border:1px solid var(--border2);border-radius:5px;padding:1px 6px;justify-self:start}
+.ho-sum-v{font-family:ui-monospace,monospace;font-size:.86rem;font-weight:700;color:var(--ink)}
+.ho-sum-left{font-family:ui-monospace,monospace;font-size:.86rem;font-weight:800;color:var(--ink);text-align:right}
+.ho-sum-left i{font-style:normal;font-size:.52rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.ho-detail{display:flex;flex-direction:column;gap:10px}
+
+/* PHONE: one column. The map, title and collapsed sheet are sized to fit one screen, so the
+   sheet sits in normal flow directly under the map. It is NOT sticky: pinned to the bottom of
+   the viewport it slid up over the map whenever the page was not scrolled exactly right, and
+   the part of the map it covered was the tee. flex:0 0 auto because .sh-side's flex-basis of
+   300px becomes a HEIGHT in a column, which made the sheet 300px tall around 150px of content. */
+.ho-phone .strat-hole-grid{flex-direction:column;gap:10px}
+.ho-phone .strat-hole-map{width:100%!important}
+.ho-phone .ho-sheet{flex:0 0 auto;width:100%;max-width:none;min-width:0;
+  padding:0 0 env(safe-area-inset-bottom)}

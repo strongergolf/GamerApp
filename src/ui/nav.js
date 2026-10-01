@@ -80,7 +80,7 @@ function showPage(id,tab){
   if(tab)tab.classList.add('active');
   /* the overlay depends on the bag, the handicap and the courses — any of which may have
      changed on another tab — so rebuild it on show rather than serving a stale render */
-  if(id==='gameplan'&&typeof buildHoleOverlay==='function') setTimeout(buildHoleOverlay,0);
+  if(id==='gameplan'&&typeof buildHoleOverlay==='function') setTimeout(()=>{ buildHoleOverlay(); if(typeof stratScrollToTitle==='function') stratScrollToTitle(); },0);
 }
 let toastTimer;
 function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),1900); }

@@ -641,7 +641,11 @@ function stratHoleBox(hole){
      like. A near-square box is ~20% shorter for the same hole, and the padding lands to the
      SIDES, which is exactly where a miss goes. */
   let w=x1-x0, h=y1-y0;
-  const want=STRAT_BOX_RATIO;
+  /* The target is the shape of the box the map is about to be drawn in, measured by
+     stratMapSize — not a constant. Holes are long and thin, and a near-square crop of one on a
+     phone left most of the picture empty green beside a hole drawn at two-thirds the scale the
+     screen could hold. 0.95 remains the fallback before anything has been measured. */
+  const want=window.stratMapRatio||STRAT_BOX_RATIO;
   if(w/h>want){ const nh=w/want; y0-=(nh-h)/2; h=nh; } else { const nw=h*want; x0-=(nw-w)/2; w=nw; }
   return {x:x0, y:y0, w, h};
 }
@@ -657,6 +661,82 @@ function stratViewBox(){
   return { x:v.cx-w/2, y:v.cy-h/2, w, h };
 }
 function stratResetView(){ window.stratView={cx:null, cy:null, z:1}; buildHoleOverlay(); }
+
+/* ---------- THE MAP'S SIZE, from the screen it is on ----------
+   On a phone the title, the map and the collapsed decision sheet are sized to fit ONE screen,
+   so the hole and the answer about it are never a scroll apart — they were: the map started
+   461px down an 812px screen and the cards began at 836. On a wide screen the sheet sits beside
+   the map and the map takes the height. Either way the crop (stratHoleBox) is then padded to
+   this exact shape, so nothing is stretched and nothing is letterboxed. */
+const STRAT_PHONE_MAX = 700;          /* wrap width below which the sheet goes under the map */
+const STRAT_CHROME_PX = 79;           /* the two sticky nav bars */
+const STRAT_TITLE_PX = 92;            /* title line + layer chips */
+const STRAT_SHEET_PX = 140;           /* the collapsed sheet: stepper + two summary lines, measured */
+const STRAT_GAP_PX = 10;              /* map-to-sheet gap in the phone column */
+function stratMapSize(wrap){
+  const W=Math.max(280, (wrap&&wrap.clientWidth)||375), vh=window.innerHeight||812;
+  const phone = W < STRAT_PHONE_MAX;
+  let w, h;
+  if(phone){
+    w=W;
+    h=Math.max(300, Math.min(660, vh-STRAT_CHROME_PX-STRAT_TITLE_PX-STRAT_SHEET_PX-STRAT_GAP_PX-6));
+  } else {
+    h=Math.max(380, Math.min(860, vh-STRAT_CHROME_PX-STRAT_TITLE_PX-24));
+    /* narrower than square: the hole is tall, and the scale is set by the height either way —
+       what width the map does not need goes to the sheet beside it */
+    w=Math.max(320, Math.min(W-334, Math.round(h*0.66)));
+  }
+  window.stratMapRatio = w/h;
+  return {w, h, phone};
+}
+/* Rebuild on rotation or a resized window, once the resize has settled. */
+if(!window.stratResizeHooked){
+  window.stratResizeHooked=true;
+  let t=null;
+  window.addEventListener('resize',()=>{ clearTimeout(t); t=setTimeout(()=>{
+    const pg=document.getElementById('page-gameplan');
+    if(pg&&pg.classList.contains('active')) buildHoleOverlay();
+  },180); });
+}
+/* On a phone the page opens with the 137px brand header above the overlay, so the map and its
+   answer were sized to a screen the golfer could not see all of. Opening the tab scrolls the
+   title up under the sticky nav, once, and never on a rebuild — rebuilds happen on every
+   drag, and a page that jumped while you aimed would be unusable. */
+function stratScrollToTitle(){
+  const wrap=document.getElementById('hole-overlay-wrap'); if(!wrap||!wrap.classList.contains('ho-phone')) return;
+  const t=wrap.querySelector('.ho-title'); if(!t) return;
+  const y=t.getBoundingClientRect().top + window.scrollY - STRAT_CHROME_PX - 4;
+  if(y>0) window.scrollTo({top:y, behavior:'instant'});
+}
+/* ‹ › — walk the course in order. Wraps, because the 18th leads to the 1st on the way to the
+   clubhouse as often as anywhere. */
+function stratStepHole(d){
+  const cur=stratCurrent(); if(!cur) return;
+  const n=(cur.course.holes||[]).length; if(!n) return;
+  stratSetHole(((cur.hi+d)%n+n)%n);
+}
+/* LAYERS: the detail that used to be permanent rows, back on request. Cover numbers, the pin
+   sheet and the dispersion ovals were each taken off for clutter; they are each still the right
+   thing to look at some of the time. Persisted, because it is a standing preference. */
+const STRAT_LAYERS = [
+  {key:'disp',  label:'Dispersion', def:true},
+  {key:'cover', label:'Cover',      def:false},
+  {key:'pin',   label:'Pin',        def:false}
+];
+function stratLayers(){
+  STATE.strategy=STATE.strategy||{};
+  const L=STATE.strategy.layers=STATE.strategy.layers||{};
+  STRAT_LAYERS.forEach(l=>{ if(L[l.key]==null) L[l.key]=l.def; });
+  return L;
+}
+function stratToggleLayer(k){
+  const L=stratLayers(); L[k]=!L[k];
+  /* the pin layer IS pin mode's control panel — closing it leaves pin mode */
+  if(k==='pin'&&!L.pin&&window.stratShot.pinMode){ window.stratShot.pinMode=false; window.stratView={cx:null,cy:null,z:1}; }
+  saveState(); buildHoleOverlay();
+}
+/* The phone's bottom sheet: collapsed to the answer, expanded for the working. */
+function stratToggleSheet(){ window.stratSheetOpen=!window.stratSheetOpen; buildHoleOverlay(); }
 
 /* ---------- PIN MODE: put the flag where the sheet says ----------
    A pin sheet arrives days before a tournament and is the most concrete piece of preparation
@@ -1431,7 +1511,7 @@ function stratLineAim(hole, line, n){
 
 /* One shot drawn on the hole. Three levels of emphasis: `full` for the shot being edited,
    `compact` for the rest of that line's plan, `dim` for the optimiser's path behind it. */
-function stratShotSVG(hole, r, line, n, mode){
+function stratShotSVG(hole, r, line, n, mode, place){
   if(!r||r.blocked) return '';
   const ypu=cfYardsPerUnit(hole); if(ypu==null) return '';
   mode=mode||'full';
@@ -1449,10 +1529,14 @@ function stratShotSVG(hole, r, line, n, mode){
   /* An ANCHORED shot has no dispersion left to draw — the ball is where it is. The ellipse
      gives way to a solid line to the recorded finish, and the dashed intention stays behind
      it at low opacity so the gap between aim and result is the thing you see. */
-  const at=end||aim, top=end?-24:-ry-13;
+  /* Labels go ABOVE the aim, or BELOW it when another full label is already above — see
+     stratOverlay. Above and below, not left and right: a hole is tall and thin, so there is
+     room along it and none across it, and side labels ran off the edge of a phone-width crop. */
+  const below=(place==='below');
+  const at=end||aim, top=below ? (end?24:ry+13) : (end?-24:-ry-13);
   const lbl=(txt,off,size)=>`<text x="${at.x.toFixed(1)}" y="${(at.y+off).toFixed(1)}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="${size}" font-weight="700" fill="${col}" stroke="#14351d" stroke-width="8" paint-order="stroke">${txt}</text>`;
   let s=`<line x1="${from.x.toFixed(1)}" y1="${from.y.toFixed(1)}" x2="${aim.x.toFixed(1)}" y2="${aim.y.toFixed(1)}" stroke="${col}" stroke-width="${dim?2:compact?2.5:3.5}" stroke-dasharray="14,10" opacity="${(op*(end?0.45:0.9)).toFixed(2)}"/>`;
-  if(!dim&&!end) s+=`<g transform="rotate(${ang.toFixed(1)} ${aim.x.toFixed(1)} ${aim.y.toFixed(1)})">
+  if(!dim&&!end&&stratLayers().disp) s+=`<g transform="rotate(${ang.toFixed(1)} ${aim.x.toFixed(1)} ${aim.y.toFixed(1)})">
       <ellipse cx="${aim.x.toFixed(1)}" cy="${aim.y.toFixed(1)}" rx="${rx.toFixed(1)}" ry="${ry.toFixed(1)}"
         fill="${col}" fill-opacity="${compact?0.10:0.18}" stroke="${col}" stroke-opacity="${compact?0.6:0.95}" stroke-width="${compact?2.5:3.5}"/></g>`;
   if(end) s+=`<line x1="${from.x.toFixed(1)}" y1="${from.y.toFixed(1)}" x2="${end.x.toFixed(1)}" y2="${end.y.toFixed(1)}" stroke="${col}" stroke-width="${compact?3:4.5}" opacity="${op}"/>
@@ -1470,12 +1554,14 @@ function stratShotSVG(hole, r, line, n, mode){
   const dist=Math.round(end?r.endYd:r.geoYd);
   const sg = r.sg!=null ? `SG ${r.sg>0?'+':''}${r.sg.toFixed(2)}${r.sgActual?' actual':''}` : '';
   const head = `${end?'⚓ ':''}${ydNum(dist)} ${ydUnit()}${sg?' · '+sg:''}`;
-  if(compact) return s+lbl(head, top-8, 27);
+  if(compact) return s+lbl(head, below?top+30:top-8, 27);
   /* 36 units apart, not the 30 the font size suggests: the halo stroke adds ~4 units to each
      glyph box, so a gap set to the font size alone leaves the two lines touching. */
-  s+=lbl(head, top-36, 30);
+  /* 36 units between the two lines either way; below the aim the first line has to clear the
+     oval by its own cap height (~30) before it starts. */
+  s+=lbl(head, below?top+30:top-36, 30);
   const tp=end?r.endToPinYd:r.toPinYd, rem=r.sgActual?r.expAfter:r.mean;
-  if(tp!=null&&rem!=null) s+=lbl(`${ydNum(tp)} to pin · ${rem.toFixed(2)} rem`, top, 27);
+  if(tp!=null&&rem!=null) s+=lbl(`${ydNum(tp)} to pin · ${rem.toFixed(2)} rem`, below?top+64:top, 27);
   return s;
 }
 function stratOverlay(hole, chains, n){
@@ -1489,12 +1575,22 @@ function stratOverlay(hole, chains, n){
       s+=stratShotSVG(hole,r,l,i+1, l==='O'?'dim':'compact');
     });
   });
-  /* the shot being edited, in full, on top */
-  SHOT_LINES.filter(l=>l!==S.active).forEach(l=>{
-    const r=(chains[l]||[])[n-1]; if(r) s+=stratShotSVG(hole,r,l,n,'full');
-  });
+  /* the shot being edited, in full, on top. When BOTH lines have a full label for this shot
+     their aims are usually close — two answers to the same question — and two two-line labels
+     centred above two nearby points printed on top of each other. The line whose aim is
+     further up the hole keeps its label above; the other goes below its own aim. */
   const act=(chains[S.active]||[])[n-1];
-  if(act) s+=stratShotSVG(hole,act,S.active,n,'full');
+  const other=SHOT_LINES.filter(l=>l!==S.active).map(l=>({l, r:(chains[l]||[])[n-1]})).filter(o=>o.r&&!o.r.blocked);
+  const yOf=r=>((r.end||r.aim)||{}).y;
+  const both=act&&!act.blocked&&other.length;
+  other.forEach(o=>{
+    const place = both && yOf(o.r)>yOf(act) ? 'below' : 'above';
+    s+=stratShotSVG(hole,o.r,o.l,n,'full',place);
+  });
+  if(act){
+    const place = both && other.some(o=>yOf(o.r)<=yOf(act)) ? 'below' : 'above';
+    s+=stratShotSVG(hole,act,S.active,n,'full',place);
+  }
   if(chains.__ball) s+=`<circle cx="${chains.__ball.x}" cy="${chains.__ball.y}" r="13" fill="#fff" stroke="#111" stroke-width="3"/>`;
   return s;
 }
@@ -1562,10 +1658,18 @@ function buildHoleOverlay(){
   const cOpts=courses.map((c,i)=>`<option value="${i}"${i===ci?' selected':''}>${escapeHtml(c.name||'Course')}</option>`).join('');
   const hOpts=holes.map((h,i)=>`<option value="${i}"${i===hi?' selected':''}>Hole ${h.num||i+1} · par ${h.par||4}</option>`).join('');
   const S=window.stratShot;
-  const head=`<div class="section-label">Hole Overlays <span class="proto-badge">prototype</span></div>
-    <div class="strat-hole-row">
-      <select class="strat-select" style="max-width:200px" onchange="stratSetCourse(this.value)">${cOpts}</select>
-      <select class="strat-select" style="max-width:160px" onchange="stratSetHole(this.value)">${hOpts}</select>
+  /* ONE TITLE LINE, where there were a section heading, two dropdowns and a caption repeating
+     them. ‹ › walk the holes in order; the hole name IS the dropdown, for jumping; the course
+     rides in the second line, because it changes once a round and the hole changes eighteen
+     times. The sub-tab already says "Hole Overlay", so the heading was saying it twice. */
+  const hYd=(hole&&cfHasScale(hole)&&hole.tee&&cfPin(hole))?cfDistYd(hole,hole.tee,hole.pin):null;
+  const head=`<div class="ho-title">
+      <button type="button" class="ho-nav" onclick="stratStepHole(-1)" aria-label="Previous hole">‹</button>
+      <div class="ho-title-main">
+        <div class="ho-t1"><select class="ho-hole" onchange="stratSetHole(this.value)" aria-label="Hole">${hOpts}</select>${hYd!=null?`<span class="ho-yd">${fmtYd(hYd)}</span>`:''}</div>
+        <div class="ho-t2"><select class="ho-course" onchange="stratSetCourse(this.value)" aria-label="Course">${cOpts}</select><span class="ho-t2-x" id="ho-t2-x"></span></div>
+      </div>
+      <button type="button" class="ho-nav" onclick="stratStepHole(1)" aria-label="Next hole">›</button>
     </div>`;
   if(!hole){ wrap.innerHTML=head+`<div class="lvl-soon-note">This course has no holes yet.</div>`; return; }
   if(!cfHasScale(hole) || !hole.tee || !cfPin(hole)){
@@ -1601,8 +1705,6 @@ function buildHoleOverlay(){
   chains.__ball = (shots[S.active]&&shots[S.active].from) || stratBallFor(hole,S.active,n);
 
   const holeYd=cfDistYd(hole,hole.tee,hole.pin);
-  const shotBtns=Array.from({length:maxShot},(_,i)=>i+1).map(i=>
-    `<button type="button" class="strat-pick${i===n?' active':''}" onclick="stratSetShotNum(${i})">Shot ${i}</button>`).join('');
 
   /* One table, metrics down the side and the three lines across — far less vertical space
      than three stacked cards, and it lines the numbers up for comparison, which is the
@@ -1775,39 +1877,73 @@ function buildHoleOverlay(){
     return `<div class="cv-row"><span class="cv-lbl">Cover</span>${items}${
       carry!=null?`<span class="cv-carry">${shot.label} carries <b>${fmtYd(carry)}</b></span>`:''}</div>`;
   })();
-  /* GONE, for now, at Mark's call: the shape-fit sentence (it reported a curve worth zero
-     fairway points on a straight hole \u2014 true and useless), the cover numbers, the strategy
-     preference box and its caption, the pin-sheet row, and the round / pin-sheet tables. This
-     tab is now one question: what is the best way to play this hole, and how does the shot I
-     picked compare. Everything removed is still built and exported \u2014 stratShapeFit,
-     cfCoverNumbers, stratRoundTable, stratPinSheetGrid, the pin-sheet functions \u2014 so putting
-     any of it back is a line of markup, not a rewrite. */
-  /* Controls span the top, where you reach for them and where they cost the map nothing.
-     The map then takes the width its portrait aspect can actually use, and everything else
-     goes beside it — which is where the 467px of empty letterbox used to be.
+  /* Taken off at Mark's call for clutter, and back now as LAYERS rather than permanent rows:
+     cover numbers (Cover) and the pin-sheet row (Pin). Still built and exported but not shown:
+     the shape-fit sentence, the strategy-preference caption (prefWhy), and the round and
+     pin-sheet tables (stratRoundTable, stratPinSheetGrid).
 
-     NOTE for the next pass: the hole is drawn bottom-to-top in a 1000x1400 field, so on a
-     landscape screen the picture is height-bound and most of the row is unusable no matter
-     how the boxes are arranged. Drawing the hole LEFT-TO-RIGHT would roughly double it. That
-     is a renderHoleSVG change — one rotation transform on the scene, counter-rotations on
-     the labels and the flag, and the inverse in stratDragInit's ptOf. */
-  wrap.innerHTML=head+`
-    <div class="sh-bar">
-      <div class="sh-head">Hole ${hole.num||hi+1} · par ${hole.par||4} · ${fmtYd(holeYd)}${ballWhere}</div>
-      <div class="sh-bar-ctl">
-        <div class="strat-picks">${shotBtns}</div>
-        <div class="strat-picks">
-          <button type="button" class="strat-mode-btn${cmpOn?' on':''}" onclick="stratToggleCompare()" title="${cmpOn?'Stop scoring your line against the optimal one':'Score your line against the optimal one'}">⇄ compare${cmpOn?' — on':''}</button>
-          <button type="button" class="strat-mode-btn" onclick="stratResetAim()">↺ reset</button>
-        </div>
-        ${anchorRow}
+     ROTATION, checked and set aside: rotating each hole so tee-to-pin runs up the screen was
+     the obvious fix for a map that was mostly empty green, but every OSM-imported hole is
+     ALREADY drawn that way (tee-to-pin at 0 degrees on all 54 holes of the three sample
+     courses). The empty green came from cropping a long, thin hole into a near-square box;
+     stratMapSize fixes that by matching the crop to the screen. Rotation would only help a
+     hand-traced hole drawn at an angle. If that becomes common it is one transform in
+     renderHoleSVG, counter-rotated labels and flag, and the inverse in stratDragInit's ptOf. */
+  /* ---- THE LAYOUT: title, layers, map, sheet ----
+     Measured first, so the crop is padded to the box it is about to be drawn in. */
+  const size=stratMapSize(wrap);
+  const L=stratLayers();
+  const open=!size.phone || !!window.stratSheetOpen;
+  /* second title line: the pin, then where the ball is */
+  /* Short enough that course, pin and ball fit one line on a phone — the long form wrapped and
+     left a separator dangling at the start of the second line. */
+  const pinTxt = (cut&&paces) ? `pin ${ydNum(paces.fromFront)} on, ${ydNum(paces.fromLeft)} left`
+               : prog ? `${escapeHtml(prog.name)}: middle` : 'pin: middle';
+  const t2x = ` · ${pinTxt}${ballWhere}`;
+  const title = head.replace('<span class="ho-t2-x" id="ho-t2-x"></span>', `<span class="ho-t2-x">${t2x}</span>`);
+  const layers=`<div class="ho-layers" role="group" aria-label="Map layers">${STRAT_LAYERS.map(l=>
+      `<button type="button" class="ho-chip${L[l.key]?' on':''}" aria-pressed="${!!L[l.key]}" onclick="stratToggleLayer('${l.key}')">${l.label}</button>`).join('')}</div>`;
+  /* The stepper: which shot of the plan you are looking at. Not a tap on the map — any touch
+     there is an aim drag, and a tap that sometimes selects and sometimes aims is worse than a
+     row of three buttons. */
+  const stepper=`<div class="ho-steps" role="group" aria-label="Shot">${Array.from({length:maxShot},(_,i)=>i+1).map(i=>
+      `<button type="button" class="ho-step${i===n?' on':''}" onclick="stratSetShotNum(${i})" aria-label="Shot ${i}">${i}</button>`).join('')}</div>`;
+  /* THE ANSWER, in two lines: what to hit and what it leaves, for each plan. This is the whole
+     sheet when it is collapsed — the rest is the working, one tap away. */
+  const sumLine=l=>{
+    const r=shots[l];
+    const nm = l==='O' ? 'Optimal' : 'Yours';
+    if(!r) return `<div class="ho-sum-line ln-${l}"><span class="ho-sum-k">${nm}</span><span class="ho-sum-v">—</span></div>`;
+    if(r.blocked) return `<div class="ho-sum-line ln-${l}"><span class="ho-sum-k">${nm}</span><span class="ho-sum-v"><i>${blockedTxt(r)}</i></span></div>`;
+    const left=r.sgActual?r.expAfter:r.mean;
+    return `<div class="ho-sum-line ln-${l}"><span class="ho-sum-k">${nm}</span>
+      <span class="ho-sum-club">${r.shot.label}</span>
+      <span class="ho-sum-v">${fmtYd(r.geoYd)}</span>
+      <span class="ho-sum-left">${left!=null?left.toFixed(2):'—'} <i>left</i></span></div>`;
+  };
+  const sheetHead=`<div class="ho-sheet-head">
+      ${stepper}
+      <div class="ho-sheet-ctl">
+        <button type="button" class="strat-mode-btn${cmpOn?' on':''}" onclick="stratToggleCompare()" title="${cmpOn?'Stop scoring your line against the optimal one':'Score your line against the optimal one'}">⇄ compare</button>
+        <button type="button" class="strat-mode-btn" onclick="stratResetAim()" title="Back to your strategy preferences">↺ reset</button>
+        ${size.phone?`<button type="button" class="ho-expand" onclick="stratToggleSheet()" aria-expanded="${open}" aria-label="${open?'Collapse':'Expand'} details">${open?'▾':'▴'}</button>`:''}
       </div>
-    </div>
+    </div>`;
+  const detail=`<div class="ho-detail">
+      ${table}
+      ${verdict?`<div class="sh-below-notes">${verdict}</div>`:''}
+      ${L.cover&&coverRow?coverRow:''}
+      ${anchorRow}
+    </div>`;
+  wrap.classList.toggle('ho-phone', size.phone);
+  wrap.innerHTML=title+layers+`
+    ${L.pin?`<div class="ho-pin">${pinRow}</div>`:''}
     <div class="strat-hole-grid">
-      <div class="strat-hole-map">${renderHoleSVG(hole,{viewBox:stratViewBox(), overlay:`<g id="strat-overlay">${stratOverlay(hole,chains,n)}</g>`})}</div>
-      <div class="sh-side">
-        ${table}
-        ${verdict?`<div class="sh-below-notes">${verdict}</div>`:''}
+      <div class="strat-hole-map" style="width:${size.w}px">${renderHoleSVG(hole,{viewBox:stratViewBox(), overlay:`<g id="strat-overlay">${stratOverlay(hole,chains,n)}</g>`})}</div>
+      <div class="sh-side ho-sheet${open?' open':''}">
+        ${sheetHead}
+        ${size.phone&&!open?`<div class="ho-sum" onclick="stratToggleSheet()">${['O','S'].map(sumLine).join('')}</div>`:''}
+        ${open?detail:''}
       </div>
     </div>`;
   stratDragInit(wrap);
@@ -1901,7 +2037,8 @@ function stratDragInit(wrap){
   },{passive:false});
 }
 
-Object.assign(window, { stratBenchMean, stratSkillKey, stratHcpNum,
+Object.assign(window, { stratScrollToTitle, stratMapSize, stratStepHole, stratLayers, stratToggleLayer, stratToggleSheet, STRAT_LAYERS, STRAT_PHONE_MAX,
+  stratBenchMean, stratSkillKey, stratHcpNum,
   AIM_Z, AIM_W, AIM_CI90, AIM_LAT_SWEEP, AIM_LAT_STEP, AIM_NODES, aimSetNodes,
   aimSigmaLat, aimSigmaDist, aimSamples, aimObjective, aimTail, aimScore, aimClubs,
   optimiseAim, stratSetCourse, stratSetHole, buildHoleOverlay,
