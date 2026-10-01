@@ -664,6 +664,7 @@ function buildPostRound(){
   wrap.innerHTML=`
     ${typeof pmSgCardHTML==='function'?pmSgCardHTML():''}
     ${typeof pmPlanReviewHTML==='function'?pmPlanReviewHTML():''}
+    ${typeof pmCustomShotsHTML==='function'?pmCustomShotsHTML():''}
     <div class="profile-card" style="margin-top:0">
       <h3>1 · Round Snapshot <span style="${PS_SUB}">the numbers that drive strokes-gained</span></h3>
       <div class="edit-grid">

@@ -122,7 +122,7 @@ function pmGo(i){
   const r=pmRound(), n=pmHoles().length; if(!r||!n) return;
   const leftE=(r.holes||{})[pmHoleNum(pmHoles()[r.cur], r.cur)];
   if(leftE&&leftE.shots&&leftE.shots.length) leftE.done=true;   /* walked off = holed out */
-  r.cur=((i%n)+n)%n; window.pmTarget=null; window.pmPlacing=null; pmTouch(); buildPlay(); pmSyncButtons();
+  r.cur=((i%n)+n)%n; window.pmTarget=null; window.pmPlacing=null; window.pmShotOpen=null; pmTouch(); buildPlay(); pmSyncButtons();
 }
 /* A hole changed BY HAND pauses auto-detection: the golfer's choice outranks the guess. */
 function pmStep(d){ const r=pmRound(); if(r){ pmAutoHold(); pmGo(r.cur+d); } }
@@ -205,6 +205,7 @@ function pmFinish(){
   /* strokes gained from the shots logged \u2014 computed now, never during the round */
   try{ r.sg=pmRoundSG(r); }catch(_){ r.sg=null; }
   /* and against the frozen plan, priced now on the player model the plan was made with */
+  try{ pmShotValues(r); }catch(_){}
   try{ r.planReview=r.plan?pmPlanReview(r):null; }catch(_){ r.planReview=null; }
   if(r.tournament) r.tournament.endedAt=r.endedAt;
   pmState().rounds.push(r); pmState().round=null; saveState();
@@ -463,7 +464,8 @@ function pmPlanChain(h, mode){
     const r=stratScoreShot(h, from, aim); if(!r||r.blocked||r.mean==null) break;
     const onGreen=cfLieAt(h,aim)==='green';
     shots.push({ from:{x:Math.round(from.x),y:Math.round(from.y)}, aim,
-                 club:(r.shot&&r.shot.label)||'', yd:Math.round(r.geoYd*10)/10,
+                 club:(r.shot&&r.shot.label)||'', clubId:(r.shot&&r.shot.id)||null, detail:(r.shot&&r.shot.detail)||'',
+                 yd:Math.round(r.geoYd*10)/10,
                  toPin:r.toPinYd!=null?Math.round(r.toPinYd):null, toMid:r.toMidYd!=null?Math.round(r.toMidYd):null,
                  onGreen, aimTxt:pmPlanAimTxt(h, from, aim), mean:r.mean });
     const left=cfDistToPinYd(h,aim);
@@ -553,7 +555,7 @@ function pmPlanFreeze(c, pl){
   Object.values(pl.holes||{}).forEach(row=>{
     const pick = row.method==='model' ? ((row.pick==='mine' && row.mine && row.mine.length) ? 'mine' : 'opt') : null;
     holes[row.num]={ num:row.num, par:row.par, yards:row.yards, method:row.method, pick, same:!!row.same,
-                     shots: pick ? (row[pick]||[]).map(s=>({club:s.club, yd:s.yd, from:s.from, aim:s.aim, toPin:s.toPin,
+                     shots: pick ? (row[pick]||[]).map(s=>({club:s.club, clubId:s.clubId||null, detail:s.detail||'', yd:s.yd, from:s.from, aim:s.aim, toPin:s.toPin,
                                                               toMid:s.toMid, onGreen:s.onGreen, aimTxt:s.aimTxt})) : [],
                      exp: pmPlanExp(row), note: (pl.notes||{})[row.num]||'' };
   });
@@ -590,8 +592,9 @@ function pmSetupPlanHTML(c){
       </div>
     </div>`;
 }
+function pmPlanClubTxt(s){ return `${s.club}${s.detail&&s.detail!=='full swing'?' '+s.detail.split(' ')[0]:''}`; }
 function pmPlanChainHTML(shots){
-  return shots.map(s=>`<span class="pm-ch"><b>${escapeHtml(s.club)}</b> ${ydNum(s.yd)}<i>${escapeHtml(s.aimTxt||'')}</i></span>`).join('<span class="pm-ch-arrow">→</span>');
+  return shots.map(s=>`<span class="pm-ch"><b>${escapeHtml(pmPlanClubTxt(s))}</b> ${ydNum(s.yd)}<i>${escapeHtml(s.aimTxt||'')}</i></span>`).join('<span class="pm-ch-arrow">→</span>');
 }
 function pmPlanHTML(){
   const c=pmSetupCourse();
@@ -636,7 +639,7 @@ function pmPlanStripHTML(h, e){
   if(!S.length && !p.note) return '';
   const cur=S[k];
   return `<div class="pm-pstrip"><span class="pm-pstrip-k">Plan</span>
-      <span class="pm-pstrip-c">${S.map((s,i)=>`<span class="${i===k?'cur':i<k?'done':''}"><b>${escapeHtml(s.club)}</b> ${ydNum(s.yd)}</span>`).join('<i>→</i>')}</span>
+      <span class="pm-pstrip-c">${S.map((s,i)=>`<span class="${i===k?'cur':i<k?'done':''}"><b>${escapeHtml(pmPlanClubTxt(s))}</b> ${ydNum(s.yd)}</span>`).join('<i>→</i>')}</span>
       ${cur&&cur.aimTxt?`<span class="pm-pstrip-a">${escapeHtml(cur.aimTxt)}</span>`:''}
       ${p.note?`<span class="pm-pstrip-n">“${escapeHtml(p.note)}”</span>`:''}</div>`;
 }
@@ -649,7 +652,7 @@ function pmPlanSVG(h, pxPerUnit, fs){
   p.shots.forEach(q=>{ s+=`<line x1="${q.from.x}" y1="${q.from.y}" x2="${q.aim.x}" y2="${q.aim.y}" stroke="#f4d47a" stroke-width="${sw.toFixed(1)}" stroke-dasharray="${dash}" stroke-linecap="round"/>`; });
   p.shots.forEach(q=>{
     s+=`<circle cx="${q.aim.x}" cy="${q.aim.y}" r="${rr.toFixed(1)}" fill="#f4d47a" stroke="#14351d" stroke-width="${(1.5/pxPerUnit).toFixed(1)}"/>`;
-    s+=`<text x="${(q.aim.x+rr*1.6).toFixed(1)}" y="${(q.aim.y+fs*0.35).toFixed(1)}" font-family="ui-monospace,monospace" font-size="${fs.toFixed(1)}" font-weight="700" fill="#f4d47a" stroke="#14351d" stroke-width="${(4/pxPerUnit).toFixed(1)}" paint-order="stroke">${escapeHtml(q.club)} ${ydNum(q.yd)}</text>`;
+    s+=`<text x="${(q.aim.x+rr*1.6).toFixed(1)}" y="${(q.aim.y+fs*0.35).toFixed(1)}" font-family="ui-monospace,monospace" font-size="${fs.toFixed(1)}" font-weight="700" fill="#f4d47a" stroke="#14351d" stroke-width="${(4/pxPerUnit).toFixed(1)}" paint-order="stroke">${escapeHtml(pmPlanClubTxt(q))} ${ydNum(q.yd)}</text>`;
   });
   return s;
 }
@@ -805,6 +808,130 @@ function pmHoledOut(){
 }
 function pmShotReopen(){ const e=pmCurEntry(); if(e){ e.done=false; pmTouch(); buildPlay(); pmSyncButtons(); } }
 
+/* ---- THE CLUB, and anything about the shot that was not stock ----
+   Optional on every shot, never guessed: a club filled in from the plan would make "you hit
+   the planned club" true by default, which is the one thing the review needs to be able to
+   tell. A green row with no club is a putt with the putter.
+   The drawer records a shot played OFF its stock pattern, in real units where there is one:
+     shape   draw | fade, with the curve you intended in yards
+     height  low | high
+     swing   3/4 | 1/2 (full is stock)
+     grip    inches choked down on the shaft
+     note    anything else
+   Recording what you did is allowed in a tournament round; nothing here advises. */
+const PM_CX_SWING = {tq:'¾ swing', half:'½ swing'};
+window.pmShotOpen = (window.pmShotOpen==null) ? null : window.pmShotOpen;
+function pmBagClub(id){ return (STATE.clubs||[]).find(c=>c.id===id) || null; }
+function pmClubName(id){ const c=pmBagClub(id); return c ? c.label : ''; }
+function pmShotSetClub(i, id){
+  const e=pmCurEntry(); if(!e||!e.shots||!e.shots[i]) return;
+  if(id) e.shots[i].club=id; else delete e.shots[i].club;
+  pmTouch(); buildPlay();
+}
+function pmShotCxToggle(i){ window.pmShotOpen = window.pmShotOpen===i ? null : i; buildPlay(); }
+function pmShotCx(i, key, val){
+  const e=pmCurEntry(); if(!e||!e.shots||!e.shots[i]) return;
+  const sh=e.shots[i], cx=Object.assign({}, sh.cx||{});
+  if(key==='shape'){ if(!val || cx.shape===val){ delete cx.shape; delete cx.curve; } else { cx.shape=val; if(!(cx.curve>0)) cx.curve=10; } }
+  else if(key==='curve'){ const v=Math.max(5, Math.min(60, (cx.curve||10)+val)); if(cx.shape) cx.curve=v; }
+  else if(key==='height'){ if(!val || cx.height===val) delete cx.height; else cx.height=val; }
+  else if(key==='swing'){ if(!val || cx.swing===val) delete cx.swing; else cx.swing=val; }
+  else if(key==='grip'){ const v=Math.round(Math.max(0, Math.min(4, (cx.grip||0)+val))*2)/2; if(v>0) cx.grip=v; else delete cx.grip; }
+  if(Object.keys(cx).length) sh.cx=cx; else delete sh.cx;
+  pmTouch(); buildPlay();
+}
+function pmShotCxNote(i, txt){
+  const e=pmCurEntry(); if(!e||!e.shots||!e.shots[i]) return;
+  const sh=e.shots[i], t=String(txt||'').trim().slice(0,140), cx=Object.assign({}, sh.cx||{});
+  if(t) cx.note=t; else delete cx.note;
+  if(Object.keys(cx).length) sh.cx=cx; else delete sh.cx;
+  pmTouch();
+}
+function pmFrac(v){ const w=Math.floor(v), f=v-w; return f>=0.5 ? (w?`${w}½`:'½') : String(w); }
+/* The tag on the row, and everywhere a non-stock shot is listed afterwards. */
+function pmCxTxt(cx, withNote){
+  if(!cx) return '';
+  const p=[];
+  if(cx.shape) p.push(`${cx.shape==='draw'?'Draw':'Fade'} ${ydNum(cx.curve||10)} ${ydUnit()}`);
+  if(cx.height) p.push(cx.height==='low'?'Low':'High');
+  if(cx.swing) p.push(PM_CX_SWING[cx.swing]);
+  if(cx.grip) p.push(`Down ${pmFrac(cx.grip)} in`);
+  if(withNote && cx.note) p.push(`“${cx.note}”`);
+  return p.join(' · ');
+}
+function pmCxHTML(sh, i){
+  const cx=sh.cx||{};
+  const seg=(key, opts)=>`<div class="pm-cx-seg">${opts.map(([v,l])=>{ const on=(cx[key]||'')===v;
+      return `<button type="button" class="${on?'on':''}" aria-pressed="${on}" onclick="pmShotCx(${i},'${key}','${v}')">${l}</button>`; }).join('')}</div>`;
+  return `<div class="pm-cx">
+      <div class="pm-cx-row"><span>Shape</span>${seg('shape',[['draw','Draw'],['','Stock'],['fade','Fade']])}</div>
+      ${cx.shape?`<div class="pm-cx-row"><span>Curve</span><div class="pm-cx-step">
+          <button type="button" onclick="pmShotCx(${i},'curve',-5)" aria-label="Less curve">−</button>
+          <b>${ydNum(cx.curve||10)} ${ydUnit()}</b>
+          <button type="button" onclick="pmShotCx(${i},'curve',5)" aria-label="More curve">+</button></div></div>`:''}
+      <div class="pm-cx-row"><span>Height</span>${seg('height',[['low','Low'],['','Stock'],['high','High']])}</div>
+      <div class="pm-cx-row"><span>Swing</span>${seg('swing',[['','Full'],['tq','¾'],['half','½']])}</div>
+      <div class="pm-cx-row"><span>Grip down</span><div class="pm-cx-step">
+          <button type="button" onclick="pmShotCx(${i},'grip',-0.5)" aria-label="Grip down less">−</button>
+          <b>${cx.grip?pmFrac(cx.grip)+' in':'none'}</b>
+          <button type="button" onclick="pmShotCx(${i},'grip',0.5)" aria-label="Grip down half an inch more">+</button></div></div>
+      <input type="text" class="pm-cx-note" maxlength="140" placeholder="Anything else about this shot" value="${escapeHtml(cx.note||'')}" onchange="pmShotCxNote(${i}, this.value)">
+    </div>`;
+}
+
+/* ---- every shot's value against YOUR average, at Finish ----
+   E_player(start) - E_player(next start) - 1 - penalty, on the player model: how this shot did
+   against what you average from there. Used where a single shot is judged (the non-stock list)
+   and kept apart from the benchmark strokes gained (sh.sg), which answers a different question. */
+function pmShotValues(r){
+  Object.values(r.holes||{}).forEach(e=>{
+    const S=e&&e.shots; if(!S||!S.length) return;
+    if(S.some(x=>x.yd==null||!x.lie)) return;
+    S.forEach((sh,k)=>{
+      const a=pmPlayerE(sh), nx=S[k+1], b=nx?pmPlayerE(nx):0;
+      if(a==null||b==null) return;
+      sh.pv=Math.round((a-b-1-(sh.pen?1:0))*1000)/1000;
+    });
+  });
+}
+/* Post-Round: the round's non-stock shots, and the same kinds across every saved round, so the
+   ones you play off-pattern can be kept honest over time. */
+const PM_CX_KINDS = [
+  ['draw', 'Shaped draws', cx=>cx.shape==='draw'],
+  ['fade', 'Shaped fades', cx=>cx.shape==='fade'],
+  ['low',  'Low shots',    cx=>cx.height==='low'],
+  ['high', 'High shots',   cx=>cx.height==='high'],
+  ['part', 'Part swings',  cx=>!!cx.swing],
+  ['grip', 'Gripped down', cx=>cx.grip>0]
+];
+function pmCustomShotsHTML(){
+  const R=(STATE.play&&STATE.play.rounds)||[]; const r=R[R.length-1];
+  if(!r) return '';
+  const c=(STATE.courses||[]).find(x=>(x.id||x.name)===r.courseKey), hs=(c&&c.holes)||[];
+  const f=x=>`${x>=0?'+':'−'}${Math.abs(x).toFixed(2)}`;
+  const list=[];
+  hs.forEach((h,i)=>{ const num=pmHoleNum(h,i), e=(r.holes||{})[num];
+    ((e&&e.shots)||[]).forEach((sh,k)=>{ if(sh.cx) list.push({num, k, sh}); }); });
+  if(!list.length) return '';
+  const where=sh=>sh.yd==null?'':`${PM_LIE_NAME[sh.lie]||sh.lie} ${sh.lie==='green'?ftNum(sh.yd*3)+' '+ftUnit():ydNum(sh.yd)}`;
+  const rows=list.map(({num,k,sh})=>`<div class="pm-cs-row">
+      <span class="pm-cs-h">${num}<i>shot ${k+1}</i></span>
+      <span class="pm-cs-m"><b>${escapeHtml(pmClubName(sh.club)||'—')}</b> ${escapeHtml(where(sh))}<em>${escapeHtml(pmCxTxt(sh.cx, true))}</em></span>
+      <b class="pm-cs-v ${sh.pv!=null&&sh.pv<0?'neg':''}">${sh.pv!=null?f(sh.pv):''}</b></div>`).join('');
+  /* every round on record, by kind */
+  const agg=PM_CX_KINDS.map(([key,label,test])=>{ let n=0, sum=0, nv=0;
+    R.forEach(rr=>Object.values(rr.holes||{}).forEach(e=>((e&&e.shots)||[]).forEach(sh=>{
+      if(sh.cx && test(sh.cx)){ n++; if(sh.pv!=null){ sum+=sh.pv; nv++; } } })));
+    return {key,label,n,avg:nv?sum/nv:null,nv}; }).filter(a=>a.n);
+  return `<div class="profile-card pm-cs-card">
+      <h3>Non-stock shots — ${escapeHtml(r.courseName||'last round')}</h3>
+      <div class="pm-cs-list">${rows}</div>
+      ${agg.length?`<div class="pm-cs-agg"><div class="pm-cs-agg-h">Every round on record <span>average a shot, against your own average from the same spot</span></div>
+        ${agg.map(a=>`<div class="pm-cs-agg-r"><span>${a.label}</span><i>${a.n} shot${a.n===1?'':'s'}</i><b class="${a.avg!=null&&a.avg<0?'neg':''}">${a.avg!=null?f(a.avg):'—'}</b></div>`).join('')}</div>`:''}
+      <p class="pm-note">Each number is the shot against what you average from where it was played, in strokes. A shot needs its distance and the next shot's distance to be valued.</p>
+    </div>`;
+}
+
 /* ---- PLAN VS PLAYED, after the round ----
    The frozen plan said what each hole should cost on average; the shots say what happened.
    The gap per hole splits exactly in two, both priced on YOUR player model (the one the plan
@@ -828,11 +955,11 @@ function pmPlanReview(r){
   const c=(STATE.courses||[]).find(x=>(x.id||x.name)===r.courseKey);
   const hs=(c&&c.holes)||[];
   const rows=[], offs=[];
-  const tot={plan:0, played:0, n:0, tee:0, after:0, nSplit:0};
+  const tot={plan:0, played:0, n:0, tee:0, after:0, nSplit:0, fol:{n:0, yes:0, teeYes:0, nYes:0, teeNo:0, nNo:0}};
   hs.forEach((h,i)=>{
     const num=pmHoleNum(h,i), p=r.plan.holes[num], e=(r.holes||{})[num];
     if(!p) return;
-    const row={ num, par:p.par||h.par||4, plan:(p.shots||[]).map(s=>({club:s.club, yd:s.yd})),
+    const row={ num, par:p.par||h.par||4, plan:(p.shots||[]).map(s=>({club:pmPlanClubTxt(s), yd:s.yd})),
                 leaveYd:(p.shots&&p.shots[0]&&!p.shots[0].onGreen)?p.shots[0].toPin:null,
                 exp:p.exp, score:(e&&e.s!=null)?e.s:null, note:p.note||'' };
     if(row.exp!=null && row.score!=null){ row.vs=row.exp-row.score; tot.plan+=row.exp; tot.played+=row.score; tot.n++; }
@@ -846,6 +973,15 @@ function pmPlanReview(r){
         if(S[1]) row.found={lie:S[1].lie, yd:S[1].yd};
         tot.tee+=row.tee; tot.after+=row.after; tot.nSplit++;
       }
+    }
+    /* the club you hit off the tee against the one the plan chose */
+    const pc=p.shots&&p.shots[0], hit=S[0]&&S[0].club;
+    if(pc && hit){
+      row.hitClub=pmClubName(hit); row.planClub=pmPlanClubTxt(pc);
+      row.followed = pc.clubId ? pc.clubId===hit : pc.club===row.hitClub;
+      row.hitCx = S[0].cx ? pmCxTxt(S[0].cx,false) : '';
+      tot.fol.n++; if(row.followed) tot.fol.yes++;
+      if(row.tee!=null){ if(row.followed){ tot.fol.teeYes+=row.tee; tot.fol.nYes++; } else { tot.fol.teeNo+=row.tee; tot.fol.nNo++; } }
     }
     /* where the tee shot finished against where the plan aimed it */
     const a=p.shots&&p.shots[0], q=S[1]?pmShotPt(h,S[1]):null, ypu=cfYardsPerUnit(h);
@@ -882,7 +1018,8 @@ function pmPlanReviewHTML(){
   const rows=v.rows.filter(w=>w.score!=null).map(w=>{
     const plan=w.plan.length?w.plan.map(s=>`<b>${escapeHtml(s.club)}</b> ${ydNum(s.yd)}`).join(' → '):'<i>score only</i>';
     const found=w.found?`${PM_LIE_NAME[w.found.lie]||w.found.lie} ${w.found.lie==='green'?ftNum(w.found.yd*3)+' '+ftUnit():ydNum(w.found.yd)}${w.leaveYd!=null&&w.found.lie!=='green'?` <i>(plan: ${ydNum(w.leaveYd)} to go)</i>`:''}`:'';
-    const line2=[found?`Tee shot finished: ${found}`:'', w.off?offTxt(w.off)+' of the plan spot':''].filter(Boolean).join(' · ');
+    const hitTxt = w.hitClub ? `Hit <b>${escapeHtml(w.hitClub)}</b>${w.followed?' (planned)':` \u2014 plan ${escapeHtml(w.planClub)}`}${w.hitCx?` \u00b7 ${escapeHtml(w.hitCx)}`:''}` : '';
+    const line2=[hitTxt, found?`Finished: ${found}`:'', w.off?offTxt(w.off)+' of the plan spot':''].filter(Boolean).join(' \u00b7 ');
     return `<div class="pm-pr-row">
         <div class="pm-pr-l1"><span class="pm-pr-h">${w.num}</span><span class="pm-pr-plan">${plan}</span>
           <span class="pm-pr-sc">${w.exp!=null?w.exp.toFixed(2):'—'} → <b>${w.score!=null?w.score:'—'}</b></span>
@@ -908,6 +1045,8 @@ function pmPlanReviewHTML(){
         <div><span>After the tee</span><b class="${cls(t.after)}">${f(t.after)}</b></div>
         <i>${t.nSplit===t.n?`all ${t.n} holes`:`${t.nSplit} of ${t.n} holes — the rest have no second shot logged`}</i></div>`:''}
       ${pat}
+      ${t.fol&&t.fol.n?`<p class="pm-pr-pat">Hit the planned club on <b>${t.fol.yes} of ${t.fol.n}</b> tee shot${t.fol.n===1?'':'s'} with a club recorded${
+        (t.fol.nYes||t.fol.nNo)?`: tee shots vs plan averaged ${t.fol.nYes?`<b class="${cls(t.fol.teeYes)}">${f(t.fol.teeYes/t.fol.nYes)}</b> when you did`:''}${t.fol.nYes&&t.fol.nNo?' and ':''}${t.fol.nNo?`<b class="${cls(t.fol.teeNo)}">${f(t.fol.teeNo/t.fol.nNo)}</b> when you did not`:''}`:''}.</p>`:''}
       <div class="pm-pr-list">${rows}</div>
       <p class="pm-note">The plan's number is your average for the line you chose. <b>Tee</b> is how the tee shot's finish compares with that average; <b>after</b> is how you played from there against your own expected strokes. They add up to the hole's total. One hole is mostly luck; the round's totals are what to read.</p>
     </div>`;
@@ -1338,13 +1477,22 @@ function pmShotListHTML(h, e){
           <div class="pm-shot-lies">${PM_LIES.map(([k,l])=>`<button type="button" class="${sh.lie===k?'on':''}" onclick="pmShotSetLie(${i},'${k}')">${l}</button>`).join('')}</div>
         </div>
         <div class="pm-shot-bot">
-          <label class="pm-shot-d"><input type="number" inputmode="decimal" min="0" step="${green?0.5:1}" value="${val}" placeholder="\\u2014"
+          <label class="pm-shot-d"><input type="number" inputmode="decimal" min="0" step="${green?0.5:1}" value="${val}" placeholder="\u2014"
             onchange="pmShotSetDist(${i},this.value)"><i>${green?ftUnit():ydUnit()} to hole</i></label>
           <span class="pm-shot-src">${srcTxt[sh.src]||sh.src}${sh.edited?', edited':''}</span>
           <button type="button" class="pm-shot-btn" onclick="pmShotPlace(${i})" title="Place this shot on the map">\u271a map</button>
           <button type="button" class="pm-shot-btn${sh.pen?' on':''}" onclick="pmShotTogglePen(${i})" title="A penalty stroke after this shot">+1 pen</button>
           <button type="button" class="pm-shot-btn pm-shot-del" onclick="pmShotDel(${i})" aria-label="Delete shot ${i+1}">\u2715</button>
         </div>
+        <div class="pm-shot-x">
+          <select class="pm-shot-club" onchange="pmShotSetClub(${i}, this.value)" aria-label="Club for shot ${i+1}">
+            <option value="">${green?'Putter':'Club'}</option>
+            ${(STATE.clubs||[]).map(c=>`<option value="${escapeHtml(c.id)}"${sh.club===c.id?' selected':''}>${escapeHtml(c.label)}${c.loft?` \u00b7 ${String(c.loft).replace(/\u00b0/g,'')}\u00b0`:''}</option>`).join('')}
+          </select>
+          <button type="button" class="pm-shot-cxbtn${sh.cx?' on':''}" onclick="pmShotCxToggle(${i})" aria-expanded="${window.pmShotOpen===i}">
+            ${sh.cx?escapeHtml(pmCxTxt(sh.cx,false)||'Note'):'Stock shot'} <span aria-hidden="true">${window.pmShotOpen===i?'\u25b4':'\u25be'}</span></button>
+        </div>
+        ${window.pmShotOpen===i?pmCxHTML(sh,i):''}
       </div>`;
   }).join('');
   return `<div class="pm-shots">
@@ -1543,7 +1691,8 @@ Object.assign(window, { PM_RESUME_HOURS, PM_NEAR_HOLE_YD, PM_GPS_MAX_ERR_M,
   pmToTournament, pmUnlockBegin, pmUnlockCancel, pmUnlockCheck, pmUnlockConfirm, pmUnlockHTML, pmTournHistoryHTML, PM_MIN_SPAN_YD,
   PM_AUTO_TEE_YD, PM_AUTO_NEAR_YD, PM_AUTO_FAR_YD, PM_AUTO_CONFIRM, PM_AUTO_HOLD_MS,
   pmHoleFit, pmRankHoles, pmAutoHold, pmAutoResume, pmAutoDetect, pmAutoBadge, pmAskSet, pmAskDone, pmAskHTML,
-  pmPlayerE, pmPlanReview, pmPlanReviewHTML, pmSetupSet, pmPlans, pmPlanStamp, pmPlanAimTxt, pmPlanChain, pmPlanHole, pmPlanExp, pmPlanBuild, pmPlanOpen, pmPlanClose,
+  pmPlayerE, pmPlanReview, pmPlanReviewHTML, pmBagClub, pmClubName, pmShotSetClub, pmShotCxToggle, pmShotCx, pmShotCxNote, pmCxTxt,
+  pmShotValues, pmCustomShotsHTML, pmPlanClubTxt, pmSetupSet, pmPlans, pmPlanStamp, pmPlanAimTxt, pmPlanChain, pmPlanHole, pmPlanExp, pmPlanBuild, pmPlanOpen, pmPlanClose,
   pmPlanPick, pmPlanNote, pmPlanDelete, pmPlanFreeze, pmPlanTotal, pmPlanFor, pmPlanAimFrom, pmPlanHTML, pmSetupPlanHTML,
   PM_LIES, PM_LIE_NAME, PM_ARG_YD, pmCurEntry, pmHoledOut, pmShotReopen, pmShotAdding, pmShots, pmShotsSync, pmShotAuto, pmMarkBall, pmShotAddOnMap, pmShotPlace, pmShotPlaceDone,
   pmShotPlaceAt, pmShotPt, pmShotSetLie, pmShotSetDist, pmShotTogglePen, pmShotDel, pmShotsFill, pmShotsClear, pmShotsAddTyped,
