@@ -204,6 +204,8 @@ function pmFinish(){
   r.done=true; r.endedAt=Date.now(); r.totals=t;
   /* strokes gained from the shots logged \u2014 computed now, never during the round */
   try{ r.sg=pmRoundSG(r); }catch(_){ r.sg=null; }
+  /* and against the frozen plan, priced now on the player model the plan was made with */
+  try{ r.planReview=r.plan?pmPlanReview(r):null; }catch(_){ r.planReview=null; }
   if(r.tournament) r.tournament.endedAt=r.endedAt;
   pmState().rounds.push(r); pmState().round=null; saveState();
   if(t.played && window.psRound){
@@ -802,6 +804,114 @@ function pmHoledOut(){
   e.done=true; window.pmPlacing=null; pmTouch(); buildPlay(); pmSyncButtons();
 }
 function pmShotReopen(){ const e=pmCurEntry(); if(e){ e.done=false; pmTouch(); buildPlay(); pmSyncButtons(); } }
+
+/* ---- PLAN VS PLAYED, after the round ----
+   The frozen plan said what each hole should cost on average; the shots say what happened.
+   The gap per hole splits exactly in two, both priced on YOUR player model (the one the plan
+   was made with, not the SG benchmark):
+
+     tee shot vs plan  = plan's expected score - (1 + penalty + expected strokes from where
+                         the tee shot actually finished)
+     after the tee     = expected strokes from there - the strokes it actually took
+
+   and tee + after = plan - score. Positive is better than the plan. One hole is mostly noise
+   (the plan's number is an average over your whole pattern); a round's totals are the signal.
+   Where the second shot was placed on the map or marked by GPS, the tee shot's finish is also
+   measured against the planned spot: long/short and left/right, in the line of the planned shot. */
+function pmPlayerE(sh){
+  if(!sh || sh.yd==null || !sh.lie || typeof srForPlayer!=='function') return null;
+  const d=sh.yd, g=sh.lie==='green';
+  return srForPlayer(sh.lie, g?Math.max(1,d*3):Math.max(1,d), playerHcpFor(g?'green':'off', d));
+}
+function pmPlanReview(r){
+  if(!r||!r.plan) return null;
+  const c=(STATE.courses||[]).find(x=>(x.id||x.name)===r.courseKey);
+  const hs=(c&&c.holes)||[];
+  const rows=[], offs=[];
+  const tot={plan:0, played:0, n:0, tee:0, after:0, nSplit:0};
+  hs.forEach((h,i)=>{
+    const num=pmHoleNum(h,i), p=r.plan.holes[num], e=(r.holes||{})[num];
+    if(!p) return;
+    const row={ num, par:p.par||h.par||4, plan:(p.shots||[]).map(s=>({club:s.club, yd:s.yd})),
+                leaveYd:(p.shots&&p.shots[0]&&!p.shots[0].onGreen)?p.shots[0].toPin:null,
+                exp:p.exp, score:(e&&e.s!=null)?e.s:null, note:p.note||'' };
+    if(row.exp!=null && row.score!=null){ row.vs=row.exp-row.score; tot.plan+=row.exp; tot.played+=row.score; tot.n++; }
+    const S=(e&&e.shots)||[];
+    if(row.vs!=null && S.length){
+      const pen1=S[0].pen?1:0;
+      const left = S.length>=2 ? pmPlayerE(S[1]) : (e.done ? 0 : null);   /* one shot and holed: nothing left */
+      if(left!=null){
+        const after=1+pen1+left;
+        row.tee=row.exp-after; row.after=after-row.score;
+        if(S[1]) row.found={lie:S[1].lie, yd:S[1].yd};
+        tot.tee+=row.tee; tot.after+=row.after; tot.nSplit++;
+      }
+    }
+    /* where the tee shot finished against where the plan aimed it */
+    const a=p.shots&&p.shots[0], q=S[1]?pmShotPt(h,S[1]):null, ypu=cfYardsPerUnit(h);
+    if(a && q && ypu){
+      const L=Math.hypot(a.aim.x-a.from.x, a.aim.y-a.from.y)||1, ux=(a.aim.x-a.from.x)/L, uy=(a.aim.y-a.from.y)/L;
+      const vx=q.x-a.aim.x, vy=q.y-a.aim.y;
+      row.off={ along:Math.round((vx*ux+vy*uy)*ypu*10)/10, lat:Math.round((ux*vy-uy*vx)*ypu*10)/10 };
+      offs.push(row.off);
+    }
+    rows.push(row);
+  });
+  let pattern=null;
+  if(offs.length){
+    const m=k=>offs.reduce((s,o)=>s+o[k],0)/offs.length;
+    const mAl=m('along'), mLa=m('lat');
+    const sd=k=>{ const mu=m(k); return offs.length>1?Math.sqrt(offs.reduce((s,o)=>s+(o[k]-mu)**2,0)/(offs.length-1)):null; };
+    pattern={ n:offs.length, along:mAl, lat:mLa, sdAlong:sd('along'), sdLat:sd('lat') };
+  }
+  return { madeAt:r.plan.madeAt, frozenAt:r.plan.frozenAt, rows, tot, pattern };
+}
+function pmPlanReviewHTML(){
+  const R=(STATE.play&&STATE.play.rounds)||[]; const r=R[R.length-1];
+  if(!r||!r.plan) return '';
+  const v=r.planReview || pmPlanReview(r);
+  if(!v||!v.tot.n) return '';
+  const t=v.tot, f=x=>`${x>=0?'+':'−'}${Math.abs(x).toFixed(2)}`, cls=x=>x<0?'neg':'';
+  const yd=x=>ydNum(Math.abs(x));
+  const offTxt=o=>{
+    const parts=[];
+    parts.push(Math.abs(o.lat)<2?'on line':`${yd(o.lat)} ${o.lat>0?'right':'left'}`);
+    parts.push(Math.abs(o.along)<2?'right length':`${yd(o.along)} ${o.along>0?'long':'short'}`);
+    return parts.join(', ');
+  };
+  const rows=v.rows.filter(w=>w.score!=null).map(w=>{
+    const plan=w.plan.length?w.plan.map(s=>`<b>${escapeHtml(s.club)}</b> ${ydNum(s.yd)}`).join(' → '):'<i>score only</i>';
+    const found=w.found?`${PM_LIE_NAME[w.found.lie]||w.found.lie} ${w.found.lie==='green'?ftNum(w.found.yd*3)+' '+ftUnit():ydNum(w.found.yd)}${w.leaveYd!=null&&w.found.lie!=='green'?` <i>(plan: ${ydNum(w.leaveYd)} to go)</i>`:''}`:'';
+    const line2=[found?`Tee shot finished: ${found}`:'', w.off?offTxt(w.off)+' of the plan spot':''].filter(Boolean).join(' · ');
+    return `<div class="pm-pr-row">
+        <div class="pm-pr-l1"><span class="pm-pr-h">${w.num}</span><span class="pm-pr-plan">${plan}</span>
+          <span class="pm-pr-sc">${w.exp!=null?w.exp.toFixed(2):'—'} → <b>${w.score!=null?w.score:'—'}</b></span>
+          <b class="pm-pr-vs ${w.vs!=null?cls(w.vs):''}">${w.vs!=null?f(w.vs):''}</b></div>
+        ${line2||w.tee!=null?`<div class="pm-pr-l2">${line2}${w.tee!=null?`<span>tee <b class="${cls(w.tee)}">${f(w.tee)}</b> · after <b class="${cls(w.after)}">${f(w.after)}</b></span>`:''}</div>`:''}
+      </div>`;
+  }).join('');
+  const P=v.pattern;
+  const pat = P ? `<p class="pm-pr-pat">Over <b>${P.n}</b> tee shot${P.n===1?'':'s'} placed on the map or by GPS, the ball finished on average
+      <b>${Math.abs(P.lat)<1?'on the planned line':`${yd(P.lat)} ${ydUnit()} ${P.lat>0?'right':'left'}`}</b> and
+      <b>${Math.abs(P.along)<1?'at the planned length':`${yd(P.along)} ${P.along>0?'long':'short'}`}</b> of the planned spot${P.n>=3&&P.sdLat!=null?`, spread ±${ydNum(P.sdLat)} side to side and ±${ydNum(P.sdAlong)} in length`:''}.</p>`
+    : `<p class="pm-pr-pat">Place shot 2 on the map (or mark it by GPS) and this also measures where each tee shot finished against the planned spot.</p>`;
+  return `<div class="profile-card pm-pr-card">
+      <h3>Plan vs played — ${escapeHtml(r.courseName||'last round')}</h3>
+      <div class="pm-pr-when">Plan made ${pmWhen(v.madeAt)}, frozen at the start of the round (${pmWhen(v.frozenAt)})</div>
+      <div class="pm-pr-top">
+        <div><span>Plan</span><b>${t.plan.toFixed(1)}</b><i>${t.n} hole${t.n===1?'':'s'}</i></div>
+        <div><span>Played</span><b>${t.played}</b><i>&nbsp;</i></div>
+        <div><span>vs plan</span><b class="${cls(t.plan-t.played)}">${f(t.plan-t.played)}</b><i>+ is better</i></div>
+      </div>
+      ${t.nSplit?`<div class="pm-pr-split">
+        <div><span>Tee shots vs plan</span><b class="${cls(t.tee)}">${f(t.tee)}</b></div>
+        <div><span>After the tee</span><b class="${cls(t.after)}">${f(t.after)}</b></div>
+        <i>${t.nSplit===t.n?`all ${t.n} holes`:`${t.nSplit} of ${t.n} holes — the rest have no second shot logged`}</i></div>`:''}
+      ${pat}
+      <div class="pm-pr-list">${rows}</div>
+      <p class="pm-note">The plan's number is your average for the line you chose. <b>Tee</b> is how the tee shot's finish compares with that average; <b>after</b> is how you played from there against your own expected strokes. They add up to the hole's total. One hole is mostly luck; the round's totals are what to read.</p>
+    </div>`;
+}
 
 /* ---- STROKES GAINED, after the round ----
    Per shot: SG = E(start) - E(next start) - 1 - penalty, with E(holed) = 0, priced on the
@@ -1433,7 +1543,7 @@ Object.assign(window, { PM_RESUME_HOURS, PM_NEAR_HOLE_YD, PM_GPS_MAX_ERR_M,
   pmToTournament, pmUnlockBegin, pmUnlockCancel, pmUnlockCheck, pmUnlockConfirm, pmUnlockHTML, pmTournHistoryHTML, PM_MIN_SPAN_YD,
   PM_AUTO_TEE_YD, PM_AUTO_NEAR_YD, PM_AUTO_FAR_YD, PM_AUTO_CONFIRM, PM_AUTO_HOLD_MS,
   pmHoleFit, pmRankHoles, pmAutoHold, pmAutoResume, pmAutoDetect, pmAutoBadge, pmAskSet, pmAskDone, pmAskHTML,
-  pmSetupSet, pmPlans, pmPlanStamp, pmPlanAimTxt, pmPlanChain, pmPlanHole, pmPlanExp, pmPlanBuild, pmPlanOpen, pmPlanClose,
+  pmPlayerE, pmPlanReview, pmPlanReviewHTML, pmSetupSet, pmPlans, pmPlanStamp, pmPlanAimTxt, pmPlanChain, pmPlanHole, pmPlanExp, pmPlanBuild, pmPlanOpen, pmPlanClose,
   pmPlanPick, pmPlanNote, pmPlanDelete, pmPlanFreeze, pmPlanTotal, pmPlanFor, pmPlanAimFrom, pmPlanHTML, pmSetupPlanHTML,
   PM_LIES, PM_LIE_NAME, PM_ARG_YD, pmCurEntry, pmHoledOut, pmShotReopen, pmShotAdding, pmShots, pmShotsSync, pmShotAuto, pmMarkBall, pmShotAddOnMap, pmShotPlace, pmShotPlaceDone,
   pmShotPlaceAt, pmShotPt, pmShotSetLie, pmShotSetDist, pmShotTogglePen, pmShotDel, pmShotsFill, pmShotsClear, pmShotsAddTyped,
