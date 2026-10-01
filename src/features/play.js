@@ -310,6 +310,7 @@ function pmSyncButtons(){
      It was rendered once at load, so it kept offering "Resume round" for a round already
      finished. */
   if(typeof buildRoundTracker==='function') buildRoundTracker();
+  if(typeof simSyncButtons==='function') simSyncButtons();
 }
 function buildPlay(){
   const el=document.getElementById('play-mode'); if(!el) return;
@@ -1151,16 +1152,18 @@ function pmDispPool(d){
            bias:acc.lat.nb?acc.lat.bias/acc.lat.nb:null, nBias:acc.lat.nb };
 }
 function pmDispCal(){ return STATE.dispCal || {lat:1, dep:1}; }
-function pmDispApply(){
-  const d=pmDistShots(), P=pmDispPool(d), cur=pmDispCal();
+/* d / src: the shots to fit from and where they came from. The course by default; Sim Golf
+   passes a TrackMan session in the same shape. */
+function pmDispApply(dd, src){
+  const d=dd||pmDistShots(), P=pmDispPool(d), cur=pmDispCal(), from=src||'on-course';
   const lat = P.latDof>=PM_DISP_MIN_DOF && P.lat ? cur.lat*P.lat : cur.lat;
   const dep = P.depDof>=PM_DISP_MIN_DOF && P.dep ? cur.dep*P.dep : cur.dep;
   if(lat===cur.lat && dep===cur.dep) return;
   const pc=x=>`${Math.round(x*100)}%`;
-  if(!confirm(`Recalibrate the dispersion model to your on-course pattern?\n\n`+
+  if(!confirm(`Recalibrate the dispersion model to your ${from} pattern?\n\n`+
               `Width: ${pc(cur.lat)} → ${pc(lat)} of the +3 model\nLength: ${pc(cur.dep)} → ${pc(dep)}\n\n`+
               `Every pattern in the app follows: Stock Shots, Approach, the strategy engine. You can undo it here.`)) return;
-  const P2=pmState(); (P2.dispLog=P2.dispLog||[]).push({at:Date.now(), before:Object.assign({},cur), after:{lat,dep},
+  const P2=pmState(); (P2.dispLog=P2.dispLog||[]).push({at:Date.now(), src:from, before:Object.assign({},cur), after:{lat,dep},
                                                        dofLat:P.latDof, dofDep:P.depDof});
   STATE.dispCal={lat:Math.round(lat*1000)/1000, dep:Math.round(dep*1000)/1000, at:Date.now()};
   pmDispChanged('Dispersion model now fitted to your on-course pattern');
@@ -1183,6 +1186,7 @@ function pmDispChanged(msg){
   if(typeof aimShapeReset==='function') aimShapeReset();
   saveState(); if(typeof refreshAll==='function') refreshAll();
   if(typeof buildPostRound==='function') buildPostRound();
+  if(typeof buildSim==='function') buildSim();
   toast(msg);
 }
 function pmDispCardHTML(){
@@ -1218,7 +1222,7 @@ function pmDispCardHTML(){
       <div class="pm-dp-pool">${ax(P.lat,P.latSE,P.latDof,'Width')}${ax(P.dep,P.depSE,P.depDof,'Length')}
         ${P.bias!=null&&P.nBias>=3?`<div><span>Aim bias</span><b>${side(P.bias)}</b><i>average over ${P.nBias} shots</i></div>`:''}</div>
       <p class="pm-note">${calNote} Above 1 your pattern is wider or longer than the model's. Not applied: the aim bias. It is where you miss, not how widely.</p>
-      ${canApply?`<button type="button" class="btn pm-dc-apply" onclick="pmDispApply()">Fit the model to this</button>`:''}
+      ${canApply?`<button type="button" class="btn pm-dc-apply" onclick="pmDispApply(null)">Fit the model to this</button>`:''}
       <div class="pm-dp-list">${rows}</div>
       ${Lg.length?`<div class="pm-dc-log"><div class="pm-dc-log-h">Model fitted from the course</div>
         ${Lg.map(x=>`<div class="pm-dc-log-r"><span>${x.kind==='rho'
@@ -1297,7 +1301,7 @@ function pmLeanSVG(t){
       ${t.pts.map(p=>`<circle cx="${X(p.lat).toFixed(1)}" cy="${Y(p.al).toFixed(1)}" r="2.4" fill="var(--ink2)" fill-opacity=".7"/>`).join('')}
     </svg>`;
 }
-function pmLeanHTML(d){
+function pmLeanHTML(d, applyFn, intro){
   const by=pmLeanMeasure(d); const T=PM_LEAN_TYPES.filter(([k])=>by[k]);
   if(!T.length) return '';
   const side=pmLeanSide()<0?'left':'right';
@@ -1311,25 +1315,25 @@ function pmLeanHTML(d){
           <div>model ρ ${cur.toFixed(2)} <i>leans ${pmLeanDeg(cur,C).toFixed(1)}° at ${ydNum(C)}</i></div>
           ${t.rho!=null?`<div><i>measured leans ${pmLeanDeg(Math.max(0,t.rho),C).toFixed(1)}° · ${t.n} shots, ${t.dof} dof</i></div>`:''}
           ${!ready?`<div class="pm-dc-need">${PM_LEAN_MIN_DOF-t.dof} more before this can set the model</div>`
-            : differs?`<button type="button" class="btn pm-dc-apply" onclick="pmLeanApply('${k}')">Set lean to ${applyVal.toFixed(2)}</button>`
+            : differs?`<button type="button" class="btn pm-dc-apply" onclick="${applyFn||'pmLeanApply'}('${k}', null)">Set lean to ${applyVal.toFixed(2)}</button>`
             : `<div class="pm-dc-ok">The model already agrees</div>`}
         </div></div>`;
   }).join('');
   return `<div class="pm-ln">
       <div class="pm-dc-log-h">Long-and-${side} tendency</div>
-      <p class="pm-note">Does a long miss also go ${side}? Each dot is one shot's miss from that club's own average: right to the right, long upward. Gold is the lean measured, dashed is the model's.</p>
+      <p class="pm-note">${intro||''}Does a long miss also go ${side}? Each dot is one shot's miss from that club's own average: right to the right, long upward. Gold is the lean measured, dashed is the model's.</p>
       ${rows}
     </div>`;
 }
-function pmLeanApply(type){
-  const d=pmDistShots(), t=pmLeanMeasure(d)[type]; if(!t||t.rho==null||t.dof<PM_LEAN_MIN_DOF) return;
+function pmLeanApply(type, dd, src){
+  const d=dd||pmDistShots(), t=pmLeanMeasure(d)[type], from=src||'on the course'; if(!t||t.rho==null||t.dof<PM_LEAN_MIN_DOF) return;
   const v=Math.max(0, Math.min(0.9, Math.round(t.rho*100)/100));
   STATE.dispersion=STATE.dispersion||{strikeCorr:{}};
   const set=STATE.dispersion.strikeCorr||(STATE.dispersion.strikeCorr={});
   const before=(typeof set[type]==='number')?set[type]:null;
   const label=(PM_LEAN_TYPES.find(x=>x[0]===type)||[type,type])[1];
-  if(!confirm(`Set the ${label.toLowerCase()} lean to ρ ${v.toFixed(2)} (was ${strikeCorr(type).toFixed(2)})?\n\nMeasured from ${t.n} shots on the course${t.rho<0?`; the measurement is ${t.rho.toFixed(2)}, and the model's floor is 0, an upright pattern`:''}. You can undo it here.`)) return;
-  const P=pmState(); (P.dispLog=P.dispLog||[]).push({kind:'rho', type, label, at:Date.now(), before, after:v, n:t.n});
+  if(!confirm(`Set the ${label.toLowerCase()} lean to ρ ${v.toFixed(2)} (was ${strikeCorr(type).toFixed(2)})?\n\nMeasured from ${t.n} shots ${from}${t.rho<0?`; the measurement is ${t.rho.toFixed(2)}, and the model's floor is 0, an upright pattern`:''}. You can undo it here.`)) return;
+  const P=pmState(); (P.dispLog=P.dispLog||[]).push({kind:'rho', src:from, type, label, at:Date.now(), before, after:v, n:t.n});
   set[type]=v;
   pmDispChanged(`${label}: lean measured from the course`);
   if(typeof renderStrikeCal==='function') renderStrikeCal();
@@ -2094,7 +2098,7 @@ Object.assign(window, { PM_RESUME_HOURS, PM_NEAR_HOLE_YD, PM_GPS_MAX_ERR_M,
   pmToTournament, pmUnlockBegin, pmUnlockCancel, pmUnlockCheck, pmUnlockConfirm, pmUnlockHTML, pmTournHistoryHTML, PM_MIN_SPAN_YD,
   PM_AUTO_TEE_YD, PM_AUTO_NEAR_YD, PM_AUTO_FAR_YD, PM_AUTO_CONFIRM, PM_AUTO_HOLD_MS,
   pmHoleFit, pmRankHoles, pmAutoHold, pmAutoResume, pmAutoDetect, pmAutoBadge, pmAskSet, pmAskDone, pmAskHTML,
-  PM_LEAN_MIN_DOF, pmLeanSide, pmLeanMeasure, pmLeanDeg, pmLeanHTML, pmLeanApply,
+  pmDispChanged, PM_LEAN_MIN_DOF, pmLeanSide, pmLeanMeasure, pmLeanDeg, pmLeanHTML, pmLeanApply,
   PM_MAP_ERR_YD, PM_DISP_MIN_DOF, pmPtErrYd, pmShotTarget, pmDispClub, pmDispPool, pmDispCal, pmDispApply, pmDispUndo, pmDispCardHTML,
   PM_DIST_MIN_N, pmDistShots, pmDistClub, pmDistApply, pmDistUndo, pmDistCardHTML,
   pmPlayerE, pmPlanReview, pmPlanReviewHTML, pmBagClub, pmClubName, pmShotSetClub, pmShotCxToggle, pmShotCx, pmShotCxNote, pmCxTxt,

@@ -45,6 +45,7 @@ import './features/print.js';
 import './features/bag-specs.js';
 import './features/ballflight-check.js';
 import './features/play.js';
+import './features/sim.js';
 import './features/shortgame.js';
 import './features/putting.js';
 import './features/club-form.js';

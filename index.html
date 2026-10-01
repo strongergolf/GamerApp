@@ -21,7 +21,11 @@
   <div class="header-app-name">Player's App</div>
   <!-- PLAY GOLF NOW: the one door into on-course mode. Becomes "● Hole 7 · +2" while a round is
        open, so the way back in is also the reminder that a round is running. -->
-  <button type="button" class="pm-launch" data-pm-btn onclick="pmOpen()" aria-label="Play golf now">▶ Play</button>
+  <!-- PLAY SIM GOLF sits beside it: TrackMan sessions into the model, and games for the bay. -->
+  <div class="hdr-modes">
+    <button type="button" class="pm-launch sim-launch" data-sim-btn onclick="simOpen()" aria-label="Play sim golf">⛳ Sim</button>
+    <button type="button" class="pm-launch" data-pm-btn onclick="pmOpen()" aria-label="Play golf now">▶ Play</button>
+  </div>
 </div>
 
 <nav class="nav-groups">
@@ -35,6 +39,7 @@
 
 <!-- PLAY MODE: full-screen, over everything, built by buildPlay (features/play.js) -->
 <div id="play-mode" class="pm" hidden role="dialog" aria-label="Play golf now"></div>
+<div id="sim-mode" class="pm sim" hidden role="dialog" aria-label="Play sim golf"></div>
 
 <!-- BAG -->
 <div id="page-bag" class="page active">
