@@ -2055,3 +2055,28 @@ body.theme-dark .pm-pr-card b.neg{color:#e88494 !important}
 .pm-cs-card b.neg{color:#b8455a}
 body.theme-dark .pm-cs-v,body.theme-dark .pm-cs-agg-r b{color:#79e08d}
 body.theme-dark .pm-cs-card b.neg{color:#e88494}
+
+/* ---- POST-ROUND: on-course distances per club ---- */
+.pm-dc-row{padding:8px 2px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:3px}
+.pm-dc-row:first-of-type{border-top:1px solid var(--border)}
+.pm-dc-l1{display:flex;align-items:baseline;gap:8px;font-family:Arial,sans-serif;font-size:.84rem;color:var(--ink2)}
+.pm-dc-l1>b:first-child{flex:0 0 1.8rem;font-size:1rem;font-weight:800;color:var(--ink)}
+.pm-dc-l1 span b{font-size:1rem;color:var(--ink)}
+.pm-dc-l1 i{font-style:normal;font-family:ui-monospace,monospace;font-size:.58rem;color:var(--muted)}
+.pm-dc-bag{margin-left:auto;font-family:ui-monospace,monospace;font-size:.7rem;color:var(--muted);white-space:nowrap}
+.pm-dc-d{flex:0 0 3rem;text-align:right;font-family:ui-monospace,monospace;font-size:.8rem;color:#00693a}
+.pm-dc-card b.neg{color:#b8455a}
+.pm-dc-l2,.pm-dc-skip{padding-left:calc(1.8rem + 8px);font-family:ui-monospace,monospace;font-size:.6rem;line-height:1.5;color:var(--muted)}
+.pm-dc-skip{opacity:.85}
+.pm-dc-act{padding-left:calc(1.8rem + 8px)}
+.pm-dc-apply{min-height:38px;font-size:.8rem}
+.pm-dc-need,.pm-dc-ok{font-family:Arial,sans-serif;font-size:.72rem;color:var(--muted)}
+.pm-dc-ok{color:#00693a;font-weight:700}
+.pm-dc-log{margin-top:10px;display:flex;flex-direction:column;gap:4px}
+.pm-dc-log-h{font-family:Arial,sans-serif;font-size:.78rem;font-weight:800;color:var(--ink)}
+.pm-dc-log-r{display:flex;align-items:center;gap:8px;font-family:Arial,sans-serif;font-size:.8rem;color:var(--ink2)}
+.pm-dc-log-r i{font-style:normal;font-family:ui-monospace,monospace;font-size:.6rem;color:var(--muted);margin-left:4px}
+.pm-dc-undo{margin-left:auto;min-height:32px;padding:0 12px;border-radius:16px;border:1px solid var(--border2);background:transparent;
+  font-family:Arial,sans-serif;font-size:.74rem;font-weight:700;color:var(--ink);cursor:pointer}
+body.theme-dark .pm-dc-d,body.theme-dark .pm-dc-ok{color:#79e08d}
+body.theme-dark .pm-dc-card b.neg{color:#e88494}

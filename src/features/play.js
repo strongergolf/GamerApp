@@ -932,6 +932,135 @@ function pmCustomShotsHTML(){
     </div>`;
 }
 
+/* ---- ON-COURSE DISTANCES: what each club actually went, applied to the bag after the round ----
+   A shot's distance is start to where the NEXT shot was played from, so both ends need a
+   position: placed on the map or marked by GPS. Typed distances-to-the-hole are not used. A
+   dogleg or a miss makes "yards to the hole before minus after" a different number from how
+   far the ball went.
+   Only STOCK shots count toward a club's number, the same thing the bag's number means:
+     a club recorded, not the putter, not on the green
+     from the tee or the fairway (rough, sand and trees cost distance)
+     a full swing with nothing changed (no shape, height, part swing or grip down; a note is fine)
+     no penalty after it (the ball's finish is not known) and not finishing in the trees
+   Everything else is counted and the reason is given, so the number is never quietly thin.
+   The bag number is a total (carry plus roll), and so is this. It is the MEDIAN over every
+   round on record, because one thin or one downhill shot should not move a club. It only
+   becomes a bag number when you apply it, never during a round. Each change is logged with
+   what it replaced, so it can be undone. On-course totals include today's roll, slope and
+   wind; that is why it takes PM_DIST_MIN_N shots before Apply is offered. */
+const PM_DIST_MIN_N = 5;          /* stock shots before a club's on-course number can be applied */
+const PM_DIST_MATCH_YD = 2;       /* closer than this and the bag already agrees */
+function pmDistShots(){
+  const out={}, skip={};
+  const R=(STATE.play&&STATE.play.rounds)||[];
+  const bump=(id,why)=>{ (skip[id]=skip[id]||{})[why]=((skip[id]||{})[why]||0)+1; };
+  R.forEach((r,ri)=>{
+    const c=(STATE.courses||[]).find(x=>(x.id||x.name)===r.courseKey); if(!c) return;
+    (c.holes||[]).forEach((h,i)=>{
+      const e=(r.holes||{})[pmHoleNum(h,i)], S=(e&&e.shots)||[], ypu=cfYardsPerUnit(h);
+      S.forEach((sh,k)=>{
+        const club=sh.club&&pmBagClub(sh.club);
+        if(!club || club.type==='putter' || sh.lie==='green') return;
+        const id=club.id, nx=S[k+1];
+        if(!nx) return bump(id,'last shot on the hole');
+        if(sh.pen) return bump(id,'penalty after it');
+        if(sh.lie!=='tee' && sh.lie!=='fairway') return bump(id,'from rough, sand or trees');
+        const cx=sh.cx||{};
+        if(cx.shape||cx.height||cx.swing||cx.grip) return bump(id,'not a stock swing');
+        if(nx.lie==='recovery') return bump(id,'finished in the trees');
+        const a=pmShotPt(h,sh), b=pmShotPt(h,nx);
+        if(!a||!b||!ypu) return bump(id,'no map or GPS position');
+        const yd=Math.hypot(b.x-a.x, b.y-a.y)*ypu;
+        (out[id]=out[id]||[]).push({ yd, ri, last:ri===R.length-1, hole:pmHoleNum(h,i), lie:sh.lie, end:nx.lie,
+                                     prov:(sh.src==='gps'&&nx.src==='gps')?'captured':'input', at:r.endedAt||r.startedAt });
+      });
+    });
+  });
+  return {shots:out, skip};
+}
+function pmMedian(a){ const s=a.slice().sort((x,y)=>x-y), n=s.length; return n ? (n%2 ? s[(n-1)/2] : (s[n/2-1]+s[n/2])/2) : null; }
+function pmQuart(a, q){ const s=a.slice().sort((x,y)=>x-y); if(!s.length) return null; const p=(s.length-1)*q, lo=Math.floor(p), hi=Math.ceil(p); return s[lo]+(s[hi]-s[lo])*(p-lo); }
+function pmDistClub(id, list){
+  const p=STATE.performance[id]||{}, yds=list.map(x=>x.yd);
+  const med=pmMedian(yds);
+  return { id, n:list.length, med, lo:pmQuart(yds,0.25), hi:pmQuart(yds,0.75),
+           bagTotal:p.total!=null?p.total:p.carry, bagCarry:p.carry,
+           prov:(typeof sgProvOf==='function')?sgProvOf(...list.map(x=>x.prov)):'input',
+           today:list.filter(x=>x.last).map(x=>x.yd) };
+}
+function pmDistLog(){ const P=pmState(); return (P.bagLog=P.bagLog||[]); }
+function pmDistApply(id){
+  const d=pmDistShots(), list=d.shots[id]||[]; if(list.length<PM_DIST_MIN_N) return;
+  const s=pmDistClub(id, list), club=pmBagClub(id), p=STATE.performance[id]=STATE.performance[id]||{};
+  const total=Math.round(s.med), oldT=p.total!=null?p.total:p.carry;
+  /* the bag keeps carry and total; the course measures where the ball stopped. Carry is moved
+     by the same ratio, which keeps the club's roll share as it was. */
+  const r=oldT?total/oldT:1, carry=p.carry!=null?Math.round(p.carry*r):null;
+  if(!confirm(`Set ${club?club.label:id} to ${ydNum(total)} ${ydUnit()} total (was ${ydNum(oldT)})`+
+              `${carry!=null?` and ${ydNum(carry)} carry (was ${ydNum(p.carry)})`:''}?\n\n`+
+              `The median of ${s.n} stock shots on the course. You can undo it here.`)) return;
+  const pr=STATE.partials&&STATE.partials[id];
+  pmDistLog().push({ id, label:club?club.label:id, at:Date.now(), n:s.n,
+                     before:{carry:p.carry, total:p.total, prov:p.prov, partials:pr?Object.assign({},pr):null},
+                     after:{carry, total} });
+  if(carry!=null) p.carry=carry;
+  p.total=total; p.prov=s.prov;
+  if(typeof syncPartialsForClub==='function') syncPartialsForClub(id);
+  saveState(); if(typeof refreshAll==='function') refreshAll();
+  if(typeof buildPostRound==='function') buildPostRound();
+  toast(`${club?club.label:id}: ${ydNum(total)} ${ydUnit()} total, from the course`);
+}
+function pmDistUndo(k){
+  const L=pmDistLog(), x=L[k]; if(!x||x.undone) return;
+  const p=STATE.performance[x.id]; if(!p) return;
+  if((p.total!==x.after.total || p.carry!==x.after.carry) &&
+     !confirm(`${x.label} has changed since this was applied. Put back ${ydNum(x.before.total)} total anyway?`)) return;
+  p.carry=x.before.carry; p.total=x.before.total; if(x.before.prov) p.prov=x.before.prov; else delete p.prov;
+  if(x.before.partials && STATE.partials) STATE.partials[x.id]=Object.assign({}, x.before.partials);
+  x.undone=Date.now();
+  saveState(); if(typeof refreshAll==='function') refreshAll();
+  if(typeof buildPostRound==='function') buildPostRound();
+  toast(`${x.label} back to ${ydNum(x.before.total)} ${ydUnit()}`);
+}
+function pmDistCardHTML(){
+  const R=(STATE.play&&STATE.play.rounds)||[]; if(!R.length) return '';
+  const d=pmDistShots();
+  const ids=(STATE.clubs||[]).map(c=>c.id).filter(id=>d.shots[id]||d.skip[id]);
+  const L=pmDistLog().map((x,k)=>Object.assign({k},x)).filter(x=>!x.undone).slice(-6).reverse();
+  if(!ids.length && !L.length) return '';
+  const sg=v=>{ const a=ydNum(Math.abs(v)); return +a===0 ? '0' : `${v>=0?'+':'−'}${a}`; };
+  const rows=ids.map(id=>{
+    const club=pmBagClub(id), list=d.shots[id]||[], sk=d.skip[id]||{};
+    const skipTxt=Object.entries(sk).map(([w,n])=>`${n} ${w}`).join(' · ');
+    if(!list.length) return `<div class="pm-dc-row"><div class="pm-dc-l1"><b>${escapeHtml(club.label)}</b><span>no stock shot measured</span></div>
+        ${skipTxt?`<div class="pm-dc-skip">Left out: ${escapeHtml(skipTxt)}</div>`:''}</div>`;
+    const s=pmDistClub(id, list), diff=s.bagTotal!=null?s.med-s.bagTotal:null;
+    const ready=s.n>=PM_DIST_MIN_N, agrees=diff!=null&&Math.abs(diff)<PM_DIST_MATCH_YD;
+    const act = !ready ? `<span class="pm-dc-need">${PM_DIST_MIN_N-s.n} more stock shot${PM_DIST_MIN_N-s.n===1?'':'s'} before this can set your bag</span>`
+              : agrees ? `<span class="pm-dc-ok">Your bag already agrees</span>`
+              : `<button type="button" class="btn pm-dc-apply" onclick="pmDistApply('${escapeHtml(id)}')">Use ${ydNum(Math.round(s.med))} in my bag</button>`;
+    return `<div class="pm-dc-row">
+        <div class="pm-dc-l1"><b>${escapeHtml(club.label)}</b>
+          <span>course <b>${ydNum(s.med)}</b> <i>median of ${s.n}${s.n>=4?`, middle half ${ydNum(s.lo)}–${ydNum(s.hi)}`:''}</i></span>
+          <span class="pm-dc-bag">bag ${s.bagTotal!=null?ydNum(s.bagTotal):'—'}</span>
+          <b class="pm-dc-d ${diff!=null&&diff<0?'neg':''}">${diff!=null?sg(diff):''}</b></div>
+        <div class="pm-dc-l2">${s.today.length?`This round: ${s.today.map(v=>ydNum(v)).join(', ')}`:'None this round'} ${typeof sgProv==='function'?sgProv(s.prov):''}</div>
+        ${skipTxt?`<div class="pm-dc-skip">Left out: ${escapeHtml(skipTxt)}</div>`:''}
+        <div class="pm-dc-act">${act}</div>
+      </div>`;
+  }).join('');
+  const log = L.length ? `<div class="pm-dc-log"><div class="pm-dc-log-h">Applied from the course</div>
+      ${L.map(x=>`<div class="pm-dc-log-r"><span><b>${escapeHtml(x.label)}</b> ${ydNum(x.before.total)} → ${ydNum(x.after.total)} ${ydUnit()} <i>${pmWhen(x.at)}, ${x.n} shots</i></span>
+        <button type="button" class="pm-dc-undo" onclick="pmDistUndo(${x.k})">Undo</button></div>`).join('')}</div>` : '';
+  return `<div class="profile-card pm-dc-card">
+      <h3>On-course distances</h3>
+      <div class="pm-pr-when">From every round on record</div>
+      <p class="pm-note">Total yards per club, start to where the next shot was played. Counts stock shots only: full swings from the tee or fairway, positioned on the map or by GPS. Includes the day's roll, slope and wind, so a club needs ${PM_DIST_MIN_N} before it can change your bag.</p>
+      ${rows||''}
+      ${log}
+    </div>`;
+}
+
 /* ---- PLAN VS PLAYED, after the round ----
    The frozen plan said what each hole should cost on average; the shots say what happened.
    The gap per hole splits exactly in two, both priced on YOUR player model (the one the plan
@@ -1691,6 +1820,7 @@ Object.assign(window, { PM_RESUME_HOURS, PM_NEAR_HOLE_YD, PM_GPS_MAX_ERR_M,
   pmToTournament, pmUnlockBegin, pmUnlockCancel, pmUnlockCheck, pmUnlockConfirm, pmUnlockHTML, pmTournHistoryHTML, PM_MIN_SPAN_YD,
   PM_AUTO_TEE_YD, PM_AUTO_NEAR_YD, PM_AUTO_FAR_YD, PM_AUTO_CONFIRM, PM_AUTO_HOLD_MS,
   pmHoleFit, pmRankHoles, pmAutoHold, pmAutoResume, pmAutoDetect, pmAutoBadge, pmAskSet, pmAskDone, pmAskHTML,
+  PM_DIST_MIN_N, pmDistShots, pmDistClub, pmDistApply, pmDistUndo, pmDistCardHTML,
   pmPlayerE, pmPlanReview, pmPlanReviewHTML, pmBagClub, pmClubName, pmShotSetClub, pmShotCxToggle, pmShotCx, pmShotCxNote, pmCxTxt,
   pmShotValues, pmCustomShotsHTML, pmPlanClubTxt, pmSetupSet, pmPlans, pmPlanStamp, pmPlanAimTxt, pmPlanChain, pmPlanHole, pmPlanExp, pmPlanBuild, pmPlanOpen, pmPlanClose,
   pmPlanPick, pmPlanNote, pmPlanDelete, pmPlanFreeze, pmPlanTotal, pmPlanFor, pmPlanAimFrom, pmPlanHTML, pmSetupPlanHTML,
