@@ -33,17 +33,21 @@ function buildSGDiamond(){
     const [x,y]=toXY(a.angle,R+16);
     return `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="var(--border)" stroke-width="0.7" opacity="0.5"/>`;
   }).join('');
-  /* Goal ring — target SG vs scratch implied by the goal handicap
-     (≈ −goalHcp/4 per category, clamped to the chart range) */
+  /* Goal ring — the same goals as Post-Round → All rounds: your per-category targets when you
+     have set them, otherwise the expected-strokes model's figure for your goal handicap
+     (rdGoalSuggest: the benchmark's expected round minus the goal handicap's, on the course you
+     play most) split evenly. It replaced a −goalHcp/4 rule of thumb, which put a +6 at +6.0 a
+     round when the model says about +3.8. Clamped to the chart's range. */
   let goalPolygon='', goalLabel='';
-  const goalRaw=STATE.profile&&STATE.profile.goalHcp;
-  if(goalRaw!=null&&String(goalRaw).trim()!==''&&typeof parseHcp==='function'){
-    const g=parseHcp(goalRaw);
-    const gt=Math.max(-3,Math.min(2,-g/4));
-    const gr=sgToR(gt);
-    const gpts=axes.map(a=>{const [x,y]=toXY(a.angle,gr);return `${x.toFixed(1)},${y.toFixed(1)}`;}).join(' ');
+  let goalVals=null;
+  const G=STATE.goals&&STATE.goals.cats;
+  if(G) goalVals={ott:G.ott, app:G.app, atg:G.arg, putt:G.putt};
+  else if(typeof rdGoalSuggest==='function'){ const s=rdGoalSuggest(); if(s){ const e=s.total/4; goalVals={ott:e, app:e, atg:e, putt:e}; } }
+  if(goalVals){
+    const gr=cat=>sgToR(Math.max(-3,Math.min(2,+goalVals[cat]||0)));
+    const gpts=axes.map(a=>{const [x,y]=toXY(a.angle,gr(a.cat));return `${x.toFixed(1)},${y.toFixed(1)}`;}).join(' ');
     goalPolygon=`<polygon points="${gpts}" fill="none" stroke="var(--green)" stroke-width="1.4" stroke-dasharray="4 3" opacity="0.9"/>`;
-    const [glx,gly]=toXY(135,gr);
+    const [glx,gly]=toXY(135,gr('atg'));
     goalLabel=`<text x="${glx.toFixed(1)}" y="${(gly+10).toFixed(1)}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="6.5" fill="var(--green)" opacity="0.9" font-weight="700">goal</text>`;
   }
   /* Data polygon */
