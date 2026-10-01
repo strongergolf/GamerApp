@@ -156,6 +156,16 @@ function printCardHTML(sides){
     .foot span{font-size:9px;color:#3a5a7a;letter-spacing:.04em}
     .cat th,.cat td{font-size:8.5px;padding:2px 4px}
     .cat td.club .big{font-size:11px}
+    .prof .head{padding-bottom:5px;margin-bottom:8px}
+    .prof table.ref td{padding:1px 4px}
+    .prof table.ref .big{font-size:11px}
+    .prof table.ref td.club .big{font-size:11px}
+    .prof table.ref .sm{font-size:7px}
+    .prof table.ref th{padding:3px 4px}
+    .prof .mtitle{margin-bottom:3px}
+    .prof .foot{margin-top:8px;padding-top:5px}
+    table.ref.plan td{font-size:9px}
+    .prof table.tr td.club{font-size:8.5px;font-weight:600;line-height:1.2}
     @page{margin:12mm;size:landscape}@media print{.card{padding:0}}`;
   return `<!doctype html><html><head><meta charset="utf-8"><title>StrongerGolf — Reference Card</title><style>${css}</style></head><body>${sides.join('')}</body></html>`;
 }
@@ -205,3 +215,99 @@ function printClubs(){
 function printMatrix(type){ printCard(); }
 
 Object.assign(window, { printMatrix, printCard, printClubs, prCatalogue, prCard, prConditionsNote, prSwingTable, prFullTable, prChipTable, prChipNote, prStockClubIds, stockShotsPrintTable, printCardHTML });
+
+
+/* ============================================================
+   THE SCORING PROFILE — expected strokes, on paper, before a tournament
+   ============================================================
+   Page one is the player's own strokes table: expected strokes to hole out from every
+   situation and distance that matters, on YOUR player model (big) over the benchmark set in
+   Settings (small), the same pairing as Total over Carry on the reference card. Plus the few
+   trade-offs a tournament player actually decides on, worked out from that same table, and
+   the expected score for a hole of each length.
+   Page two, when one exists, is the round plan for the course: clubs, aims, expected score
+   and notes per hole, as frozen at Start.
+   All of it is prepared before the round and distance-only: no elevation, slope, wind or
+   weather anywhere in it, which is the line Rule 4.3a draws and the one this app keeps. */
+const PR_PROF_YD = [10,20,30,40,50,60,75,100,125,150,175,200,225,250];
+const PR_PROF_FT = [2,3,4,5,6,8,10,12,15,20,30,40,60];
+const PR_PROF_TEE = { 3:[130,160,190,220], 4:[340,380,420,460], 5:[500,540,580] };
+function prE(lie, d, who){
+  if(typeof srForPlayer!=='function') return null;
+  const h = who==='bench' ? ((typeof esCmp==='function')?esCmp().hcp:0)
+          : (typeof playerHcpFor==='function') ? playerHcpFor(lie==='green'?'green':lie==='tee'?'tee':'off', d) : 0;
+  return srForPlayer(lie, d, h);
+}
+function prProfileSide(){
+  const bench=(typeof esCmp==='function')?esCmp():{label:'Scratch'};
+  const f2=v=>v==null?'&mdash;':v.toFixed(2);
+  const cell=(lie,d)=>{ if(lie==='sand'&&d>100) return '<td>&mdash;</td>'; const y=prE(lie,d,'you'), b=prE(lie,d,'bench');
+    return `<td><span class="big">${f2(y)}</span><span class="sm">${f2(b)}</span></td>`; };
+  const yu=(typeof ydUnit==='function')?ydUnit():'yd', fu=(typeof ftUnit==='function')?ftUnit():'ft';
+  const yd=v=>(typeof ydNum==='function')?ydNum(v):v, ft=v=>(typeof ftNum==='function')?ftNum(v):v;
+  const full=`<table class="ref"><thead><tr><th>${yu}</th><th>Fairway</th><th>Rough</th><th>Sand</th><th>Recovery</th></tr></thead><tbody>
+    ${PR_PROF_YD.map(d=>`<tr><td class="club"><span class="big">${yd(d)}</span></td>${cell('fairway',d)}${cell('rough',d)}${cell('sand',d)}${cell('recovery',d)}</tr>`).join('')}</tbody></table>`;
+  const putts=`<table class="ref"><thead><tr><th>${fu}</th><th>Putts</th></tr></thead><tbody>
+    ${PR_PROF_FT.map(d=>`<tr><td class="club"><span class="big">${ft(d)}</span></td>${cell('green',d)}</tr>`).join('')}</tbody></table>`;
+  const tee=`<table class="ref"><thead><tr><th>Hole</th><th>Expected</th><th>vs par</th></tr></thead><tbody>
+    ${[3,4,5].map(par=>PR_PROF_TEE[par].map(d=>{ const y=prE('tee',d,'you'), b=prE('tee',d,'bench');
+      return `<tr><td class="club"><span class="big">${yd(d)}</span><span class="sm">par ${par}</span></td><td><span class="big">${f2(y)}</span><span class="sm">${f2(b)}</span></td><td><span class="big">${y==null?'&mdash;':(y-par>=0?'+':'')+(y-par).toFixed(2)}</span></td></tr>`; }).join('')).join('')}</tbody></table>`;
+  /* the trade-offs, each a difference of two numbers in the tables beside it */
+  const d=(a,b)=>{ if(a==null||b==null) return '&mdash;'; const v=a-b; return (v>=0?'+':'&minus;')+Math.abs(v).toFixed(2); };
+  const T=[
+    [`Rough instead of fairway, ${yd(150)} ${yu}`, d(prE('rough',150,'you'), prE('fairway',150,'you'))],
+    [`Rough instead of fairway, ${yd(100)} ${yu}`, d(prE('rough',100,'you'), prE('fairway',100,'you'))],
+    [`${yd(10)} ${yu} further back in the fairway, from ${yd(150)}`, d(prE('fairway',160,'you'), prE('fairway',150,'you'))],
+    [`Trees instead of rough, ${yd(150)} ${yu}`, d(prE('recovery',150,'you'), prE('rough',150,'you'))],
+    [`Bunker instead of rough, ${yd(20)} ${yu}`, d(prE('sand',20,'you'), prE('rough',20,'you'))],
+    [`Six feet instead of three, to finish`, d(prE('green',6,'you'), prE('green',3,'you'))],
+    [`Thirty feet instead of fifteen`, d(prE('green',30,'you'), prE('green',15,'you'))]
+  ];
+  const trade=`<table class="ref tr"><tbody>${T.map(([l,v])=>`<tr><td class="club" style="text-align:left">${l}</td><td><span class="big">${v}</span></td></tr>`).join('')}</tbody></table>`;
+  return `<section class="card prof">
+    <div class="head">${PR_ARC}${prMark}<div class="sub">Scoring Profile &middot; expected strokes to hole out</div>
+      <div class="cond-note">You (big) over ${bench.label||'the benchmark'} (small) &middot; prepared before the round &middot; distances only, nothing adjusted for elevation, slope or wind</div></div>
+    <div class="cols">
+      <div class="col" style="flex:1.6"><div class="mtitle">From off the green</div>${full}</div>
+      <div class="col" style="flex:.8"><div class="mtitle">Putting</div>${putts}</div>
+      <div class="col" style="flex:1.1"><div class="mtitle">A hole that long</div>${tee}
+        <div class="mtitle" style="margin-top:12px">What it costs you</div>${trade}</div>
+    </div>
+    <div class="foot">${prMark}<span>Player&rsquo;s App &middot; ${new Date().toLocaleDateString()}</span></div>
+  </section>`;
+}
+function prPlanSide(course){
+  if(!course || typeof pmPlans!=='function') return '';
+  const pl=pmPlans()[course.id||course.name]; if(!pl) return '';
+  const rows=Object.values(pl.holes).sort((a,b)=>a.num-b.num);
+  const yd=v=>(typeof ydNum==='function')?ydNum(v):Math.round(v);
+  const exp=r=>(typeof pmPlanExp==='function')?pmPlanExp(r):null;
+  let tot=0, par=0;
+  const body=rows.map(r=>{
+    const shots=r.method==='model'?((r.pick==='mine'&&r.mine&&r.mine.length)?r.mine:r.opt)||[]:[];
+    const e=exp(r); if(e!=null){ tot+=e; par+=r.par; }
+    const chain=shots.map(s=>`<b>${(typeof pmPlanClubTxt==='function'?pmPlanClubTxt(s):s.club)}</b> ${yd(s.yd)}`).join(' &rarr; ');
+    const aim=shots.map(s=>s.aimTxt).filter(Boolean).join('; ');
+    return `<tr><td class="club"><span class="big">${r.num}</span></td><td>${r.par}</td><td>${r.yards?yd(r.yards):'&mdash;'}</td>
+      <td style="text-align:left">${chain||'<i>no map</i>'}</td><td style="text-align:left;font-size:8px">${aim}</td>
+      <td><span class="big">${e!=null?e.toFixed(2):'&mdash;'}</span></td><td style="text-align:left;font-size:8px">${((pl.notes||{})[r.num]||'').replace(/</g,'&lt;')}</td></tr>`;
+  }).join('');
+  return `<section class="card" style="page-break-before:always">
+    <div class="head">${PR_ARC}${prMark}<div class="sub">Round Plan &middot; ${(course.name||'').replace(/</g,'&lt;')}</div>
+      <div class="cond-note">Expected <b>${tot.toFixed(1)}</b> (${tot-par>=0?'+':''}${(tot-par).toFixed(1)} vs par ${par}) &middot; made ${new Date(pl.madeAt).toLocaleString([], {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'})}${pl.sheet?` &middot; pins: ${String(pl.sheet).replace(/</g,'&lt;')}`:''}</div></div>
+    <table class="ref plan"><thead><tr><th>Hole</th><th>Par</th><th>${(typeof ydUnit==='function')?ydUnit():'yd'}</th><th>Plan</th><th>Aim</th><th>Exp.</th><th>Notes</th></tr></thead><tbody>${body}</tbody></table>
+    <div class="foot">${prMark}<span>Prepared before the round &middot; Player&rsquo;s App &middot; ${new Date().toLocaleDateString()}</span></div>
+  </section>`;
+}
+/* course: the one being planned, if the call comes from the plan screen; otherwise the course
+   selected on the Strategy tab */
+function printScoringProfile(fromPlan){
+  const course = fromPlan && typeof pmSetupCourse==='function' ? pmSetupCourse()
+               : (typeof stratCurrent==='function' && stratCurrent()) ? stratCurrent().course : null;
+  const w=window.open('','_blank');
+  if(!w){ if(typeof toast==='function') toast('Allow pop-ups to print the profile'); return; }
+  w.document.open(); w.document.write(printCardHTML([prProfileSide(), prPlanSide(course)])); w.document.close();
+  w.focus();
+  setTimeout(()=>{ try{ w.print(); }catch(e){} }, 350);
+}
+Object.assign(window, { printScoringProfile, prProfileSide, prPlanSide, prE });

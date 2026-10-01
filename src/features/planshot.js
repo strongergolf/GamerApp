@@ -664,6 +664,7 @@ function buildPostRound(){
   wrap.innerHTML=`
     ${typeof pmSgCardHTML==='function'?pmSgCardHTML():''}
     ${typeof pmPlanReviewHTML==='function'?pmPlanReviewHTML():''}
+    ${typeof pmFourWayHTML==='function'?pmFourWayHTML():''}
     ${typeof pmCustomShotsHTML==='function'?pmCustomShotsHTML():''}
     ${typeof pmDistCardHTML==='function'?pmDistCardHTML():''}
     ${typeof pmDispCardHTML==='function'?pmDispCardHTML():''}

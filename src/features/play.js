@@ -624,6 +624,7 @@ function pmPlanHTML(){
       <p class="pm-note">Pick a line for each hole and add what you want to remember. The numbers are expected strokes for the hole. At Start the plan is frozen onto the round, and nothing on the course works anything out again.</p>
       ${holes}
       <div class="pm-plan-row pm-pv-foot">
+        <button type="button" class="btn pm-plan-btn" onclick="printScoringProfile(true)">⎙ Print</button>
         <button type="button" class="btn pm-plan-btn" onclick="pmPlanBuild()">Rebuild</button>
         <button type="button" class="btn pm-plan-btn pm-plan-del" onclick="pmPlanDelete()">Delete plan</button>
       </div>
@@ -746,16 +747,44 @@ function pmShotAddOnMap(){
            : (prev&&pin) ? {x:Math.round((prev.x+pin.x)/2), y:Math.round((prev.y+pin.y)/2)} : null;
   const a=pt?pmShotAuto(h, pt, S.length):{};
   S.push({lie:a.lie||'fairway', yd:a.yd, src:'map', pt});
-  window.pmPlacing=S.length-1; window.pmSheetOpen=false; window.pmView='map';
+  window.pmPlacing=S.length-1; window.pmPlaceKind='ball'; window.pmSheetOpen=false; window.pmView='map';
   pmShotsChanged(e);
 }
-function pmShotPlace(i){ window.pmPlacing=i; window.pmSheetOpen=false; window.pmView='map'; buildPlay(); }
-function pmShotPlaceDone(){ window.pmPlacing=null; buildPlay(); }
+function pmShotPlace(i){ window.pmPlacing=i; window.pmPlaceKind='ball'; window.pmSheetOpen=false; window.pmView='map'; buildPlay(); }
+function pmShotPlaceDone(){ window.pmPlacing=null; window.pmPlaceKind='ball'; buildPlay(); }
+/* ---- WHERE YOU AIMED IT ----
+   Optional, one per shot: the spot you were trying to hit. With it the round can be read four
+   ways after it is over: OPTIMAL (where the model would have aimed), INTENDED (where you did),
+   EXPECTED (what that aim is worth over your whole pattern) and ACTUAL (where it finished).
+   Two ways in: tap the spot to measure it before you hit, then "Aim shot N here"; or open a shot
+   and drag its aim on the map. Recording an intention is allowed in a tournament round; nothing
+   is worked out from it until the round is finished. */
+window.pmPlaceKind = window.pmPlaceKind || 'ball';
+function pmShotAim(i){
+  const h=pmHole(), e=pmCurEntry(); if(!h||!e||!e.shots||!e.shots[i]) return;
+  if(!pmShotPt(h, e.shots[i])){ toast('Place this shot on the map first'); return; }
+  window.pmPlacing=i; window.pmPlaceKind='target'; window.pmSheetOpen=false; window.pmView='map'; buildPlay();
+}
+function pmShotAimHere(){
+  const h=pmHole(), e=pmCurEntry(), T=window.pmTarget; if(!h||!e||!T) return;
+  const S=pmShots(e), i=S.length-1; if(i<0||!pmShotPt(h,S[i])) return;
+  S[i].tgt={x:T.x, y:T.y}; window.pmTarget=null; pmTouch(); buildPlay();
+  toast(`Shot ${i+1}: aim recorded`);
+}
+function pmShotAimClear(i){ const e=pmCurEntry(); if(e&&e.shots&&e.shots[i]){ delete e.shots[i].tgt; pmTouch(); buildPlay(); } }
+/* ---- HOW COMMITTED YOU WERE ----  one tap: 1 not, 2 partly, 3 fully. Tap again to clear. */
+const PM_COMMIT = {1:'Not committed', 2:'Partly committed', 3:'Fully committed'};
+function pmShotCommit(i, v){
+  const e=pmCurEntry(); if(!e||!e.shots||!e.shots[i]) return;
+  const sh=e.shots[i]; if(sh.commit===v) delete sh.commit; else sh.commit=v;
+  pmTouch(); buildPlay();
+}
 /* Dragging or tapping a placed shot: distance and situation follow it. Re-placing overwrites
    both — the drag is the newer, more deliberate input — and they stay editable afterwards. */
 function pmShotPlaceAt(pt){
   const h=pmHole(), e=pmCurEntry(), i=window.pmPlacing; if(!h||!e||i==null) return;
   const S=pmShots(e), sh=S[i]; if(!sh) return;
+  if(window.pmPlaceKind==='target'){ sh.tgt={x:pt.x, y:pt.y}; pmTouch(); pmRenderBody(); return; }
   const a=pmShotAuto(h, pt, i);
   Object.assign(sh, {pt, lie:a.lie||sh.lie, yd:a.yd, src:'map', edited:false}); delete sh.ll;
   pmShotsSync(e); pmTouch(); pmRenderBody();
@@ -877,6 +906,7 @@ function pmCxHTML(sh, i){
           <b>${cx.grip?pmFrac(cx.grip)+' in':'none'}</b>
           <button type="button" onclick="pmShotCx(${i},'grip',0.5)" aria-label="Grip down half an inch more">+</button></div></div>
       <input type="text" class="pm-cx-note" maxlength="140" placeholder="Anything else about this shot" value="${escapeHtml(cx.note||'')}" onchange="pmShotCxNote(${i}, this.value)">
+      ${sh.tgt?`<button type="button" class="pm-shot-btn" onclick="pmShotAimClear(${i})">Clear the aim</button>`:''}
     </div>`;
 }
 
@@ -1091,6 +1121,7 @@ const PM_DISP_MIN_DOF = 15;       /* pooled degrees of freedom before a factor c
 function pmPtErrYd(sh){ return (sh && sh.src==='gps' && sh.ll && sh.ll.acc) ? sh.ll.acc*1.0936/2.45 : PM_MAP_ERR_YD; }
 /* What this shot was aimed at, if we know. */
 function pmShotTarget(r, h, num, sh, a, club){
+  if(sh.tgt) return {pt:sh.tgt, src:'aimed'};
   const ypu=cfYardsPerUnit(h)||1;
   const p=r.plan&&r.plan.holes&&r.plan.holes[num];
   if(p && p.shots){
@@ -1230,7 +1261,7 @@ function pmDispCardHTML(){
             : `Width ${pc(x.before.lat)} → ${pc(x.after.lat)}, length ${pc(x.before.dep)} → ${pc(x.after.dep)}`} <i>${pmWhen(x.at)}</i></span>
           <button type="button" class="pm-dc-undo" onclick="pmDispUndo(${x.k})">Undo</button></div>`).join('')}</div>`:''}
       ${pmLeanHTML(d)}
-      <p class="pm-note">Left/right is measured only where the target is known: your frozen plan's aim, or the middle of the green on a full approach. Long/short is the miss along the same line against the target's distance, so it includes the day's roll. GPS and map-placement error is taken out of both.</p>
+      <p class="pm-note">Left/right is measured only where the target is known: the aim you recorded, your frozen plan's aim, or the middle of the green on a full approach. Long/short is the miss along the same line against the target's distance, so it includes the day's roll. GPS and map-placement error is taken out of both.</p>
     </div>`;
 }
 
@@ -1337,6 +1368,111 @@ function pmLeanApply(type, dd, src){
   set[type]=v;
   pmDispChanged(`${label}: lean measured from the course`);
   if(typeof renderStrikeCal==='function') renderStrikeCal();
+}
+
+/* ---- OPTIMAL, INTENDED, EXPECTED, ACTUAL: every shot, four ways ----
+   The app's one question, asked of each shot after the round, in strokes left to hole out on
+   YOUR player model (the same scale the plan and the strategy engine use):
+     OPTIMAL   where the model would have aimed from that spot, over your whole pattern
+     INTENDED  where you aimed (if you recorded it): strokes left had it finished right there
+     EXPECTED  the same aim over your whole pattern: what that choice was worth on average
+     ACTUAL    where the ball really finished (plus any penalty)
+   and the two gaps that matter, as gains (+ is better):
+     CHOICE     optimal - expected   how good the aim was, before the swing
+     EXECUTION  expected - actual    how the swing did against what that aim usually gives
+   They add up to optimal - actual for the shot. A shot with no recorded aim still gets optimal
+   and actual. Worked out once, at the first look after the round (the optimiser is a few
+   hundred milliseconds a shot), a few shots at a time so the screen keeps moving, and kept on
+   the round. Never during a round. */
+const PM_FW_VER = 1;
+window.pmFWJob = window.pmFWJob || null;
+function pmFourWayJobs(r){
+  const c=(STATE.courses||[]).find(x=>(x.id||x.name)===r.courseKey), hs=(c&&c.holes)||[], jobs=[];
+  hs.forEach((h,i)=>{ const num=pmHoleNum(h,i), e=(r.holes||{})[num], S=(e&&e.shots)||[];
+    S.forEach((sh,k)=>{ if(sh.lie==='green') return; const a=pmShotPt(h,sh); if(!a) return; jobs.push({h, num, k, sh, S, e}); }); });
+  return jobs;
+}
+function pmFourWayOne(job){
+  const {h, sh, S, k, e}=job, a=pmShotPt(h,sh);
+  const out={hole:job.num, k, club:sh.club||null, lie:sh.lie, yd:sh.yd, commit:sh.commit||null, aimed:!!sh.tgt, pen:!!sh.pen};
+  const nx=S[k+1]; let act=null;
+  if(nx){ const q=pmShotPt(h,nx); act=(q && !nx.edited) ? cfExpectedStrokes(h,q,PLAYER) : pmPlayerE(nx); }
+  else if(e && e.done) act=0;
+  if(act!=null) out.act=act+(sh.pen?1:0);
+  try{
+    const res=optimiseShot(h, a, {posture:stratPosture(), hcp:PLAYER});
+    if(res && !res.blocked && res.best){
+      const aim={x:Math.round(res.best.aim.x), y:Math.round(res.best.aim.y)}, ro=stratScoreShot(h,a,aim);
+      const E=(ro&&ro.mean!=null)?ro.mean:res.best.mean;
+      if(E!=null) out.opt={E, club:(ro&&ro.shot&&ro.shot.label)||'', yd:ro?Math.round(ro.geoYd):null, aimTxt:pmPlanAimTxt(h,a,aim)};
+    }
+  }catch(_){}
+  if(sh.tgt){
+    try{ const ri=stratScoreShot(h,a,sh.tgt);
+      if(ri && !ri.blocked && ri.mean!=null) out.tgt={E:ri.mean, Eat:ri.expAtAim, yd:Math.round(ri.geoYd), aimTxt:pmPlanAimTxt(h,a,sh.tgt)};
+    }catch(_){}
+  }
+  if(out.opt && out.tgt) out.choice=out.opt.E-out.tgt.E;
+  if(out.tgt && out.act!=null) out.exec=out.tgt.E-out.act;
+  if(out.opt && out.act!=null) out.vsOpt=out.opt.E-out.act;
+  return out;
+}
+function pmFourWayRun(r){
+  if(window.pmFWJob || typeof optimiseShot!=='function') return;
+  const jobs=pmFourWayJobs(r), job={r, jobs, i:0, out:[]}; window.pmFWJob=job;
+  const step=()=>{
+    if(window.pmFWJob!==job) return;
+    const t0=performance.now();
+    while(job.i<jobs.length && performance.now()-t0<40){ job.out.push(pmFourWayOne(jobs[job.i])); job.i++; }
+    const el=document.getElementById('pm-fw-prog'); if(el) el.textContent=`Working out shot ${job.i} of ${jobs.length}…`;
+    if(job.i<jobs.length){ setTimeout(step,0); return; }
+    r.fourWay={v:PM_FW_VER, at:Date.now(), shots:job.out}; saveState(); window.pmFWJob=null;
+    if(typeof buildPostRound==='function') buildPostRound();
+  };
+  setTimeout(step, 30);
+}
+function pmFourWayHTML(){
+  const R=(STATE.play&&STATE.play.rounds)||[]; const r=R[R.length-1];
+  if(!r) return '';
+  const head=`<h3>Optimal, intended, expected, actual — ${escapeHtml(r.courseName||'last round')}</h3>`;
+  if(!r.fourWay || r.fourWay.v!==PM_FW_VER){
+    if(!pmFourWayJobs(r).length) return '';
+    pmFourWayRun(r);
+    return `<div class="profile-card pm-fw-card">${head}<p class="pm-pv-prog" id="pm-fw-prog">Working out every shot…</p></div>`;
+  }
+  const F=r.fourWay.shots; if(!F.length) return '';
+  const f=x=>`${x>=0?'+':'−'}${Math.abs(x).toFixed(2)}`, cls=x=>x<0?'neg':'', e2=x=>x==null?'—':x.toFixed(2);
+  const sum=(k,list)=>list.reduce((s,x)=>s+x[k],0);
+  const A=F.filter(x=>x.choice!=null&&x.exec!=null), O=F.filter(x=>x.vsOpt!=null);
+  const commitRows=[3,2,1].map(v=>{ const L=O.filter(x=>x.commit===v); if(!L.length) return '';
+      const LE=L.filter(x=>x.exec!=null);
+      return `<div class="pm-fw-cm"><span>${PM_COMMIT[v]}</span><i>${L.length} shot${L.length===1?'':'s'}</i>
+        <b class="${cls(sum('vsOpt',L))}">${f(sum('vsOpt',L)/L.length)}</b>${LE.length?`<em>execution <b class="${cls(sum('exec',LE))}">${f(sum('exec',LE)/LE.length)}</b></em>`:''}</div>`; }).join('');
+  const clubName=id=>id?(pmClubName(id)||''):'';
+  const rows=F.map(x=>`<div class="pm-fw-row">
+      <div class="pm-fw-l1"><b>${x.hole}</b><span>shot ${x.k+1} · ${escapeHtml(PM_LIE_NAME[x.lie]||x.lie)} ${x.yd!=null?ydNum(x.yd):''}${x.club?` · ${escapeHtml(clubName(x.club))}`:''}</span>
+        ${x.commit?`<i class="pm-fw-dot" title="${PM_COMMIT[x.commit]}">${['○','◐','●'][x.commit-1]}</i>`:''}</div>
+      <div class="pm-fw-grid">
+        <div><span>Optimal</span><b>${e2(x.opt&&x.opt.E)}</b><i>${x.opt?`${escapeHtml(x.opt.club)} ${x.opt.yd!=null?ydNum(x.opt.yd):''}`:'—'}</i></div>
+        <div><span>Intended</span><b>${e2(x.tgt&&x.tgt.Eat)}</b><i>${x.tgt?`${ydNum(x.tgt.yd)} ${ydUnit()}`:'no aim'}</i></div>
+        <div><span>Expected</span><b>${e2(x.tgt&&x.tgt.E)}</b><i>${x.tgt?'your pattern':''}</i></div>
+        <div><span>Actual</span><b>${e2(x.act)}</b><i>${x.pen?'+1 penalty':''}</i></div>
+      </div>
+      <div class="pm-fw-l3">${x.choice!=null?`choice <b class="${cls(x.choice)}">${f(x.choice)}</b> · execution <b class="${cls(x.exec)}">${x.exec!=null?f(x.exec):'—'}</b>`
+        : x.vsOpt!=null?`vs optimal <b class="${cls(x.vsOpt)}">${f(x.vsOpt)}</b>`:''}${x.tgt&&x.tgt.aimTxt?` <i>aimed ${escapeHtml(x.tgt.aimTxt)}</i>`:''}</div>
+    </div>`).join('');
+  return `<div class="profile-card pm-fw-card">${head}
+      <div class="pm-pr-when">Strokes left to hole out, on your own player model. + is better.</div>
+      <div class="pm-pr-top">
+        <div><span>vs optimal</span><b class="${cls(sum('vsOpt',O))}">${O.length?f(sum('vsOpt',O)):'—'}</b><i>${O.length} shot${O.length===1?'':'s'}</i></div>
+        <div><span>Choice</span><b class="${cls(sum('choice',A))}">${A.length?f(sum('choice',A)):'—'}</b><i>${A.length} aimed</i></div>
+        <div><span>Execution</span><b class="${cls(sum('exec',A))}">${A.length?f(sum('exec',A)):'—'}</b><i>${A.length} aimed</i></div>
+      </div>
+      ${A.length?'':`<p class="pm-note">Record where you aimed (◎ aim on a shot, or tap the spot and "Aim shot N here") and each shot splits into the choice and the execution.</p>`}
+      ${commitRows?`<div class="pm-fw-cms"><div class="pm-dc-log-h">By commitment <span>average a shot</span></div>${commitRows}</div>`:''}
+      <details class="pm-fw-all"><summary>Every shot (${F.length})</summary>${rows}</details>
+      <p class="pm-note">Choice is your aim against the optimal one, both over your whole pattern. Execution is where the ball finished against what your aim gives on average, so one shot is mostly luck; the round's total is the signal. Putts are left out.</p>
+    </div>`;
 }
 
 /* ---- PLAN VS PLAYED, after the round ----
@@ -1752,7 +1888,12 @@ function pmMapHTML(h, r){
     pts.forEach(q=>{ if(q&&prev) path+=`<line x1="${prev.x}" y1="${prev.y}" x2="${q.x}" y2="${q.y}" stroke="#fff" stroke-opacity=".85" stroke-width="${sw2.toFixed(1)}"/>`; if(q) prev=q; });
     if(prev&&pin) path+=`<line x1="${prev.x}" y1="${prev.y}" x2="${pin.x}" y2="${pin.y}" stroke="#fff" stroke-opacity=".45" stroke-width="${sw2.toFixed(1)}" stroke-dasharray="${(4/pxPerUnit).toFixed(1)},${(4/pxPerUnit).toFixed(1)}"/>`;
     ov+=path;
-    pts.forEach((q,i)=>{ if(!q) return; const on=window.pmPlacing===i;
+    Sx.forEach((sh,i)=>{ const q=pts[i]; if(!q||!sh.tgt) return;
+      const on=window.pmPlacing===i&&window.pmPlaceKind==='target', ra=(on?11:8)/pxPerUnit;
+      ov+=`<line x1="${q.x}" y1="${q.y}" x2="${sh.tgt.x}" y2="${sh.tgt.y}" stroke="#f4d47a" stroke-opacity=".9" stroke-width="${(1.5/pxPerUnit).toFixed(1)}" stroke-dasharray="${(3/pxPerUnit).toFixed(1)},${(4/pxPerUnit).toFixed(1)}"/>
+        <circle cx="${sh.tgt.x}" cy="${sh.tgt.y}" r="${ra.toFixed(1)}" fill="none" stroke="#f4d47a" stroke-width="${(2.5/pxPerUnit).toFixed(1)}"/>
+        <circle cx="${sh.tgt.x}" cy="${sh.tgt.y}" r="${(2/pxPerUnit).toFixed(1)}" fill="#f4d47a"/>`; });
+    pts.forEach((q,i)=>{ if(!q) return; const on=window.pmPlacing===i&&window.pmPlaceKind!=='target';
       ov+=`<circle cx="${q.x}" cy="${q.y}" r="${(on?rr*1.35:rr).toFixed(1)}" fill="${on?'#f4d47a':'#fff'}" stroke="#14351d" stroke-width="${(2/pxPerUnit).toFixed(1)}"/>
         <text x="${q.x}" y="${(q.y+rr*0.42).toFixed(1)}" text-anchor="middle" font-family="Arial,sans-serif" font-weight="800" font-size="${(11/pxPerUnit).toFixed(1)}" fill="#14351d">${i+1}</text>`; });
   }
@@ -1773,7 +1914,10 @@ function pmMapHTML(h, r){
       </div>`;
   const placing = window.pmPlacing!=null && Sx[window.pmPlacing];
   return `<div class="pm-mapwrap${placing?' pm-placing':''}" style="height:${vh}px">
-      ${placing?`<div class="pm-place-banner">Shot ${window.pmPlacing+1}: tap or drag on the hole
+      ${placing&&window.pmPlaceKind==='target'?`<div class="pm-place-banner">Shot ${window.pmPlacing+1}: tap or drag where you aimed
+          <b>${(()=>{ const a=pmShotPt(h,Sx[window.pmPlacing]), t=Sx[window.pmPlacing].tgt; return a&&t?ydNum(cfDistYd(h,a,t))+' '+ydUnit()+' from the ball':'not set yet'; })()}</b>
+          <button type="button" onclick="pmShotPlaceDone()">Done</button></div>`
+       :placing?`<div class="pm-place-banner">Shot ${window.pmPlacing+1}: tap or drag on the hole
           <b>${PM_LIE_NAME[Sx[window.pmPlacing].lie]||''} \u00b7 ${Sx[window.pmPlacing].yd==null?'\u2014':(Sx[window.pmPlacing].lie==='green'?ftNum(Sx[window.pmPlacing].yd*3)+' '+ftUnit():ydNum(Sx[window.pmPlacing].yd)+' '+ydUnit())}</b>
           <button type="button" onclick="pmShotPlaceDone()">Done</button></div>`:fmb}
       <div class="pm-map" id="pm-map">${renderHoleSVG(h,{viewBox:box, overlay:ov})}</div>
@@ -1814,7 +1958,9 @@ function pmSheetHTML(h, r, c){
       ${gpsOk?`<button type="button" class="pm-mark" onclick="pmMarkBall()">\u25ce Mark ball</button>`:''}
       <button type="button" class="pm-mark pm-mark-map" onclick="pmShotAddOnMap()">\u271a On the map</button>
       ${S.length&&S[S.length-1].lie==='green'?`<button type="button" class="pm-mark pm-holed" onclick="pmHoledOut()">\u2713 Holed</button>`:''}`}
-    </div>`;
+    </div>
+    ${(!e.done && window.pmTarget && S.length && pmShotPt(h,S[S.length-1]) && !S[S.length-1].tgt)
+      ? `<button type="button" class="pm-aimhere" onclick="pmShotAimHere()">\u25ce Aim shot ${S.length} here <i>record the spot you measured as where you are aiming</i></button>` : ''}`;
   const pstrip=pmPlanStripHTML(h, e);
   if(!open) return `<div class="pm-sheet">${plans}${pstrip}${shotBar}${scoreLine}</div>`;
   /* ---- expanded ---- */
@@ -1896,6 +2042,8 @@ function pmShotListHTML(h, e){
             <option value="">${green?'Putter':'Club'}</option>
             ${(STATE.clubs||[]).map(c=>`<option value="${escapeHtml(c.id)}"${sh.club===c.id?' selected':''}>${escapeHtml(c.label)}${c.loft?` \u00b7 ${String(c.loft).replace(/\u00b0/g,'')}\u00b0`:''}</option>`).join('')}
           </select>
+          <div class="pm-commit" role="group" aria-label="How committed to shot ${i+1}">${[1,2,3].map(v=>`<button type="button" class="${sh.commit===v?'on':''}" onclick="pmShotCommit(${i},${v})" aria-pressed="${sh.commit===v}" title="${PM_COMMIT[v]}">${['\u25cb','\u25d0','\u25cf'][v-1]}</button>`).join('')}</div>
+          ${green?'':`<button type="button" class="pm-shot-btn pm-aim${sh.tgt?' on':''}" onclick="pmShotAim(${i})" title="Where you aimed this shot">\u25ce ${sh.tgt?'aimed':'aim'}</button>`}
           <button type="button" class="pm-shot-cxbtn${sh.cx?' on':''}" onclick="pmShotCxToggle(${i})" aria-expanded="${window.pmShotOpen===i}">
             ${sh.cx?escapeHtml(pmCxTxt(sh.cx,false)||'Note'):'Stock shot'} <span aria-hidden="true">${window.pmShotOpen===i?'\u25b4':'\u25be'}</span></button>
         </div>
@@ -2098,11 +2246,12 @@ Object.assign(window, { PM_RESUME_HOURS, PM_NEAR_HOLE_YD, PM_GPS_MAX_ERR_M,
   pmToTournament, pmUnlockBegin, pmUnlockCancel, pmUnlockCheck, pmUnlockConfirm, pmUnlockHTML, pmTournHistoryHTML, PM_MIN_SPAN_YD,
   PM_AUTO_TEE_YD, PM_AUTO_NEAR_YD, PM_AUTO_FAR_YD, PM_AUTO_CONFIRM, PM_AUTO_HOLD_MS,
   pmHoleFit, pmRankHoles, pmAutoHold, pmAutoResume, pmAutoDetect, pmAutoBadge, pmAskSet, pmAskDone, pmAskHTML,
+  pmShotAim, pmShotAimHere, pmShotAimClear, pmShotCommit, PM_COMMIT, pmFourWayJobs, pmFourWayOne, pmFourWayRun, pmFourWayHTML,
   pmDispChanged, PM_LEAN_MIN_DOF, pmLeanSide, pmLeanMeasure, pmLeanDeg, pmLeanHTML, pmLeanApply,
   PM_MAP_ERR_YD, PM_DISP_MIN_DOF, pmPtErrYd, pmShotTarget, pmDispClub, pmDispPool, pmDispCal, pmDispApply, pmDispUndo, pmDispCardHTML,
   PM_DIST_MIN_N, pmDistShots, pmDistClub, pmDistApply, pmDistUndo, pmDistCardHTML,
   pmPlayerE, pmPlanReview, pmPlanReviewHTML, pmBagClub, pmClubName, pmShotSetClub, pmShotCxToggle, pmShotCx, pmShotCxNote, pmCxTxt,
-  pmShotValues, pmCustomShotsHTML, pmPlanClubTxt, pmSetupSet, pmPlans, pmPlanStamp, pmPlanAimTxt, pmPlanChain, pmPlanHole, pmPlanExp, pmPlanBuild, pmPlanOpen, pmPlanClose,
+  pmShotValues, pmCustomShotsHTML, pmPlanClubTxt, pmSetupSet, pmSetupCourse, pmPlans, pmPlanStamp, pmPlanAimTxt, pmPlanChain, pmPlanHole, pmPlanExp, pmPlanBuild, pmPlanOpen, pmPlanClose,
   pmPlanPick, pmPlanNote, pmPlanDelete, pmPlanFreeze, pmPlanTotal, pmPlanFor, pmPlanAimFrom, pmPlanHTML, pmSetupPlanHTML,
   PM_LIES, PM_LIE_NAME, PM_ARG_YD, pmCurEntry, pmHoledOut, pmShotReopen, pmShotAdding, pmShots, pmShotsSync, pmShotAuto, pmMarkBall, pmShotAddOnMap, pmShotPlace, pmShotPlaceDone,
   pmShotPlaceAt, pmShotPt, pmShotSetLie, pmShotSetDist, pmShotTogglePen, pmShotDel, pmShotsFill, pmShotsClear, pmShotsAddTyped,
