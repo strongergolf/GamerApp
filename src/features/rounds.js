@@ -180,6 +180,199 @@ function rdPriorityHTML(D, S){
     <p><b>${worst.l}</b> is costing you <b class="${worst.v<0?'neg':''}">${rdSg(worst.v)}</b> a round against ${escapeHtml(((typeof esCmp==='function')?esCmp():{label:'the benchmark'}).label||'the benchmark')}.${detail} Work on it with ${tools[worst.k]}.</p></div>`;
 }
 
+/* ==================== GOALS: strokes gained targets per category ====================
+   A target a round, per 18 holes, for each category, on the same benchmark the dashboard reads
+   (Settings). Suggested from the goal handicap in your profile, through the app's own
+   expected-strokes model rather than a rule of thumb: the goal is the difference between the
+   benchmark's expected round and the goal handicap's expected round on the course you play
+   most, split evenly across the four categories to start, then yours to move.
+   Progress is the average of your last RD_GOAL_N rounds against the target, measured from
+   where you were when the goal was set. */
+const RD_GOAL_N = 5;
+function rdGoals(){ return STATE.goals || null; }
+/* the course you play most, as 18 hole lengths; a standard par 72 if there is none */
+function rdRefHoles(){
+  const cnt={}; rdAll().forEach(r=>{ cnt[r.courseKey]=(cnt[r.courseKey]||0)+1; });
+  const key=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a])[0];
+  const c=(STATE.courses||[]).find(x=>(x.id||x.name)===key) || (STATE.courses||[])[0];
+  const yds=c ? (c.holes||[]).map(h=>(h.tee&&cfPin(h)&&typeof cfDistYd==='function') ? cfDistYd(h,h.tee,cfPin(h)) : (+h.yards||null)).filter(Boolean) : [];
+  if(yds.length>=18) return {name:c.name, yds:yds.slice(0,18)};
+  return {name:'a standard par 72', yds:[175,175,175,175, 400,400,400,400,400,400,400,400,400,400, 540,540,540,540]};
+}
+function rdRoundE(yds, hcp){ return yds.reduce((s,y)=>s+srForPlayer('tee', y, hcp),0); }
+function rdGoalSuggest(){
+  const bench=(typeof esCmp==='function')?esCmp():{hcp:0};
+  const g=(typeof whsNum==='function')?whsNum(STATE.profile&&STATE.profile.goalHcp):null;
+  if(g==null) return null;
+  const ref=rdRefHoles(), total=rdRoundE(ref.yds, bench.hcp)-rdRoundE(ref.yds, g);
+  return {total, ref:ref.name, goal:g};
+}
+function rdCurrentAvgs(){
+  const bench=(typeof esCmp==='function')?esCmp():{hcp:0};
+  const D=rdAll().slice().sort((a,b)=>(a.startedAt||0)-(b.startedAt||0)).map(r=>rdRound(r, bench)).filter(d=>d.per18).slice(-RD_GOAL_N);
+  const out={n:D.length};
+  ['total','ott','app','arg','putt'].forEach(k=>{ out[k]=rdMean(D.map(d=>d.per18[k])); });
+  return out;
+}
+function rdGoalSet(){
+  const s=rdGoalSuggest(), cur=rdCurrentAvgs();
+  const each = s ? s.total/4 : 0.25;
+  STATE.goals={ at:Date.now(), bench:((typeof esCmp==='function')?esCmp():{short:'scratch'}).short, from:s?`goal handicap ${STATE.profile.goalHcp}`:'',
+                cats:{ott:+each.toFixed(2), app:+each.toFixed(2), arg:+each.toFixed(2), putt:+each.toFixed(2)},
+                base:{ott:cur.ott, app:cur.app, arg:cur.arg, putt:cur.putt, total:cur.total} };
+  saveState(); buildPostRound();
+}
+function rdGoalAdj(k, d){
+  const G=rdGoals(); if(!G) return;
+  G.cats[k]=Math.round(((G.cats[k]||0)+d)*100)/100; saveState(); buildPostRound();
+}
+function rdGoalClear(){ if(!confirm('Clear your strokes gained goals?')) return; delete STATE.goals; saveState(); buildPostRound(); }
+function rdGoalsHTML(){
+  const G=rdGoals(), s=rdGoalSuggest(), bench=(typeof esCmp==='function')?esCmp():{short:'scratch', label:'Scratch'};
+  if(!G) return `<div class="rd-sec"><h4>Goals</h4>
+      <p class="pm-note">${s?`Your goal handicap is <b>${escapeHtml(String(STATE.profile.goalHcp))}</b>. On this app's model that averages <b>${rdSg(s.total)}</b> a round against ${escapeHtml(bench.label||bench.short)} on ${escapeHtml(s.ref)}: a Handicap Index is your better rounds, this is your average one.`
+        :'Set a goal handicap in Settings → Profile and the targets are worked out from it; or start from even targets and set your own.'}</p>
+      <button type="button" class="btn pm-dc-apply" onclick="rdGoalSet()">Set goals${s?` from ${escapeHtml(String(STATE.profile.goalHcp))}`:''}</button></div>`;
+  const cur=rdCurrentAvgs();
+  const total=RD_CATS.reduce((a,[k])=>a+(G.cats[k]||0),0);
+  const row=(k,l)=>{ const t=G.cats[k], c=cur[k], b=G.base[k];
+    let pct=null; if(c!=null && b!=null && t!==b) pct=Math.max(0, Math.min(1, (c-b)/(t-b)));
+    const met = c!=null && c>=t;
+    return `<div class="rd-goal"><span class="rd-goal-l">${l}</span>
+      <span class="rd-goal-now"><b class="${c!=null&&c<0?'neg':''}">${rdSg(c)}</b><i>now</i></span>
+      <span class="rd-goal-t"><button type="button" onclick="rdGoalAdj('${k}',-0.1)" aria-label="Lower the ${l} goal">−</button><b>${rdSg(t)}</b><button type="button" onclick="rdGoalAdj('${k}',0.1)" aria-label="Raise the ${l} goal">+</button></span>
+      <span class="rd-goal-bar${met?' met':''}"><span style="width:${met?100:Math.round((pct||0)*100)}%"></span></span></div>`; };
+  return `<div class="rd-sec"><h4>Goals <span>a round, per 18, vs ${escapeHtml(G.bench)} · now = the last ${cur.n||RD_GOAL_N} rounds</span></h4>
+      ${RD_CATS.map(([k,l])=>row(k,l)).join('')}
+      <div class="rd-goal rd-goal-tot"><span class="rd-goal-l">Total</span><span class="rd-goal-now"><b class="${cur.total!=null&&cur.total<0?'neg':''}">${rdSg(cur.total)}</b></span>
+        <span class="rd-goal-t"><b>${rdSg(total)}</b></span><span class="rd-goal-gap">${cur.total!=null?(cur.total>=total?'goal met':`${(total-cur.total).toFixed(2)} to go`):''}</span></div>
+      <p class="pm-note">Bars run from where you were when the goal was set (${new Date(G.at).toLocaleDateString([], {month:'short', day:'numeric'})}) to the goal.${s?` ${escapeHtml(String(STATE.profile.goalHcp))} is ${rdSg(s.total)} a round on the model.`:''} <button type="button" class="rd-link" onclick="rdGoalClear()">clear goals</button></p></div>`;
+}
+
+/* ==================== THE PRACTICE PLAN: from your leaks, then measured again ====================
+   The leaks, finer than the four categories: off the tee; approach by distance; around the
+   green by chip/pitch and bunker; putting short, middle and long. Each is weighed by what it
+   costs a ROUND, not a shot (strokes a shot short of the goal times how often it comes up), so
+   a rare bad shot does not outrank a common small one. Practice time is shared out in that
+   proportion across the sessions you choose, as drills that already exist in the app, each
+   with the place to go to do it. The plan keeps the before-number for every leak it targets;
+   rounds played after it was made are measured against those, so the plan says whether it
+   worked. Measured from the last RD_PLAN_ROUNDS rounds. */
+const RD_PLAN_ROUNDS = 10;
+const RD_LEAKS = [
+  {key:'ott',       cat:'ott',  label:'Driving',                 test:s=>s.cat==='ott'},
+  {key:'app50',     cat:'app',  label:'Approach 50–100',     test:s=>s.cat==='app'&&s.yd<100},
+  {key:'app100',    cat:'app',  label:'Approach 100–150',    test:s=>s.cat==='app'&&s.yd>=100&&s.yd<150},
+  {key:'app150',    cat:'app',  label:'Approach 150–200',    test:s=>s.cat==='app'&&s.yd>=150&&s.yd<200},
+  {key:'app200',    cat:'app',  label:'Approach 200+',            test:s=>s.cat==='app'&&s.yd>=200},
+  {key:'chip',      cat:'arg',  label:'Chipping and pitching',    test:s=>s.cat==='arg'&&s.lie!=='sand'},
+  {key:'sand',      cat:'arg',  label:'Greenside bunkers',        test:s=>s.cat==='arg'&&s.lie==='sand'},
+  {key:'puttShort', cat:'putt', label:'Putting inside 6 ft',      test:s=>s.cat==='putt'&&s.yd*3<6},
+  {key:'puttMid',   cat:'putt', label:'Putting 6–20 ft',     test:s=>s.cat==='putt'&&s.yd*3>=6&&s.yd*3<20},
+  {key:'puttLong',  cat:'putt', label:'Lag putting 20 ft+',       test:s=>s.cat==='putt'&&s.yd*3>=20}
+];
+/* what to do about each one, and where in the app to do it */
+const RD_DRILLS = {
+  ott:      {drill:'Driver combine: twelve drives, all count, scored on a 420 yd hole. Then Shape Nine with the driver.', go:[['Driver combine','game:driver'],['Shape Nine','sim:shape']], measure:'combine score under par'},
+  app50:    {drill:'Wedges combine, 50–120 yd stations, then the Ladder Test on your partial swings.', go:[['Wedges combine','game:wedge'],['Ladder Test','sim:ladder']], measure:'ladder points and combine score'},
+  app100:   {drill:'Wedges combine top stations and the Irons combine 130–152 yd.', go:[['Wedges combine','game:wedge'],['Irons combine','game:irons']], measure:'proximity under the combine par'},
+  app150:   {drill:'Irons combine: one ball to each station, 130–212 yd, proximity counted.', go:[['Irons combine','game:irons']], measure:'combine score under par'},
+  app200:   {drill:'Irons combine long stations (182–212 yd) with the hybrids and long irons; middle of the green, not the pin.', go:[['Irons combine','game:irons']], measure:'greens hit from 200+'},
+  chip:     {drill:'Ten balls to each of three landing spots from fairway and rough; set up from the Short Game tab’s model first.', go:[['Short Game','page:shortgame'],['Wedges combine (10–40)','game:wedge']], measure:'up and down %'},
+  sand:     {drill:'Bunker ladder: ten balls to 10, 20 and 30 ft; count those finishing inside 6 ft.', go:[['Short Game','page:shortgame']], measure:'inside 6 ft %'},
+  puttShort:{drill:'Putting combine 3 and 6 ft stations, then 25 in a row from 4 ft (start again on a miss).', go:[['Putting combine','game:putt']], measure:'holed % inside 6 ft'},
+  puttMid:  {drill:'Putting combine 9–18 ft stations, uphill and downhill.', go:[['Putting combine','game:putt'],['Putting tab','page:putting']], measure:'putts from 6–20 ft'},
+  puttLong: {drill:'Lag ladder: 20, 30, 40 ft, each to finish inside a 3 ft circle; no three-putts in a row of nine.', go:[['Putting tab','page:putting']], measure:'three-putt %'}
+};
+function rdPlanGo(where){
+  const [kind, id]=String(where).split(':');
+  if(kind==='game'){ if(typeof showGroupPage==='function') showGroupPage('games','games'); if(typeof gmSetGame==='function') gmSetGame(id); }
+  else if(kind==='sim'){ if(typeof simOpen==='function'){ simOpen(); simSetView('games'); simGameOpen(id); } }
+  else if(kind==='page'){ if(typeof showGroupPage==='function') showGroupPage('play', id); }
+  window.scrollTo && window.scrollTo(0,0);
+}
+function rdLeaks(D){
+  const S=D.flatMap(d=>d.shots), G=rdGoals(), n=D.filter(d=>d.sgHoles).length||1, holes=D.reduce((a,d)=>a+d.sgHoles,0)||18;
+  const perRound=holes/18;   /* rounds' worth of logged holes */
+  return RD_LEAKS.map(L=>{
+    const sh=S.filter(L.test); if(!sh.length) return null;
+    const perShot=rdMean(sh.map(s=>s.sg)), freq=sh.length/perRound;
+    /* the goal for a category, spread over that category's shots, is the bar a shot has to clear */
+    const catShots=S.filter(s=>s.cat===L.cat).length/perRound;
+    const bar = G && catShots ? (G.cats[L.cat]||0)/catShots : 0;
+    const cost=(bar-perShot)*freq;   /* strokes a round short of the goal (or the benchmark) */
+    return Object.assign({}, L, {n:sh.length, perShot, freq, bar, cost});
+  }).filter(Boolean);
+}
+function rdPlanBuild(){
+  const bench=(typeof esCmp==='function')?esCmp():{hcp:0};
+  const D=rdAll().slice().sort((a,b)=>(a.startedAt||0)-(b.startedAt||0)).slice(-RD_PLAN_ROUNDS).map(r=>rdRound(r, bench));
+  const leaks=rdLeaks(D).filter(l=>l.n>=3);
+  if(!leaks.length){ toast('Log shots in a few rounds first'); return; }
+  const opt=Object.assign({sessions:3, minutes:60}, (STATE.practicePlan&&STATE.practicePlan.opt)||{});
+  /* weigh by strokes a round; if nothing is short of the bar, the weakest relative to the rest */
+  let pos=leaks.filter(l=>l.cost>0.01);
+  if(!pos.length){ const mx=Math.max(...leaks.map(l=>l.perShot)); pos=leaks.map(l=>Object.assign(l,{cost:(mx-l.perShot)*l.freq+0.01})); }
+  pos.sort((a,b)=>b.cost-a.cost); pos=pos.slice(0,4);
+  /* Every session shares its time across the leaks in proportion to what each costs a round,
+     at least 10 minutes a leak, and never over the session's length. When there are more leaks
+     than a session has room for, the cheapest sits out, a different one each session; and the
+     order rotates, so each session starts on a different leak. */
+  const W=pos.reduce((a,l)=>a+l.cost,0), MINB=10, r5=x=>Math.round(x/5)*5;
+  const sessions=Array.from({length:opt.sessions},(_,si)=>{
+    let use=pos.slice();
+    while(use.length*MINB>opt.minutes && use.length>1){ const drop=use.length-1-(si%Math.max(1,use.length-1)); use.splice(Math.max(1,drop),1); }
+    const w=use.reduce((a,l)=>a+l.cost,0);
+    let blocks=use.map(l=>({key:l.key, label:l.label, min:Math.max(MINB, r5(opt.minutes*l.cost/w))}));
+    let sum=blocks.reduce((a,b)=>a+b.min,0);
+    while(sum>opt.minutes){ const b=blocks.filter(x=>x.min>MINB).sort((a,b)=>b.min-a.min)[0]; if(!b) break; b.min-=5; sum-=5; }
+    while(sum<opt.minutes){ blocks[0].min+=5; sum+=5; }
+    const k=si%blocks.length; blocks=blocks.slice(k).concat(blocks.slice(0,k));
+    return {blocks, done:null};
+  });
+  STATE.practicePlan={ at:Date.now(), opt, sessions:sessions.filter(s=>s.blocks.length),
+                       focus:pos.map(l=>({key:l.key, label:l.label, before:l.perShot, n:l.n, cost:l.cost, freq:l.freq})) };
+  saveState(); buildPostRound();
+}
+function rdPlanOpt(k,v){
+  const P=STATE.practicePlan=STATE.practicePlan||{draft:true};
+  P.opt=Object.assign({sessions:3, minutes:60}, P.opt||{}); P.opt[k]=parseInt(v,10);
+  if(P.draft||!P.sessions){ P.draft=true; saveState(); buildPostRound(); } else rdPlanBuild();
+}
+function rdPlanDone(i){ const P=STATE.practicePlan; if(!P||!P.sessions||!P.sessions[i]) return; P.sessions[i].done=P.sessions[i].done?null:Date.now(); saveState(); buildPostRound(); }
+function rdPlanClear(){ if(!confirm('Clear this practice plan?')) return; delete STATE.practicePlan; saveState(); buildPostRound(); }
+function rdPlanHTML(D){
+  const P=STATE.practicePlan, opt=Object.assign({sessions:3, minutes:60}, (P&&P.opt)||{});
+  const opts=`<div class="rd-filters">
+      <label>Sessions a week<select onchange="rdPlanOpt('sessions', this.value)">${[2,3,4,5].map(n=>`<option value="${n}"${opt.sessions===n?' selected':''}>${n}</option>`).join('')}</select></label>
+      <label>Minutes each<select onchange="rdPlanOpt('minutes', this.value)">${[30,45,60,90,120].map(n=>`<option value="${n}"${opt.minutes===n?' selected':''}>${n}</option>`).join('')}</select></label></div>`;
+  if(!P || P.draft || !P.sessions){
+    return `<div class="rd-sec"><h4>Practice plan <span>from your leaks</span></h4>${opts}
+      <p class="pm-note">Weighs every part of your game by what it costs a round${rdGoals()?' against your goals':''}, shares your practice time out in that proportion, and measures those parts again in the rounds after.</p>
+      <button type="button" class="btn pm-dc-apply" onclick="rdPlanBuild()">Build my plan</button></div>`;
+  }
+  /* since the plan: the same leaks, from the rounds played after it was made */
+  const bench=(typeof esCmp==='function')?esCmp():{hcp:0};
+  const after=rdAll().filter(r=>(r.startedAt||0)>P.at).map(r=>rdRound(r, bench));
+  const now=after.length?rdLeaks(after):[];
+  const focus=P.focus.map(f=>{ const a=now.find(x=>x.key===f.key);
+    return `<div class="rd-focus"><b>${escapeHtml(f.label)}</b><span>was <b class="${f.before<0?'neg':''}">${rdSg(f.before)}</b> a shot · cost ${f.cost.toFixed(2)} a round</span>
+      <span>${a?`since: <b class="${a.perShot<0?'neg':''}">${rdSg(a.perShot)}</b> over ${a.n} ${Math.abs(a.perShot-f.before)<0.02?'<i>about the same</i>':`<i class="${a.perShot>f.before?'up':'down'}">${a.perShot>f.before?'▲ better':'▼ worse'}</i>`}`:'<i>no rounds since</i>'}</span></div>`; }).join('');
+  const sess=P.sessions.map((s,i)=>`<div class="rd-sess${s.done?' done':''}">
+      <div class="rd-sess-h"><b>Session ${i+1}</b><span>${s.blocks.reduce((a,b)=>a+b.min,0)} min</span>
+        <button type="button" class="pm-dc-undo" onclick="rdPlanDone(${i})" aria-pressed="${!!s.done}">${s.done?'✓ Done':'Mark done'}</button></div>
+      ${s.blocks.map(b=>{ const d=RD_DRILLS[b.key]||{};
+        return `<div class="rd-blk"><div class="rd-blk-h"><b>${b.min} min</b> ${escapeHtml(b.label)}</div><p>${escapeHtml(d.drill||'')}</p>
+          <div class="rd-go">${(d.go||[]).map(([l,w])=>`<button type="button" class="pm-shot-btn" onclick="rdPlanGo('${w}')">${escapeHtml(l)} ›</button>`).join('')}${d.measure?`<i>track: ${escapeHtml(d.measure)}</i>`:''}</div></div>`; }).join('')}
+    </div>`).join('');
+  const doneN=P.sessions.filter(s=>s.done).length;
+  return `<div class="rd-sec"><h4>Practice plan <span>made ${new Date(P.at).toLocaleDateString([], {month:'short', day:'numeric'})} · ${doneN} of ${P.sessions.length} sessions done</span></h4>
+      ${opts}
+      <div class="rd-focuses">${focus}</div>
+      ${sess}
+      <div class="pm-plan-row"><button type="button" class="btn pm-plan-btn" onclick="rdPlanBuild()">Rebuild from the latest rounds</button><button type="button" class="btn pm-plan-btn" onclick="rdPlanClear()">Clear</button></div></div>`;
+}
+
 /* ---------- export: rounds.csv and shots.csv ---------- */
 function rdCsv(rows){ return rows.map(r=>r.map(v=>{ const s=v==null?'':String(v); return /[",\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s; }).join(',')).join('\n'); }
 function rdDownload(name, text){
@@ -207,8 +400,6 @@ function rdExport(kind){
 
 /* ---------- planned: the next tools, shown so they can be argued with ---------- */
 const RD_PLANNED = [
-  ['Strokes gained goals', 'A target per category against your benchmark, with progress round by round.'],
-  ['Practice plan from your leaks', 'The practice priority above, turned into a week of sessions from the combines and Sim games, and re-measured.'],
   ['Coach sharing', 'Send a round or the dashboard to a coach, read-only, without handing over the phone.'],
   ['Season recap', 'The year in one page: best rounds, biggest gains, what changed in the bag.'],
   ['Golf Canada sync', 'Posting and your official index without retyping, if a licensed-partner connection is granted.']
@@ -247,8 +438,11 @@ function rdDashboardHTML(){
   return `<div class="profile-card rd-card">
       <h3>All rounds</h3>
       <div class="pm-pr-when">Strokes gained against ${escapeHtml(bench.label||bench.short)} (Settings), re-read from every shot each time</div>
-      ${filters}${top}${cats}${trend}
+      ${filters}${top}${cats}
+      ${rdGoalsHTML()}
+      ${trend}
       ${rdPriorityHTML(D,S)}
+      ${rdPlanHTML(D)}
       ${rdApproachHTML(S)}${rdArgHTML(S)}${rdPuttHTML(S)}${rdTeeHTML(D,S)}${rdScoringHTML(D)}${rdDecisionHTML(D)}
       ${rdIndexHTML()}
       <div class="rd-sec"><h4>Your data</h4><div class="pm-plan-row">
@@ -260,4 +454,5 @@ function rdDashboardHTML(){
     </div>`;
 }
 
-Object.assign(window, { rdSetView, rdSwitchHTML, rdF, rdSetF, rdRounds, rdRound, rdTrendSVG, rdExport, rdDashboardHTML, RD_WHS_TABLE });
+Object.assign(window, { rdGoalSuggest, rdCurrentAvgs, rdGoalSet, rdGoalAdj, rdGoalClear, rdLeaks, rdPlanBuild, rdPlanOpt, rdPlanDone, rdPlanClear, rdPlanGo, RD_LEAKS, RD_DRILLS,
+  rdSetView, rdSwitchHTML, rdF, rdSetF, rdRounds, rdRound, rdTrendSVG, rdExport, rdDashboardHTML, RD_WHS_TABLE });
