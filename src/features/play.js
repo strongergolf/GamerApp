@@ -57,7 +57,7 @@ window.pmLockAsk = false;
 function pmLockDismiss(){ window.pmLockAsk=false; buildPlay(); }
 
 /* ---------------- OPEN / CLOSE ---------------- */
-window.pmView = window.pmView || 'dist';
+window.pmView = window.pmView || 'map';
 function pmIsOpen(){ return document.body.classList.contains('playing'); }
 function pmOpen(){
   document.body.classList.add('playing');
@@ -105,8 +105,8 @@ function pmStart(){
   if(tOn && !confirm('Start a TOURNAMENT round?\n\nDistances only, with no adjustments. The rest of the app stays locked until you finish or discard this round.')) return;
   pmState().round={ id:'r'+Date.now(), courseKey:c.id||c.name, courseName:c.name||'Course',
                     startedAt:Date.now(), touched:Date.now(), start, cur:start, holes:{}, done:false,
-                    tournament: tOn ? {on:true, lockedAt:Date.now()} : null };
-  saveState(); window.pmView='dist'; window.pmLockAsk=false;
+                    tournament: tOn ? {on:true, lockedAt:Date.now(), history:[]} : null };
+  saveState(); window.pmView='map'; window.pmLockAsk=false; window.pmTarget=null;
   /* Ask for location HERE, on the Start tap, rather than behind a separate "Use GPS" button.
      The browser needs a user gesture to prompt, and this is the one moment the golfer knows
      exactly why the app wants it. Only when the course can use it — a course with no map
@@ -117,7 +117,7 @@ function pmStart(){
 }
 function pmGo(i){
   const r=pmRound(), n=pmHoles().length; if(!r||!n) return;
-  r.cur=((i%n)+n)%n; pmTouch(); buildPlay(); pmSyncButtons();
+  r.cur=((i%n)+n)%n; window.pmTarget=null; pmTouch(); buildPlay(); pmSyncButtons();
 }
 function pmStep(d){ const r=pmRound(); if(r) pmGo(r.cur+d); }
 function pmSetView(v){ window.pmView=v; buildPlay(); }
@@ -305,10 +305,10 @@ function buildPlay(){
       <button type="button" class="pm-arrow" onclick="pmStep(1)" aria-label="Next hole">›</button>
     </div>
     ${T?`<div class="pm-badge">Tournament · distances only, no adjustments</div>`:''}
-    ${T&&window.pmLockAsk?pmLockHTML():''}
+    ${T&&window.pmUnlockStep?pmUnlockHTML():(T&&window.pmLockAsk?pmLockHTML():'')}
     <div class="pm-body" id="pm-body"></div>
     <nav class="pm-tabs" aria-label="Play">
-      ${[['dist','Distances','◎'],['hole','Hole','▲'],['card','Card','☰'],['bag','Bag','≡']].map(([k,l,i])=>
+      ${[['map','Map','◎'],['card','Card','☰'],['bag','Bag','≡']].map(([k,l,i])=>
         `<button type="button" class="pm-tab${window.pmView===k?' on':''}" onclick="pmSetView('${k}')" aria-pressed="${window.pmView===k}"><span aria-hidden="true">${i}</span>${l}</button>`).join('')}
     </nav>`;
   pmRenderBody();
@@ -316,8 +316,9 @@ function buildPlay(){
 function pmRenderBody(){
   const body=document.getElementById('pm-body'); if(!body) return;
   const h=pmHole(), r=pmRound(); if(!h||!r) return;
-  body.innerHTML = window.pmView==='hole' ? pmHoleHTML(h) : window.pmView==='card' ? pmCardHTML()
-                 : window.pmView==='bag' ? pmBagHTML() : pmDistHTML(h, r);
+  if(window.pmView==='dist'||window.pmView==='hole') window.pmView='map';   /* the two merged */
+  body.classList.toggle('pm-body-map', window.pmView==='map');
+  body.innerHTML = window.pmView==='card' ? pmCardHTML() : window.pmView==='bag' ? pmBagHTML() : pmMapHTML(h, r);
 }
 function pmSetupHTML(note){
   const cs=STATE.courses||[];
@@ -340,75 +341,252 @@ function pmSetupHTML(note){
       <p class="pm-note">Distances, the hole map and your scorecard — nothing that recommends a club or a line, so it stays inside what the Rules allow a player to use. Your round is saved as you go and survives the phone locking.</p>
     </div>`;
 }
-function pmDistHTML(h, r){
-  const pos=pmPos(h), G=window.pmGps;
-  const gn=pmGreenNumbers(h, pos.pt);
-  const n=v=>v==null?'—':ydNum(v);
-  const src = pos.src==='gps' ? `GPS · ±${Math.round(pos.acc)} m`
-            : pos.src==='far' ? `GPS says you are ${pos.away!=null?ydNum(pos.away)+' '+ydUnit():'well'} from this green — showing from the tee`
-            : pos.src==='coarse' ? `GPS only ±${Math.round(pos.acc)} m — too coarse to trust, showing from the tee`
-            : G.err ? `${G.err} — showing from the tee`
-            /* the sample courses, and any course saved before georeferencing existed, carry no
-               lat/lon anchor. A fresh import from OpenStreetMap writes one. */
-            : !h.geo ? 'From the tee — re-import this course in My Courses to use GPS'
-            : 'From the tee';
+/* ==================== THE MAP — the Play screen ====================
+   GPS-CENTRIC: the hole, with you on it, and the three numbers that matter over the top of it.
+   Everything else is one gesture away: TAP anywhere on the hole to measure to it — how far
+   from you, and how far it leaves to the green.
+
+   TWO DEPTHS, one screen:
+     a CASUAL round adds the Hole Overlay's thinking, live from where you stand — the
+       optimiser's shot from your position, and the shot you tapped scored against it: club,
+       where it lands, shots left, strokes gained against the app-wide benchmark, cover numbers.
+     a TOURNAMENT round shows the same map and the same tap, and DISTANCES ONLY. The strategy
+       layer is not hidden there; pmStrategyAllowed() is false and none of it is computed. A
+       hidden number is one CSS change from shown, which is not a rule a Committee can rely on. */
+window.pmTarget = window.pmTarget || null;     /* the tapped spot on this hole, field units */
+window.pmSheetOpen = !!window.pmSheetOpen;
+if(window.pmStratOn===undefined) window.pmStratOn = true;
+function pmStrategyAllowed(){ return !pmTourn() && typeof optimiseShot==='function' && typeof stratScoreShot==='function'; }
+function pmSetTarget(pt){ window.pmTarget=pt; pmRenderBody(); }
+function pmClearTarget(){ window.pmTarget=null; pmRenderBody(); }
+function pmToggleSheet(){ window.pmSheetOpen=!window.pmSheetOpen; pmRenderBody(); }
+function pmToggleStrat(){ if(pmTourn()) return; window.pmStratOn=!window.pmStratOn; pmRenderBody(); }
+
+/* The visible area: from where you stand to just past the green, padded to the shape of the box
+   it is drawn in. From the tee that is the whole hole; from 150 out it is the last 150 and the
+   green, at more than twice the scale. Never closer than PM_MIN_SPAN_YD, or the flag and tee
+   markers — drawn in field units — would fill the screen. */
+const PM_MIN_SPAN_YD = 200;
+function pmMapBox(h, P, extra, ratio){
+  const ypu=cfYardsPerUnit(h)||1, u=1/ypu;                 /* field units per yard */
+  let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;
+  const eat=q=>{ if(!q||q.x==null) return; x0=Math.min(x0,q.x); x1=Math.max(x1,q.x); y0=Math.min(y0,q.y); y1=Math.max(y1,q.y); };
+  eat(P); (h.green&&h.green.length?h.green:[cfPin(h)]).forEach(eat); (extra||[]).forEach(eat);
+  const onTee = h.tee && Math.hypot(P.x-h.tee.x, P.y-h.tee.y) < 3;
+  if(onTee){ (h.fairway||[]).forEach(eat); eat(h.tee); }
+  let w=x1-x0, hh=y1-y0;
+  const pad=Math.max(25*u, 0.12*Math.max(w,hh));
+  x0-=pad; x1+=pad; y0-=pad; y1+=pad; w=x1-x0; hh=y1-y0;
+  const minSpan=PM_MIN_SPAN_YD*u;
+  if(hh<minSpan){ const c=(y0+y1)/2; y0=c-minSpan/2; hh=minSpan; }
+  if(w<minSpan*ratio){ const c=(x0+x1)/2; x0=c-minSpan*ratio/2; w=minSpan*ratio; }
+  /* Room for what floats OVER the map: front/middle/back across the top, the GPS line along the
+     bottom. Without it the panel sat on the green, which is the one thing it is about. */
+  const topRes=0.17, botRes=0.07;
+  y0-=hh*topRes/(1-topRes-botRes); const nh0=hh/(1-topRes-botRes); hh=nh0;
+  if(w/hh>ratio){ const nh=w/ratio; y0-=(nh-hh)*topRes/(topRes+botRes); hh=nh; } else { const nw=hh*ratio; x0-=(nw-w)/2; w=nw; }
+  return {x:x0, y:y0, w, h:hh};
+}
+/* The optimiser from wherever you are, cached by position (2-unit grid) so a GPS fix that
+   jitters by a metre does not re-solve the hole every few seconds. */
+const PM_OPT_CACHE = new Map();
+function pmOptimal(h, P){
+  const key=[pmHoleNum(h,(pmRound()||{}).cur||0), Math.round(P.x/2), Math.round(P.y/2), stratPosture(), stratSkillKey(), window.stratCacheEpoch||0].join('|');
+  if(PM_OPT_CACHE.has(key)) return PM_OPT_CACHE.get(key);
+  let out;
+  try{
+    const res=optimiseShot(h, P, {posture:stratPosture(), hcp:PLAYER});
+    if(res && !res.blocked && res.best){
+      const aim={x:Math.round(res.best.aim.x), y:Math.round(res.best.aim.y)};
+      out={ r:stratScoreShot(h, P, aim), res };
+    } else out={ blocked:(res&&res.blocked)||'none' };
+  }catch(e){ out={ blocked:'error' }; }
+  if(PM_OPT_CACHE.size>80) PM_OPT_CACHE.clear();
+  PM_OPT_CACHE.set(key, out);
+  return out;
+}
+/* Your shot: the spot you tapped; failing that your strategy preferences, but only where they
+   are defined from here — a tee shot or an approach. A lay-up preference is anchored to the
+   tee-shot chain and would score a line nobody would play from the middle of a par 5. */
+function pmYours(h, P){
+  let aim=window.pmTarget, src='target';
+  if(!aim && typeof stratPrefAim==='function'){
+    const onTee = h.tee && Math.hypot(P.x-h.tee.x, P.y-h.tee.y) < 3;
+    const kind = typeof stratPrefKind==='function' ? stratPrefKind(h, P) : null;
+    if(onTee || kind==='approach'){ aim=stratPrefAim(h, P, 1); src='plan'; }
+  }
+  if(!aim) return null;
+  try{ const r=stratScoreShot(h, P, aim); return r&&!r.blocked ? Object.assign(r,{src}) : null; }catch(e){ return null; }
+}
+/* What to call where the numbers come from — said every time, and why when it is not GPS. */
+function pmSrcText(h, pos){
+  const G=window.pmGps;
+  return pos.src==='gps' ? `GPS \u00b7 \u00b1${Math.round(pos.acc)} m`
+       : pos.src==='far' ? `GPS says you are ${pos.away!=null?ydNum(pos.away)+' '+ydUnit():'well'} from this green \u2014 from the tee`
+       : pos.src==='coarse' ? `GPS \u00b1${Math.round(pos.acc)} m is too coarse \u2014 from the tee`
+       : G.err ? `${G.err} \u2014 from the tee`
+       : !h.geo ? 'From the tee \u2014 re-import this course in My Courses for GPS'
+       : 'From the tee';
+}
+function pmMapHTML(h, r){
+  const pos=pmPos(h), P=pos.pt, G=window.pmGps;
+  const gn=pmGreenNumbers(h, P);
+  const n=v=>v==null?'\u2014':ydNum(v);
+  const strat = pmStrategyAllowed() && window.pmStratOn;
+  const opt  = (strat && gn && !gn.onGreen) ? pmOptimal(h, P) : null;
+  let mine = (strat && gn && !gn.onGreen) ? pmYours(h, P) : null;
+  /* When your plan IS the optimal shot — common on an approach, where both aim at the middle —
+     drawing both put two identical labels on top of each other. Say it once, and say that they
+     agree. A tapped target is always shown: you asked about that spot specifically. */
+  const ypuM=cfYardsPerUnit(h)||1;
+  const same = mine && mine.src==='plan' && opt && opt.r && opt.r.aim &&
+               Math.hypot(mine.aim.x-opt.r.aim.x, mine.aim.y-opt.r.aim.y)*ypuM < 3;
+  if(same){ opt.r.planMatches=true; mine=null; }
+  const T=window.pmTarget;
+  /* the box: measured, so the crop is the shape of the screen it is drawn on */
+  const vw=Math.min(window.innerWidth||375, 640);
+  const chrome = 60 + (pmTourn()?24:0) + 58 + (strat?112:66);
+  const vh=Math.max(280, (window.innerHeight||812) - chrome);
+  const extra=[T, opt&&opt.r&&opt.r.aim, mine&&mine.aim].filter(Boolean);
+  const box=pmMapBox(h, P, extra, vw/vh);
+  const pxPerUnit = vw/box.w;
+  /* labels at a constant ~14px on screen, whatever the zoom */
+  const k = 14/(30*pxPerUnit);
+  const fs = 13/pxPerUnit;
+  let ov='';
+  if(strat){
+    const yOf=q=>q&&q.aim?q.aim.y:0;
+    const both=opt&&opt.r&&mine;
+    if(opt&&opt.r) ov+=stratShotSVG(h, opt.r, 'O', 1, 'full', both&&yOf(opt.r)>yOf(mine)?'below':'above', k);
+    if(mine)       ov+=stratShotSVG(h, mine,  'S', 1, 'full', both&&yOf(opt.r)<=yOf(mine)?'below':'above', k);
+  } else if(T){
+    /* TOURNAMENT (or strategy off): measurement only — you to the spot, the spot to the green */
+    const mid=cfGreenMid(h)||cfPin(h);
+    const d1=cfDistYd(h,P,T), d2=mid?cfDistYd(h,T,mid):null;
+    const sw=2.5/pxPerUnit, r0=7/pxPerUnit;
+    const tl=(x,y,txt,anchor)=>`<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="${anchor||'middle'}" font-family="ui-monospace,monospace" font-size="${fs.toFixed(1)}" font-weight="700" fill="#fff" stroke="#14351d" stroke-width="${(4/pxPerUnit).toFixed(1)}" paint-order="stroke">${txt}</text>`;
+    ov+=`<line x1="${P.x}" y1="${P.y}" x2="${T.x}" y2="${T.y}" stroke="#fff" stroke-width="${sw.toFixed(1)}" stroke-dasharray="${(8/pxPerUnit).toFixed(1)},${(6/pxPerUnit).toFixed(1)}"/>`;
+    if(mid) ov+=`<line x1="${T.x}" y1="${T.y}" x2="${mid.x}" y2="${mid.y}" stroke="#fff" stroke-opacity=".6" stroke-width="${(sw*0.7).toFixed(1)}" stroke-dasharray="${(4/pxPerUnit).toFixed(1)},${(5/pxPerUnit).toFixed(1)}"/>`;
+    ov+=`<circle cx="${T.x}" cy="${T.y}" r="${r0.toFixed(1)}" fill="none" stroke="#fff" stroke-width="${sw.toFixed(1)}"/>`;
+    ov+=tl(T.x, T.y-r0-fs*0.6, `${n(d1)} ${ydUnit()}`);
+    if(d2!=null) ov+=tl(T.x, T.y+r0+fs*1.3, `${n(d2)} to middle`);
+  }
+  /* you: a blue dot with its accuracy as a ring, the way every map app draws it */
+  if(pos.src==='gps'){
+    const ypu=cfYardsPerUnit(h)||1, accU=(pos.acc*1.09361)/ypu;
+    ov+=`<circle cx="${P.x}" cy="${P.y}" r="${accU.toFixed(1)}" fill="#2f7dff" fill-opacity=".14" stroke="#2f7dff" stroke-opacity=".4" stroke-width="${(1/pxPerUnit).toFixed(1)}"/>
+      <circle cx="${P.x}" cy="${P.y}" r="${(8/pxPerUnit).toFixed(1)}" fill="#2f7dff" stroke="#fff" stroke-width="${(3/pxPerUnit).toFixed(1)}"/>`;
+  }
   const gpsBtn = (pos.src==='tee' && h.geo && G.watch==null && !G.err)
     ? `<button type="button" class="pm-gps-btn" onclick="pmGpsStart(true)">Use GPS</button>` : '';
-  const covers = (gn&&!gn.onGreen) ? cfCoverNumbers(h, pos.pt, cfGreenMid(h)||cfPin(h)).filter(c=>!c.inside && c.cover>5).slice(0,4) : [];
-  const e=pmEntry(pmHoleNum(h,r.cur)), par=h.par||4, d=pmDerived(h,e);
-  const step=(key,label,val)=>`<div class="pm-step-row"><span class="pm-step-l">${label}</span>
-      <div class="pm-stepper"><button type="button" onclick="pmAdj('${key}',-1)" aria-label="${label} minus one">−</button>
-      <span class="pm-step-v">${val==null?'—':val}</span>
-      <button type="button" onclick="pmAdj('${key}',1)" aria-label="${label} plus one">+</button></div></div>`;
-  return `
-    <div class="pm-src">${src}${gpsBtn}</div>
-    ${gn&&gn.onGreen ? `<div class="pm-ongreen">On the green</div>` : `
-    <div class="pm-fmb">
-      <div><span>Front</span><b>${n(gn&&gn.front)}</b></div>
-      <div class="pm-mid"><span>Middle</span><b>${n(gn&&gn.mid)}</b></div>
-      <div><span>Back</span><b>${n(gn&&gn.back)}</b></div>
+  const fmb = (gn&&gn.onGreen) ? `<div class="pm-float pm-float-green">On the green</div>`
+    : `<div class="pm-float">
+        <div><span>Front</span><b>${n(gn&&gn.front)}</b></div>
+        <div class="pm-mid"><span>Middle</span><b>${n(gn&&gn.mid)}</b></div>
+        <div><span>Back</span><b>${n(gn&&gn.back)}</b></div>
+        ${gn&&gn.pin!=null?`<div class="pm-float-pin">pin ${n(gn.pin)}</div>`:''}
+      </div>`;
+  return `<div class="pm-mapwrap" style="height:${vh}px">
+      ${fmb}
+      <div class="pm-map" id="pm-map">${renderHoleSVG(h,{viewBox:box, overlay:ov})}</div>
+      <div class="pm-src pm-src-float">${pmSrcText(h,pos)}${gpsBtn}</div>
+      ${T?`<button type="button" class="pm-clear" onclick="pmClearTarget()" aria-label="Clear the measured spot">\u2715 target</button>`:
+         `<div class="pm-hint">Tap the hole to measure${strat?' and score a shot':''}</div>`}
     </div>
-    ${gn&&gn.pin!=null?`<div class="pm-pin">Pin <b>${n(gn.pin)}</b></div>`:''}`}
-    ${covers.length?`<div class="pm-covers">${covers.map(c=>`<div class="pm-cover"><span>${escapeHtml(c.label)}</span>reach <b>${n(c.starts)}</b> · carry <b>${n(c.cover)}</b></div>`).join('')}</div>`:''}
-    <div class="pm-score">
-      ${step('s','Score',e.s)}
-      ${step('p','Putts',e.p)}
-      ${par>=4?`<div class="pm-step-row"><span class="pm-step-l">Fairway</span><div class="pm-seg">
-        ${[['left','← Left'],['hit','Hit'],['right','Right →']].map(([k,l])=>`<button type="button" class="${e.f===k?'on':''}" onclick="pmSetFw('${k}')" aria-pressed="${e.f===k}">${l}</button>`).join('')}
-      </div></div>`:''}
-      ${step('pen','Penalties',e.pen==null?0:e.pen)}
-      <div class="pm-chips">
-        <button type="button" class="pm-chip${e.sand?' on':''}" onclick="pmToggleSand()" aria-pressed="${!!e.sand}">Bunker</button>
-        ${d.gir!=null?`<span class="pm-chip ro${d.gir?' on':''}">${d.gir?'GIR':'Missed green'}</span>`:''}
-        ${d.udAtt?`<span class="pm-chip ro${d.udMade?' on':''}">${d.udMade?'Up and down':'No up and down'}</span>`:''}
+    ${pmSheetHTML(h, r, {gn, pos, opt, mine, strat})}`;
+}
+/* THE SHEET under the map. Collapsed it is the answer — the two plans side by side in a
+   casual round, the score in a tournament one — and expanded it is the working and the card. */
+function pmSheetHTML(h, r, c){
+  const e=pmEntry(pmHoleNum(h,r.cur)), par=h.par||4, d=pmDerived(h,e);
+  const open=!!window.pmSheetOpen;
+  const n=v=>v==null?'\u2014':ydNum(v);
+  const sgTxt=x=>x==null?'':`${x>=0?'+':''}${x.toFixed(2)}`;
+  const plan=(lbl,cls,q)=>{
+    if(!q) return '';
+    const left=q.sgActual?q.expAfter:q.mean;
+    return `<div class="pm-plan ${cls}"><span class="pm-plan-k">${lbl}</span>
+      <span class="pm-plan-club">${escapeHtml(q.shot&&q.shot.label||'')}</span>
+      <span class="pm-plan-v">${n(q.geoYd)}</span>
+      <span class="pm-plan-left">${left!=null?left.toFixed(2):'\u2014'}<i>left</i></span>
+      <span class="pm-plan-sg${q.sg!=null&&q.sg<0?' neg':''}">${sgTxt(q.sg)}<i>SG</i></span></div>`;
+  };
+  const blockedTxt = c.opt&&c.opt.blocked ? ({chip:'Inside 20 \u2014 a chip or pitch', green:'On the green', penalty:'Take relief', range:'Out of range for the bag'}[c.opt.blocked]||'') : '';
+  const plans = c.strat ? `${c.opt&&c.opt.r?plan(c.opt.r.planMatches?'Optimal = yours':'Optimal','ln-O',c.opt.r):(blockedTxt?`<div class="pm-plan-note">${blockedTxt}</div>`:'')}
+      ${plan(c.mine&&c.mine.src==='target'?'Your target':'Your plan','ln-S',c.mine)}` : '';
+  const scoreLine=`<button type="button" class="pm-score-line" onclick="pmToggleSheet()" aria-expanded="${open}">
+      <span>Score <b>${e.s!=null?e.s:'\u2014'}</b></span><span>Putts <b>${e.p!=null?e.p:'\u2014'}</b></span>
+      <span class="pm-score-caret">${open?'\u25be':'\u25b4'}</span></button>`;
+  if(!open) return `<div class="pm-sheet">${plans}${scoreLine}</div>`;
+  /* ---- expanded ---- */
+  const covers=(c.gn&&!c.gn.onGreen) ? cfCoverNumbers(h, c.pos.pt, cfGreenMid(h)||cfPin(h)).filter(x=>!x.inside&&x.cover>5).slice(0,4) : [];
+  const mixOrder=['fairway','green','rough','sand','trees','water','oob'];
+  const lands=q=>{ if(!q||!q.lieMix) return ''; const best=mixOrder.filter(k=>q.lieMix[k]>0).sort((a,b)=>q.lieMix[b]-q.lieMix[a])[0];
+    return best?`${CF_LIE_LABEL[best]} ${Math.round(q.lieMix[best]*100)}%`:''; };
+  const detail = c.strat ? (()=>{
+    const rows=[['Optimal',c.opt&&c.opt.r],[c.mine&&c.mine.src==='target'?'Your target':'Your plan',c.mine]].filter(x=>x[1]);
+    const cmp=(c.opt&&c.opt.r&&c.mine)? (()=>{ const a=c.opt.r, b=c.mine; const la=a.sgActual?a.expAfter:a.mean, lb=b.sgActual?b.expAfter:b.mean;
+        const g=lb-la; return Math.abs(g)<0.03?'The two are level on expected strokes.':g>0?`Your shot costs <b>+${g.toFixed(2)}</b> against the optimal one.`:`Your shot gains <b>${(-g).toFixed(2)}</b> on the optimal one.`; })() : '';
+    return `<div class="pm-detail">${rows.map(([l,q])=>`<div class="pm-detail-row"><b>${l}</b>
+        <span>${escapeHtml(q.shot&&q.shot.label||'')} \u00b7 ${n(q.geoYd)} ${ydUnit()}</span>
+        <span>lands ${lands(q)}</span>
+        <span>${q.toMidYd!=null?n(q.toMidYd)+' to middle':''}</span>
+        <span>SG vs ${escapeHtml(q.sgBench||'scratch')} ${sgTxt(q.sg)}</span></div>`).join('')}
+      ${cmp?`<div class="pm-detail-cmp">${cmp}</div>`:''}</div>`;
+  })() : '';
+  const step=(key,label,val)=>`<div class="pm-step-row"><span class="pm-step-l">${label}</span>
+      <div class="pm-stepper"><button type="button" onclick="pmAdj('${key}',-1)" aria-label="${label} minus one">\u2212</button>
+      <span class="pm-step-v">${val==null?'\u2014':val}</span>
+      <button type="button" onclick="pmAdj('${key}',1)" aria-label="${label} plus one">+</button></div></div>`;
+  return `<div class="pm-sheet open">
+      ${plans}${scoreLine}
+      ${detail}
+      ${covers.length?`<div class="pm-covers">${covers.map(x=>`<div class="pm-cover"><span>${escapeHtml(x.label)}</span>reach <b>${n(x.starts)}</b> \u00b7 carry <b>${n(x.cover)}</b></div>`).join('')}</div>`:''}
+      <div class="pm-score">
+        ${step('s','Score',e.s)}
+        ${step('p','Putts',e.p)}
+        ${par>=4?`<div class="pm-step-row"><span class="pm-step-l">Fairway</span><div class="pm-seg">
+          ${[['left','\u2190 Left'],['hit','Hit'],['right','Right \u2192']].map(([k,l])=>`<button type="button" class="${e.f===k?'on':''}" onclick="pmSetFw('${k}')" aria-pressed="${e.f===k}">${l}</button>`).join('')}
+        </div></div>`:''}
+        ${step('pen','Penalties',e.pen==null?0:e.pen)}
+        <div class="pm-chips">
+          <button type="button" class="pm-chip${e.sand?' on':''}" onclick="pmToggleSand()" aria-pressed="${!!e.sand}">Bunker</button>
+          ${d.gir!=null?`<span class="pm-chip ro${d.gir?' on':''}">${d.gir?'GIR':'Missed green'}</span>`:''}
+          ${d.udAtt?`<span class="pm-chip ro${d.udMade?' on':''}">${d.udMade?'Up and down':'No up and down'}</span>`:''}
+          ${pmTourn()?'':`<button type="button" class="pm-chip${window.pmStratOn?' on':''}" onclick="pmToggleStrat()" aria-pressed="${!!window.pmStratOn}">Strategy</button>`}
+        </div>
+        <button type="button" class="btn btn-primary pm-next" onclick="pmStep(1)">Next hole \u203a</button>
       </div>
-      <button type="button" class="btn btn-primary pm-next" onclick="pmStep(1)">Next hole ›</button>
     </div>`;
 }
-/* The hole, cropped to itself, with the ball on it. A map and nothing drawn on it that
-   advises — no aim line, no dispersion, no optimal play. */
-function pmHoleHTML(h){
-  const pos=pmPos(h);
-  let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;
-  const eat=p=>{ if(!p||p.x==null)return; x0=Math.min(x0,p.x); x1=Math.max(x1,p.x); y0=Math.min(y0,p.y); y1=Math.max(y1,p.y); };
-  eat(h.tee); eat(h.pin); (h.green||[]).forEach(eat); (h.fairway||[]).forEach(eat); (h.hazards||[]).forEach(z=>(z.pts||[]).forEach(eat));
-  if(pos.src==='gps') eat(pos.pt);
-  if(x1<x0){ x0=0; x1=CF_W; y0=0; y1=CF_H; }
-  const vw=Math.min(window.innerWidth||375, 640), vh=Math.max(300,(window.innerHeight||812)-190);
-  const want=vw/vh;
-  let w=(x1-x0)*1.4+60, hh=(y1-y0)*1.08+60, cx=(x0+x1)/2, cy=(y0+y1)/2;
-  if(w/hh>want) hh=w/want; else w=hh*want;
-  const ball = pos.src==='gps' ? `<circle cx="${pos.pt.x}" cy="${pos.pt.y}" r="14" fill="#fff" stroke="#111" stroke-width="4"/>` : '';
-  return `<div class="pm-map">${renderHoleSVG(h,{viewBox:{x:cx-w/2,y:cy-hh/2,w,h:hh}, overlay:ball})}</div>
-    <div class="pm-src">${pos.src==='gps'?'Your position from GPS':'Showing the hole from the tee'}</div>`;
+/* Tap the hole to measure. A tap, not a drag: the finger has to come up within a few pixels
+   of where it went down, so scrolling the sheet or a stray brush is not a measurement. */
+if(!window.pmMapHooked){
+  window.pmMapHooked=true;
+  let down=null;
+  document.addEventListener('pointerdown', ev=>{
+    const m=ev.target.closest&&ev.target.closest('#pm-map'); down=m?{x:ev.clientX, y:ev.clientY}:null;
+  });
+  document.addEventListener('pointerup', ev=>{
+    if(!down) return;
+    const m=ev.target.closest&&ev.target.closest('#pm-map');
+    const moved=Math.hypot(ev.clientX-down.x, ev.clientY-down.y); down=null;
+    if(!m||moved>10) return;
+    const svg=m.querySelector('svg'); if(!svg) return;
+    const rc=svg.getBoundingClientRect(); if(!rc.width) return;
+    const vb=(svg.getAttribute('viewBox')||'').split(/\s+/).map(Number); if(vb.length!==4) return;
+    pmSetTarget({ x:Math.round(vb[0]+(ev.clientX-rc.left)/rc.width*vb[2]),
+                  y:Math.round(vb[1]+(ev.clientY-rc.top)/rc.height*vb[3]) });
+  });
 }
+
 function pmCardHTML(){
   const r=pmRound(), hs=pmHoles(), t=pmTotals();
   const row=(h,i)=>{
     const num=pmHoleNum(h,i), e=(r.holes||{})[num]||{}, par=h.par||4;
     const diff=e.s!=null?e.s-par:null;
     const cls=diff==null?'':diff<=-2?'eagle':diff===-1?'birdie':diff===0?'par':diff===1?'bogey':'dbl';
-    return `<button type="button" class="pm-card-row${i===r.cur?' cur':''}" onclick="pmGo(${i});pmSetView('dist')">
+    return `<button type="button" class="pm-card-row${i===r.cur?' cur':''}" onclick="pmGo(${i});pmSetView('map')">
       <span>${num}</span><span>${par}</span><span class="pm-sc ${cls}">${e.s!=null?e.s:'·'}</span>
       <span>${e.p!=null?e.p:''}</span><span>${par>=4?(e.f==='hit'?'✓':e.f==='left'?'←':e.f==='right'?'→':''):''}</span></button>`;
   };
@@ -429,10 +607,56 @@ function pmCardHTML(){
       <div><span>Fairways</span><b>${t.firAtt?`${t.fir}/${t.firAtt}`:'—'}</b><i>${pct(t.fir,t.firAtt)}</i></div>
       <div><span>Greens</span><b>${t.girAtt?`${t.gir}/${t.girAtt}`:'—'}</b><i>${pct(t.gir,t.girAtt)}</i></div>
     </div>
+    ${pmTournHistoryHTML(r)}
     <div class="pm-end">
       <button type="button" class="btn btn-primary" onclick="pmFinish()">Finish round</button>
       <button type="button" class="btn" onclick="pmAbandon()">Discard</button>
-    </div>`;
+    </div>
+    ${pmTourn()?'':`<button type="button" class="pm-to-tourn" onclick="pmToTournament()">Switch this round to tournament mode</button>`}`;
+}
+/* ---------------- SWITCHING MODES ----------------
+   ON is one confirmation: it only takes things away. OFF is a PROCESS — four deliberate steps
+   (the lock, "release", typing UNLOCK, confirming) — and it is recorded on the round for good,
+   with the hole and the time. Releasing mid-round is sometimes legitimate (a practice round
+   started in the wrong mode, a Committee that suspends play); it must never be casual, and it
+   must never be invisible afterwards. */
+function pmTournLog(on){
+  const r=pmRound(); if(!r) return;
+  r.tournament=r.tournament||{on:false};
+  r.tournament.history=r.tournament.history||[];
+  r.tournament.history.push({on, at:Date.now(), hole:pmHoleNum(pmHole(), r.cur)});
+}
+function pmToTournament(){
+  const r=pmRound(); if(!r||pmTourn()) return;
+  if(!confirm('Switch this round to TOURNAMENT mode?\n\nDistances only, no adjustments, and the rest of the app locked. Leaving it again is a deliberate process, and is recorded on the round.')) return;
+  r.tournament=Object.assign(r.tournament||{}, {on:true, lockedAt:r.tournament&&r.tournament.lockedAt||Date.now()});
+  pmTournLog(true); window.pmTarget=null; window.pmView='map'; pmTouch(); buildPlay(); pmSyncButtons();
+}
+window.pmUnlockStep = 0;
+function pmUnlockBegin(){ window.pmUnlockStep=1; buildPlay(); }
+function pmUnlockCancel(){ window.pmUnlockStep=0; window.pmLockAsk=false; buildPlay(); }
+function pmUnlockCheck(el){
+  const ok=(el.value||'').trim().toUpperCase()==='UNLOCK';
+  const b=document.getElementById('pm-unlock-go'); if(b){ b.disabled=!ok; b.classList.toggle('ready',ok); }
+}
+function pmUnlockConfirm(){
+  const el=document.getElementById('pm-unlock-word');
+  if(!el || el.value.trim().toUpperCase()!=='UNLOCK') return;
+  const r=pmRound(); if(!r||!pmTourn()) return;
+  r.tournament.on=false; r.tournament.releasedAt=Date.now();
+  pmTournLog(false);
+  window.pmUnlockStep=0; window.pmLockAsk=false; pmTouch(); buildPlay(); pmSyncButtons();
+  toast('Tournament lock released \u2014 recorded on this round');
+}
+function pmTournHistoryHTML(r){
+  const H=(r&&r.tournament&&r.tournament.history)||[];
+  if(!r||!r.tournament||(!r.tournament.lockedAt&&!H.length)) return '';
+  const t=x=>new Date(x).toLocaleTimeString([], {hour:'numeric', minute:'2-digit'});
+  const evs=[];
+  if(r.tournament.lockedAt && !(H[0]&&H[0].on)) evs.push(`locked at the start, ${t(r.tournament.lockedAt)}`);
+  H.forEach(x=>evs.push(`${x.on?'locked':'<b>released</b>'} on hole ${x.hole}, ${t(x.at)}`));
+  const broken=H.some(x=>!x.on);
+  return `<div class="pm-tourn-log${broken?' broken':''}">Tournament mode: ${evs.join(' \u00b7 ')}</div>`;
 }
 
 /* The close button during a tournament round. Not a dead button: it says why the app is
@@ -445,6 +669,21 @@ function pmLockHTML(){
       <div class="pm-lock-btns">
         <button type="button" class="btn" onclick="pmLockDismiss()">Keep playing</button>
         <button type="button" class="btn btn-primary" onclick="window.pmLockAsk=false;pmSetView('card')">Go to the card</button>
+      </div>
+      <button type="button" class="pm-unlock-link" onclick="pmUnlockBegin()">Release the tournament lock\u2026</button>
+    </div>`;
+}
+function pmUnlockHTML(){
+  const r=pmRound(), h=pmHole();
+  return `<div class="pm-lock-ask pm-unlock" role="alertdialog" aria-label="Release the tournament lock">
+      <p><b>Release the tournament lock?</b> This reopens the strategy layer, plays-like yardage and the
+      rest of the app <b>for the remainder of this round</b>. The round is marked permanently:
+      <i>released on hole ${pmHoleNum(h, r.cur)} at ${new Date().toLocaleTimeString([], {hour:'numeric', minute:'2-digit'})}</i>.</p>
+      <label class="pm-unlock-l">Type <b>UNLOCK</b> to confirm
+        <input id="pm-unlock-word" autocomplete="off" autocapitalize="characters" spellcheck="false" oninput="pmUnlockCheck(this)"></label>
+      <div class="pm-lock-btns">
+        <button type="button" class="btn" onclick="pmUnlockCancel()">Keep it locked</button>
+        <button type="button" class="btn pm-unlock-go" id="pm-unlock-go" disabled onclick="pmUnlockConfirm()">Release</button>
       </div>
     </div>`;
 }
@@ -484,4 +723,6 @@ Object.assign(window, { PM_RESUME_HOURS, PM_NEAR_HOLE_YD, PM_GPS_MAX_ERR_M,
   pmState, pmRound, pmCourse, pmHoles, pmHole, pmEntry, pmIsOpen, pmOpen, pmClose, pmStart, pmGo, pmStep,
   pmSetView, pmAdj, pmSetFw, pmToggleSand, pmDerived, pmTotals, pmFmtToPar, pmFinish, pmAbandon,
   pmGpsStart, pmGpsStop, pmPos, pmGreenNumbers, pmSyncButtons, buildPlay, pmRenderBody, pmBoot,
-  pmTourn, pmLockDismiss, pmLockHTML, pmBagHTML });
+  pmTourn, pmLockDismiss, pmLockHTML, pmBagHTML,
+  pmStrategyAllowed, pmSetTarget, pmClearTarget, pmToggleSheet, pmToggleStrat, pmMapBox, pmOptimal, pmYours, pmMapHTML, pmSheetHTML,
+  pmToTournament, pmUnlockBegin, pmUnlockCancel, pmUnlockCheck, pmUnlockConfirm, pmUnlockHTML, pmTournHistoryHTML, PM_MIN_SPAN_YD });

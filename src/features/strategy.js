@@ -1511,8 +1511,12 @@ function stratLineAim(hole, line, n){
 
 /* One shot drawn on the hole. Three levels of emphasis: `full` for the shot being edited,
    `compact` for the rest of that line's plan, `dim` for the optimiser's path behind it. */
-function stratShotSVG(hole, r, line, n, mode, place){
+function stratShotSVG(hole, r, line, n, mode, place, k){
   if(!r||r.blocked) return '';
+  /* k scales the LABELS only, for a caller drawing on a closer crop than the Hole Overlay's
+     whole-hole view (Play follows the ball, so its field units are larger on screen and the
+     overlay's 30-unit labels would be enormous). The shot geometry is never scaled. */
+  k=(k>0)?k:1;
   const ypu=cfYardsPerUnit(hole); if(ypu==null) return '';
   mode=mode||'full';
   const dim=(mode==='dim'), compact=(mode==='compact');
@@ -1533,8 +1537,8 @@ function stratShotSVG(hole, r, line, n, mode, place){
      stratOverlay. Above and below, not left and right: a hole is tall and thin, so there is
      room along it and none across it, and side labels ran off the edge of a phone-width crop. */
   const below=(place==='below');
-  const at=end||aim, top=below ? (end?24:ry+13) : (end?-24:-ry-13);
-  const lbl=(txt,off,size)=>`<text x="${at.x.toFixed(1)}" y="${(at.y+off).toFixed(1)}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="${size}" font-weight="700" fill="${col}" stroke="#14351d" stroke-width="8" paint-order="stroke">${txt}</text>`;
+  const at=end||aim, top=below ? (end?24*k:ry+13*k) : (end?-24*k:-ry-13*k);
+  const lbl=(txt,off,size)=>`<text x="${at.x.toFixed(1)}" y="${(at.y+off).toFixed(1)}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="${(size*k).toFixed(1)}" font-weight="700" fill="${col}" stroke="#14351d" stroke-width="${(8*k).toFixed(1)}" paint-order="stroke">${txt}</text>`;
   let s=`<line x1="${from.x.toFixed(1)}" y1="${from.y.toFixed(1)}" x2="${aim.x.toFixed(1)}" y2="${aim.y.toFixed(1)}" stroke="${col}" stroke-width="${dim?2:compact?2.5:3.5}" stroke-dasharray="14,10" opacity="${(op*(end?0.45:0.9)).toFixed(2)}"/>`;
   if(!dim&&!end&&stratLayers().disp) s+=`<g transform="rotate(${ang.toFixed(1)} ${aim.x.toFixed(1)} ${aim.y.toFixed(1)})">
       <ellipse cx="${aim.x.toFixed(1)}" cy="${aim.y.toFixed(1)}" rx="${rx.toFixed(1)}" ry="${ry.toFixed(1)}"
@@ -1554,14 +1558,14 @@ function stratShotSVG(hole, r, line, n, mode, place){
   const dist=Math.round(end?r.endYd:r.geoYd);
   const sg = r.sg!=null ? `SG ${r.sg>0?'+':''}${r.sg.toFixed(2)}${r.sgActual?' actual':''}` : '';
   const head = `${end?'⚓ ':''}${ydNum(dist)} ${ydUnit()}${sg?' · '+sg:''}`;
-  if(compact) return s+lbl(head, below?top+30:top-8, 27);
+  if(compact) return s+lbl(head, below?top+30*k:top-8*k, 27);
   /* 36 units apart, not the 30 the font size suggests: the halo stroke adds ~4 units to each
      glyph box, so a gap set to the font size alone leaves the two lines touching. */
   /* 36 units between the two lines either way; below the aim the first line has to clear the
      oval by its own cap height (~30) before it starts. */
-  s+=lbl(head, below?top+30:top-36, 30);
+  s+=lbl(head, below?top+30*k:top-36*k, 30);
   const tp=end?r.endToPinYd:r.toPinYd, rem=r.sgActual?r.expAfter:r.mean;
-  if(tp!=null&&rem!=null) s+=lbl(`${ydNum(tp)} to pin · ${rem.toFixed(2)} rem`, below?top+64:top, 27);
+  if(tp!=null&&rem!=null) s+=lbl(`${ydNum(tp)} to pin · ${rem.toFixed(2)} rem`, below?top+64*k:top, 27);
   return s;
 }
 function stratOverlay(hole, chains, n){

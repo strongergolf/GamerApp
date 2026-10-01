@@ -1798,3 +1798,65 @@ body.theme-dark .pm-sc.birdie,body.theme-dark .pm-sc.eagle{color:#e88494}
 .pm-bag-n b{font-family:Arial,sans-serif;font-size:1.25rem;font-weight:800;color:var(--ink)}
 .pm-bag-n i{font-style:normal;font-family:ui-monospace,monospace;font-size:.56rem;color:var(--muted);margin-left:4px}
 .pm-tabs{grid-template-columns:repeat(4,1fr)}
+
+/* ---- PLAY: the map screen ---- */
+.pm-body.pm-body-map{padding:0;display:flex;flex-direction:column}
+.pm-mapwrap{position:relative;width:100%;max-width:640px;margin:0 auto;flex:0 0 auto;overflow:hidden;background:#2f7a3f}
+.pm-map,.pm-map svg{width:100%;height:100%}
+.pm-map svg{display:block;border-radius:0!important;touch-action:manipulation;cursor:crosshair}
+/* Front / middle / back float over the top of the map, on a dark plate so they read in sun. */
+.pm-float{position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:2;display:flex;align-items:flex-end;gap:14px;
+  padding:6px 14px 7px;border-radius:12px;background:rgba(12,35,64,.86);color:#f4f0e8;pointer-events:none;text-align:center}
+.pm-float span{display:block;font-family:Arial,sans-serif;font-size:.56rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;opacity:.75}
+.pm-float b{display:block;font-family:Arial,sans-serif;font-size:1.55rem;font-weight:800;line-height:1.05}
+.pm-float .pm-mid b{font-size:2.5rem}
+.pm-float-pin{position:absolute;left:0;right:0;bottom:-16px;font-family:ui-monospace,monospace;font-size:.62rem;
+  color:#0C2340;background:#f4f0e8;border-radius:8px;width:max-content;margin:0 auto;padding:1px 7px}
+.pm-float-green{font-family:Arial,sans-serif;font-size:1.3rem;font-weight:800;padding:10px 18px}
+.pm-src-float{position:absolute;left:8px;right:8px;bottom:8px;z-index:2;margin:0;pointer-events:none}
+.pm-src-float{color:#f4f0e8;text-shadow:0 1px 2px rgba(0,0,0,.7)}
+.pm-src-float .pm-gps-btn{pointer-events:auto;text-shadow:none}
+.pm-hint{position:absolute;right:8px;bottom:30px;z-index:2;font-family:ui-monospace,monospace;font-size:.58rem;color:#f4f0e8;
+  background:rgba(12,35,64,.6);padding:3px 8px;border-radius:10px;pointer-events:none}
+.pm-clear{position:absolute;right:8px;bottom:30px;z-index:2;font-family:ui-monospace,monospace;font-size:.66rem;font-weight:700;
+  color:#0C2340;background:#f4f0e8;border:0;border-radius:14px;padding:7px 11px;cursor:pointer}
+
+/* The sheet under the map. */
+.pm-sheet{display:flex;flex-direction:column;gap:6px;padding:8px 12px 10px;background:var(--surface);border-top:1px solid var(--border)}
+.pm-plan{display:grid;grid-template-columns:5.6rem auto 1fr auto auto;align-items:baseline;gap:8px;padding:5px 8px;
+  border:1px solid var(--border);border-radius:8px;background:var(--bg)}
+.pm-plan-k{font-family:ui-monospace,monospace;font-size:.7rem;font-weight:800}
+.pm-plan-club{font-family:ui-monospace,monospace;font-size:.7rem;font-weight:800;color:var(--ink2);border:1px solid var(--border2);
+  border-radius:5px;padding:1px 6px;justify-self:start}
+.pm-plan-v{font-family:ui-monospace,monospace;font-size:.88rem;font-weight:700}
+.pm-plan-left,.pm-plan-sg{font-family:ui-monospace,monospace;font-size:.88rem;font-weight:800;text-align:right}
+.pm-plan-left i,.pm-plan-sg i{font-style:normal;font-size:.5rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-left:3px}
+.pm-plan-sg{color:#00693a} .pm-plan-sg.neg{color:#b8455a}
+body.theme-dark .pm-plan-sg{color:#79e08d} body.theme-dark .pm-plan-sg.neg{color:#e88494}
+.pm-plan-note{font-family:ui-monospace,monospace;font-size:.7rem;color:var(--muted);padding:4px 2px}
+.pm-score-line{display:flex;align-items:center;gap:18px;width:100%;min-height:44px;padding:0 6px;border:0;background:transparent;
+  font-family:Arial,sans-serif;font-size:.86rem;color:var(--ink2);cursor:pointer}
+.pm-score-line b{font-size:1.25rem;font-weight:800;color:var(--ink);margin-left:4px}
+.pm-score-caret{margin-left:auto;font-size:1.1rem;color:var(--muted)}
+.pm-sheet.open{max-height:none}
+.pm-detail{display:flex;flex-direction:column;gap:4px}
+.pm-detail-row{display:flex;flex-wrap:wrap;gap:2px 12px;font-family:ui-monospace,monospace;font-size:.7rem;color:var(--ink2);
+  padding:6px 8px;border-radius:8px;background:var(--bg)}
+.pm-detail-row b{color:var(--ink);min-width:5.6rem}
+.pm-detail-cmp{font-family:Arial,sans-serif;font-size:.78rem;color:var(--ink2);padding:2px 2px}
+
+/* Tournament: the record of the lock, and the deliberate way out of it. */
+.pm-tourn-log{margin:10px 0;padding:8px 10px;border-radius:8px;font-family:ui-monospace,monospace;font-size:.66rem;line-height:1.5;
+  color:var(--ink2);background:var(--surface);border:1px solid var(--border)}
+.pm-tourn-log.broken{border-color:#b8455a;background:rgba(184,69,90,.07)}
+.pm-to-tourn{display:block;margin:12px auto 0;background:none;border:0;font-family:Arial,sans-serif;font-size:.76rem;font-weight:700;
+  color:#6b1d2e;text-decoration:underline;cursor:pointer;min-height:40px}
+body.theme-dark .pm-to-tourn{color:#e88494}
+.pm-unlock-link{display:block;margin:10px auto 0;background:none;border:0;font-family:ui-monospace,monospace;font-size:.62rem;
+  color:var(--muted);text-decoration:underline;cursor:pointer;min-height:32px}
+.pm-unlock-l{display:flex;flex-direction:column;gap:6px;margin:0 0 10px;font-family:Arial,sans-serif;font-size:.78rem;color:var(--ink2)}
+.pm-unlock-l input{min-height:44px;font-family:ui-monospace,monospace;font-size:1rem;letter-spacing:.2em;text-transform:uppercase;
+  padding:0 10px;border-radius:8px;border:1px solid var(--border2);background:var(--bg2);color:var(--ink)}
+.pm-unlock-go[disabled]{opacity:.4}
+.pm-unlock-go.ready{background:#6b1d2e;color:#fff;border-color:#6b1d2e}
+.pm-tabs{grid-template-columns:repeat(3,1fr)}
