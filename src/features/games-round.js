@@ -69,23 +69,69 @@ function grDefaultHoles(){
 }
 function grLoadCourse(idx){
   const r=grState(), c=(STATE.courses||[])[idx];
-  if(!c){ r.holes=grDefaultHoles(); r.courseName=''; saveState(); buildRoundGames(); return; }
+  if(!c){ r.holes=grDefaultHoles(); r.courseName=''; r.courseKey=null; r.tee=null; saveState(); buildRoundGames(); return; }
   const hs=(c.holes||[]).slice(0,18);
   if(!hs.length){ toast('That course has no holes yet'); return; }
   /* A traced course carries par and yardage but no stroke index, so rank by length —
      longest hole hardest — which is the convention when a card does not state one. */
   const byLen=hs.map((h,i)=>({i, yd:+h.yards||0})).sort((a,b)=>b.yd-a.yd);
   const si=new Array(hs.length); byLen.forEach((x,rank)=>{ si[x.i]=rank+1; });
+  /* the scorecard's own stroke index, where it has been entered (Post-Round, Ready to post) */
+  if(hs.every(h=>+h.si>=1)) hs.forEach((h,i)=>{ si[i]=+h.si; });
   r.holes=hs.map((h,i)=>({num:h.num||i+1, par:+h.par||4, si:si[i]||i+1}));
   while(r.holes.length<18) r.holes.push({num:r.holes.length+1, par:4, si:r.holes.length+1});
-  r.courseName=c.name||'';
+  r.courseName=c.name||''; r.courseKey=c.id||c.name;
+  const tees=(c.tees||[]).filter(t=>t.rating>0&&t.slope>0), usual=STATE.profile&&STATE.profile.usualTee;
+  r.tee = (tees.find(t=>t.name===usual)||tees[0]||{}).name || (c.tees&&c.tees[0]&&c.tees[0].name) || null;
+  r.players.forEach(p=>{ delete p.tee; });
   saveState(); buildRoundGames();
 }
+/* ============================================================
+   COURSE HANDICAPS
+   ============================================================
+   Strokes come from each player's WHS Course Handicap for the tees they play, not the raw
+   Handicap Index: Index x Slope/113 + (Course Rating - Par), to the nearest whole number
+   (whs.js). On a 140-slope course a 14.0 index is a 17 or 18, and handing out 14 short-changes
+   whoever gets the most strokes. Where the rating and slope come from, in order:
+     the tee each player chose, on a course that has its tees set (rating and slope);
+     what was typed in on this card: the prompt asks for them when there is nothing else, and
+       on a chosen course they are saved to it, so the next game there already has them;
+     an ESTIMATE at the standard slope (113) and a rating equal to par, which is the Index
+       itself, labelled as an estimate everywhere it shows. */
+function grHI(p){ const v=p&&p.hcp; if(v===''||v==null) return null; return (typeof whsNum==='function') ? whsNum(v) : parseFloat(v); }
+function grCourse(){ const r=grState(); return r.courseKey ? (STATE.courses||[]).find(c=>(c.id||c.name)===r.courseKey)||null : null; }
+function grPar(){ return grState().holes.reduce((s,h)=>s+(+h.par||4),0); }
+function grRatedTees(){ const c=grCourse(); return c ? (c.tees||[]).filter(t=>t.rating>0&&t.slope>0) : []; }
+function grRatingFor(pi){
+  const r=grState(), c=grCourse(), name=(r.players[pi]&&r.players[pi].tee)||r.tee;
+  const t=c && (c.tees||[]).find(x=>x.name===name);
+  if(t && t.rating>0 && t.slope>0) return {rating:+t.rating, slope:+t.slope, src:'tee', name:t.name};
+  if(!c && r.rating>0 && r.slope>0) return {rating:+r.rating, slope:+r.slope, src:'input'};
+  return {rating:grPar(), slope:113, src:'estimate'};
+}
+function grCourseHcp(pi){
+  const r=grState(), hi=grHI(r.players[pi]); if(hi==null||!isFinite(hi)) return null;
+  const R=grRatingFor(pi);
+  return (typeof whsCourseHcp==='function') ? whsCourseHcp(hi, R.rating, R.slope, grPar()) : Math.round(hi);
+}
+/* typed rating/slope: onto the chosen course's tee (created if needed), or onto this card */
+function grSetRS(field, val){
+  const r=grState(), c=grCourse(), n=parseFloat(val), ok=isFinite(n)&&n>0;
+  if(c){
+    c.tees=Array.isArray(c.tees)?c.tees:[];
+    let t=c.tees.find(x=>x.name===r.tee);
+    if(!t){ t={name:r.tee||(STATE.profile&&STATE.profile.usualTee)||'Tees'}; c.tees.push(t); r.tee=t.name; }
+    if(ok) t[field]=n; else delete t[field];
+  } else { if(ok) r[field]=n; else delete r[field]; }
+  saveState(); buildRoundGames();
+}
+function grSetTee(name){ const r=grState(); r.tee=name||null; saveState(); buildRoundGames(); }
+function grSetPlayerTee(i, name){ const r=grState(); if(!r.players[i]) return; if(name) r.players[i].tee=name; else delete r.players[i].tee; saveState(); buildRoundGames(); }
 /* Strokes each player receives on each hole, under the chosen allocation. Returns a
    [player][hole] matrix of numbers that may include a 0.5. */
 function grStrokes(){
   const r=grState();
-  const hcps=r.players.map(p=>{ const h=parseFloat(p.hcp); return isNaN(h)?0:h; });
+  const hcps=r.players.map((p,i)=>{ const h=grCourseHcp(i); return h==null?0:h; });
   const n=r.holes.length;
   const out=r.players.map(()=>new Array(n).fill(0));
   const low=Math.min.apply(null,hcps);
@@ -259,7 +305,7 @@ function grPoints(){
 }
 
 /* ---------------- UI ---------------- */
-function grSetPlayer(i,f,v){ const r=grState(); r.players[i][f]= f==='hcp'?(v===''?'':parseFloat(v)):v; grState(); saveState(); buildRoundGames(); }
+function grSetPlayer(i,f,v){ const r=grState(); r.players[i][f]= f==='hcp'?String(v==null?'':v).trim():v; grState(); saveState(); buildRoundGames(); }
 function grAddPlayer(){ const r=grState(); if(r.players.length>=4){ toast('Four is the limit'); return; }
   r.players.push({name:'',hcp:''}); r.scores.push(new Array(18).fill('')); saveState(); buildRoundGames(); }
 function grDropPlayer(i){ const r=grState(); if(r.players.length<=2){ toast('Two players minimum'); return; }
@@ -345,11 +391,30 @@ function buildRoundGames(){
   const r=grState();
   const sel=(k,opts,cur)=>'<select class="strat-select" onchange="grSetOpt(\''+k+'\',this.value)">'
     + Object.keys(opts).map(o=>'<option value="'+o+'"'+(o===cur?' selected':'')+'>'+opts[o].label+'</option>').join('')+'</select>';
-  const players=r.players.map((p,i)=>'<div class="gr-player">'
-    + '<input class="wg-name" type="text" placeholder="Player '+(i+1)+'" value="'+escapeHtml(p.name||'')+'" oninput="grSetPlayer('+i+',\'name\',this.value)">'
-    + '<label>Index<input class="wg-hcp" type="number" step="0.1" value="'+((p.hcp===''||p.hcp==null)?'':p.hcp)+'" oninput="grSetPlayer('+i+',\'hcp\',this.value)"></label>'
-    + (r.players.length>2?'<button class="sgcal-del" title="Remove" onclick="grDropPlayer('+i+')">&#10005;</button>':'')+'</div>').join('');
-  const courses=(STATE.courses||[]).map((c,i)=>'<option value="'+i+'">'+escapeHtml(c.name||'Course')+'</option>').join('');
+  const rated=grRatedTees(), c=grCourse();
+  const fmtCH=v=>v==null?'&mdash;':(v<0?'+'+Math.abs(v):String(v));
+  const players=r.players.map((p,i)=>{ const ch=grCourseHcp(i), R=grRatingFor(i);
+    return '<div class="gr-player">'
+    + '<input class="wg-name" type="text" placeholder="Player '+(i+1)+'" value="'+escapeHtml(p.name||'')+'" onchange="grSetPlayer('+i+',\'name\',this.value)">'
+    + '<label>Index<input class="wg-hcp" type="text" inputmode="decimal" placeholder="+2 or 12.4" value="'+escapeHtml((p.hcp===''||p.hcp==null)?'':String(p.hcp))+'" onchange="grSetPlayer('+i+',\'hcp\',this.value)"></label>'
+    + (rated.length>1?'<label>Tees<select class="strat-select gr-ptee" onchange="grSetPlayerTee('+i+',this.value)"><option value="">'+escapeHtml(r.tee||'Game tee')+'</option>'
+        + rated.filter(t=>t.name!==r.tee).map(t=>'<option value="'+escapeHtml(t.name)+'"'+(p.tee===t.name?' selected':'')+'>'+escapeHtml(t.name)+'</option>').join('')+'</select></label>':'')
+    + '<span class="gr-ch'+(R.src==='estimate'?' est':'')+'" title="'+(R.src==='estimate'?'Estimated: standard slope 113, rating = par':'Course Handicap from '+(R.name?R.name+' tees, ':'')+R.rating+' / '+R.slope)+'">CH <b>'+fmtCH(ch)+'</b>'+(R.src==='estimate'&&ch!=null?' <i>est.</i>':'')+'</span>'
+    + (r.players.length>2?'<button class="sgcal-del" title="Remove" onclick="grDropPlayer('+i+')">&#10005;</button>':'')+'</div>'; }).join('');
+  /* where the Course Handicaps come from, and the prompt when there is nothing to go on */
+  const allTees=c?(c.tees||[]):[], cur=c?allTees.find(t=>t.name===r.tee):null;
+  const needRS = c ? !(cur&&cur.rating>0&&cur.slope>0) : !(r.rating>0&&r.slope>0);
+  const rsIn=(f,v,step,ph)=>'<input type="number" inputmode="decimal" step="'+step+'" placeholder="'+ph+'" value="'+(v>0?v:'')+'" onchange="grSetRS(\''+f+'\',this.value)">';
+  const rsBox='<div class="gr-rs'+(needRS?' need':'')+'">'
+    + (needRS?'<div class="gr-rs-h">Course Handicaps need the course rating and slope</div><p>From the scorecard, for the tees you are playing'+(c?'. Saved to '+escapeHtml(c.name||'this course')+' for next time.':'.')+' Until then, strokes are <b>estimated</b> at the standard slope (113), which is each player\'s Index.</p>'
+             :'<div class="gr-rs-h">Course Handicaps from '+(cur?escapeHtml(cur.name)+' tees':'this card')+'</div>')
+    + '<div class="gr-rs-row">'
+    + (c&&allTees.length?'<label><span>Tees</span><select class="strat-select" onchange="grSetTee(this.value)">'+allTees.map(t=>'<option value="'+escapeHtml(t.name)+'"'+(t.name===r.tee?' selected':'')+'>'+escapeHtml(t.name)+'</option>').join('')+'</select></label>':'')
+    + '<label><span>Rating</span>'+rsIn('rating', c?(cur&&cur.rating):r.rating,'0.1','72.0')+'</label>'
+    + '<label><span>Slope</span>'+rsIn('slope', c?(cur&&cur.slope):r.slope,'1','113')+'</label>'
+    + '<label><span>Par</span><b class="gr-par">'+grPar()+'</b></label>'
+    + '</div></div>';
+  const courses=(STATE.courses||[]).map((cc,i)=>'<option value="'+i+'"'+((cc.id||cc.name)===r.courseKey?' selected':'')+'>'+escapeHtml(cc.name||'Course')+'</option>').join('');
   wrap.innerHTML=
     '<div class="section-label" style="margin-top:0">On-Course Games <span class="proto-badge">prototype</span></div>'
     + '<p class="intro-note">One card, several wagers. Enter gross scores and Nassau, Skins and points all settle from the same numbers - no separate books. Strokes are allocated by the method you pick below, and every game reads the result.</p>'
@@ -362,7 +427,8 @@ function buildRoundGames(){
     + '<label><span>Skins on</span><select class="strat-select" onchange="grSetOpt(\'skinsNet\',this.value)">'
       + '<option value="net"'+(r.skinsNet?' selected':'')+'>Net</option><option value="gross"'+(r.skinsNet?'':' selected')+'>Gross</option></select></label>'
     + '</div>'
-    + '<div class="gr-optnote">'+escapeHtml(GR_ALLOC[r.alloc].note)+' &middot; '+escapeHtml(GR_PRESS[r.press].note)+'</div>'
+    + rsBox
+    + '<div class="gr-optnote">'+escapeHtml(GR_ALLOC[r.alloc].note)+' Strokes come from each player\'s Course Handicap. &middot; '+escapeHtml(GR_PRESS[r.press].note)+'</div>'
     + '<div id="gr-results"></div>'
     + '<div class="btn-row" style="margin-top:10px"><button class="btn" onclick="grClearCard()">Clear card</button></div>'
     + '<details class="pg-wrap" style="margin-top:14px"><summary>Half strokes - where the idea comes from</summary><div class="pg-body">'
@@ -373,7 +439,8 @@ function buildRoundGames(){
   buildRoundResults();
 }
 
-Object.assign(window, { GR_ALLOC, GR_PRESS, GR_VALID, grState, grDefaultHoles, grLoadCourse,
+Object.assign(window, { grHI, grCourse, grPar, grRatedTees, grRatingFor, grCourseHcp, grSetRS, grSetTee, grSetPlayerTee,
+  GR_ALLOC, GR_PRESS, GR_VALID, grState, grDefaultHoles, grLoadCourse,
   grStrokes, grNet, grGross, grHoleWinner, grNassau, grCanPress, grAddPress, grDropPress,
   grSkins, grStablefordPts, grPoints, grSetPlayer, grAddPlayer, grDropPlayer, grSetScore,
   grSetOpt, grClearCard, grNassauCell, buildRoundResults, buildRoundGames });
