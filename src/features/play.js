@@ -971,7 +971,14 @@ function pmDistShots(){
         const a=pmShotPt(h,sh), b=pmShotPt(h,nx);
         if(!a||!b||!ypu) return bump(id,'no map or GPS position');
         const yd=Math.hypot(b.x-a.x, b.y-a.y)*ypu;
-        (out[id]=out[id]||[]).push({ yd, ri, last:ri===R.length-1, hole:pmHoleNum(h,i), lie:sh.lie, end:nx.lie,
+        /* left/right of the target line, where the target is known (+ is right) */
+        const t=pmShotTarget(r, h, pmHoleNum(h,i), sh, a, club);
+        let lat=null, al=null;
+        if(t){ const L=Math.hypot(t.pt.x-a.x, t.pt.y-a.y)||1, ux=(t.pt.x-a.x)/L, uy=(t.pt.y-a.y)/L;
+               lat=(ux*(b.y-a.y)-uy*(b.x-a.x))*ypu;
+               al=((b.x-a.x)*ux+(b.y-a.y)*uy-L)*ypu; }      /* + is long of the target */
+        const mv=pmPtErrYd(sh)**2+pmPtErrYd(nx)**2;
+        (out[id]=out[id]||[]).push({ yd, lat, al, tsrc:t?t.src:null, mv, ri, last:ri===R.length-1, hole:pmHoleNum(h,i), lie:sh.lie, end:nx.lie,
                                      prov:(sh.src==='gps'&&nx.src==='gps')?'captured':'input', at:r.endedAt||r.startedAt });
       });
     });
@@ -1058,6 +1065,157 @@ function pmDistCardHTML(){
       <p class="pm-note">Total yards per club, start to where the next shot was played. Counts stock shots only: full swings from the tee or fairway, positioned on the map or by GPS. Includes the day's roll, slope and wind, so a club needs ${PM_DIST_MIN_N} before it can change your bag.</p>
       ${rows||''}
       ${log}
+    </div>`;
+}
+
+/* ---- ON-COURSE DISPERSION: how wide and how long each club's pattern really is ----
+   The same stock shots as the distances above. Two axes, measured differently:
+     LEFT/RIGHT needs to know what you were aiming at, or aim choice gets counted as
+       spread. So a shot is measured only where the target is known:
+         the frozen plan's aim, when you were at the planned spot with the planned club
+         the middle of the green, on a full approach (the green within the club's reach)
+       Otherwise it is counted as "target not known" and left out of the width.
+     LONG/SHORT is the miss along the same line, against the target's distance. Not the spread
+       of total distance: the plan aims one club at different lengths on different holes, and
+       that is target choice, not distance control.
+   Each position carries its own error: GPS as the phone reports it (a 95% radius, so the
+   per-axis 1 sigma is radius/2.45), a map placement PM_MAP_ERR_YD. That variance is taken
+   OUT of the measured spread, or a careless thumb would read as a wide swing.
+   THE MODEL: one curve by carry (getDispersion, getDepthDispersion), calibrated to a typical
+   +3. The on-course pattern is compared shot by shot, each miss divided by the model's 1 sigma
+   at that club's carry, and pooled over every club. That ratio is the one number that can
+   recalibrate the model to you (STATE.dispCal), applied after the round with an undo. */
+const PM_MAP_ERR_YD = 2;          /* 1 sigma of a thumb-placed position, per axis */
+const PM_DISP_MIN_DOF = 15;       /* pooled degrees of freedom before a factor can be applied */
+function pmPtErrYd(sh){ return (sh && sh.src==='gps' && sh.ll && sh.ll.acc) ? sh.ll.acc*1.0936/2.45 : PM_MAP_ERR_YD; }
+/* What this shot was aimed at, if we know. */
+function pmShotTarget(r, h, num, sh, a, club){
+  const ypu=cfYardsPerUnit(h)||1;
+  const p=r.plan&&r.plan.holes&&r.plan.holes[num];
+  if(p && p.shots){
+    for(const q of p.shots){
+      if(Math.hypot(q.from.x-a.x, q.from.y-a.y)*ypu<=PM_PLAN_NEAR_YD && (!q.clubId || q.clubId===club.id))
+        return {pt:q.aim, src:'plan'};
+    }
+  }
+  const mid=cfGreenMid(h), T=(STATE.performance[club.id]||{}).total;
+  if(mid && T){
+    const d=Math.hypot(mid.x-a.x, mid.y-a.y)*ypu;
+    if(d>=T*0.8 && d<=T*1.1+10) return {pt:mid, src:'green'};
+  }
+  return null;
+}
+function pmDispClub(id, list){
+  const carry=(STATE.performance[id]||{}).carry||(STATE.performance[id]||{}).total;
+  const L=list.filter(x=>x.lat!=null), n=L.length;
+  const out={id, carry, n, nAll:list.length};
+  if(n){
+    const mu=L.reduce((s,x)=>s+x.lat,0)/n; out.bias=mu;
+    if(n>=2){
+      const v=L.reduce((s,x)=>s+(x.lat-mu)**2,0)/(n-1) - L.reduce((s,x)=>s+x.mv,0)/n;
+      out.sdLat=Math.sqrt(Math.max(0,v));
+    }
+  }
+  if(n){ out.biasDep=L.reduce((s,x)=>s+x.al,0)/n; }
+  if(n>=2){
+    const m=out.biasDep;
+    const v=L.reduce((s,x)=>s+(x.al-m)**2,0)/(n-1) - L.reduce((s,x)=>s+x.mv,0)/n;
+    out.sdDep=Math.sqrt(Math.max(0,v));
+  }
+  out.modelLat=carry?getDispersion(carry)/1.645:null;
+  out.modelDep=carry?getDepthDispersion(carry)/1.645:null;
+  return out;
+}
+/* The pooled ratio: every club's misses in units of the model's sigma at that club's carry.
+   Each club's own mean is taken out first (an aim bias is not a width), which costs one
+   degree of freedom per club. */
+function pmDispPool(d){
+  const acc={lat:{ss:0,dof:0,bias:0,nb:0}, dep:{ss:0,dof:0}};
+  Object.entries(d.shots).forEach(([id,list])=>{
+    const c=pmDispClub(id,list); if(!c.carry) return;
+    const L=list.filter(x=>x.lat!=null);
+    if(L.length>=2 && c.modelLat){
+      const mu=c.bias; L.forEach(x=>{ acc.lat.ss+=((x.lat-mu)**2 - x.mv)/(c.modelLat**2); });
+      acc.lat.dof+=L.length-1;
+    }
+    L.forEach(x=>{ acc.lat.bias+=x.lat; acc.lat.nb++; });
+    if(L.length>=2 && c.modelDep){
+      const m=c.biasDep; L.forEach(x=>{ acc.dep.ss+=((x.al-m)**2 - x.mv)/(c.modelDep**2); });
+      acc.dep.dof+=L.length-1;
+    }
+  });
+  const k=a=>a.dof ? Math.sqrt(Math.max(0, a.ss/a.dof)) : null;
+  const kl=k(acc.lat), kd=k(acc.dep);
+  return { lat:kl, latSE:kl!=null&&acc.lat.dof?kl/Math.sqrt(2*acc.lat.dof):null, latDof:acc.lat.dof,
+           dep:kd, depSE:kd!=null&&acc.dep.dof?kd/Math.sqrt(2*acc.dep.dof):null, depDof:acc.dep.dof,
+           bias:acc.lat.nb?acc.lat.bias/acc.lat.nb:null, nBias:acc.lat.nb };
+}
+function pmDispCal(){ return STATE.dispCal || {lat:1, dep:1}; }
+function pmDispApply(){
+  const d=pmDistShots(), P=pmDispPool(d), cur=pmDispCal();
+  const lat = P.latDof>=PM_DISP_MIN_DOF && P.lat ? cur.lat*P.lat : cur.lat;
+  const dep = P.depDof>=PM_DISP_MIN_DOF && P.dep ? cur.dep*P.dep : cur.dep;
+  if(lat===cur.lat && dep===cur.dep) return;
+  const pc=x=>`${Math.round(x*100)}%`;
+  if(!confirm(`Recalibrate the dispersion model to your on-course pattern?\n\n`+
+              `Width: ${pc(cur.lat)} → ${pc(lat)} of the +3 model\nLength: ${pc(cur.dep)} → ${pc(dep)}\n\n`+
+              `Every pattern in the app follows: Stock Shots, Approach, the strategy engine. You can undo it here.`)) return;
+  const P2=pmState(); (P2.dispLog=P2.dispLog||[]).push({at:Date.now(), before:Object.assign({},cur), after:{lat,dep},
+                                                       dofLat:P.latDof, dofDep:P.depDof});
+  STATE.dispCal={lat:Math.round(lat*1000)/1000, dep:Math.round(dep*1000)/1000, at:Date.now()};
+  pmDispChanged('Dispersion model now fitted to your on-course pattern');
+}
+function pmDispUndo(k){
+  const L=pmState().dispLog||[], x=L[k]; if(!x||x.undone) return;
+  if(x.before.lat===1 && x.before.dep===1) delete STATE.dispCal; else STATE.dispCal=Object.assign({}, x.before);
+  x.undone=Date.now();
+  pmDispChanged('Dispersion model put back');
+}
+function pmDispChanged(msg){
+  if(typeof aimShapeReset==='function') aimShapeReset();
+  saveState(); if(typeof refreshAll==='function') refreshAll();
+  if(typeof buildPostRound==='function') buildPostRound();
+  toast(msg);
+}
+function pmDispCardHTML(){
+  const R=(STATE.play&&STATE.play.rounds)||[]; if(!R.length) return '';
+  const d=pmDistShots(), cal=pmDispCal();
+  const ids=(STATE.clubs||[]).map(c=>c.id).filter(id=>(d.shots[id]||[]).length);
+  const Lg=(pmState().dispLog||[]).map((x,k)=>Object.assign({k},x)).filter(x=>!x.undone).slice(-4).reverse();
+  if(!ids.length && !Lg.length) return '';
+  const b86=s=>s==null?'—':ydNum(s*1.48);        /* the app's "86% L/R" band, 1.48 sigma */
+  const side=v=>Math.abs(v)<1?'on line':`${ydNum(Math.abs(v))} ${v>0?'R':'L'}`;
+  const ratio=(a,b)=>(a!=null&&b)?a/b:null;
+  const tone=x=>x==null?'':x>1.15?'wide':x<0.87?'tight':'';
+  const rows=ids.map(id=>{
+    const club=pmBagClub(id), c=pmDispClub(id, d.shots[id]);
+    const rl=ratio(c.sdLat,c.modelLat), rd=ratio(c.sdDep,c.modelDep);
+    const nT=(d.shots[id]||[]).length-c.n;
+    return `<div class="pm-dp-row">
+        <b class="pm-dp-c">${escapeHtml(club.label)}</b>
+        <div class="pm-dp-ax"><span>L/R</span><b class="${tone(rl)}">${c.sdLat!=null?b86(c.sdLat):'—'}</b><i>model ${b86(c.modelLat)}</i>
+          <em>${c.n} shot${c.n===1?'':'s'}${c.bias!=null&&c.n>=2?` · ${side(c.bias)}`:''}${nT?` · ${nT} target unknown`:''}</em></div>
+        <div class="pm-dp-ax"><span>Long/short</span><b class="${tone(rd)}">${c.sdDep!=null?b86(c.sdDep):'—'}</b><i>model ${b86(c.modelDep)}</i>
+          <em>${c.n} shot${c.n===1?'':'s'}${c.biasDep!=null&&c.n>=2?` · ${Math.abs(c.biasDep)<1?'on length':`${ydNum(Math.abs(c.biasDep))} ${c.biasDep>0?'long':'short'}`}`:''}</em></div>
+      </div>`;
+  }).join('');
+  const P=pmDispPool(d), pc=x=>`${Math.round(x*100)}%`;
+  const ax=(k,se,dof,lbl)=>k==null ? `<div><span>${lbl}</span><b>—</b><i>needs 2+ shots with a club</i></div>`
+    : `<div><span>${lbl}</span><b class="${tone(k)}">${(k*cal[lbl==='Width'?'lat':'dep']).toFixed(2)}×</b><i>±${(se*cal[lbl==='Width'?'lat':'dep']).toFixed(2)} · ${dof} dof${dof<PM_DISP_MIN_DOF?` · ${PM_DISP_MIN_DOF-dof} more to apply`:''}</i></div>`;
+  const canApply=(P.latDof>=PM_DISP_MIN_DOF&&P.lat&&Math.abs(P.lat-1)>0.03)||(P.depDof>=PM_DISP_MIN_DOF&&P.dep&&Math.abs(P.dep-1)>0.03);
+  const calNote=(cal.lat!==1||cal.dep!==1)?`The model is already fitted to ${pc(cal.lat)} width and ${pc(cal.dep)} length; the ratios above are against the +3 curve.`:'Ratios are against the +3 model the app uses.';
+  return `<div class="profile-card pm-dp-card">
+      <h3>On-course dispersion</h3>
+      <div class="pm-pr-when">From every round on record · 86% bands, like Stock Shots</div>
+      <div class="pm-dp-pool">${ax(P.lat,P.latSE,P.latDof,'Width')}${ax(P.dep,P.depSE,P.depDof,'Length')}
+        ${P.bias!=null&&P.nBias>=3?`<div><span>Aim bias</span><b>${side(P.bias)}</b><i>average over ${P.nBias} shots</i></div>`:''}</div>
+      <p class="pm-note">${calNote} Above 1 your pattern is wider or longer than the model's. Not applied: the aim bias. It is where you miss, not how widely.</p>
+      ${canApply?`<button type="button" class="btn pm-dc-apply" onclick="pmDispApply()">Fit the model to this</button>`:''}
+      <div class="pm-dp-list">${rows}</div>
+      ${Lg.length?`<div class="pm-dc-log"><div class="pm-dc-log-h">Model fitted from the course</div>
+        ${Lg.map(x=>`<div class="pm-dc-log-r"><span>Width ${pc(x.before.lat)} → ${pc(x.after.lat)}, length ${pc(x.before.dep)} → ${pc(x.after.dep)} <i>${pmWhen(x.at)}</i></span>
+          <button type="button" class="pm-dc-undo" onclick="pmDispUndo(${x.k})">Undo</button></div>`).join('')}</div>`:''}
+      <p class="pm-note">Left/right is measured only where the target is known: your frozen plan's aim, or the middle of the green on a full approach. Long/short is the miss along the same line against the target's distance, so it includes the day's roll. GPS and map-placement error is taken out of both.</p>
     </div>`;
 }
 
@@ -1820,6 +1978,7 @@ Object.assign(window, { PM_RESUME_HOURS, PM_NEAR_HOLE_YD, PM_GPS_MAX_ERR_M,
   pmToTournament, pmUnlockBegin, pmUnlockCancel, pmUnlockCheck, pmUnlockConfirm, pmUnlockHTML, pmTournHistoryHTML, PM_MIN_SPAN_YD,
   PM_AUTO_TEE_YD, PM_AUTO_NEAR_YD, PM_AUTO_FAR_YD, PM_AUTO_CONFIRM, PM_AUTO_HOLD_MS,
   pmHoleFit, pmRankHoles, pmAutoHold, pmAutoResume, pmAutoDetect, pmAutoBadge, pmAskSet, pmAskDone, pmAskHTML,
+  PM_MAP_ERR_YD, PM_DISP_MIN_DOF, pmPtErrYd, pmShotTarget, pmDispClub, pmDispPool, pmDispCal, pmDispApply, pmDispUndo, pmDispCardHTML,
   PM_DIST_MIN_N, pmDistShots, pmDistClub, pmDistApply, pmDistUndo, pmDistCardHTML,
   pmPlayerE, pmPlanReview, pmPlanReviewHTML, pmBagClub, pmClubName, pmShotSetClub, pmShotCxToggle, pmShotCx, pmShotCxNote, pmCxTxt,
   pmShotValues, pmCustomShotsHTML, pmPlanClubTxt, pmSetupSet, pmPlans, pmPlanStamp, pmPlanAimTxt, pmPlanChain, pmPlanHole, pmPlanExp, pmPlanBuild, pmPlanOpen, pmPlanClose,

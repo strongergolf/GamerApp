@@ -8,7 +8,7 @@ const MAX_CARRY = 270;
    handicap (elite amateur — tighter than scratch, a touch wider than Tour):
    1σ L/R ≈ 4yd@100, 5@125, 6.5@150, 8@175, 9.5@200, 11.5@230, 14@260.
    sigma1 (1σ) = this × 0.608. Refine from the player's own multi-session data. */
-function getDispersion(carry){
+function getDispersionBase(carry){
   /* Below 75 yd, taper linearly to the origin instead of holding flat. A flat 4.9 meant a
      30-yard pitch was modelled as wide as a 75-yard shot, which is not how a face works:
      lateral miss is an ANGLE, so it shrinks with the shot. This line is the same 2.3° of
@@ -24,6 +24,11 @@ function getDispersion(carry){
   if(carry<=270) return 18.9 + (carry-230)/40 * 4.6;  // → 23.5
   return 23.5;
 }
+/* THE PLAYER'S OWN PATTERN. Both curves above are a typical +3. Once enough shots have been
+   measured on the course (Post-Round, On-course dispersion), STATE.dispCal scales them to
+   this golfer: lat for width, dep for length. 1 (or absent) is the +3 curve unchanged. */
+function dispCalFactor(k){ const c=(typeof STATE!=='undefined'&&STATE&&STATE.dispCal)||null; const v=c?+c[k]:NaN; return v>0?v:1; }
+function getDispersion(carry){ return getDispersionBase(carry)*dispCalFactor('lat'); }
 /* Single "86% L/R" lateral half-width — the band that catches ~86% of shots (≈1.48σ).
    getDispersion is the 90% CI (1.645σ), so 86% ≈ ×0.90. Replaces the old 1σ/2σ pair app-wide. */
 function disp86(carry){ return Math.round(getDispersion(carry)*0.90*10)/10; }
@@ -47,7 +52,7 @@ function disp86(carry){ return Math.round(getDispersion(carry)*0.90*10)/10; }
 
    PRESUMED (research-informed, not measured from this golfer). Refine from a player's own
    multi-session launch-monitor carry data — that promotes it to Captured. */
-function getDepthDispersion(carry){
+function getDepthDispersionBase(carry){
   carry=+carry||0;
   /* Same correction on the depth axis. Holding 6.2 flat below 50 implied a 30-yard pitch
      with a 1σ of 3.8 yd — finishing anywhere from 22 to 38 — because a fixed yardage turns
@@ -65,6 +70,7 @@ function getDepthDispersion(carry){
   if(carry<=270) return 11.5 + (carry-230)/40 * 1.8;  // → 13.3
   return 13.3;
 }
+function getDepthDispersion(carry){ return getDepthDispersionBase(carry)*dispCalFactor('dep'); }
 /* 86% depth half-width — the depth twin of disp86(), for the overhead oval. */
 function depth86(carry){ return Math.round(getDepthDispersion(carry)*0.90*10)/10; }
 

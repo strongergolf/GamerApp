@@ -2080,3 +2080,24 @@ body.theme-dark .pm-cs-card b.neg{color:#e88494}
   font-family:Arial,sans-serif;font-size:.74rem;font-weight:700;color:var(--ink);cursor:pointer}
 body.theme-dark .pm-dc-d,body.theme-dark .pm-dc-ok{color:#79e08d}
 body.theme-dark .pm-dc-card b.neg{color:#e88494}
+
+/* ---- POST-ROUND: on-course dispersion ---- */
+.pm-dp-pool{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:6px;margin:4px 0 8px}
+.pm-dp-pool div{text-align:center;padding:8px 4px;border-radius:8px;background:var(--bg2);border:1px solid var(--border)}
+.pm-dp-pool span{display:block;font-family:Arial,sans-serif;font-size:.58rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.pm-dp-pool b{display:block;font-family:Arial,sans-serif;font-size:1.3rem;font-weight:800;color:var(--ink)}
+.pm-dp-pool i{display:block;font-style:normal;font-family:ui-monospace,monospace;font-size:.54rem;color:var(--muted)}
+.pm-dp-list{display:flex;flex-direction:column;border-top:1px solid var(--border);margin-top:8px}
+.pm-dp-row{display:grid;grid-template-columns:1.8rem 1fr 1fr;gap:8px;align-items:start;padding:7px 2px;border-bottom:1px solid var(--border)}
+.pm-dp-c{font-family:Arial,sans-serif;font-size:1rem;font-weight:800;color:var(--ink)}
+.pm-dp-ax{display:flex;flex-wrap:wrap;align-items:baseline;gap:0 6px;font-family:Arial,sans-serif}
+.pm-dp-ax span{flex-basis:100%;font-size:.56rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.pm-dp-ax b{font-size:1rem;font-weight:800;color:var(--ink)}
+.pm-dp-ax b.wide{color:#b8455a}
+.pm-dp-ax b.tight{color:#00693a}
+.pm-dp-pool b.wide{color:#b8455a}
+.pm-dp-pool b.tight{color:#00693a}
+.pm-dp-ax i{font-style:normal;font-family:ui-monospace,monospace;font-size:.6rem;color:var(--muted)}
+.pm-dp-ax em{flex-basis:100%;font-style:normal;font-family:ui-monospace,monospace;font-size:.56rem;color:var(--muted)}
+body.theme-dark .pm-dp-ax b.wide,body.theme-dark .pm-dp-pool b.wide{color:#e88494}
+body.theme-dark .pm-dp-ax b.tight,body.theme-dark .pm-dp-pool b.tight{color:#79e08d}
