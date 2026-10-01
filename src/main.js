@@ -18,6 +18,8 @@
 
 import './data/defaults.js';
 import './state/store.js';
+import './state/storage.js';
+import './state/cloud.js';
 
 import './ui/brand.js';
 import './ui/panzoom.js';
@@ -60,8 +62,10 @@ import './features/games-round.js';
 import './ui/nav.js';
 
 /* Boot — mirrors the original init sequence (loadState → renderAll → initConditions → initCalc). */
-window.addEventListener('DOMContentLoaded', () => {
-  loadState();
+window.addEventListener('DOMContentLoaded', async () => {
+  /* the newer of the quick copy and the device database (state/storage.js); the old
+     synchronous load if the database cannot be opened */
+  try{ await psBootLoad(); }catch(e){ loadState(); }
   renderAll();
   initConditions();
   if (typeof initCalc === 'function') initCalc();

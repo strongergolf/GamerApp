@@ -223,6 +223,7 @@ function simImportConfirm(){
 function simDeleteSession(id){
   const S=simState(), i=S.sessions.findIndex(s=>s.id===id); if(i<0) return;
   if(!confirm('Delete this session? The numbers already applied to your bag stay.')) return;
+  if(typeof sgForget==='function') sgForget('sim.sessions', id);
   S.sessions.splice(i,1); if(window.simSess===id) window.simSess=null; saveState(); buildSim();
 }
 function simOpenSession(id){ window.simSess=id; buildSim(); const b=document.getElementById('sim-body'); if(b) b.scrollTop=0; }

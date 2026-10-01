@@ -31,7 +31,7 @@ function migrateClubModel(model){
 
 function loadState(){
   try{
-    const raw = localStorage.getItem(STORE_KEY);
+    const raw = localStorage.getItem(typeof psKey==='function' ? psKey(psActive()) : STORE_KEY);
     if(raw){
       const parsed = JSON.parse(raw);
       const merged = mergeAndFix(parsed);
@@ -263,8 +263,17 @@ function mergeAndFix(saved){
   const changed = applyDataFixes(st, from);
   return {state:st, changed};
 }
+/* Every save: stamp it, write the quick copy (localStorage, while the player fits), and hand
+   it to storage.js for the database, the history and the cloud. A failed quick-copy write is
+   no longer silent: storage.js turns the quick copy off and the database carries the data. */
 function saveState(){
-  try{ localStorage.setItem(STORE_KEY, JSON.stringify(window.STATE)); }catch(e){}
+  const S=window.STATE; if(!S) return;
+  S.meta=S.meta||{}; S.meta.savedAt=Date.now();
+  let json; try{ json=JSON.stringify(S); }catch(e){ return; }
+  const key=(typeof psKey==='function') ? psKey(psActive()) : STORE_KEY;
+  if(typeof psWriteQuick==='function') psWriteQuick(key, json);
+  else { try{ localStorage.setItem(key, json); }catch(e){} }
+  if(typeof psAfterSave==='function') psAfterSave(json);
 }
 
 // Expose helpers on window for the staged ES-module migration.

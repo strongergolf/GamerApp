@@ -926,7 +926,7 @@ function buildMyData(){
       </div>
       <p class="gen-note" style="margin-top:10px">Answering profile questions — capturing your full-bag dispersion, say — can unlock features like full course strategy, but an interviewed answer is <em>Presumed</em>, not Captured, until measured data backs it.</p>
       <h4 class="mydata-sub">Where it lives</h4>
-      <p class="gen-note">All of it — bag, performance numbers, swing data, courses and profile — is saved in this browser and nowhere else. Back it up, move it to another device, or start again from the demo bag. Backup and restore also sit at the foot of <b>My Clubs</b>, beside the clubs themselves.</p>
+      <p class="gen-note">All of it — bag, performance numbers, swing data, courses, rounds and profile — is saved in this device's database, with a history of snapshots, and in your own cloud if you turn it on. <b>Your Data</b>, below, has the details, other players on this device, and every export. Backup and restore also sit at the foot of <b>My Clubs</b>.</p>
       <div class="btn-row">
         <button class="btn" onclick="exportData()">Backup JSON</button>
         <button class="btn" onclick="triggerImportFile()">Restore</button>
@@ -947,6 +947,7 @@ function buildMyData(){
       <div class="btn-row"><button class="btn" disabled style="opacity:.55;cursor:not-allowed">Connect a source — coming soon</button></div>
     </div>`;
   MY_DATA_SOURCES.forEach(src=>{ try{ src.render(); }catch(e){} });
+  if(typeof psRenderCard==='function') psRenderCard();
   buildUnitToggle();
 }
 /* Units, one row per category. Built from UNIT_SETTINGS, so a new category appears here by
@@ -1186,7 +1187,9 @@ function exportClubsCsv(){
   a.click(); URL.revokeObjectURL(a.href);
   if(typeof toast==='function') toast('Club catalogue exported (CSV)');
 }
+/* Backup: the documented export envelope (state/storage.js) for this player. */
 function exportData(){
+  if(typeof psExportPlayers==='function'){ psExportPlayers([psActive()]); toast('Exported'); return; }
   const blob=new Blob([JSON.stringify(STATE,null,2)],{type:'application/json'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
   a.download='strongergolf-bag-'+(STATE.profile.name||'data').replace(/\s+/g,'-').toLowerCase()+'.json';
@@ -1199,12 +1202,18 @@ function importData(e){
   if(!confirm(`Import "${f.name}"?\n\nThis REPLACES all current data (bag, captured numbers, tendencies, profile).\nA backup of your current data will download first.`)){ e.target.value=''; return; }
   exportData();
   const r=new FileReader();
-  r.onload=()=>{ try{ window.STATE=mergeDefaults(JSON.parse(r.result)); saveState(); renderAll(); toast('Imported — previous data backed up'); }catch(err){ toast('Import failed — invalid file (current data unchanged)'); } };
+  r.onload=async ()=>{ try{
+      const obj=JSON.parse(r.result), players=(typeof psReadImport==='function')?psReadImport(obj):null;
+      const data=players&&players.length?players[0].data:obj;
+      if(typeof psSnapshot==='function') await psSnapshot('safety', null, 'before importing '+f.name);
+      window.STATE=mergeDefaults(data); saveState(); renderAll(); toast('Imported — previous data backed up');
+    }catch(err){ toast('Import failed — invalid file (current data unchanged)'); } };
   r.readAsText(f); e.target.value='';
 }
 function resetData(){
   if(!confirm('Reset to the demo bag?\n\nThis REPLACES all current data (bag, captured numbers, tendencies, profile).\nA backup of your current data will download first.')) return;
   exportData();
+  if(typeof psSnapshot==='function') psSnapshot('safety', null, 'before reset');
   window.STATE=deepClone(DEFAULT_DATA); saveState(); renderAll(); toast('Reset to demo bag — previous data backed up');
 }
 

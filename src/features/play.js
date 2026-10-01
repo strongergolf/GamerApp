@@ -549,6 +549,7 @@ function pmPlanDelete(){
   if(pmRound()) return;
   const c=pmSetupCourse(); if(!c||!pmPlans()[pmCourseKey(c)]) return;
   if(!confirm('Delete the plan for this course?')) return;
+  if(typeof sgForget==='function') sgForget('play.plans', pmCourseKey(c));
   delete pmPlans()[pmCourseKey(c)]; saveState(); window.pmPlanView=false; buildPlay();
 }
 /* THE FREEZE: a copy, not a reference. Rebuilding or deleting the course's plan afterwards
