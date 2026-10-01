@@ -660,8 +660,11 @@ function psApplyRoundBaselines(){
 }
 function buildPostRound(){
   const wrap=document.getElementById('postround-wrap'); if(!wrap) return;
+  /* All rounds: the dashboard (rounds.js) instead of the last round's debrief */
+  const sw=(typeof rdSwitchHTML==='function')?rdSwitchHTML():'';
+  if(window.rdView==='all' && typeof rdDashboardHTML==='function'){ wrap.innerHTML=sw+rdDashboardHTML(); return; }
   const f=(label,key,opts)=>`<div class="edit-field"><label>${label}</label>${psRoundSel(key,['—',...opts])}</div>`;
-  wrap.innerHTML=`
+  wrap.innerHTML=`${sw}
     ${typeof whsCardHTML==='function'?whsCardHTML():''}
     ${typeof pmSgCardHTML==='function'?pmSgCardHTML():''}
     ${typeof pmPlanReviewHTML==='function'?pmPlanReviewHTML():''}
@@ -682,7 +685,7 @@ function buildPostRound(){
         ${psRoundNum('Penalty strokes','pen','#')}
       </div>
       <div class="btn-row"><button class="btn btn-primary" onclick="psApplyRoundBaselines()">Save round stats to my baselines</button></div>
-      <p class="gen-note" style="margin-top:8px">These map onto your Locker Room → Myself <b>Typical-Round Baselines</b> (GIR %, fairways %, putts/round, up&amp;down %) which feed the <b>Strokes-Gained diamond</b> and expected-shots. Next step: a full round-by-round SG log with trend lines and a per-category breakdown.</p>
+      <p class="gen-note" style="margin-top:8px">These map onto your Locker Room → Myself <b>Typical-Round Baselines</b> (GIR %, fairways %, putts/round, up&amp;down %) which feed the <b>Strokes-Gained diamond</b> and expected-shots. Every round you finish in Play is on <b>All rounds</b> above, with strokes gained trends and a per-category breakdown.</p>
     </div>
     <div class="profile-card">
       <h3>2 · Where the Strokes Went <span style="${PS_SUB}">tie it to the SG categories</span></h3>
