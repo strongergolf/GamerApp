@@ -30,13 +30,25 @@ const PS_EXPORT_FORMAT = 'strongergolf-export', PS_EXPORT_VER = 1;
 /* ---------- players on this device ---------- */
 function psProfiles(){
   let P=null; try{ P=JSON.parse(localStorage.getItem('sg_profiles')||'null'); }catch(_){}
-  if(!Array.isArray(P) || !P.length) P=[{id:'default', name:'Player 1', createdAt:Date.now()}];
+  if(!Array.isArray(P) || !P.length) P=[{id:'default', name:'', createdAt:Date.now()}];
   return P;
 }
+/* a player with no name of its own is called by the name in its profile (the first player is
+   whoever was using the app before players existed) */
+function psNameOf(p){
+  if(p && p.name) return p.name;
+  if(p && p.id===psActive() && window.STATE && STATE.profile && STATE.profile.name) return STATE.profile.name;
+  return p && p.id==='default' ? 'Player 1' : 'Player';
+}
 function psSaveProfiles(P){ try{ localStorage.setItem('sg_profiles', JSON.stringify(P)); }catch(_){} }
-function psActive(){ let a=null; try{ a=localStorage.getItem('sg_active'); }catch(_){} return (a && psProfiles().some(p=>p.id===a)) ? a : 'default'; }
+/* The player this page loaded is the one every save goes to until the page reloads. sg_active
+   is only which player the NEXT load opens, so a save fired while switching (a reload sends
+   pagehide and visibilitychange, and other modules save on those) can never land in the
+   player being switched to. */
+function psNextActive(){ let a=null; try{ a=localStorage.getItem('sg_active'); }catch(_){} return (a && psProfiles().some(p=>p.id===a)) ? a : 'default'; }
+function psActive(){ return (window.psState && psState.loadedId) || psNextActive(); }
 function psKey(id){ return (id||'default')==='default' ? STORE_KEY : STORE_KEY+'__'+id; }
-function psActiveName(){ const p=psProfiles().find(x=>x.id===psActive()); return (p&&p.name)||'Player 1'; }
+function psActiveName(){ return psNameOf(psProfiles().find(x=>x.id===psActive())); }
 
 /* ---------- IndexedDB, minimal ---------- */
 let PS_DBP=null;
@@ -89,11 +101,13 @@ function psFreshDoc(name){
   return d;
 }
 async function psBootLoad(){
-  const id=psActive(), key=psKey(id);
+  const id=psNextActive(), key=psKey(id);
+  psState.loadedId=id;
   let ls=null; try{ const raw=localStorage.getItem(key); if(raw) ls=JSON.parse(raw); }catch(_){}
   let rec=null; try{ rec=await psGet('docs', id); }catch(_){ psState.idbOk=false; }
   const fromIdb = rec && rec.doc && (!ls || psSaved(rec.doc)>=psSaved(ls));
   const src = fromIdb ? rec.doc : ls;
+  psState.booted=true;
   if(src){
     const m=mergeAndFix(src); window.STATE=m.state;
     if(m.changed || !fromIdb) saveState();          /* the database catches up with the quick copy */
@@ -210,7 +224,7 @@ async function psNewProfile(){
 }
 function psRename(id){
   const P=psProfiles(), p=P.find(x=>x.id===id); if(!p) return;
-  const name=(prompt('Rename this player:', p.name)||'').trim().slice(0,40); if(!name) return;
+  const name=(prompt('Rename this player:', psNameOf(p))||'').trim().slice(0,40); if(!name) return;
   p.name=name; psSaveProfiles(P);
   if(id===psActive() && window.STATE && STATE.profile && !STATE.profile.name){ STATE.profile.name=name; saveState(); }
   psRenderCard();
@@ -218,11 +232,12 @@ function psRename(id){
 async function psDeleteProfile(id){
   if(id===psActive()){ toast('Switch to another player first'); return; }
   const P=psProfiles(), p=P.find(x=>x.id===id); if(!p) return;
-  if(!confirm(`Delete ${p.name} and all of their data on this device?\n\nA full export of ${p.name} downloads first. This cannot be undone here.`)) return;
+  const nm=psNameOf(p);
+  if(!confirm(`Delete ${nm} and all of their data on this device?\n\nA full export of ${nm} downloads first. This cannot be undone here.`)) return;
   await psExportPlayers([id]);
   try{ localStorage.removeItem(psKey(id)); }catch(_){}
   try{ await psDel('docs', id); for(const s of await psSnapsOf(id)) await psDel('snaps', s.sid); await psDel('meta','lastSnap:'+id); }catch(_){}
-  psSaveProfiles(P.filter(x=>x.id!==id)); psRenderCard(); toast(`${p.name} deleted`);
+  psSaveProfiles(P.filter(x=>x.id!==id)); psRenderCard(); toast(`${nm} deleted`);
 }
 
 /* ---------- export and import ---------- */
@@ -245,7 +260,7 @@ async function psDocOf(id){
 }
 async function psExportPlayers(ids){
   const P=psProfiles().filter(p=>!ids || ids.includes(p.id)), players=[];
-  for(const p of P){ const d=await psDocOf(p.id); if(d) players.push({id:p.id, name:p.name, data:d}); }
+  for(const p of P){ const d=await psDocOf(p.id); if(d) players.push({id:p.id, name:psNameOf(p), data:d}); }
   const name = players.length===1 ? `strongergolf-${psSlug(players[0].name)}-${psDay(Date.now())}.json` : `strongergolf-all-players-${psDay(Date.now())}.json`;
   psDownload(name, JSON.stringify(psEnvelope(players), null, 1), 'application/json');
 }
@@ -289,22 +304,30 @@ async function psPersist(){
   if(!(navigator.storage&&navigator.storage.persist)){ toast('This browser decides for itself'); return; }
   const ok=await navigator.storage.persist(); toast(ok?'The browser will keep it':'The browser said no; it may clear it if space runs short'); psRenderCard();
 }
+/* Drawn twice: at once from what is already known (so the card is never blank), then again
+   when the browser has answered how much it holds and the history has been read. */
 async function psRenderCard(){
   const wrap=document.getElementById('sg-data-wrap'); if(!wrap) return;
+  psPaintCard(wrap, psState.cardInfo||{});
   const est = navigator.storage&&navigator.storage.estimate ? await navigator.storage.estimate().catch(()=>null) : null;
   const persisted = navigator.storage&&navigator.storage.persisted ? await navigator.storage.persisted().catch(()=>null) : null;
+  const snaps=(await psSnapsOf(psActive()).catch(()=>[])).sort((a,b)=>b.at-a.at);
+  psState.cardInfo={est, persisted, snaps};
+  psPaintCard(wrap, psState.cardInfo);
+}
+function psPaintCard(wrap, info){
+  const est=info.est||null, persisted=info.persisted==null?null:info.persisted, snaps=info.snaps||[];
   const json=JSON.stringify(window.STATE||{}), id=psActive();
-  const snaps=(await psSnapsOf(id).catch(()=>[])).sort((a,b)=>b.at-a.at);
   const P=psProfiles();
   const kindLbl={daily:'Daily', manual:'Saved by you', safety:'Before a change'};
   const snapRows=snaps.slice(0,24).map(s=>`<div class="ps-snap"><span><b>${new Date(s.at).toLocaleDateString([], {year:'numeric', month:'short', day:'numeric'})}</b> ${new Date(s.at).toLocaleTimeString([], {hour:'numeric', minute:'2-digit'})}
       <i>${kindLbl[s.kind]||s.kind}${s.label?` · ${escapeHtml(s.label)}`:''} · ${psBytes(s.gz?s.blob.size:(s.json||'').length)}</i></span>
       <button type="button" class="pm-dc-undo" onclick="psDownloadSnap(${s.sid})" aria-label="Download this snapshot">⬇</button>
       <button type="button" class="pm-dc-undo" onclick="psRestore(${s.sid})">Restore</button></div>`).join('');
-  const players=P.map(p=>`<div class="ps-player${p.id===id?' on':''}"><span><b>${escapeHtml(p.name)}</b>${p.id===id?' <i>this player</i>':''}</span>
+  const players=P.map(p=>`<div class="ps-player${p.id===id?' on':''}"><span><b>${escapeHtml(psNameOf(p))}</b>${p.id===id?' <i>this player</i>':''}</span>
       ${p.id===id?'':`<button type="button" class="pm-dc-undo" onclick="psSwitch('${p.id}')">Switch</button>`}
       <button type="button" class="pm-dc-undo" onclick="psRename('${p.id}')">Rename</button>
-      ${p.id===id?'':`<button type="button" class="pm-dc-undo" onclick="psDeleteProfile('${p.id}')" aria-label="Delete ${escapeHtml(p.name)}">✕</button>`}</div>`).join('');
+      ${p.id===id?'':`<button type="button" class="pm-dc-undo" onclick="psDeleteProfile('${p.id}')" aria-label="Delete ${escapeHtml(psNameOf(p))}">✕</button>`}</div>`).join('');
   wrap.innerHTML=`<div class="profile-card ps-card">
       <h3>Your Data <span class="card-sub">where it lives, its history, and how to take it with you</span></h3>
       <div class="ps-sec"><h4>On this device</h4>
@@ -339,7 +362,7 @@ async function psRenderCard(){
   if(typeof sgCloudRender==='function') sgCloudRender();
 }
 
-Object.assign(window, { PS_LS_MAX, PS_EXPORT_FORMAT, psProfiles, psSaveProfiles, psActive, psKey, psActiveName, psDB, psGet, psPut, psDel, psSnapsOf,
+Object.assign(window, { PS_LS_MAX, PS_EXPORT_FORMAT, psProfiles, psSaveProfiles, psActive, psNextActive, psKey, psActiveName, psDB, psGet, psPut, psDel, psSnapsOf,
   psPack, psUnpack, psBootLoad, psAfterSave, psFlush, psWriteQuick, psSnapshot, psSnapshotNow, psPrune, psRestore, psDownloadSnap, psAdopt,
   psSwitch, psNewProfile, psRename, psDeleteProfile, psEnvelope, psDownload, psDocOf, psExportPlayers, psExportTrackman, psReadImport,
-  psImportFile, psPersist, psRenderCard, psFreshDoc });
+  psImportFile, psPersist, psRenderCard, psPaintCard, psFreshDoc, psNameOf });

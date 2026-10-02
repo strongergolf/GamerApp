@@ -65,7 +65,7 @@ import './ui/nav.js';
 window.addEventListener('DOMContentLoaded', async () => {
   /* the newer of the quick copy and the device database (state/storage.js); the old
      synchronous load if the database cannot be opened */
-  try{ await psBootLoad(); }catch(e){ loadState(); }
+  try{ await psBootLoad(); }catch(e){ if(window.psState) psState.booted=true; loadState(); }
   renderAll();
   initConditions();
   if (typeof initCalc === 'function') initCalc();

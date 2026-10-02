@@ -43,6 +43,9 @@ function cfAddCourse(){
 function cfDeleteCourse(){
   const cs=cfCourses(); if(!cs.length) return;
   if(!confirm('Delete this course and all its holes?')) return;
+  /* recorded, so the deletion reaches the player's other devices instead of coming back from them */
+  const gone=cs[window.courseEdit.cIdx];
+  if(gone && typeof sgForget==='function') sgForget('courses', gone.id||gone.name);
   cs.splice(window.courseEdit.cIdx,1);
   window.courseEdit.cIdx=Math.max(0,window.courseEdit.cIdx-1); window.courseEdit.hIdx=0;
   saveState(); buildCourses();

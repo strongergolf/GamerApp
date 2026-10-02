@@ -2384,3 +2384,23 @@ body.theme-dark .rd-goal-now b,body.theme-dark .rd-focus b,body.theme-dark .rd-f
 body.theme-dark .rd-blk-h b{color:#f4d47a}
 @media(max-width:420px){.rd-goal{grid-template-columns:1fr 3.2rem 6.6rem;}.rd-goal-bar,.rd-goal-gap{grid-column:1/-1}}
 .rd-card .rd-focus>b{color:var(--ink)}
+
+/* ---- Settings → The App → Your Data (state/storage.js, state/cloud.js) ---- */
+.ps-sec{border-top:1px solid var(--border);padding-top:10px;margin-top:10px;display:flex;flex-direction:column;gap:6px}
+.ps-sec:first-of-type{border-top:0;margin-top:4px;padding-top:0}
+.ps-sec h4{margin:0;font-family:Arial,sans-serif;font-size:.9rem;font-weight:800;color:var(--ink)}
+.ps-sec h4 span{display:block;font-weight:400;font-size:.66rem;color:var(--muted);margin-top:2px}
+.ps-sec .pm-note{margin:0}
+.ps-sec .pm-dc-apply{align-self:flex-start}
+.ps-snap,.ps-player{display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--border)}
+.ps-snap>span,.ps-player>span{flex:1;min-width:0;font-family:Arial,sans-serif;font-size:.8rem;color:var(--ink2)}
+.ps-snap b,.ps-player b{color:var(--ink)}
+.ps-snap i,.ps-player i{display:block;font-style:normal;font-family:ui-monospace,monospace;font-size:.58rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ps-player.on b{color:#00693a}
+.ps-btns{display:flex;flex-wrap:wrap;gap:6px}
+.ps-btns .btn{min-height:38px;font-size:.74rem}
+.ps-h5{margin:6px 0 0;font-family:Arial,sans-serif;font-size:.8rem;font-weight:800;color:var(--ink)}
+.ps-setup summary{cursor:pointer;font-family:Arial,sans-serif;font-size:.84rem;font-weight:800;color:var(--ink);padding:4px 0}
+.ps-setup ol{margin:6px 0;padding-left:18px;font-family:Arial,sans-serif;font-size:.76rem;line-height:1.55;color:var(--ink2)}
+.ps-setup code{font-family:ui-monospace,monospace;font-size:.68rem;word-break:break-all;background:var(--bg2);padding:1px 4px;border-radius:4px}
+body.theme-dark .ps-player.on b{color:#79e08d}

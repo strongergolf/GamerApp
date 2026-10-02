@@ -45,7 +45,9 @@ function loadState(){
       return;
     }
   }catch(e){ /* storage unavailable — fall back to in-memory */ }
-  window.STATE = deepClone(DEFAULT_DATA);
+  /* nothing stored: the demo bag for the first player, a fresh start for any other */
+  window.STATE = (typeof psFreshDoc==='function' && typeof psActive==='function' && psActive()!=='default')
+    ? psFreshDoc(psActiveName()) : deepClone(DEFAULT_DATA);
 }
 /* Estimate the 8:00 (⅓) rung for a club from its own measured ladder.
    A single global ratio would be wrong: the drop per rung steepens with loft, because the
@@ -268,6 +270,10 @@ function mergeAndFix(saved){
    no longer silent: storage.js turns the quick copy off and the database carries the data. */
 function saveState(){
   const S=window.STATE; if(!S) return;
+  /* Nothing is written until the boot (storage.js psBootLoad) has chosen between the quick copy
+     and the database. The legacy first render in nav.js runs before that and saves as it
+     draws; letting those saves through could stamp a stale copy as the newest one. */
+  if(window.psState && !psState.booted) return;
   S.meta=S.meta||{}; S.meta.savedAt=Date.now();
   let json; try{ json=JSON.stringify(S); }catch(e){ return; }
   const key=(typeof psKey==='function') ? psKey(psActive()) : STORE_KEY;
