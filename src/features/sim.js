@@ -218,6 +218,7 @@ function simImportConfirm(){
   const sess={ id:'tm'+Date.now(), at:dates.length?Math.min(...dates):Date.now(), importedAt:Date.now(), name:P.file, src:'TrackMan', shots };
   S.sessions.push(sess); saveState();
   window.simPending=null; window.simSess=sess.id; buildSim();
+  if(typeof lmRenderSection==='function') lmRenderSection();   /* the Driver Optimizer reads the newest session */
   toast(`${shots.length} shots imported`);
 }
 function simDeleteSession(id){

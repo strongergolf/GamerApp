@@ -268,8 +268,10 @@ function lmSectionHTML(){
           <span class="lm-row-sub">${[s.date,s.brand,s.smash?'smash '+s.smash:''].filter(Boolean).join(' · ')}</span></div>
         <div class="lm-row-btns"><button class="btn lm-mini" onclick="lmLoadSession(${i})">Load</button><button class="btn lm-mini" onclick="lmDeleteSession(${i})">✕</button></div>
       </div>`).join('')
-    : `<div class="lm-empty">No sessions yet — enter your driver numbers or import a launch-monitor export (CSV / JSON).</div>`;
+    : `<div class="lm-empty">No saved sessions yet. Save the TrackMan numbers above, or enter another monitor's.</div>`;
   return `<div class="lm-head">Launch Monitor — Driver Sessions</div>
+    ${lmTmCardHTML()}
+    <div class="lm-sub">Or enter another monitor's numbers</div>
     <div class="lm-grid">
       <label class="lm-fld"><span>Date</span><input id="lm-date" type="date" value="${today}"></label>
       <label class="lm-fld"><span>Monitor</span><select id="lm-brand">${brandOpts}</select></label>
@@ -284,10 +286,74 @@ function lmSectionHTML(){
     </div>
     <div class="lm-actions">
       <button class="btn btn-accent" onclick="lmSaveSession()">Save session</button>
-      <label class="btn lm-import">Import CSV / JSON<input type="file" accept=".csv,.tsv,.txt,.json" style="display:none" onchange="lmImportFile(this)"></label>
+
     </div>
     <div class="lm-list">${rows}</div>`;
 }
+/* ---- FROM TRACKMAN ----
+   The optimizer used to take one row of a CSV. It now reads the TrackMan sessions imported in
+   Sim Golf (sim.js), which already found the driver among the clubs, set mishits aside, and
+   averaged the clean shots. The newest session with driver shots is offered first; any can be
+   loaded into the sliders or saved as a dated session below. Manual entry stays, for other
+   launch monitors. */
+function lmTrackmanDriver(){
+  const d=(typeof bagDriver==='function')?bagDriver():null;
+  if(!d || typeof simClubStats!=='function') return [];
+  return (((STATE.sim||{}).sessions)||[]).map(s=>{
+    const L=(s.shots||[]).filter(x=>x.club===d.id); if(!L.length) return null;
+    const st=simClubStats(d.id, L);
+    return { id:s.id, at:s.at, name:s.name||'', n:st.n, out:st.out,
+             bspd:st.bspd, cspd:st.cspd, smash:(st.bspd&&st.cspd)?st.bspd/st.cspd:null, launch:st.launch, spin:st.spin,
+             aoa:st.aoa, path:st.path, face:st.face, carry:st.carry, total:st.total };
+  }).filter(Boolean).sort((a,b)=>b.at-a.at);
+}
+function lmTmCardHTML(){
+  const L=lmTrackmanDriver();
+  const day=t=>new Date(t).toLocaleDateString([], {month:'short', day:'numeric', year:'numeric'});
+  const f=(v,dp)=>v==null?'\u2014':(+v).toFixed(dp||0);
+  if(!L.length) return `<div class="lm-tm"><div class="lm-tm-h">From TrackMan</div>
+      <p class="lm-empty">No TrackMan session with driver shots yet. Import one in Sim Golf and its driver numbers appear here, averaged from the clean shots.</p>
+      <button type="button" class="btn lm-mini" onclick="lmOpenTrackman()">Import a TrackMan session</button></div>`;
+  const s=L[0];
+  const older=L.slice(1,4).map((x,i)=>`<div class="lm-row"><div class="lm-row-nums"><b>${f(x.bspd,1)}</b> mph \u00b7 ${f(x.launch,1)}\u00b0 \u00b7 ${x.spin!=null?Math.round(x.spin).toLocaleString():'\u2014'} rpm
+      <span class="lm-row-sub">${day(x.at)} \u00b7 ${x.n} shots</span></div>
+      <div class="lm-row-btns"><button class="btn lm-mini" onclick="lmLoadTM(${i+1})">Load</button></div></div>`).join('');
+  return `<div class="lm-tm"><div class="lm-tm-h">From TrackMan <span>${day(s.at)} \u00b7 ${s.n} driver shots${s.out?` \u00b7 ${s.out} mishit${s.out===1?'':'s'} set aside`:''}</span></div>
+      <div class="lm-tm-grid">
+        <div><span>Ball speed</span><b>${f(s.bspd,1)}</b><i>mph</i></div>
+        <div><span>Launch</span><b>${f(s.launch,1)}\u00b0</b></div>
+        <div><span>Spin</span><b>${s.spin!=null?Math.round(s.spin).toLocaleString():'\u2014'}</b><i>rpm</i></div>
+        <div><span>Smash</span><b>${f(s.smash,2)}</b></div>
+        <div><span>Vert. Path</span><b>${f(s.aoa,1)}\u00b0</b></div>
+        <div><span>Path</span><b>${f(s.path,1)}\u00b0</b></div>
+        <div><span>Face</span><b>${f(s.face,1)}\u00b0</b></div>
+        <div><span>Carry</span><b>${f(s.carry)}</b><i>yd</i></div>
+      </div>
+      <div class="lm-actions"><button class="btn btn-accent" onclick="lmLoadTM(0)">Load into optimizer</button>
+        <button class="btn" onclick="lmSaveTM(0)">Save as a session</button>
+        <button class="btn lm-mini" onclick="lmOpenTrackman()">Import another</button></div>
+      ${older?`<div class="lm-tm-older">Earlier sessions</div>${older}`:''}
+    </div>`;
+}
+function lmLoadTM(i){
+  const s=lmTrackmanDriver()[i]; if(!s) return;
+  const set=(id,v,mn,mx)=>{ const el=document.getElementById(id); if(el&&v!=null&&isFinite(v)){ el.value=Math.max(mn,Math.min(mx,v)); return v<mn||v>mx; } return false; };
+  const clipped=[set('drv-bspd',Math.round(s.bspd),100,200), set('drv-launch',Math.round(s.launch*2)/2,6,20), set('drv-spin',Math.round(s.spin/50)*50,1500,4500)].some(Boolean);
+  if(typeof updateDriverOpt==='function') updateDriverOpt();
+  if(typeof toast==='function') toast(clipped?'Loaded; a value was outside the optimizer\u2019s range and was clipped':'TrackMan driver numbers loaded into the optimizer');
+}
+function lmSaveTM(i){
+  const s=lmTrackmanDriver()[i]; if(!s) return;
+  const r1=v=>v==null?'':String(Math.round(v*10)/10);
+  const dt=new Date(s.at), pad=n=>String(n).padStart(2,'0');   /* the local date, as the card shows it */
+  const rec={ date:`${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}`, brand:'Trackman', ballSpeed:r1(s.bspd), launch:r1(s.launch), spin:s.spin!=null?String(Math.round(s.spin)):'',
+              aoa:r1(s.aoa), path:r1(s.path), face:r1(s.face), smash:s.smash!=null?String(Math.round(s.smash*100)/100):'',
+              notes:`${s.n} clean driver shots, TrackMan import${s.name?' '+s.name:''}`, tmSession:s.id };
+  if(lmSessions().some(x=>x.tmSession===s.id)){ if(typeof toast==='function') toast('That session is already saved'); return; }
+  lmSessions().push(rec); saveState(); lmRenderSection();
+  if(typeof toast==='function') toast('Saved to your driver sessions');
+}
+function lmOpenTrackman(){ if(typeof simOpen==='function'){ simOpen(); simSetView('tm'); } }
 function lmRenderSection(){ const w=document.getElementById('drv-lm-wrap'); if(w) w.innerHTML=lmSectionHTML(); }
 function lmSaveSession(){
   const g=id=>{ const el=document.getElementById('lm-'+id); return el?String(el.value).trim():''; };
@@ -337,4 +403,5 @@ function lmParseImport(text,name){
 }
 
 Object.assign(window, { FS_TABLE, LM_BRANDS, DRV_FALLBACK, driverCarryModelFS, buildDriverOptimizerHTML, buildDriverTrajSVG, driverCarryModel, driverOptimalZones, fsInterp, updateDriverOpt,
+  lmTrackmanDriver, lmTmCardHTML, lmLoadTM, lmSaveTM, lmOpenTrackman,
   lmSessions, lmSectionHTML, lmRenderSection, lmSaveSession, lmLoadSession, lmDeleteSession, lmImportFile, lmMapFields, lmParseImport });
