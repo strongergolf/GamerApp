@@ -130,7 +130,8 @@ function scoringBenchmarkHtml(){
   const num=v=>{ if(v===''||v==null) return null; const n=parseFloat(v); return isNaN(n)?null:n; };
   const expAvg=h=>par+h+2.5;                 // a handicap-h player's typical score
   const hcpRaw=pf.handicap; const hcp=parseHcp(hcpRaw);
-  const goal=num(pf.goalHcp);
+  /* the goal handicap reads like the handicap: "+6" is a plus six (six better than scratch), not 6 */
+  const goal=(pf.goalHcp==null||String(pf.goalHcp).trim()==='')?null:parseHcp(pf.goalHcp);
   const yourAvg = num(pf.scoringAvg)!=null ? num(pf.scoringAvg)
                 : (hcpRaw!=null&&String(hcpRaw).trim()!=='' ? expAvg(hcp) : null);
   if(yourAvg==null) return `<div class="lvl-soon-note" style="margin:0">Add a scoring average or handicap, and a goal handicap, in <strong>Locker Room → Myself → Typical Round Baselines</strong> to see your scoring benchmarks.</div>`;
@@ -162,9 +163,53 @@ function scoringBenchmarkHtml(){
     </div>
     ${toGoal!=null?`<div style="font-family:Arial,sans-serif;font-size:.84rem;color:var(--muted);text-align:center">${toGoal>0?`<b style="color:var(--ink2)">${toGoal}</b> strokes between you and your goal — the SG categories above show where they hide.`:`<b style="color:var(--green)">At or past your goal</b> — set a tougher target.`}</div>`:''}`;
 }
+/* ============================================================
+   ONE STROKES-GAINED LOG
+   ============================================================
+   Two kinds of round reach this page, and they used to live apart: rounds PLAYED in the app
+   (Play), where strokes gained is measured shot by shot from where each shot was played, and
+   rounds LOGGED here by hand, with a category total typed per hole. Post-Round's All rounds
+   read only the first, this page only the second, so the two could tell different stories.
+   sgLog() is now the one list both draw on:
+     play    every saved Play round with shots logged, re-read on the CURRENT benchmark
+             (Settings) and put per 18 holes, exactly as the All rounds dashboard reads it;
+     manual  the rounds entered here, as entered.
+   A hand-logged round on the same date and course as a Play round is the same round entered
+   twice, and the Play one (measured, not typed) is kept.
+   The averages and the diamond lead with Play rounds whenever there are any, because a
+   measured number and a typed one are not the same thing to average together; the typed ones
+   are still shown, labelled, as their own shape. Gross scores mean the same thing either way,
+   so the score trend and the table use both. */
+function sgLog(){
+  const out=[];
+  const bench=(typeof esCmp==='function')?esCmp():{hcp:0, short:'scratch'};
+  const seen=new Set();
+  if(typeof rdAll==='function' && typeof rdRound==='function'){
+    rdAll().forEach(r=>{
+      const d=rdRound(r, bench), date=new Date(r.startedAt||r.endedAt||0).toISOString().slice(0,10);
+      seen.add(date+'|'+String(r.courseName||'').toLowerCase());
+      const t=r.totals||{};
+      out.push({ src:'play', id:r.id, date, course:r.courseName||'', tee:r.tee||'', tournament:!!r.tournament,
+                 gross:(t.played===18&&t.strokes)?t.strokes:null, holes:t.played||0,
+                 ott:d.per18?d.per18.ott:null, app:d.per18?d.per18.app:null, atg:d.per18?d.per18.arg:null, putt:d.per18?d.per18.putt:null,
+                 sgHoles:d.sgHoles, bench:bench.short });
+    });
+  }
+  ((STATE.scoring&&STATE.scoring.rounds)||[]).forEach(r=>{
+    if(seen.has(String(r.date)+'|'+String(r.course||'').toLowerCase())) return;
+    out.push(Object.assign({src:'manual'}, r));
+  });
+  return out.sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+}
+function sgHasSG(r){ return r.ott!=null||r.app!=null||r.atg!=null||r.putt!=null; }
+/* the rounds the averages and the diamond lead with: Play when there are any, else hand-logged */
+function sgLead(){
+  const L=sgLog().filter(sgHasSG), play=L.filter(r=>r.src==='play');
+  return play.length ? {lead:play, other:L.filter(r=>r.src==='manual'), src:'play'} : {lead:L, other:[], src:'manual'};
+}
 function sgSummaryHtml(){
-  const rs=STATE.scoring.rounds.filter(r=>r.ott!=null||r.app!=null||r.atg!=null||r.putt!=null);
-  if(!rs.length) return `<p class="lvl-soon-note" style="margin:0">No rounds logged yet. Add one below.</p>`;
+  const S=sgLead(), rs=S.lead;
+  if(!rs.length) return `<p class="lvl-soon-note" style="margin:0">No rounds with strokes gained yet. Play one (\u25b6 Play, top right) and log each shot, or add one below.</p>`;
   const avg=key=>{const vals=rs.map(r=>r[key]).filter(v=>v!=null);return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;};
   const trend=key=>{
     const all=rs.map(r=>r[key]).filter(v=>v!=null);
@@ -175,7 +220,7 @@ function sgSummaryHtml(){
   const fmt=v=>v==null?'—':(v>=0?'+':'')+v.toFixed(2);
   const col=v=>v==null?'var(--muted)':v>=0?'var(--green)':'var(--gold)';
   /* Gross sparkline */
-  const grossRounds=STATE.scoring.rounds.filter(r=>r.gross).slice(0,10).reverse();
+  const grossRounds=sgLog().filter(r=>r.gross).slice(0,10).reverse();
   let sparkline='';
   if(grossRounds.length>1){
     const scores=grossRounds.map(r=>r.gross);
@@ -208,35 +253,38 @@ function sgSummaryHtml(){
     </div>`;
   }).join('');
   const total=[avg('ott'),avg('app'),avg('atg'),avg('putt')].filter(v=>v!=null).reduce((a,b)=>a+b,0);
-  return `<div>${sparkline}<div style="font-family:Arial,sans-serif;font-size:.62rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">${rs.length} round${rs.length!==1?'s':''} · ▲/▼ = 5-round trend</div>${rows}
+  const srcNote = S.src==='play'
+    ? `${rs.length} round${rs.length!==1?'s':''} played in the app, shot by shot, vs ${escapeHtml(rs[0].bench||'scratch')}, per 18${S.other.length?` \u00b7 ${S.other.length} logged by hand shown dashed on the diamond`:''}`
+    : `${rs.length} round${rs.length!==1?'s':''} logged by hand`;
+  return `<div>${sparkline}<div style="font-family:Arial,sans-serif;font-size:.62rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">${srcNote} · ▲/▼ = 5-round trend</div>${rows}
     <div style="display:flex;align-items:center;gap:10px;padding:8px 0;margin-top:4px">
       <span style="font-family:'Arial Narrow',Arial,sans-serif;font-weight:800;font-size:.88rem;color:var(--ink);flex:1">Total SG</span>
       <span style="font-family:'Arial Narrow',Arial,sans-serif;font-weight:800;font-size:1.2rem;color:${col(total)}">${fmt(total)}</span>
     </div></div>`;
 }
 function sgRoundsHtml(){
-  const rs=STATE.scoring.rounds;
+  const rs=sgLog();
   if(!rs.length) return '';
   const fmt=v=>v==null?'—':(v>=0?'<span style="color:var(--green)">+'+v.toFixed(2)+'</span>':'<span style="color:var(--gold)">'+v.toFixed(2)+'</span>');
-  return `<table class="sg-table">
+  return `<div class="sg-table-scroll"><table class="sg-table">
     <thead><tr><th>Date</th><th>Course</th><th>Tee</th><th>T</th><th>OTT</th><th>APP</th><th>ATG</th><th>PUTT</th><th>Gross</th><th></th></tr></thead>
     <tbody>${rs.slice(0,40).map(r=>`<tr>
       <td style="font-family:ui-monospace,monospace;font-size:.6rem">${r.date}</td>
-      <td style="font-size:.75rem;color:var(--ink2)">${r.course||'—'}</td>
+      <td style="font-size:.75rem;color:var(--ink2)">${escapeHtml(r.course||'—')}${r.src==='play'?' <span class="sg-src">Play</span>':''}</td>
       <td style="font-size:.65rem;color:var(--muted)">${r.tee||'—'}</td>
       <td style="font-size:.8rem">${r.tournament?'🏆':''}</td>
       <td>${fmt(r.ott)}</td><td>${fmt(r.app)}</td><td>${fmt(r.atg)}</td><td>${fmt(r.putt)}</td>
       <td style="font-family:Arial,sans-serif;font-weight:700;font-size:1rem">${r.gross||'—'}</td>
-      <td><button onclick="sgDeleteRound(${r.id})" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:.7rem;padding:2px 6px">✕</button></td>
+      <td>${r.src==='manual'?`<button onclick="sgDeleteRound(${r.id})" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:.7rem;padding:2px 6px">✕</button>`:''}</td>
     </tr>`).join('')}</tbody>
-  </table>`;
+  </table></div>`;
 }
 
 
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { sgAddRound, sgDeleteRound, sgRefreshRounds, sgRoundsHtml, sgScenario, sgSummaryHtml, sgUpdateTotals, scoringBenchmarkHtml });
+Object.assign(window, { sgLog, sgLead, sgHasSG, sgAddRound, sgDeleteRound, sgRefreshRounds, sgRoundsHtml, sgScenario, sgSummaryHtml, sgUpdateTotals, scoringBenchmarkHtml });
 
 /* ============================================================
    IMPORTING ROUNDS FROM ELSEWHERE

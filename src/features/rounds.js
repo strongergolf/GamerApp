@@ -455,4 +455,4 @@ function rdDashboardHTML(){
 }
 
 Object.assign(window, { rdGoalSuggest, rdCurrentAvgs, rdGoalSet, rdGoalAdj, rdGoalClear, rdLeaks, rdPlanBuild, rdPlanOpt, rdPlanDone, rdPlanClear, rdPlanGo, RD_LEAKS, RD_DRILLS,
-  rdSetView, rdSwitchHTML, rdF, rdSetF, rdRounds, rdRound, rdTrendSVG, rdExport, rdDashboardHTML, RD_WHS_TABLE });
+  rdSetView, rdSwitchHTML, rdF, rdSetF, rdAll, rdRounds, rdRound, rdTrendSVG, rdExport, rdDashboardHTML, RD_WHS_TABLE });

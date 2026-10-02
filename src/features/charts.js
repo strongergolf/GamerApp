@@ -4,8 +4,12 @@
    SG DIAMOND — 4-axis spider chart (OTT / APP / ATG / PUTT)
    ============================================================ */
 function buildSGDiamond(){
-  const rs=STATE.scoring.rounds.filter(r=>r.ott!=null||r.app!=null||r.atg!=null||r.putt!=null);
+  /* the one log (sg-tracking.js sgLog): Play rounds lead whenever there are any; rounds logged
+     by hand are drawn as their own dashed shape rather than averaged in with measured ones */
+  const S=(typeof sgLead==='function') ? sgLead() : {lead:STATE.scoring.rounds.filter(r=>r.ott!=null||r.app!=null||r.atg!=null||r.putt!=null), other:[], src:'manual'};
+  const rs=S.lead;
   const avg=cat=>{const vals=rs.map(r=>r[cat]).filter(v=>v!=null);return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;};
+  const avgO=cat=>{const vals=S.other.map(r=>r[cat]).filter(v=>v!=null);return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;};
   const W=260,cx=W/2,cy=W/2,R=90;
   /* 4 axes at 45° steps: OTT top-right, APP bottom-right, ATG bottom-left, PUTT top-left */
   const axes=[
@@ -83,8 +87,16 @@ function buildSGDiamond(){
     return `<text x="${(x+4).toFixed(1)}" y="${(y-3).toFixed(1)}" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="6" fill="var(--muted)" opacity="0.7">${v>=0?'+':''}${v}</text>`;
   }).join('');
   const placeholder=!hasData?`<text x="${cx}" y="${cy+4}" text-anchor="middle" font-family="ui-monospace,'SF Mono','Courier New',monospace" font-size="9" fill="var(--muted)" opacity="0.6">Log rounds with SG data to populate</text>`:'';
+  /* the hand-logged rounds, when Play rounds lead: their own dashed shape, labelled below */
+  let otherPolygon='';
+  if(S.other.length && axes.some(a=>avgO(a.cat)!=null)){
+    const pts=axes.map(a=>{ const v=avgO(a.cat); const [x,y]=toXY(a.angle, v!=null?sgToR(v):sgToR(-3)); return `${x.toFixed(1)},${y.toFixed(1)}`; }).join(' ');
+    otherPolygon=`<polygon points="${pts}" fill="none" stroke="var(--muted)" stroke-width="1.2" stroke-dasharray="2 3"/>`;
+  }
+  const n=rs.length;
+  const legend=n?`<text x="${cx}" y="${W-4}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="6.5" fill="var(--muted)">${S.src==='play'?`${n} played in the app, per 18`:`${n} logged by hand`}${otherPolygon?` \u00b7 dashed: ${S.other.length} by hand`:''}</text>`:'';
   return `<svg viewBox="0 0 ${W} ${W}" width="${W}" height="${W}" class="sg-diamond-svg" xmlns="http://www.w3.org/2000/svg">
-    ${gridRings}${axisLines}${gridLabels}${goalPolygon}${goalLabel}${dataPolygon}${dots}${labels}${placeholder}
+    ${gridRings}${axisLines}${gridLabels}${goalPolygon}${goalLabel}${otherPolygon}${dataPolygon}${dots}${labels}${placeholder}${legend}
   </svg>`;
 }
 

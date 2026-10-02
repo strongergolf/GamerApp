@@ -2404,3 +2404,7 @@ body.theme-dark .rd-blk-h b{color:#f4d47a}
 .ps-setup ol{margin:6px 0;padding-left:18px;font-family:Arial,sans-serif;font-size:.76rem;line-height:1.55;color:var(--ink2)}
 .ps-setup code{font-family:ui-monospace,monospace;font-size:.68rem;word-break:break-all;background:var(--bg2);padding:1px 4px;border-radius:4px}
 body.theme-dark .ps-player.on b{color:#79e08d}
+.sg-src{font-family:ui-monospace,monospace;font-size:.52rem;font-weight:700;color:#00693a;border:1px solid currentColor;border-radius:4px;padding:0 3px;margin-left:3px}
+body.theme-dark .sg-src{color:#79e08d}
+.sg-table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.sg-scorecard{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
