@@ -2504,3 +2504,14 @@ body.theme-dark .sg-src{color:#79e08d}
   font-family:Arial,sans-serif;font-size:.74rem;font-weight:700;line-height:1.2;cursor:pointer}
 .hm-tile:active{background:var(--surface2)}
 @media (max-width:420px){ .hm-tiles{grid-template-columns:repeat(2,1fr)} .hm-door-t{font-size:.95rem;white-space:nowrap} }
+
+/* ---- course import: the pick list, and the tees used for distances ---- */
+.osm-results{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+.osm-results:empty{display:none}
+.osm-hit{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;min-height:44px;padding:8px 12px;text-align:left;cursor:pointer;
+  background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-family:Arial,sans-serif;color:var(--ink)}
+.osm-hit:hover,.osm-hit:focus-visible{border-color:var(--green2)}
+.osm-hit b{font-size:.86rem}
+.osm-hit span{font-size:.72rem;color:var(--muted)}
+.cf-teebox{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 10px;font-family:Arial,sans-serif;font-size:.78rem;font-weight:700;color:var(--ink2)}
+.cf-teebox select{min-height:38px;font-size:.82rem;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--ink)}

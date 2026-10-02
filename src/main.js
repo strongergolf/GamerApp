@@ -40,6 +40,7 @@ import './features/sg-tracking.js';
 import './features/diagnose.js';
 import './features/dplane-lab.js';
 import './features/courses.js';
+import './features/course-sync.js';
 import './features/strategy.js';
 import './features/planshot.js';
 import './features/effyards.js';
@@ -74,6 +75,8 @@ window.addEventListener('DOMContentLoaded', async () => {
      synchronous load if the database cannot be opened */
   try{ await psBootLoad(); }catch(e){ if(window.psState) psState.booted=true; loadState(); }
   renderAll();
+  /* shipped courses: refresh any that are out of date, add the new ones (after the first paint) */
+  if(typeof csPresetSync==='function') csPresetSync().catch(()=>{});
   initConditions();
   if (typeof initCalc === 'function') initCalc();
   /* a round left open resumes straight into Play — see pmBoot */

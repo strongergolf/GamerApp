@@ -32,7 +32,7 @@ function pmHoleFit(h, lat, lon){
   const line=cfDistPtSeg(pt, h.tee, mid)*ypu;
   const onTee=Math.hypot(pt.x-h.tee.x, pt.y-h.tee.y)*ypu < PM_AUTO_TEE_YD;
   const onGreen=!!(h.green&&h.green.length>=3&&cfPointInPoly(pt,h.green));
-  const inFw=!!(h.fairway&&h.fairway.length>=3&&cfPointInPoly(pt,h.fairway));
+  const inFw=!!(h.fairway&&h.fairway.length>=3&&cfPointInPoly(pt,h.fairway)) || (h.fairways||[]).some(f=>f.length>=3&&cfPointInPoly(pt,f));
   return { line, onTee, onGreen, inFw, score: line - (inFw?10:0) - (onGreen?25:0) - (onTee?25:0) };
 }
 /* Every hole's fit for one fix, best first. Exported for testing and for anything else that

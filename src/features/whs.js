@@ -127,6 +127,8 @@ function whsSetSI(holeIdx, val){
   const r=whsRoundObj(), c=r&&whsCourse(r.courseKey); if(!c||!c.holes[holeIdx]) return;
   const n=parseInt(val,10);
   if(n>=1 && n<=18) c.holes[holeIdx].si=n; else delete c.holes[holeIdx].si;
+  /* typed by the golfer: a refresh from the map leaves it alone */
+  c.holes[holeIdx].src=Object.assign({}, c.holes[holeIdx].src, {si:'user'});
   saveState(); whsRefresh();
 }
 function whsRefresh(){ if(typeof buildPostRound==='function') buildPostRound(); }

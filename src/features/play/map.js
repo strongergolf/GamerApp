@@ -33,7 +33,7 @@ function pmMapBox(h, P, extra, ratio){
   const eat=q=>{ if(!q||q.x==null) return; x0=Math.min(x0,q.x); x1=Math.max(x1,q.x); y0=Math.min(y0,q.y); y1=Math.max(y1,q.y); };
   eat(P); (h.green&&h.green.length?h.green:[cfPin(h)]).forEach(eat); (extra||[]).forEach(eat);
   const onTee = h.tee && Math.hypot(P.x-h.tee.x, P.y-h.tee.y) < 3;
-  if(onTee){ (h.fairway||[]).forEach(eat); eat(h.tee); }
+  if(onTee){ (h.fairway||[]).forEach(eat); (h.fairways||[]).forEach(f=>f.forEach(eat)); eat(h.tee); }
   let w=x1-x0, hh=y1-y0;
   const pad=Math.max(25*u, 0.12*Math.max(w,hh));
   x0-=pad; x1+=pad; y0-=pad; y1+=pad; w=x1-x0; hh=y1-y0;

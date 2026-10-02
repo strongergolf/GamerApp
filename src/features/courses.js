@@ -61,7 +61,9 @@ function cfAddHole(){
   saveState(); buildCourses();
 }
 function cfSelectHole(i){ window.courseEdit.hIdx=+i; cfResetDraft(); buildCourses(); }
-function cfSetHoleField(field,v){ const h=cfHole(); if(!h) return; h[field]=parseInt(v)||0; saveState(); if(field==='yards') buildCourses(); }
+function cfSetHoleField(field,v){ const h=cfHole(); if(!h) return; h[field]=parseInt(v)||0;
+  if(field==='par'||field==='yards') h.src=Object.assign({}, h.src, {[field]:'user'});
+  saveState(); if(field==='yards') buildCourses(); }
 
 /* ---------- editor interaction ---------- */
 function cfResetDraft(){ window.courseEdit.mode=null; window.courseEdit.draft=[]; window.courseEdit.calib=[]; }
@@ -134,7 +136,10 @@ function renderHoleSVG(hole, opts){
   if(!hole) return `<svg viewBox="0 0 ${CF_W} ${CF_H}" style="width:100%;display:block"><rect width="${CF_W}" height="${CF_H}" fill="var(--bg2)"/></svg>`;
   const hz={sand:'#d9c98a', water:'#3a78c0', oob:'#b85c5c', trees:'#1e5c2f'};
   const bg = hole.bg ? `<image href="${hole.bg}" x="0" y="0" width="${CF_W}" height="${CF_H}" preserveAspectRatio="xMidYMid slice" opacity="${interactive?0.85:0.55}"/>` : '';
-  const fairway = cfPoly(hole.fairway,'#3fa45a','#2e7d44',0.85);
+  const fairway = cfPoly(hole.fairway,'#3fa45a','#2e7d44',0.85) + (hole.fairways||[]).map(f=>cfPoly(f,'#3fa45a','#2e7d44',0.85)).join('');
+  /* the course's other teeing grounds, as outlines: the filled one is the tee in use */
+  const boxes = (hole.teeBoxes||[]).filter(b=>!hole.tee||Math.hypot(b.x-hole.tee.x,b.y-hole.tee.y)>6)
+    .map(b=>`<rect x="${b.x-7}" y="${b.y-7}" width="14" height="14" rx="3" fill="none" stroke="#fff" stroke-width="2" opacity="0.6"/>`).join('');
   const green = cfPoly(hole.green,'#5ec77a','#2e7d44',0.95);
   const hazards = (hole.hazards||[]).map(z=>cfPoly(z.pts,hz[z.type]||'#999',null,z.type==='oob'?0.5:0.85)).join('');
   const tee = hole.tee?`<rect x="${hole.tee.x-10}" y="${hole.tee.y-10}" width="20" height="20" rx="4" fill="#222" stroke="#fff" stroke-width="2"/>`:'';
@@ -155,7 +160,7 @@ function renderHoleSVG(hole, opts){
   const vb=opts.viewBox||{x:0,y:0,w:CF_W,h:CF_H};
   return `<svg viewBox="${vb.x.toFixed(1)} ${vb.y.toFixed(1)} ${vb.w.toFixed(1)} ${vb.h.toFixed(1)}" ${click} xmlns="http://www.w3.org/2000/svg">
     <rect x="${-CF_W}" y="${-CF_H}" width="${CF_W*3}" height="${CF_H*3}" fill="#2f7a3f"/>${bg}
-    ${fairway}${green}${hazards}${centerline}${(opts.overlay||'')}${tee}${pin}${draftSVG}
+    ${fairway}${green}${hazards}${boxes}${centerline}${(opts.overlay||'')}${tee}${pin}${draftSVG}
   </svg>`;
 }
 
@@ -552,7 +557,7 @@ function cfLieAt(hole,pt){
     for(let i=0;i<hz.length;i++) if(hz[i].type===want && cfPointInPoly(pt,hz[i].pts)) return want;
   }
   if(cfPointInPoly(pt,hole.green)) return 'green';
-  if(cfPointInPoly(pt,hole.fairway)) return 'fairway';
+  if(cfPointInPoly(pt,hole.fairway) || (hole.fairways||[]).some(f=>cfPointInPoly(pt,f))) return 'fairway';
   return 'rough';
 }
 /* The lie a SHOT is played from, which is not always the lie the map reports. Teeing grounds
@@ -674,7 +679,9 @@ function buildCourses(){
       <input class="cf-name" value="${escapeHtml(c.name||'')}" oninput="cfRenameCourse(this.value)" placeholder="Course name">
       <button class="btn" onclick="cfAddCourse()">+ Course</button>
       <button class="btn" onclick="cfDeleteCourse()">Delete</button>
+      ${c.source==='osm'?`<button class="btn" onclick="cfOsmRefresh()" title="Re-read this course from OpenStreetMap; your tees, ratings, pin sheets, plans and rounds are kept">↻ Update from map</button>`:''}
     </div>
+    ${cfTeeBoxHTML(c)}
     <div class="cf-hole-tabs">${holeTabs}<button class="cf-hole-tab add" onclick="cfAddHole()">+</button></div>
     ${h?`
     <div class="cf-hole-meta">
@@ -756,29 +763,37 @@ function osmParse(elements){
     const g=t.golf;
     if(g){
       if(!geo||!geo.length) return;
-      if(g==='hole') f.holes.push({num:parseInt(t.ref||t.name)||null, par:parseInt(t.par)||null, line:geo});
-      else if(g==='green') f.greens.push(geo);
-      else if(g==='fairway') f.fairways.push(geo);
-      else if(g==='tee') f.tees.push(geo);
-      else if(g==='bunker') f.bunkers.push(geo);
-      else if(g==='water_hazard'||g==='lateral_water_hazard') f.water.push(geo);
+      /* the hole's handicap tag is its stroke index; a feature carrying a hole number (ref)
+         belongs to that hole, whatever it happens to lie nearest */
+      const ref=parseInt(t.ref)||null;
+      if(g==='hole') f.holes.push({num:parseInt(t.ref||t.name)||null, par:parseInt(t.par)||null, si:parseInt(t.handicap)||null, line:geo});
+      else if(g==='green') f.greens.push({geo, ref});
+      else if(g==='fairway') f.fairways.push({geo, ref});
+      else if(g==='tee') f.tees.push({geo, ref});
+      else if(g==='bunker') f.bunkers.push({geo, ref});
+      else if(g==='water_hazard'||g==='lateral_water_hazard') f.water.push({geo, ref});
       return;
     }
     /* trees: woods and tree rows are ways, individual trees are nodes */
     if(t.natural==='wood'||t.landuse==='forest'||t.natural==='scrub'||t.natural==='tree_row'){
       /* skip the surrounding woodland — a polygon spanning the whole property is not a
          golf feature and would swamp whichever hole it got assigned to */
-      if(geo&&geo.length>1&&osmSpanM(geo)<=OSM_TREE_MAX_SPAN_M) f.trees.push(geo);
+      if(geo&&geo.length>1&&osmSpanM(geo)<=OSM_TREE_MAX_SPAN_M) f.trees.push({geo, ref:null});
     } else if(t.natural==='tree' && el.lat!=null && el.lon!=null && treeNodes<OSM_TREE_CAP){
-      treeNodes++; f.trees.push(osmTreeCircle(el.lat, el.lon, OSM_TREE_R_M));
+      treeNodes++; f.trees.push({geo:osmTreeCircle(el.lat, el.lon, OSM_TREE_R_M), ref:null});
     }
   });
   return f;
 }
-function osmNearestHoleIdx(centroid, holes, ref){
+/* which: 'start' measures to each hole's first point only (a tee belongs to the hole that
+   starts there, not to the one whose green is next to it), 'end' to the last (greens) */
+function osmNearestHoleIdx(centroid, holes, ref, which){
   const cm=osmToMeters(centroid.lat,centroid.lon,ref.lat0,ref.lon0);
   let best=0,bd=Infinity;
-  holes.forEach((h,i)=>h.line.forEach(p=>{ const m=osmToMeters(p.lat,p.lon,ref.lat0,ref.lon0); const d=Math.hypot(cm.x-m.x,cm.y-m.y); if(d<bd){bd=d;best=i;} }));
+  holes.forEach((h,i)=>{
+    const pts = which==='start' ? [h.line[0]] : which==='end' ? [h.line[h.line.length-1]] : h.line;
+    pts.forEach(p=>{ const m=osmToMeters(p.lat,p.lon,ref.lat0,ref.lon0); const d=Math.hypot(cm.x-m.x,cm.y-m.y); if(d<bd){bd=d;best=i;} });
+  });
   return best;
 }
 function osmBuildHole(h, feats, ref){
@@ -799,6 +814,21 @@ function osmBuildHole(h, feats, ref){
   const toField=p=>({x:Math.round(FW/2+(p.u-cx)*scale), y:Math.round(FH-PADy-(p.v-minV)*scale)});
   const fGeo=geo=>projGeo(geo).map(toField);
   const biggest=arr=>arr.length?arr.slice().sort((a,b)=>b.length-a.length)[0]:null;
+  /* The hole's length is measured ALONG its line of play, as a scorecard measures it, not
+     straight from tee to green: a dogleg's straight line runs over the corner. */
+  let pathM=0; for(let i=1;i<line.length;i++) pathM+=Math.hypot(line[i].x-line[i-1].x, line[i].y-line[i-1].y);
+  /* Every fairway piece is kept (a split or broken fairway is several); the largest stays in
+     hole.fairway, which the strategy engine reads, and the rest go in hole.fairways. */
+  const fwBig=biggest(feats.fairways), fwRest=feats.fairways.filter(g=>g!==fwBig&&g.length>=3).map(fGeo);
+  /* Every teeing ground, as a marker with its yardage: the straight line from it to the green
+     plus whatever the dogleg adds. Sorted back to front. The hole line's own start stays the
+     tee until a set of boxes is chosen (cfSetTeeBox). */
+  const corner=pathM-vlen;
+  const teeBoxes=feats.tees.map(g=>{ const c=osmCentroid(g), m=osmToMeters(c.lat,c.lon,ref.lat0,ref.lon0);
+      return Object.assign(toField(toUV(m)), {yd:Math.round((Math.hypot(G.x-m.x,G.y-m.y)+corner)*1.09361)}); })
+    /* a box well behind the line's start, or under half the hole's length, is another hole's */
+    .filter(b=>b.yd<=pathM*1.09361+40 && b.yd>=pathM*1.09361*0.5)
+    .sort((a,b)=>b.yd-a.yd);
   const hazards=feats.bunkers.map(g=>({type:'sand',pts:fGeo(g)}))
     .concat(feats.water.map(g=>({type:'water',pts:fGeo(g)})))
     .concat((feats.trees||[]).map(g=>({type:'trees',pts:fGeo(g)})));
@@ -808,25 +838,37 @@ function osmBuildHole(h, feats, ref){
   const geo={ lat0:ref.lat0, lon0:ref.lon0, tx:T.x, ty:T.y,
               ux:uhat.x, uy:uhat.y, vx:vhat.x, vy:vhat.y,
               s:scale, ox:FW/2-cx*scale, oy:FH-PADy+minV*scale };
-  return { num:h.num||0, par:h.par||4, yards:Math.round(vlen*1.09361),
+  const teeAt=toField(toUV(T));
+  const out={ num:h.num||0, par:h.par||4, yards:Math.round(pathM*1.09361),
     scaleYpu:+(1.09361/scale).toFixed(5), geo, bg:null,
-    tee:toField(toUV(T)), pin:toField(toUV(G)),
+    tee:teeAt, teeLine:{x:teeAt.x, y:teeAt.y}, pin:toField(toUV(G)),
     green:biggest(feats.greens)?fGeo(biggest(feats.greens)):[],
-    fairway:biggest(feats.fairways)?fGeo(biggest(feats.fairways)):[],
-    hazards };
+    fairway:fwBig?fGeo(fwBig):[],
+    hazards,
+    /* where each value came from, so a refresh from the map replaces only what the map gave */
+    src:{ par:h.par?'map':'default', yards:'map' } };
+  if(h.si){ out.si=h.si; out.src.si='map'; }
+  if(fwRest.length) out.fairways=fwRest;
+  if(teeBoxes.length) out.teeBoxes=teeBoxes;
+  return out;
 }
-function osmBuildCourse(name, parsed){
+function osmBuildCourse(name, parsed, meta){
   let la=0,lo=0,n=0; parsed.holes.forEach(h=>h.line.forEach(p=>{la+=p.lat;lo+=p.lon;n++;}));
   const ref={lat0:la/n, lon0:lo/n};
-  const assign=list=>list.map(geo=>({geo, hi:osmNearestHoleIdx(osmCentroid(geo),parsed.holes,ref)}));
-  const A={greens:assign(parsed.greens),fairways:assign(parsed.fairways),tees:assign(parsed.tees),
+  const byNum=num=>num==null?-1:parsed.holes.findIndex(h=>h.num===num);
+  const assign=(list,which)=>list.map(x=>{ const i=byNum(x.ref);
+    return {geo:x.geo, hi: i>=0 ? i : osmNearestHoleIdx(osmCentroid(x.geo),parsed.holes,ref,which)}; });
+  const A={greens:assign(parsed.greens,'end'),fairways:assign(parsed.fairways),tees:assign(parsed.tees,'start'),
     bunkers:assign(parsed.bunkers),water:assign(parsed.water),trees:assign(parsed.trees||[])};
   const pick=(arr,hi)=>arr.filter(x=>x.hi===hi).map(x=>x.geo);
   const holes=parsed.holes.map((h,hi)=>osmBuildHole(h,{
     greens:pick(A.greens,hi),fairways:pick(A.fairways,hi),tees:pick(A.tees,hi),
     bunkers:pick(A.bunkers,hi),water:pick(A.water,hi),trees:pick(A.trees,hi)
   },ref)).sort((a,b)=>(a.num||99)-(b.num||99));
-  return {id:cfUID(), name, source:'osm', attribution:'© OpenStreetMap contributors', holes};
+  const c={id:(meta&&meta.id)||cfUID(), name, source:'osm', attribution:'© OpenStreetMap contributors', holes};
+  if(meta&&meta.osm) c.osm=meta.osm;
+  c.mapAt=Date.now();
+  return c;
 }
 async function cfFetchJSON(url, ms){
   const ctrl=new AbortController(); const t=setTimeout(()=>ctrl.abort(), ms||18000);
@@ -842,45 +884,133 @@ async function cfOverpass(oq, set){
   }
   throw err||new Error('all map servers timed out');
 }
-async function cfOsmImport(){
-  const inp=document.getElementById('osm-q'), status=document.getElementById('osm-status');
-  const q=((inp&&inp.value)||'').trim(); if(!q){ if(status)status.textContent='Enter a course name.'; return; }
-  const set=t=>{ if(status) status.textContent=t; };
-  let lat,lon,S,N,W,E;
-  /* 1) geocode via Photon (browser/CORS-friendly, OSM-based, no key) */
-  try{
-    set('Locating course…');
-    const geo=await cfFetchJSON('https://photon.komoot.io/api/?limit=1&q='+encodeURIComponent(q));
-    const ft=geo.features&&geo.features[0];
-    if(!ft){ set('Course not found — try adding the town/city.'); return; }
-    lon=ft.geometry.coordinates[0]; lat=ft.geometry.coordinates[1];
-    const ex=ft.properties&&ft.properties.extent;          // [W,N,E,S] when present
-    if(ex&&ex.length===4){ W=ex[0];N=ex[1];E=ex[2];S=ex[3]; } else { S=lat-0.006;N=lat+0.006;W=lon-0.006;E=lon+0.006; }
-    S-=0.003;N+=0.003;W-=0.003;E+=0.003;
-  }catch(e){ set('Could not locate the course (geocoder error: '+(e&&e.message||'')+').'); return; }
-  /* 2) fetch golf features via Overpass (with mirror fallback) */
-  let data;
-  try{
-    const bb=S+','+W+','+N+','+E;
-    const oq='[out:json][timeout:25];('
-      +'way[golf]('+bb+');'
-      +'way[natural=wood]('+bb+');way[landuse=forest]('+bb+');'
-      +'way[natural=scrub]('+bb+');way[natural=tree_row]('+bb+');'
-      +'node[natural=tree]('+bb+');'
-      +');out geom;';
-    data=await cfOverpass(oq, set);
-  }catch(e){ set('Map service busy or unreachable — try again in a moment ('+(e&&e.message||'')+').'); return; }
-  /* 3) parse → build → store */
+/* ---- SEARCH, THEN PICK ----
+   The importer used to take the geocoder's first answer, and the first answer is often the
+   wrong course: "University Golf Club" is first a course in Illinois, and "Shaughnessy Golf and
+   Country Club Vancouver" finds Seymour in North Vancouver, because the map calls Shaughnessy
+   "Shaughnessy Golf Course". So it searches golf courses only, twice (as typed, and with the
+   words every course name shares taken out), ranks by distance from the golfer's own courses
+   or last GPS fix when there is one, and lets the golfer pick, with the town beside each. */
+const OSM_FILLER = /\b(golf|course|club|country|and|the|in|at|of|links|g&cc|gcc|gc|cc)\b|&/gi;
+function cfOsmBias(){
+  for(const c of cfCourses()) for(const h of (c.holes||[])) if(h.geo) return {lat:h.geo.lat0, lon:h.geo.lon0};
+  const f=window.pmGps&&window.pmGps.fix; if(f&&f.lat!=null) return {lat:f.lat, lon:f.lon};
+  return null;
+}
+function osmKm(a,b){ const m=osmToMeters(b.lat,b.lon,a.lat,a.lon); return Math.hypot(m.x,m.y)/1000; }
+async function cfOsmSearch(){
+  const inp=document.getElementById('osm-q'), status=document.getElementById('osm-status'), box=document.getElementById('osm-results');
+  const q=((inp&&inp.value)||'').trim(); const set=t=>{ if(status) status.textContent=t; };
+  if(box) box.innerHTML='';
+  if(!q){ set('Enter a course name.'); return; }
+  set('Searching the map…');
+  const b=cfOsmBias(), stripped=q.replace(OSM_FILLER,' ').replace(/\s+/g,' ').trim();
+  const url=x=>'https://photon.komoot.io/api/?limit=8&osm_tag=leisure:golf_course&q='+encodeURIComponent(x)+(b?`&lat=${b.lat.toFixed(4)}&lon=${b.lon.toFixed(4)}`:'');
+  const qs=[...new Set([q, stripped].filter(Boolean))];
+  let res; try{ res=await Promise.all(qs.map(x=>cfFetchJSON(url(x)).catch(()=>({features:[]})))); }
+  catch(e){ set('Could not search the map ('+(e&&e.message||'')+').'); return; }
+  const seen=new Set(), L=[];
+  /* the stripped query first: it is the one that finds a course whose map name differs */
+  res.slice().reverse().forEach(r=>(r.features||[]).forEach(f=>{
+    const p=f.properties||{}; if(!p.osm_id) return; const k=p.osm_type+p.osm_id; if(seen.has(k)) return; seen.add(k);
+    L.push({ name:p.name||'Golf course', where:[p.city||p.district||p.county, p.state, p.country].filter(Boolean).join(', '),
+             type:p.osm_type, id:p.osm_id, lat:f.geometry.coordinates[1], lon:f.geometry.coordinates[0], extent:p.extent||null });
+  }));
+  if(b){ L.forEach(x=>x.km=osmKm(b,x)); L.sort((x,y)=>x.km-y.km); }
+  window.osmFound=L.slice(0,8);
+  if(!L.length){ set('No golf course by that name on the map. Try fewer words, or add the town.'); return; }
+  const tgt=window.osmTarget && cfCourses().find(c=>c.id===window.osmTarget);
+  set(tgt ? `Pick the course to update ${tgt.name} from:` : 'Pick your course:');
+  if(box) box.innerHTML=window.osmFound.map((x,i)=>`<button type="button" class="osm-hit" onclick="cfOsmPick(${i})">
+      <b>${escapeHtml(x.name)}</b><span>${escapeHtml(x.where||'')}${x.km!=null?` · ${x.km<10?x.km.toFixed(1):Math.round(x.km)} km`:''}</span></button>`).join('');
+}
+/* the old entry point: Enter in the box, and anything that still calls it */
+function cfOsmImport(){ window.osmTarget=null; return cfOsmSearch(); }
+
+/* Golf features INSIDE the course's own boundary, so a neighbouring course cannot leak in;
+   a box around it only when the course has no boundary on the map (mapped as a point). */
+async function cfOsmFetch(x, set){
+  const body=a=>`(way[golf](${a});way[natural=wood](${a});way[landuse=forest](${a});way[natural=scrub](${a});way[natural=tree_row](${a});node[natural=tree](${a}););out geom;`;
+  const sel = x.type==='R' ? `rel(${x.id})` : x.type==='W' ? `way(${x.id})` : null;
+  const hasHoles=d=>(d.elements||[]).some(e=>e.tags&&e.tags.golf==='hole');
+  if(sel){
+    const d=await cfOverpass(`[out:json][timeout:25];${sel};map_to_area->.a;`+body('area.a'), set);
+    if(hasHoles(d)) return d;
+  }
+  if(x.lat==null) throw new Error('no holes inside the course boundary');
+  let S,N,W,E; const ex=x.extent;
+  if(ex&&ex.length===4){ W=ex[0];N=ex[1];E=ex[2];S=ex[3]; } else { S=x.lat-0.006;N=x.lat+0.006;W=x.lon-0.006;E=x.lon+0.006; }
+  S-=0.003;N+=0.003;W-=0.003;E+=0.003;
+  return cfOverpass('[out:json][timeout:25];'+body(S+','+W+','+N+','+E), set);
+}
+async function cfOsmPick(i){
+  const x=(window.osmFound||[])[i]; if(!x) return;
+  const status=document.getElementById('osm-status'), box=document.getElementById('osm-results'), set=t=>{ if(status) status.textContent=t; };
+  const cs=cfCourses();
+  /* updating: the course "Update from map" was pressed on, or this same map course already in the list */
+  let have = window.osmTarget ? cs.find(c=>c.id===window.osmTarget) : null;
+  if(!have){
+    have=cs.find(c=>c.osm && c.osm.type===x.type && String(c.osm.id)===String(x.id));
+    if(have && !confirm(`${have.name} is already in your courses. Update it from the map instead?\n\nYour tees, ratings, stroke indexes, pin sheets, plans and rounds are kept.`)) return;
+  }
+  if(box) box.innerHTML='';
+  let data; try{ data=await cfOsmFetch(x, set); }
+  catch(e){ set('Map service busy or unreachable — try again in a moment ('+(e&&e.message||'')+').'); return; }
   try{
     const parsed=osmParse(data.elements);
-    if(!parsed.holes.length){ set('Located the course, but no mapped holes were found in OpenStreetMap.'); return; }
-    const course=osmBuildCourse(q, parsed);
-    cfCourses().push(course);
-    window.courseEdit.cIdx=cfCourses().length-1; window.courseEdit.hIdx=0;
+    if(!parsed.holes.length){ set('Found the course, but no holes are mapped for it in OpenStreetMap.'); return; }
+    const fresh=osmBuildCourse(x.name, parsed, {osm:{type:x.type, id:x.id}});
+    const nH=parsed.holes.length, nPar=parsed.holes.filter(h=>h.par).length, nSi=parsed.holes.filter(h=>h.si).length;
+    const notes=[nPar<nH?`${nH-nPar} hole${nH-nPar===1?'':'s'} without a par on the map (check ${nH-nPar===1?'it':'them'})`:'',
+                 nSi?'stroke index from the map':'no stroke index on the map: add it on the Ready to post card'].filter(Boolean).join('; ');
+    let msg;
+    if(have){ const r=csRefresh(have, fresh); window.courseEdit.cIdx=cs.indexOf(have); msg=`Updated ${have.name} from the map: ${r.holes} holes.`; }
+    else { cs.push(fresh); window.courseEdit.cIdx=cs.length-1; msg=`Imported ${fresh.name}: ${nH} holes.`; }
+    window.osmTarget=null; window.courseEdit.hIdx=0;
     saveState(); buildCourses(); if(typeof buildCourseStrategy==='function') buildCourseStrategy();
-    set('Imported '+course.holes.length+' holes from OpenStreetMap.');
+    const st=document.getElementById('osm-status'); if(st) st.textContent=msg+' '+notes.charAt(0).toUpperCase()+notes.slice(1)+'.';
   }catch(e){ set('Could not build the course from the map data ('+(e&&e.message||'')+').'); }
 }
+/* "Update from map" on a course: straight to the map if it knows which course it is; a course
+   imported before the importer kept that (and the samples) is searched for by name first. */
+function cfOsmRefresh(){
+  const c=cfCur(); if(!c) return;
+  window.osmTarget=c.id;
+  if(c.osm){ window.osmFound=[Object.assign({name:c.name}, c.osm)]; cfOsmPick(0); return; }
+  const inp=document.getElementById('osm-q'); if(inp) inp.value=c.name||'';
+  cfOsmSearch();
+}
+
+/* ---- WHICH TEES ----
+   Distances run from hole.tee. The map's hole line starts at one teeing ground (usually the
+   back); a course's other boxes are kept as markers, back to front, and one choice for the
+   course moves every hole's tee to the matching box. 'line' puts the map's start back. */
+const CF_TEE_SETS = [['line','Map default'],['back','Back'],['middle','Middle'],['forward','Forward']];
+function cfTeeIdx(B, set){ return set==='back' ? 0 : set==='forward' ? B.length-1 : Math.floor((B.length-1)/2); }
+function cfTeeBoxFor(h, set){
+  const B=h.teeBoxes||[]; if(!B.length || set==='line') return h.teeLine||null;
+  const b=B[cfTeeIdx(B, set)]; return {x:b.x, y:b.y};
+}
+function cfSetTeeBoxOn(c, set){
+  if(!c) return;
+  c.teeBox=set;
+  (c.holes||[]).forEach(h=>{ const t=cfTeeBoxFor(h, set); if(t) h.tee={x:t.x, y:t.y}; });
+  cfPinCacheClear();
+}
+function cfSetTeeBox(set){ const c=cfCur(); if(!c) return; cfSetTeeBoxOn(c, set); saveState(); buildCourses(); if(typeof buildCourseStrategy==='function') buildCourseStrategy(); }
+function cfTeeSetYards(c, set){
+  let t=0; for(const h of (c.holes||[])){ const B=h.teeBoxes||[];
+    if(set==='line'||!B.length){ t+=+h.yards||0; continue; }
+    t+=B[cfTeeIdx(B, set)].yd||0; }
+  return t;
+}
+function cfTeeBoxHTML(c){
+  if(!(c.holes||[]).some(h=>(h.teeBoxes||[]).length>1)) return '';
+  const cur=c.teeBox||'line';
+  return `<label class="cf-teebox">Tees for distances <select onchange="cfSetTeeBox(this.value)">${CF_TEE_SETS.map(([v,l])=>
+      `<option value="${v}"${cur===v?' selected':''}>${l} · ${Math.round(ydNum(cfTeeSetYards(c,v))).toLocaleString()} ${ydUnit()}</option>`).join('')}</select></label>`;
+}
+
 async function cfLoadPresets(){
   const status=document.getElementById('osm-status'), set=t=>{ if(status) status.textContent=t; };
   try{
@@ -896,13 +1026,14 @@ async function cfLoadPresets(){
 function cfImportBox(){
   return `<div class="osm-box">
     <div class="osm-title">Import a Course <span class="proto-badge">prototype</span></div>
-    <div class="osm-sub">Type a course name (add the town for accuracy). Greens, fairways, bunkers, tees and hole pars are pulled from OpenStreetMap — no tracing.</div>
+    <div class="osm-sub">Type a course name, then pick it from the list. Greens, fairways, bunkers, tee boxes, pars and (where mapped) stroke index come from OpenStreetMap: no tracing.</div>
     <div class="osm-row">
-      <input id="osm-q" class="cf-name" placeholder="e.g. Pitt Meadows Golf Club" onkeydown="if(event.key==='Enter')cfOsmImport()">
-      <button class="btn btn-primary" onclick="cfOsmImport()">Search &amp; Import</button>
+      <input id="osm-q" class="cf-name" placeholder="e.g. University Golf Club" onkeydown="if(event.key==='Enter')cfOsmSearch()">
+      <button class="btn btn-primary" onclick="cfOsmSearch()">Search</button>
     </div>
     <div id="osm-status" class="osm-status"></div>
-    <div class="osm-presets"><button class="btn" onclick="cfLoadPresets()">Load sample BC courses</button><span class="osm-attr-inline">Vancouver GC · Pitt Meadows · The Dunes</span></div>
+    <div id="osm-results" class="osm-results"></div>
+    <div class="osm-presets"><button class="btn" onclick="cfLoadPresets()">Load sample BC courses</button><span class="osm-attr-inline">Vancouver GC · University GC · Shaughnessy · Pitt Meadows · The Dunes</span></div>
     <div class="osm-attr">Map data © OpenStreetMap contributors (ODbL)</div>
   </div>`;
 }
@@ -948,6 +1079,7 @@ Object.assign(window, {
   osmSpanM, osmTreeCircle, cfDistToHazardYd, cfHcp,
   cfSegHit, cfSegPolyFirstHit, cfSegPolyAllHits, cfHazardSpan, cfCoverNumbers, CF_COVER_TYPES, cfRunwayYd, cfRunwayAdj, CF_RUNWAY_MAX,
   cfExpectedStrokes, cfShotContext,
-  osmToMeters, osmCentroid, osmParse, osmNearestHoleIdx, osmBuildHole, osmBuildCourse, cfOsmImport, cfImportBox, cfLoadPresets,
+  osmToMeters, osmCentroid, osmParse, osmNearestHoleIdx, osmBuildHole, osmBuildCourse, cfFetchJSON, cfOverpass, cfOsmImport, cfImportBox, OSM_FILLER, cfOsmBias, osmKm, cfOsmSearch, cfOsmFetch, cfOsmPick, cfOsmRefresh,
+  CF_TEE_SETS, cfTeeBoxFor, cfSetTeeBoxOn, cfSetTeeBox, cfTeeSetYards, cfTeeBoxHTML, cfLoadPresets,
   startRound, endRound, buildRoundTracker
 });

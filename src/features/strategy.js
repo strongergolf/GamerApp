@@ -627,7 +627,7 @@ function stratHoleBox(hole){
   const eat=p=>{ if(!p||p.x==null) return; if(p.x<x0)x0=p.x; if(p.x>x1)x1=p.x; if(p.y<y0)y0=p.y; if(p.y>y1)y1=p.y; };
   eat(hole.tee); eat(hole.pin);
   (hole.green||[]).forEach(eat);
-  (hole.fairway||[]).forEach(eat);
+  (hole.fairway||[]).forEach(eat); (hole.fairways||[]).forEach(f=>f.forEach(eat));
   (hole.hazards||[]).forEach(h=>(h.pts||[]).forEach(eat));
   if(x1<x0||y1<y0) return {x:0,y:0,w:CF_W,h:CF_H};
   /* Margin scales with the hole, because a miss scales with the hole: enough room either side
