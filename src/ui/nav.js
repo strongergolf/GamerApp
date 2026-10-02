@@ -5,6 +5,8 @@
    ============================================================ */
 /* group → ordered list of {id,label} sub-tabs */
 const GROUPS={
+  /* Home (features/home.js): where the app opens. No button in the nav; the logo goes there. */
+  home:[{id:'home', label:'Home'}],
   /* Shots: the four stock-shot surfaces. D-Plane passed through here as a fifth tab and has
      gone back to Causation → 2 Ball Flight, where the impact geometry it renders is the
      level's own subject rather than a neighbour of the yardage tools. */
@@ -44,7 +46,7 @@ const GROUPS={
     {id:'reference',label:'The App'}
   ]
 };
-let currentGroup='play';
+let currentGroup='home';
 
 function showGroup(group,el){
   if(typeof pfMaybeSave==='function') pfMaybeSave();   // commit any unsaved Locker Room edits
@@ -80,6 +82,8 @@ function showPage(id,tab){
   if(tab)tab.classList.add('active');
   /* the overlay depends on the bag, the handicap and the courses — any of which may have
      changed on another tab — so rebuild it on show rather than serving a stale render */
+  /* Home reads the rounds, the plans and the practice plan, any of which may have changed */
+  if(id==='home'&&typeof buildHome==='function') buildHome();
   if(id==='gameplan'&&typeof buildHoleOverlay==='function') setTimeout(()=>{ buildHoleOverlay(); if(typeof stratScrollToTitle==='function') stratScrollToTitle(); },0);
 }
 let toastTimer;
@@ -120,6 +124,7 @@ function refreshAll(){
   buildPlanShot();
   buildPostShot();
   buildPostRound();
+  if(typeof buildHome==='function') buildHome();
   buildSpecs();
   if(typeof buildBackups==='function') buildBackups();
   buildProfile();

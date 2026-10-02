@@ -930,7 +930,7 @@ function buildRoundTracker(){
         <div style="font-family:ui-monospace,monospace;font-size:.7rem;color:var(--muted)">Round in progress · ${escapeHtml(pmRound().courseName||'course')} · started ${new Date(pmRound().startedAt).toLocaleTimeString()}</div>
         <button class="btn btn-primary" style="margin-top:10px" onclick="pmOpen()">Resume round</button>`
       :`
-        <p class="intro-note" style="margin-top:6px">Distances from GPS, the hole map and your scorecard, full-screen on your phone. The same mode the <b>▶ Play</b> button opens from any page; a finished round fills in Post-Round for you.</p>
+        <p class="intro-note" style="margin-top:6px">Distances from GPS, the hole map and your scorecard, full-screen on your phone. The same mode as the <b>▶ Play golf</b> door on Home (tap the logo); a finished round fills in Post-Round for you.</p>
         <button class="btn btn-primary" style="margin-top:8px" onclick="pmOpen()">Play golf now</button>`}
     </div>`;
 }

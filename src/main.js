@@ -56,6 +56,7 @@ import './features/play/map.js';
 import './features/sim.js';
 import './features/whs.js';
 import './features/rounds.js';
+import './features/home.js';
 import './features/shortgame.js';
 import './features/putting.js';
 import './features/club-form.js';

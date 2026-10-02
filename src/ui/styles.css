@@ -2442,3 +2442,65 @@ body.theme-dark .sg-src{color:#79e08d}
 .lm-tm-older{font-family:Arial,sans-serif;font-size:.7rem;font-weight:700;color:var(--ink2);margin-top:8px}
 .lm-sub{font-family:Arial,sans-serif;font-size:.72rem;font-weight:700;color:var(--ink2);margin:4px 0}
 @media(max-width:420px){.lm-tm-grid{grid-template-columns:repeat(2,1fr)}}
+
+/* ==================== HOME ====================
+   Phone first: the doors, where you stand and what's next all fit the first screen at 375px.
+   Navy panels use --panel (stays navy in both themes); cards use --surface. */
+.hm-home-link{cursor:pointer}
+/* the header doors show only while a round is running: Home has the doors otherwise */
+.hdr-modes .pm-launch:not(.live){display:none}
+#page-home{padding-top:14px}
+#home-wrap{display:flex;flex-direction:column;gap:12px;max-width:640px;margin:0 auto}
+.hm-doors{display:grid;grid-template-columns:3fr 2fr;gap:8px}
+.hm-doors:has(> :only-child){grid-template-columns:1fr}
+.hm-door{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:4px;min-height:76px;padding:12px 14px;
+  border-radius:12px;border:0;cursor:pointer;text-align:left;font-family:Arial,sans-serif;background:var(--panel);color:#f4f0e8;
+  box-shadow:0 2px 8px rgba(12,35,64,.18)}
+.hm-door-t{font-size:1.05rem;font-weight:800;letter-spacing:.02em;display:inline-flex;align-items:center;gap:8px}
+.hm-door-d{font-size:.72rem;opacity:.8;line-height:1.3}
+.hm-play{background:linear-gradient(160deg,#1a3a5c 0%,#0C2340 70%)}
+.hm-play.live{background:#79e08d;color:#0b2a14}
+.hm-sim{background:var(--panel2)}
+.hm-stand{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;align-items:center;background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;padding:12px 14px;cursor:pointer;font-family:Arial,sans-serif;color:var(--ink)}
+.hm-stand-empty p{margin:0;font-size:.8rem;color:var(--muted);line-height:1.4}
+.hm-st-idx{display:flex;flex-direction:column;align-items:center;padding-right:14px;border-right:1px solid var(--border);grid-row:span 2}
+.hm-st-idx span,.hm-st-h{font-size:.6rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.hm-st-idx b{font-size:1.6rem;font-weight:800;line-height:1.1}
+.hm-st-idx i{font-size:.62rem;font-style:normal;color:var(--muted)}
+.hm-st-sg{display:grid;grid-template-columns:1fr auto;gap:2px 8px;align-items:baseline}
+.hm-st-h i{font-style:normal;font-weight:400;letter-spacing:0;text-transform:none}
+.hm-st-tot b{font-size:1.25rem;font-weight:800}
+.hm-st-cats{grid-column:1 / -1;display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.hm-st-cats span{display:flex;flex-direction:column;align-items:center;background:var(--surface2);border-radius:6px;padding:3px 0}
+.hm-st-cats i{font-size:.58rem;font-style:normal;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.hm-st-cats b{font-size:.82rem}
+.hm-stand .neg{color:var(--gold)}
+.hm-st-leak{grid-column:2;font-size:.76rem;color:var(--ink2)}
+.hm-st-leak i{display:block;font-style:normal;font-size:.64rem;color:var(--muted)}
+.hm-next{background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--green);border-radius:12px;padding:12px 14px;font-family:Arial,sans-serif;color:var(--ink)}
+.hm-next p{margin:4px 0 8px;font-size:.8rem;color:var(--muted);line-height:1.45}
+.hm-next-h{font-size:.95rem;font-weight:800;display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px}
+.hm-next-h span{font-size:.68rem;font-weight:400;color:var(--muted)}
+.hm-acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.hm-acts .btn{min-height:40px}
+.hm-goal{margin:8px 0 0 !important;font-size:.74rem !important}
+.hm-goal .neg,.hm-block .neg{color:var(--gold)}
+.hm-check{display:grid;grid-template-columns:24px 1fr 14px;gap:10px;align-items:center;width:100%;min-height:48px;padding:7px 2px;background:none;border:0;
+  border-top:1px solid var(--border);cursor:pointer;text-align:left;font-family:Arial,sans-serif;color:var(--ink)}
+.hm-tick{width:22px;height:22px;border-radius:50%;border:2px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:800}
+.hm-check.done .hm-tick{background:var(--green);border-color:var(--green);color:#fff}
+.hm-check.done .hm-check-t{color:var(--muted)}
+.hm-check-t{font-size:.86rem;font-weight:700}
+.hm-check-t i{font-weight:400;font-style:normal;font-size:.7rem;color:var(--muted)}
+.hm-check-t small{display:block;font-weight:400;font-size:.72rem;color:var(--muted);margin-top:1px}
+.hm-arrow{color:var(--muted);font-size:1.1rem}
+.hm-block{display:grid;grid-template-columns:40px 1fr auto;gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--border);font-size:.82rem}
+.hm-block b{font-weight:800;color:var(--green)}
+.hm-rows{display:flex;flex-direction:column;gap:10px;margin-top:4px}
+.hm-row-h{font-family:Arial,sans-serif;font-size:.6rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+.hm-tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.hm-tile{min-height:48px;padding:6px 4px;border-radius:9px;border:1px solid var(--border);background:var(--surface);color:var(--ink);
+  font-family:Arial,sans-serif;font-size:.74rem;font-weight:700;line-height:1.2;cursor:pointer}
+.hm-tile:active{background:var(--surface2)}
+@media (max-width:420px){ .hm-tiles{grid-template-columns:repeat(2,1fr)} .hm-door-t{font-size:.95rem;white-space:nowrap} }

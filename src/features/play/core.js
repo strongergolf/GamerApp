@@ -324,6 +324,8 @@ function pmSyncButtons(){
      finished. */
   if(typeof buildRoundTracker==='function') buildRoundTracker();
   if(typeof simSyncButtons==='function') simSyncButtons();
+  /* and Home's Play door, which is the same door */
+  if(typeof buildHome==='function') buildHome();
 }
 function buildPlay(){
   const el=document.getElementById('play-mode'); if(!el) return;

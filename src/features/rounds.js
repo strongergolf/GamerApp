@@ -152,12 +152,18 @@ function rdDecisionHTML(D){
 }
 /* WHS: how many of the most recent differentials count, by how many there are (up to 20) */
 const RD_WHS_TABLE = {3:[1,-2],4:[1,-1],5:[1,0],6:[2,-1],7:[2,0],8:[2,0],9:[3,0],10:[3,0],11:[3,0],12:[4,0],13:[4,0],14:[4,0],15:[5,0],16:[5,0],17:[6,0],18:[6,0],19:[7,0],20:[8,0]};
-function rdIndexHTML(){
+/* the unofficial index on its own, for the Home page as well as this card */
+function rdIndexEst(){
   const D=rdAll().slice().sort((a,b)=>(a.startedAt||0)-(b.startedAt||0)).map(r=>{ try{ const P=whsPost(r); return P&&P.kind==='18'&&P.diff!=null?{d:P.diff, at:r.startedAt}:null; }catch(_){ return null; } }).filter(Boolean).slice(-20);
-  if(!D.length) return `<div class="rd-sec"><h4>Handicap <span>unofficial</span></h4><p class="pm-note">Set the tees and stroke index on a round's Ready to post card and each rated 18-hole round gets a score differential here, with an unofficial index once there are three.</p></div>`;
+  if(!D.length) return {D, n:0, rule:null, est:null};
   const n=D.length, rule=RD_WHS_TABLE[Math.min(20,n)];
   let est=null;
   if(rule){ const best=D.map(x=>x.d).sort((a,b)=>a-b).slice(0,rule[0]); est=Math.round((best.reduce((a,b)=>a+b,0)/best.length+rule[1])*10)/10; }
+  return {D, n, rule, est};
+}
+function rdIndexHTML(){
+  const {D, n, rule, est}=rdIndexEst();
+  if(!D.length) return `<div class="rd-sec"><h4>Handicap <span>unofficial</span></h4><p class="pm-note">Set the tees and stroke index on a round's Ready to post card and each rated 18-hole round gets a score differential here, with an unofficial index once there are three.</p></div>`;
   const fmt=v=>v<0?`+${Math.abs(v).toFixed(1)}`:v.toFixed(1);
   return `<div class="rd-sec"><h4>Handicap <span>unofficial: Golf Canada's is the real one</span></h4>
     <div class="rd-chips"><span>Estimated index <b>${est!=null?fmt(est):'—'}</b><i>${rule?`best ${rule[0]} of ${n}${rule[1]?` ${rule[1]}`:''}`:`needs 3 rated rounds`}</i></span>
@@ -454,5 +460,5 @@ function rdDashboardHTML(){
     </div>`;
 }
 
-Object.assign(window, { rdGoalSuggest, rdCurrentAvgs, rdGoalSet, rdGoalAdj, rdGoalClear, rdLeaks, rdPlanBuild, rdPlanOpt, rdPlanDone, rdPlanClear, rdPlanGo, RD_LEAKS, RD_DRILLS,
+Object.assign(window, { rdIndexEst, RD_PLAN_ROUNDS, RD_CATS, rdSg, rdMean, rdGoals, rdGoalSuggest, rdCurrentAvgs, rdGoalSet, rdGoalAdj, rdGoalClear, rdLeaks, rdPlanBuild, rdPlanOpt, rdPlanDone, rdPlanClear, rdPlanGo, RD_LEAKS, RD_DRILLS,
   rdSetView, rdSwitchHTML, rdF, rdSetF, rdAll, rdRounds, rdRound, rdTrendSVG, rdExport, rdDashboardHTML, RD_WHS_TABLE });
