@@ -169,7 +169,7 @@ function smashOffBy(bspd, cspd, loftDeg){
   const d = (b / c) - e;
   return Math.abs(d) < SMASH_TOL ? null : d;
 }
-function effHcpForLie(lie){
+function effHcpPrior(lie){
   const pf=STATE.profile||{};
   const num=v=>{ if(v===''||v==null) return null; const n=parseFloat(v); return isNaN(n)?null:n; };
   const clamp=h=>Math.max(-6,Math.min(40,h));
@@ -201,6 +201,85 @@ function effHcpForLie(lie){
   }
   return own;                                          // rough, sand — no per-category input exists
 }
+
+/* ============================================================
+   THE PLAYER, MEASURED — strokes gained from logged rounds first
+   ============================================================
+   Each skill area (driving, approach, short game, putting) is an effective handicap: the
+   handicap at which the app's own rule reproduces how that part of your game actually goes.
+   The rule is srForPlayer's: a handicap-h player's expected strokes are scratch's plus
+   0.012*h*(scratch - 1). For one shot that makes the expected strokes gained against scratch
+   -0.012*h*(E0(start) - E0(next)), so over every shot of a category:
+
+       effective handicap  =  - SG  /  ( 0.012 * D )
+       SG = strokes gained vs scratch in that category,  D = sum of E0(start) - E0(next)
+
+   which is exact under the model's own rule, so the model then predicts back the strokes
+   gained you measured. Measured from the last PSG_ROUNDS Play rounds with shots logged.
+
+   STROKES GAINED FIRST, THE STATS STILL COUNT. Mark's call: strokes gained is the better
+   description of a part of the game than fairways or greens hit, so it leads; but a couple of
+   rounds is thin evidence. So each area is a weighted blend of the measured number and the
+   prior (the typed stat where there is one, else the index):
+       (n * measured + k * prior) / (n + k)
+   n = shots of that category logged, k = PSG_PRIOR (what the prior is worth, in shots). After
+   a round the prior still carries most of it; after a dozen, the measurement does.
+   Setting profile.modelSource to 'stats' turns the measurement off. */
+const PSG_ROUNDS = 20;
+const PSG_PRIOR = { tee:30, fairway:40, atg:25, green:60 };
+/* the floor for a MEASURED area: tour-level putting (+2 a round over ~30 putts) is about -5.6,
+   so the typed-stat floor of -6 would cut real numbers off */
+const PSG_FLOOR = -10;
+const PSG_AREA = { ott:'tee', app:'fairway', arg:'atg', putt:'green' };
+let PSG_CACHE = null;
+function psgKey(){
+  const R=(window.STATE&&STATE.play&&STATE.play.rounds)||[], last=R[R.length-1];
+  return R.length+'|'+(last?(last.id+'|'+(last.endedAt||last.touched||'')):'');
+}
+function playerSGProfile(){
+  const key=psgKey(); if(PSG_CACHE && PSG_CACHE.key===key) return PSG_CACHE;
+  const acc={}; Object.keys(PSG_AREA).forEach(c=>{ acc[c]={sg:0, d:0, n:0}; });
+  const courses=(window.STATE&&STATE.courses)||[];
+  const R=((window.STATE&&STATE.play&&STATE.play.rounds)||[]).filter(r=>r && r.done!==false)
+           .slice().sort((a,b)=>(b.startedAt||0)-(a.startedAt||0));
+  let used=0, holes=0;
+  for(const r of R){
+    if(used>=PSG_ROUNDS) break;
+    const c=courses.find(x=>(x.id||x.name)===r.courseKey), hs=(c&&c.holes)||[];
+    let any=false;
+    Object.keys(r.holes||{}).forEach(num=>{
+      const e=r.holes[num], S=(e&&e.shots)||[];
+      if(!S.length || S.some(x=>x.yd==null||!x.lie)) return;
+      const h=hs.find((x,i)=>(x.num||i+1)===+num), par=h?(+h.par||4):4;
+      any=true; holes++;
+      S.forEach((sh,k)=>{
+        const E=x=>srForPlayer(x.lie, x.lie==='green'?Math.max(0.5,x.yd*3):Math.max(1,x.yd), 0);
+        const a=E(sh), nx=S[k+1], b=nx?E(nx):0; if(a==null||b==null) return;
+        const cat = sh.lie==='green' ? 'putt' : (sh.lie==='tee' && par>=4) ? 'ott' : sh.yd<=ATG_FAR_YD ? 'arg' : 'app';
+        acc[cat].sg += a-b-1-(sh.pen?1:0); acc[cat].d += a-b; acc[cat].n++;
+      });
+    });
+    if(any) used++;
+  }
+  const area={};
+  Object.entries(PSG_AREA).forEach(([c,lie])=>{
+    const x=acc[c];
+    area[lie] = (x.n && x.d>0) ? { n:x.n, sg:x.sg, perRound: holes?x.sg*18/holes:null, h:Math.max(PSG_FLOOR, Math.min(40, -x.sg/(0.012*x.d))) } : null;
+  });
+  PSG_CACHE={key, rounds:used, holes, area};
+  return PSG_CACHE;
+}
+/* the prior and the measurement, and how much each counts, for one area */
+function effHcpParts(lie){
+  const prior=effHcpPrior(lie);
+  const pf=(window.STATE&&STATE.profile)||{};
+  const m = pf.modelSource==='stats' ? null : (playerSGProfile().area[lie]||null);
+  const k=PSG_PRIOR[lie];
+  if(!m || !k) return {h:prior, prior, m:null, w:0};
+  const w=m.n/(m.n+k);
+  return {h:Math.max(PSG_FLOOR, Math.min(40, w*m.h+(1-w)*prior)), prior, m, w};
+}
+function effHcpForLie(lie){ return effHcpParts(lie).h; }
 /* ============================================================
    THE PLAYER — one definition, used by every surface that models the golfer
 
@@ -239,12 +318,14 @@ function playerHcpFor(lie, distYd){
    when the golfer edits a stat. The sentinel alone never changes and would serve stale plans. */
 function playerModelKey(){
   const pf=STATE.profile||{};
-  return [pf.handicap, pf.puttsRound, pf.girPct, pf.upDownPct, pf.scoringAvg, pf.firPct].join(',');
+  return [pf.handicap, pf.puttsRound, pf.girPct, pf.upDownPct, pf.scoringAvg, pf.firPct, pf.modelSource||'', psgKey()].join(',');
 }
 /* What a lie's skill number came FROM, so the profile can say whether a field is doing any
    work. Returns 'stat' when a typed round stat drives it and 'index' when it fell back. */
 function effHcpSource(lie){
   const pf=STATE.profile||{};
+  const parts=effHcpParts(lie);
+  if(parts.m && parts.w>=0.5) return 'rounds';
   const has=v=>!(v===''||v==null||isNaN(parseFloat(v)));
   if(lie==='green')   return has(pf.puttsRound)?'stat':'index';
   if(lie==='fairway') return has(pf.girPct)?'stat':'index';
@@ -258,4 +339,4 @@ function effHcpSource(lie){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { ATG_NEAR_YD, ATG_FAR_YD, PLAYER, playerHcpFor, playerModelKey, SR, SR_RECOVERY_OVER_ROUGH, CARRY_SPEED_EXP, SMASH_K, SMASH_LEAN, SMASH_TOL, expectedSmash, smashOffBy, speedRatioForCarry, carryRatioForSpeed, parseHcp, srForPlayer, srInterp, effHcpForLie, effHcpSource });
+Object.assign(window, { ATG_NEAR_YD, ATG_FAR_YD, PLAYER, playerHcpFor, playerModelKey, SR, SR_RECOVERY_OVER_ROUGH, CARRY_SPEED_EXP, SMASH_K, SMASH_LEAN, SMASH_TOL, expectedSmash, smashOffBy, speedRatioForCarry, carryRatioForSpeed, parseHcp, srForPlayer, srInterp, effHcpForLie, effHcpSource, effHcpPrior, effHcpParts, playerSGProfile, psgKey, PSG_ROUNDS, PSG_PRIOR });

@@ -688,18 +688,39 @@ const sel=(id,opts,val)=>`<select id="${id}">${opts.map(o=>`<option value="${o}"
    these fields is doing work and which is still riding on the index. */
 function pfDrivesHTML(){
   if(typeof effHcpForLie!=='function') return '';
-  const areas=[['tee','Driving','Fairways hit'],['fairway','Approach','Greens in reg'],
-               ['atg','Short game','Up &amp; down'],['green','Putting','Putts per round']];
+  const areas=[['tee','Driving','Fairways hit','off the tee','drives'],['fairway','Approach','Greens in reg','approach','approaches'],
+               ['atg','Short game','Up &amp; down','around the green','short-game shots'],['green','Putting','Putts per round','putting','putts']];
   const fmt=h=>h==null?'—':(h<0?'+'+Math.abs(Math.round(h*10)/10):String(Math.round(h*10)/10));
+  const sgf=v=>v==null?'—':(v>=0?'+':'−')+Math.abs(v).toFixed(2);
+  const pf=STATE.profile||{}, statsOnly=pf.modelSource==='stats';
+  const P=(typeof playerSGProfile==='function')?playerSGProfile():null;
   const rows=areas.map(a=>{
-    const h=effHcpForLie(a[0]);
+    const parts=(typeof effHcpParts==='function')?effHcpParts(a[0]):{h:effHcpForLie(a[0]), prior:effHcpForLie(a[0]), m:null, w:0};
     const src=(typeof effHcpSource==='function')?effHcpSource(a[0]):'index';
-    return `<span class="pf-drive${src==='stat'?' on':''}" title="${src==='stat'
-      ? a[2]+' is setting this' : 'No '+a[2].toLowerCase()+' on file — using your handicap index'}">
-      <b>${a[1]}</b> ${fmt(h)} <i>${src==='stat'?a[2].toLowerCase():'from index'}</i></span>`;
+    const statKey={tee:'firPct',fairway:'girPct',atg:'upDownPct',green:'puttsRound'}[a[0]];
+    const has=v=>v!=null&&String(v).trim()!=='';
+    const priorSrc=(has(pf[statKey])||(a[0]==='atg'&&has(pf.scoringAvg)))?a[2].toLowerCase():'index';
+    const m=parts.m;
+    const detail = m
+      ? `${Math.round(parts.w*100)}% measured: ${sgf(m.perRound)} a round ${a[3]} over ${m.n} ${a[4]} (${fmt(m.h)}) · ${Math.round((1-parts.w)*100)}% ${priorSrc==='index'?'your index':a[2].toLowerCase()} (${fmt(parts.prior)})`
+      : (src==='stat' ? `${a[2].toLowerCase()} on file` : `from your index`);
+    return `<span class="pf-drive${m||src==='stat'?' on':''}${m?' measured':''}"><b>${a[1]}</b> ${fmt(parts.h)} <i>${detail}</i></span>`;
   }).join('');
-  return `<div class="pf-drive-row">${rows}</div>
-    <p class="gen-note" style="margin:6px 0 0">These set the skill the app models you at in each part of the game — they drive “Shots Expected”, strokes gained, and the Hole Overlay's plan. Anything left blank falls back to your handicap index.</p>`;
+  return `<div class="pf-drive-head"><span>Model me from</span>
+      <select onchange="pfSetModelSource(this.value)">
+        <option value="rounds"${statsOnly?'':' selected'}>My rounds first (strokes gained)</option>
+        <option value="stats"${statsOnly?' selected':''}>Typed stats only</option></select></div>
+    <div class="pf-drive-row">${rows}</div>
+    <p class="gen-note" style="margin:6px 0 0">These set the skill the app models you at in each part of the game: they drive Shots Expected, strokes gained, the strategy engine and your round plans. ${statsOnly
+      ? 'Each comes from the stat typed below, or your handicap index where that is blank.'
+      : `Strokes gained from your logged rounds leads: each area is the handicap at which the model reproduces your measured strokes gained there${P&&P.rounds?` (last ${P.rounds} round${P.rounds===1?'':'s'} with shots logged)`:''}, blended with the stat below (or your index) and counting for more with every shot logged.`}</p>`;
+}
+function pfSetModelSource(v){
+  STATE.profile.modelSource = v==='stats' ? 'stats' : 'rounds';
+  saveState();
+  if(typeof aimShapeReset==='function') aimShapeReset();
+  if(typeof refreshAll==='function') refreshAll();
+  const w=document.querySelector('.pf-drives'); if(w) w.innerHTML=pfDrivesHTML();
 }
 function buildProfile(){
   const pf=STATE.profile;
@@ -1261,7 +1282,7 @@ function logHcpSnapshot(){
 
 // Expose top-level declarations on window so inline handlers and
 // other modules can resolve them during the staged ES-module migration.
-Object.assign(window, { CLUB_SPEC_FIELDS, CLUB_PERF_FIELDS, clubField, clubEditGrid, clubFieldSave, clubSaveAll,
+Object.assign(window, { pfSetModelSource, CLUB_SPEC_FIELDS, CLUB_PERF_FIELDS, clubField, clubEditGrid, clubFieldSave, clubSaveAll,
   bagEditOn, bagEditStart, bagEditCancel, bagEditToggleOut, bagEditToggleIn,
   bagEditApply, bagEditBar, bagEditCount, bagRemoveClub, bagAddFromCollection, bagClubToRecord,
   bagNewClubId, bagLadderRatios, seedPartialsFor,

@@ -2408,3 +2408,11 @@ body.theme-dark .ps-player.on b{color:#79e08d}
 body.theme-dark .sg-src{color:#79e08d}
 .sg-table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
 .sg-scorecard{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
+.pf-drive-head{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-family:Arial,sans-serif;font-size:.78rem;font-weight:700;color:var(--ink2)}
+.pf-drive-head select{min-height:34px;border-radius:7px;border:1px solid var(--border2);background:var(--bg2);color:var(--ink);font-size:.82rem;padding:0 6px}
+.pf-drive.measured{border-color:#00853F}
+.pf-drive i{white-space:normal}
+/* the skill areas now carry where each number came from: one row each, detail on its own line */
+.pf-drive-row{flex-direction:column;align-items:stretch}
+.pf-drive{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 8px;border-radius:10px;padding:6px 10px}
+.pf-drive i{flex-basis:100%;text-transform:none;letter-spacing:0;font-size:.62rem;line-height:1.45}
