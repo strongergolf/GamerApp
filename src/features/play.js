@@ -1632,14 +1632,22 @@ function pmRoundSG(r){
 /* Post-Round: the strokes gained from the round just saved, measured shot by shot. */
 function pmSgCardHTML(){
   const R=(STATE.play&&STATE.play.rounds)||[]; const r=R[R.length-1];
-  if(!r||!r.sg||!r.sg.holes) return '';
-  const g=r.sg, f=x=>`${x>=0?'+':''}${x.toFixed(2)}`;
+  if(!r) return '';
+  /* Read LIVE, on the benchmark set now (Settings), by the same arithmetic as All rounds and the
+     Score page. r.sg is what Finish measured on that day's benchmark; it stays on the round as a
+     record, and is quoted here when the benchmark has changed since, so the two never disagree
+     silently. */
+  let g=null; try{ g=pmRoundSG(r); }catch(_){ g=r.sg; }
+  if(!g||!g.holes) return '';
+  const f=x=>`${x>=0?'+':''}${x.toFixed(2)}`;
+  const then = (r.sg && r.sg.holes && r.sg.bench!==g.bench) ? r.sg : null;
   const cell=(k,l)=>`<div class="pm-sg-cell"><span>${l}</span><b class="${g.cat[k]<0?'neg':''}">${g.n[k]?f(g.cat[k]):'\u2014'}</b><i>${g.n[k]} shot${g.n[k]===1?'':'s'}</i></div>`;
   return `<div class="profile-card pm-sg-card">
       <h3>Strokes Gained \u2014 ${escapeHtml(r.courseName||'last round')} <span style="font-weight:400">vs ${escapeHtml(g.bench)}</span></h3>
       <div class="pm-sg-total"><b class="${g.total<0?'neg':''}">${f(g.total)}</b> <span>from ${g.shots} shots on ${g.holes} hole${g.holes===1?'':'s'}</span></div>
       <div class="pm-sg-grid">${cell('ott','Off the tee')}${cell('app','Approach')}${cell('arg','Around the green')}${cell('putt','Putting')}</div>
       ${g.incomplete?`<p class="gen-note">${g.incomplete} hole${g.incomplete===1?' has':'s have'} a shot with no distance, so ${g.incomplete===1?'it is':'they are'} left out rather than guessed.</p>`:''}
+      ${then?`<p class="gen-note">Measured against ${escapeHtml(g.bench)}, the benchmark set now. When the round was saved it read ${f(then.total)} against ${escapeHtml(then.bench)}.</p>`:''}
     </div>`;
 }
 
