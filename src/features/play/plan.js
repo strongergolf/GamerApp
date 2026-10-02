@@ -28,7 +28,20 @@ function pmPlanStamp(c){
   const bag=(typeof aimClubs==='function'?aimClubs():[]).map(x=>`${x.id}:${Math.round(x.carry)}/${Math.round(x.total)}`).join(',');
   return [k, (c.holes||[]).length, typeof stratPosture==='function'?stratPosture():'',
           typeof stratSkillKey==='function'?stratSkillKey():'', sh?sh.id+JSON.stringify(sh.pins||{}):'-',
-          JSON.stringify(STATE.strategy||{}), bag].join('|');
+          JSON.stringify(STATE.strategy||{}), bag, pmAimsStamp(c)].join('|');
+}
+/* the lines dragged on the Hole Overlay for this course, so a plan made before one changed says so */
+function pmAimsStamp(c){
+  const A=(STATE.play&&STATE.play.aims)||{}, pre=pmCourseKey(c)+'|';
+  return Object.keys(A).filter(k=>k.startsWith(pre)).sort().map(k=>k+JSON.stringify(A[k])).join(';');
+}
+/* The line you dragged for this hole on the Hole Overlay: one aim per shot, null where a shot
+   was left to your preferences, trailing gaps dropped. */
+function pmDraggedAims(h){
+  const c=(typeof cfCourseOf==='function')?cfCourseOf(h):null; if(!c) return [];
+  const arr=(((STATE.play||{}).aims)||{})[pmCourseKey(c)+'|'+(h.num||0)]||[];
+  let n=arr.length; while(n && !arr[n-1]) n--;
+  return arr.slice(0,n);
 }
 /* Where a shot is aimed, said the way a caddie would: on the green against the pin, short of
    it against the line to the middle of the green. */
@@ -63,14 +76,23 @@ function pmPlanAimTxt(h, from, aim){
 }
 /* One hole, played one way, from the tee to the green. Each shot starts where the last was
    aimed: the plan is a sequence of intentions, not a forecast of where the ball will finish. */
+/* 'mine' with a line dragged on the Hole Overlay plays YOUR shots as dragged (a shot left
+   undragged before them plays your preferences, as the overlay draws it), and after your last
+   one the model's best from there: so your tee shot and the optimal one are priced the same
+   way afterwards, and the difference between them is the tee decision alone. With nothing
+   dragged, 'mine' is your Strategy Preferences, as before. */
 function pmPlanChain(h, mode){
   const shots=[]; let from={x:h.tee.x, y:h.tee.y};
+  const dragged = mode==='mine' ? pmDraggedAims(h) : [];
   for(let k=1;k<=PM_PLAN_MAX_SHOTS;k++){
     let aim=null;
-    if(mode==='opt'){
+    const mineOpt = mode==='mine' && dragged.length && k>dragged.length;
+    if(mode==='opt' || mineOpt){
       const res=optimiseShot(h, from, {posture:stratPosture(), hcp:PLAYER});
       if(!res||res.blocked||!res.best) break;
       aim={x:Math.round(res.best.aim.x), y:Math.round(res.best.aim.y)};
+    } else if(dragged[k-1]){
+      aim={x:Math.round(dragged[k-1].x), y:Math.round(dragged[k-1].y)};
     } else {
       aim=stratPrefAim(h, from, k); if(!aim) break;
     }
@@ -100,7 +122,7 @@ function pmPlanHole(h, i){
   const ypu=cfYardsPerUnit(h)||1;
   const same = !!(opt[0] && mine[0] && opt.length===mine.length &&
                   opt.every((s,k)=>Math.hypot(s.aim.x-mine[k].aim.x, s.aim.y-mine[k].aim.y)*ypu<3));
-  return { num, par, yards, method:'model', opt, mine:same?[]:mine, same,
+  return { num, par, yards, method:'model', opt, mine:same?[]:mine, same, dragged:pmDraggedAims(h).length,
            expOpt: opt.length?1+opt[0].mean:null, expMine: (!same&&mine.length)?1+mine[0].mean:null, pick:'opt' };
 }
 function pmPlanExp(row){
@@ -130,8 +152,11 @@ function pmPlanBuild(){
     const h=hs[job.i]; let row;
     try{ row=pmPlanHole(h, job.i); }catch(e){ row={num:pmHoleNum(h,job.i), par:+h.par||4, method:'none'}; }
     /* a rebuild keeps the choices you already made, where the choice still exists */
+    /* A choice you made by hand stands; otherwise a hole you dragged a line for takes your
+       line, since that is what dragging it said. */
     const was=prev&&prev.holes&&prev.holes[row.num];
-    if(was && was.pick==='mine' && row.expMine!=null) row.pick='mine';
+    if(was && (was.picked || was.pick==='mine')){ if(was.pick==='mine' && row.expMine!=null) row.pick='mine'; row.picked=!!was.picked; }
+    else if(row.dragged && row.expMine!=null) row.pick='mine';
     job.holes[row.num]=row; job.i++;
     const pr=document.getElementById('pm-plan-prog');
     if(pr) pr.textContent=`Planning hole ${job.i} of ${job.n}…`;
@@ -141,11 +166,22 @@ function pmPlanBuild(){
 }
 function pmPlanOpen(){ if(pmRound()) return; window.pmPlanView=true; buildPlay(); const el=document.getElementById('play-mode'); if(el) el.scrollTop=0; }
 function pmPlanClose(){ window.pmPlanView=false; window.pmPlanJob=null; buildPlay(); }
+/* ✎ on a plan row: out of Play, onto that hole of the Hole Overlay, to drag a line */
+function pmPlanDrag(num){
+  const c=pmSetupCourse(); if(!c) return;
+  const ci=(STATE.courses||[]).indexOf(c), hi=(c.holes||[]).findIndex((h,i)=>pmHoleNum(h,i)===num);
+  if(ci<0||hi<0) return;
+  pmClose();
+  window.stratSelRestored=true; window.stratSel={cIdx:ci, hIdx:hi};
+  if(typeof stratClearLines==='function') stratClearLines();
+  if(typeof stratSaveSel==='function') stratSaveSel(true);
+  showGroupPage('gameplan','gameplan'); window.scrollTo && window.scrollTo(0,0);
+}
 function pmPlanCur(){ const c=pmSetupCourse(); return c ? pmPlans()[pmCourseKey(c)] || null : null; }
 function pmPlanPick(num, which){
   if(pmRound()) return;
   const pl=pmPlanCur(), row=pl&&pl.holes[num]; if(!row||row.method!=='model') return;
-  row.pick=which; saveState();
+  row.pick=which; row.picked=true; saveState();
   const el=document.getElementById('play-mode'), y=el?el.scrollTop:0; buildPlay(); if(el) el.scrollTop=y;
 }
 function pmPlanNote(num, txt){
@@ -198,7 +234,7 @@ function pmSetupPlanHTML(c){
   return `<div class="pm-plancard">
       <div class="pm-plancard-h">Your plan <span>made ${pmWhen(pl.madeAt)}</span></div>
       <p>${t.n} hole${t.n===1?'':'s'} · plays <b>${t.exp.toFixed(1)}</b> (${d>=0?'+':''}${d.toFixed(1)} vs par ${t.par})${pl.sheet?` · pins: ${escapeHtml(pl.sheet)}`:' · pins: middle of each green'}</p>
-      ${stale?`<p class="pm-warn">Made before your clubs, pins or preferences changed. Rebuild it, or take it as it is.</p>`:''}
+      ${stale?`<p class="pm-warn">Made before your clubs, pins, preferences or lines changed. Rebuild it, or take it as it is.</p>`:''}
       <label class="pm-plan-use"><input type="checkbox" id="pm-plan-use" checked> Take this plan onto the course</label>
       <div class="pm-plan-row">
         <button type="button" class="btn pm-plan-btn" onclick="pmPlanOpen()">View &amp; edit</button>
@@ -222,19 +258,20 @@ function pmPlanHTML(){
   const t=pmPlanTotal(pl), f=v=>v==null?'—':v.toFixed(2);
   const holes=Object.values(pl.holes).sort((a,b)=>a.num-b.num).map(row=>{
     const note=`<input type="text" class="pm-ph-note" maxlength="140" placeholder="Note for this hole" value="${escapeHtml((pl.notes||{})[row.num]||'')}" onchange="pmPlanNote(${row.num}, this.value)">`;
-    const hd=`<div class="pm-ph-h"><b>${row.num}</b><span>par ${row.par}${row.yards?` · ${ydNum(row.yards)} ${ydUnit()}`:''}</span><em>${f(pmPlanExp(row))}</em></div>`;
+    const hd=`<div class="pm-ph-h"><b>${row.num}</b><span>par ${row.par}${row.yards?` · ${ydNum(row.yards)} ${ydUnit()}`:''}</span>
+        <button type="button" class="pm-ph-drag" onclick="pmPlanDrag(${row.num})">✎ ${row.dragged?'your line':'drag a line'}</button><em>${f(pmPlanExp(row))}</em></div>`;
     if(row.method!=='model') return `<div class="pm-ph">${hd}<p class="pm-ph-none">${row.method==='baseline'?'No hole map to plan a line on, so this is the score for a hole that long. Re-import or trace it in My Courses.':'Not enough data on this hole to plan.'}</p>${note}</div>`;
     const opt=(k,lbl,shots,exp)=>`<button type="button" class="pm-ph-opt${row.pick===k?' on':''}" onclick="pmPlanPick(${row.num},'${k}')" aria-pressed="${row.pick===k}">
         <span class="pm-ph-k">${lbl}</span><span class="pm-ph-chain">${pmPlanChainHTML(shots)}</span><b>${f(exp)}</b></button>`;
     return `<div class="pm-ph">${hd}
       ${row.opt.length?opt('opt', row.same?'Optimal = yours':'Optimal', row.opt, row.expOpt):''}
-      ${row.mine&&row.mine.length?opt('mine','Yours', row.mine, row.expMine):''}
+      ${row.mine&&row.mine.length?opt('mine', row.dragged?'Your line':'Yours', row.mine, row.expMine):''}
       ${note}</div>`;
   }).join('');
   const d=t.exp-t.par;
   return `<div class="pm-setup pm-pv">${head}
       <div class="pm-pv-sum"><b>${t.exp.toFixed(1)}</b><span>${d>=0?'+':''}${d.toFixed(1)} vs par ${t.par} · made ${pmWhen(pl.madeAt)}${pl.sheet?` · ${escapeHtml(pl.sheet)}`:''}</span></div>
-      <p class="pm-note">Pick a line for each hole and add what you want to remember. The numbers are expected strokes for the hole. At Start the plan is frozen onto the round, and nothing on the course works anything out again.</p>
+      <p class="pm-note">Pick a line for each hole and add what you want to remember. The numbers are expected strokes for the hole. <b>✎</b> opens the hole on the Hole Overlay: drag your own shots there and they are saved as Your line (the model plays the rest of the hole from your last one); Rebuild to bring them in. At Start the plan is frozen onto the round, and nothing on the course works anything out again.</p>
       ${holes}
       <div class="pm-plan-row pm-pv-foot">
         <button type="button" class="btn pm-plan-btn" onclick="printScoringProfile(true)">⎙ Print</button>
@@ -287,6 +324,7 @@ function pmPlanLogHTML(r){
 }
 
 Object.assign(window, {
+  pmAimsStamp, pmDraggedAims, pmPlanDrag,
   PM_PLAN_MAX_SHOTS, pmPlans, pmCourseKey, pmSetupCourse, pmPlanStamp, pmPlanAimTxt, pmPlanChain, pmPlanHole,
   pmPlanExp, pmPlanBuild, pmPlanOpen, pmPlanClose, pmPlanCur, pmPlanPick, pmPlanNote, pmPlanDelete,
   pmPlanFreeze, pmPlanTotal, pmWhen, pmSetupPlanHTML, pmPlanClubTxt, pmPlanChainHTML, pmPlanHTML, pmPlanFor,

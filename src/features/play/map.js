@@ -112,7 +112,9 @@ function pmMapHTML(h, r){
   const chrome = 60 + (pmTourn()?24:0) + 58 + (strat?112:66) + (window.pmAskScore!=null?212:0) + (pmPlanFor(h)?30:0);
   const vh=Math.max(280, (window.innerHeight||812) - chrome);
   const extra=[T, opt&&opt.r&&opt.r.aim, mine&&mine.aim].filter(Boolean);
-  const box=pmMapBox(h, P, extra, vw/vh);
+  /* while a finger is dragging the target the frame holds still, or the crop would follow the
+     target and slide the hole out from under the finger; it re-frames on release */
+  const box=window.pmDragBox || pmMapBox(h, P, extra, vw/vh);
   const pxPerUnit = vw/box.w;
   /* labels at a constant ~14px on screen, whatever the zoom */
   const k = 14/(30*pxPerUnit);
@@ -169,7 +171,7 @@ function pmMapHTML(h, r){
         ${gn&&gn.pin!=null?`<div class="pm-float-pin">pin ${n(gn.pin)}</div>`:''}
       </div>`;
   const placing = window.pmPlacing!=null && Sx[window.pmPlacing];
-  return `<div class="pm-mapwrap${placing?' pm-placing':''}" style="height:${vh}px">
+  return `<div class="pm-mapwrap${placing?' pm-placing':''}${strat&&!placing?' pm-dragaim':''}" style="height:${vh}px">
       ${placing&&window.pmPlaceKind==='target'?`<div class="pm-place-banner">Shot ${window.pmPlacing+1}: tap or drag where you aimed
           <b>${(()=>{ const a=pmShotPt(h,Sx[window.pmPlacing]), t=Sx[window.pmPlacing].tgt; return a&&t?ydNum(cfDistYd(h,a,t))+' '+ydUnit()+' from the ball':'not set yet'; })()}</b>
           <button type="button" onclick="pmShotPlaceDone()">Done</button></div>`
@@ -328,21 +330,33 @@ if(!window.pmMapHooked){
     return { x:Math.round(vb[0]+(ev.clientX-rc.left)/rc.width*vb[2]), y:Math.round(vb[1]+(ev.clientY-rc.top)/rc.height*vb[3]) };
   };
   let dragLast=0;
+  /* the frame on screen, held for the length of a drag */
+  const vbOf=()=>{ const svg=document.querySelector('#pm-map svg'); const v=svg&&(svg.getAttribute('viewBox')||'').split(/\s+/).map(Number);
+    return v&&v.length===4 ? {x:v[0], y:v[1], w:v[2], h:v[3]} : null; };
   document.addEventListener('pointerdown', ev=>{
-    const m=ev.target.closest&&ev.target.closest('#pm-map'); down=m?{x:ev.clientX, y:ev.clientY, placing:window.pmPlacing!=null}:null;
+    const m=ev.target.closest&&ev.target.closest('#pm-map');
+    /* AIM: in a casual round with the strategy layer on, the target follows the finger, and
+       your shot is scored against the optimal one as it moves. Tournament rounds keep the tap
+       (distances only): pmStrategyAllowed() is false there. */
+    const aim = !!m && window.pmPlacing==null && pmStrategyAllowed() && window.pmStratOn;
+    down=m?{x:ev.clientX, y:ev.clientY, placing:window.pmPlacing!=null, aim}:null;
     /* placing: the shot jumps to the finger at once, then follows it */
     if(down&&down.placing){ const q=ptAt(ev); if(q) pmShotPlaceAt(q); ev.preventDefault(); }
+    else if(down&&down.aim){ window.pmDragBox=vbOf(); const q=ptAt(ev); if(q) pmSetTarget(q); ev.preventDefault(); }
   });
   document.addEventListener('pointermove', ev=>{
-    if(!down||!down.placing) return;
+    if(!down||(!down.placing&&!down.aim)) return;
     const now=Date.now(); if(now-dragLast<60) return; dragLast=now;
-    const q=ptAt(ev); if(q) pmShotPlaceAt(q);
+    const q=ptAt(ev); if(!q) return;
+    if(down.placing) pmShotPlaceAt(q); else pmSetTarget(q);
   });
+  document.addEventListener('pointercancel', ()=>{ if(down&&down.aim){ window.pmDragBox=null; pmRenderBody(); } down=null; });
   document.addEventListener('pointerup', ev=>{
     if(!down) return;
     const m=ev.target.closest&&ev.target.closest('#pm-map');
     const moved=Math.hypot(ev.clientX-down.x, ev.clientY-down.y);
     if(down.placing){ const q=ptAt(ev); if(q) pmShotPlaceAt(q); down=null; return; }
+    if(down.aim){ const q=ptAt(ev); window.pmDragBox=null; down=null; if(q) pmSetTarget(q); else pmRenderBody(); return; }
     down=null;
     if(!m||moved>10) return;
     const svg=m.querySelector('svg'); if(!svg) return;

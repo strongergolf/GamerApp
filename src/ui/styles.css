@@ -2515,3 +2515,11 @@ body.theme-dark .sg-src{color:#79e08d}
 .osm-hit span{font-size:.72rem;color:var(--muted)}
 .cf-teebox{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 10px;font-family:Arial,sans-serif;font-size:.78rem;font-weight:700;color:var(--ink2)}
 .cf-teebox select{min-height:38px;font-size:.82rem;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--ink)}
+
+/* ---- plan rows: open the hole on the Hole Overlay to drag a line ---- */
+.pm-ph-drag{margin-left:auto;min-height:32px;padding:4px 10px;border-radius:16px;border:1px solid var(--border2);background:var(--surface);
+  color:var(--ink2);font-family:Arial,sans-serif;font-size:.7rem;font-weight:700;cursor:pointer;white-space:nowrap}
+.pm-ph-drag:hover{border-color:var(--green2)}
+/* ---- Play map: in a casual round the target follows the finger ---- */
+.pm-dragaim .pm-map svg{touch-action:none}
+.pm-ph-h .pm-ph-drag + em{margin-left:8px}

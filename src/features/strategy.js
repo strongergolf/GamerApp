@@ -1031,7 +1031,36 @@ function stratGreenMid(hole){
   let x=0,y=0; g.forEach(p=>{x+=p.x;y+=p.y;});
   return {x:x/g.length, y:y/g.length};
 }
-function stratClearLines(){ window.stratShot.lines={S:[]}; window.stratShot.shotNum=1; window.stratCacheEpoch=(window.stratCacheEpoch||0)+1; }
+function stratClearLines(){ if(window.STATE&&STATE.play&&STATE.play.aims) stratAimsPrune(); window.stratShot.lines={S:[]}; window.stratShot.aimKey=null; window.stratShot.shotNum=1; window.stratCacheEpoch=(window.stratCacheEpoch||0)+1; }
+/* ---- YOUR LINE, SAVED ----
+   The S line you drag is kept per course and hole in STATE.play.aims, keyed like the anchors
+   ("<course id>|<hole number>" -> [ {x,y}|null per shot ]), so it is still there when you come
+   back, survives a pin-sheet change, and Plan my round plays it as "Your line". lines.S IS the
+   stored array, so a drag writes straight into it and the drag's end saves. ↺ reset empties it. */
+function stratAimsFor(key){ STATE.play=STATE.play||{}; const A=STATE.play.aims=STATE.play.aims||{}; return (A[key]=A[key]||[]); }
+function stratBindAims(){
+  const k=stratAnchorKey(), S=window.stratShot;
+  if(!k){ S.aimKey=null; return; }
+  const arr=stratAimsFor(k);
+  if(S.aimKey!==k || S.lines.S!==arr){ S.aimKey=k; S.lines.S=arr; }
+}
+/* holes looked at but never dragged leave an empty entry behind; drop those before saving */
+function stratAimsPrune(){
+  const A=(STATE.play||{}).aims||{};
+  Object.keys(A).forEach(k=>{ const a=A[k]; if(!Array.isArray(a)||!a.some(Boolean)) delete A[k]; });
+}
+/* how many holes of a course have a line of yours */
+function stratAimsCount(c){
+  if(!c) return 0; const A=(STATE.play||{}).aims||{}, pre=(c.id||c.name)+'|';
+  return Object.keys(A).filter(k=>k.startsWith(pre) && Array.isArray(A[k]) && A[k].some(Boolean)).length;
+}
+/* Plan my round for the course on screen, with these lines */
+function stratPlanRound(){
+  if(typeof pmRound==='function' && pmRound()){ toast('A round is open: the plan is frozen until it ends'); return; }
+  stratAimsPrune(); saveState();
+  window.pmSetupSel=Object.assign({}, window.pmSetupSel||{}, {c:window.stratSel.cIdx});
+  pmOpen(); pmPlanOpen(); pmPlanBuild();
+}
 
 /* ---- Which hole the overlay opens on ----
    Remembered as a course ID and a hole NUMBER, never as list indices: indices shift the
@@ -1119,7 +1148,10 @@ function stratToggleCompare(){
   STATE.strategy.compareOptimal=!STATE.strategy.compareOptimal;
   saveState(); buildHoleOverlay();
 }
-function stratResetAim(){ stratClearLines(); buildHoleOverlay(); }
+function stratResetAim(){
+  const k=stratAnchorKey(); if(k && STATE.play && STATE.play.aims) delete STATE.play.aims[k];
+  stratClearLines(); saveState(); buildHoleOverlay();
+}
 function stratSetPosture(p){
   if(typeof setStrategy==='function') setStrategy('riskPosture',p);
   else { STATE.strategy=STATE.strategy||{}; STATE.strategy.riskPosture=p; saveState(); }
@@ -1656,6 +1688,7 @@ function buildHoleOverlay(){
   /* First render of the session: restore the remembered hole, or fall back to the first one
      that is actually mapped. Once only — after that the user's clicks own the selection. */
   if(!window.stratSelRestored){ window.stratSelRestored=true; stratRestoreSel(); }
+  stratBindAims();
   const ci=Math.min(window.stratSel.cIdx, courses.length-1), course=courses[ci];
   const holes=course.holes||[];
   const hi=Math.min(window.stratSel.hIdx, Math.max(0,holes.length-1)), hole=holes[hi];
@@ -1854,7 +1887,7 @@ function buildHoleOverlay(){
   const prefWhy = anchored
     ? `<b class="ln-S">S-${n}</b> is anchored — its strokes gained is measured off where the ball finished, and S-${n+1} plays from there.`
     : dragged
-    ? `<b class="ln-S">S-${n}</b> is your own line — <a href="#" onclick="stratResetAim();return false">reset</a> to go back to your preferences.`
+    ? `<b class="ln-S">S-${n}</b> is your own line, saved for this hole: Plan my round plays it. <a href="#" onclick="stratResetAim();return false">Reset</a> to go back to your preferences.`
     : kind==='approach' ? `<b class="ln-S">S-${n}</b> plays your approach preferences: <b>${stratLabel('approachTarget').toLowerCase()}</b>, ${stratLabel('approachDistance').toLowerCase()}.`
     : kind==='tee'      ? `<b class="ln-S">S-${n}</b> plays your tee preferences: <b>${stratLabel('teeTarget').toLowerCase()}</b>, ${stratLabel('teeClub').toLowerCase()}.`
     : kind==='recovery' ? `<b class="ln-S">S-${n}</b> is a punch-out — no preference applies from the trees.`
@@ -1930,6 +1963,7 @@ function buildHoleOverlay(){
       <div class="ho-sheet-ctl">
         <button type="button" class="strat-mode-btn${cmpOn?' on':''}" onclick="stratToggleCompare()" title="${cmpOn?'Stop scoring your line against the optimal one':'Score your line against the optimal one'}">⇄ compare</button>
         <button type="button" class="strat-mode-btn" onclick="stratResetAim()" title="Back to your strategy preferences">↺ reset</button>
+        <button type="button" class="strat-mode-btn" onclick="stratPlanRound()" title="Plan this course in Play, with the lines you have dragged">▤ plan${(()=>{ const n=stratAimsCount(course); return n?` · ${n} line${n===1?'':'s'}`:''; })()}</button>
         ${size.phone?`<button type="button" class="ho-expand" onclick="stratToggleSheet()" aria-expanded="${open}" aria-label="${open?'Collapse':'Expand'} details">${open?'▾':'▴'}</button>`:''}
       </div>
     </div>`;
@@ -1961,7 +1995,7 @@ function stratDragInit(wrap){
   if(!wrap||wrap._stratDrag) return; wrap._stratDrag=true;
   /* Anchors persist, but writing the whole STATE to storage 20 times a second while a finger
      is down would stutter — so mark the drag dirty and commit it when the finger lifts. */
-  let mode=null, last=0, panFrom=null, anchorDirty=false;
+  let mode=null, last=0, panFrom=null, anchorDirty=false, aimDirty=false;
   /* Client pixels → field units THROUGH the live viewBox, so aiming stays accurate at any
      zoom. Reading the viewBox off the element means it is always the one on screen. */
   const ptOf=e=>{
@@ -1984,13 +2018,14 @@ function stratDragInit(wrap){
        thing you are specifying, so the drag moves that; release the anchor to aim again. */
     const anc=stratAnchors();
     if(anc[n-1]){
-      anc[n-1]=p; anchorDirty=true;
+      anc[n-1]=p; anchorDirty=true; aimDirty=true;
       /* the finish moved, so any aim drawn for a LATER shot came off a position that no
          longer exists — but later ANCHORS are records of what happened, and stand. */
       const arr=S.lines[S.active]||[]; arr.length=Math.min(arr.length,n);
     } else {
       const arr=S.lines[S.active]||(S.lines[S.active]=[]);
       arr[n-1]=p; arr.length=n;                      // later shots stemmed from the old spot
+      aimDirty=true;
     }
     buildHoleOverlay();
   };
@@ -2022,7 +2057,7 @@ function stratDragInit(wrap){
     if(mode==='aim') setAim(e,false); else if(mode==='pan') panBy(e);
   });
   const end=e=>{ if(!mode) return; if(mode==='aim') setAim(e,true); mode=null; panFrom=null;
-    if(anchorDirty){ anchorDirty=false; saveState(); } };
+    if(anchorDirty||aimDirty){ anchorDirty=false; aimDirty=false; stratAimsPrune(); saveState(); } };
   /* ...and the browser menu must not open on top of the pan it just started. */
   wrap.addEventListener('contextmenu',e=>{ if(e.target.closest&&e.target.closest('.strat-hole-map')) e.preventDefault(); });
   wrap.addEventListener('pointerup',end);
@@ -2065,5 +2100,5 @@ Object.assign(window, { stratScrollToTitle, stratMapSize, stratStepHole, stratLa
   stratPinSheetHoles, stratPinZone, stratPinThumbClick, stratSheetPaces, stratSheetClearHole, stratPinSheetGrid,
   ROUND_METHODS, ROUND_RES, stratRoundHole, stratRound, stratRoundTable,
   stratSheetSet, stratSheetDelete, stratSheetProgress,
-  stratShotSVG, stratOverlay, stratDragInit
+  stratShotSVG, stratOverlay, stratDragInit, stratAimsFor, stratBindAims, stratAimsPrune, stratAimsCount, stratPlanRound
 });
