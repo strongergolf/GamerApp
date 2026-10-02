@@ -408,11 +408,12 @@ function simSessHTML(){
     const P=pmDispPool(d), cal=(typeof pmDispCal==='function')?pmDispCal():{lat:1,dep:1};
     const ax=(k,se,dof,lbl,c)=>k==null?`<div><span>${lbl}</span><b>—</b><i>needs 2+ shots a club</i></div>`
       :`<div><span>${lbl}</span><b>${(k*c).toFixed(2)}×</b><i>±${(se*c).toFixed(2)} · ${dof} dof</i></div>`;
-    const can=(P.latDof>=PM_DISP_MIN_DOF&&P.lat&&Math.abs(P.lat-1)>0.03)||(P.depDof>=PM_DISP_MIN_DOF&&P.dep&&Math.abs(P.dep-1)>0.03);
+    const can=(typeof pmDispProposal==='function') ? pmDispProposal(d, 'trackman').changed : false;
     fit=`<div class="sim-card"><h3>Your pattern on TrackMan</h3>
         <div class="pm-dp-pool">${ax(P.lat,P.latSE,P.latDof,'Width',cal.lat)}${ax(P.dep,P.depSE,P.depDof,'Length',cal.dep)}</div>
         <p class="pm-note">Against the +3 model the app uses: above 1 is wider or longer. Each club's own average is taken out first, so where you aimed is not counted as spread. Range shots from a mat are the best case, so a factor from TrackMan is a floor for the course.</p>
-        ${can?`<button type="button" class="btn pm-dc-apply" onclick="simDispApply()">Fit the model to this</button>`:`<p class="pm-dc-need">${PM_DISP_MIN_DOF} degrees of freedom to apply (shots minus one a club).</p>`}
+        ${can?`<button type="button" class="btn pm-dc-apply" onclick="simDispApply()">Use this in the model</button>`:(P.latDof>=PM_DISP_MIN_DOF?`<p class="pm-dc-ok">The model already has this session</p>`:`<p class="pm-dc-need">${PM_DISP_MIN_DOF} degrees of freedom to apply (shots minus one a club).</p>`)}
+        ${typeof pmDispSourcesHTML==='function'?pmDispSourcesHTML():''}
         ${typeof pmLeanHTML==='function'?pmLeanHTML(d, 'simLeanApply', 'Measured from carry and carry side. '):''}
       </div>`;
   }

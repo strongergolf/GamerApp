@@ -1188,19 +1188,81 @@ function pmDispPool(d){
 function pmDispCal(){ return STATE.dispCal || {lat:1, dep:1}; }
 /* d / src: the shots to fit from and where they came from. The course by default; Sim Golf
    passes a TrackMan session in the same shape. */
+/* ---- TWO SOURCES, ONE MODEL ----
+   The course and TrackMan each measure the pattern, and each is kept as its own factor against
+   the base +3 curve (STATE.dispCalSources), with the degrees of freedom it rests on. The model
+   uses them combined, as variances should be: weighted by degrees of freedom,
+       k^2 = sum(dof_i * k_i^2) / sum(dof_i)
+   so more shots carry more say. Or one source alone (STATE.dispCalMode): range shots off a mat
+   are the best case, and once the course has enough rounds a golfer may want the course only.
+   A pool's ratios are against the model as it stood (which already includes the last fit), so
+   a source's factor against the base curve is the current factor times the measured ratio. */
+const PM_DISP_SRC = { 'on-course':'course', 'TrackMan':'trackman' };
+const PM_DISP_SRC_LBL = { course:'On the course', trackman:'TrackMan' };
+const PM_DISP_MODES = [['combine','Both, weighted by shots'],['course','The course only'],['trackman','TrackMan only']];
+function pmDispSources(){ return STATE.dispCalSources || {}; }
+function pmDispMode(){ return STATE.dispCalMode || 'combine'; }
+function pmDispCombine(S, mode){
+  const use = mode==='course' ? ['course'] : mode==='trackman' ? ['trackman'] : ['course','trackman'];
+  const axis=(k,dk)=>{ let num=0, den=0; use.forEach(s=>{ const x=S[s]; if(x && x[k]>0 && x[dk]>0){ num+=x[dk]*x[k]*x[k]; den+=x[dk]; } }); return den ? Math.sqrt(num/den) : 1; };
+  return { lat:Math.round(axis('lat','latDof')*1000)/1000, dep:Math.round(axis('dep','depDof')*1000)/1000 };
+}
+/* what fitting this data would store for its source, and whether that differs from what is there */
+function pmDispProposal(d, key){
+  const P=pmDispPool(d), cur=pmDispCal(), old=pmDispSources()[key]||{};
+  const okL = P.latDof>=PM_DISP_MIN_DOF && P.lat, okD = P.depDof>=PM_DISP_MIN_DOF && P.dep;
+  const prop = { lat: okL ? cur.lat*P.lat : old.lat, latDof: okL ? P.latDof : old.latDof,
+                 dep: okD ? cur.dep*P.dep : old.dep, depDof: okD ? P.depDof : old.depDof };
+  const ch=(a,b)=>a!=null && (b==null || Math.abs(a-b)>0.03);
+  prop.changed = !!((okL && ch(prop.lat, old.lat)) || (okD && ch(prop.dep, old.dep)));
+  return prop;
+}
 function pmDispApply(dd, src){
-  const d=dd||pmDistShots(), P=pmDispPool(d), cur=pmDispCal(), from=src||'on-course';
-  const lat = P.latDof>=PM_DISP_MIN_DOF && P.lat ? cur.lat*P.lat : cur.lat;
-  const dep = P.depDof>=PM_DISP_MIN_DOF && P.dep ? cur.dep*P.dep : cur.dep;
-  if(lat===cur.lat && dep===cur.dep) return;
-  const pc=x=>`${Math.round(x*100)}%`;
-  if(!confirm(`Recalibrate the dispersion model to your ${from} pattern?\n\n`+
-              `Width: ${pc(cur.lat)} → ${pc(lat)} of the +3 model\nLength: ${pc(cur.dep)} → ${pc(dep)}\n\n`+
-              `Every pattern in the app follows: Stock Shots, Approach, the strategy engine. You can undo it here.`)) return;
-  const P2=pmState(); (P2.dispLog=P2.dispLog||[]).push({at:Date.now(), src:from, before:Object.assign({},cur), after:{lat,dep},
-                                                       dofLat:P.latDof, dofDep:P.depDof});
-  STATE.dispCal={lat:Math.round(lat*1000)/1000, dep:Math.round(dep*1000)/1000, at:Date.now()};
-  pmDispChanged('Dispersion model now fitted to your on-course pattern');
+  const d=dd||pmDistShots(), from=src||'on-course', key=PM_DISP_SRC[from]||'course';
+  const prop=pmDispProposal(d, key); if(!prop.changed) return;
+  const r3=x=>x==null?x:Math.round(x*1000)/1000;
+  const S=Object.assign({}, pmDispSources());
+  S[key]={ lat:r3(prop.lat), latDof:prop.latDof||0, dep:r3(prop.dep), depDof:prop.depDof||0, at:Date.now() };
+  const cur=pmDispCal(), next=pmDispCombine(S, pmDispMode());
+  const pc=x=>x==null?'\u2014':`${Math.round(x*100)}%`;
+  const other=S[key==='course'?'trackman':'course'];
+  if(!confirm(`Use your ${from} pattern in the dispersion model?\n\n`+
+              `${PM_DISP_SRC_LBL[key]}: width ${pc(S[key].lat)}, length ${pc(S[key].dep)} of the +3 model.\n`+
+              (other?`${PM_DISP_SRC_LBL[key==='course'?'trackman':'course']}: width ${pc(other.lat)}, length ${pc(other.dep)}.\n`:'')+
+              `\nThe model (${(PM_DISP_MODES.find(m=>m[0]===pmDispMode())||[])[1]||''}): width ${pc(cur.lat)} \u2192 ${pc(next.lat)}, length ${pc(cur.dep)} \u2192 ${pc(next.dep)}.\n\n`+
+              `Every pattern in the app follows: Stock Shots, Approach, the strategy engine. You can undo it.`)) return;
+  const P2=pmState();
+  (P2.dispLog=P2.dispLog||[]).push({ at:Date.now(), src:from, before:Object.assign({},cur), after:next,
+                                     beforeSources:JSON.parse(JSON.stringify(pmDispSources())), afterSources:JSON.parse(JSON.stringify(S)),
+                                     dofLat:prop.latDof, dofDep:prop.depDof });
+  STATE.dispCalSources=S;
+  STATE.dispCal=Object.assign({}, next, {at:Date.now()});
+  pmDispChanged(`Dispersion model now uses your ${from} pattern`);
+}
+function pmDispSetMode(m){
+  if(!PM_DISP_MODES.some(x=>x[0]===m)) return;
+  const cur=pmDispCal(), prevMode=STATE.dispCalMode||null; STATE.dispCalMode=m;
+  const S=pmDispSources();
+  if(Object.keys(S).length){
+    const next=pmDispCombine(S, m);
+    const P2=pmState(); (P2.dispLog=P2.dispLog||[]).push({ at:Date.now(), src:'mode', mode:m, beforeMode:prevMode, before:Object.assign({},cur), after:next,
+      beforeSources:JSON.parse(JSON.stringify(S)), afterSources:JSON.parse(JSON.stringify(S)) });
+    STATE.dispCal=Object.assign({}, next, {at:Date.now()});
+  }
+  pmDispChanged('Dispersion model: '+((PM_DISP_MODES.find(x=>x[0]===m)||[])[1]||m).toLowerCase());
+}
+/* the panel both cards show: each source, and what the model uses */
+function pmDispSourcesHTML(){
+  const S=pmDispSources(), keys=Object.keys(S).filter(k=>S[k]);
+  if(!keys.length) return '';
+  const cal=pmDispCal(), pc=x=>x==null?'\u2014':`${Math.round(x*100)}%`;
+  const row=k=>{ const x=S[k]; return `<div class="pm-ds-row"><b>${PM_DISP_SRC_LBL[k]||k}</b><span>width ${pc(x.lat)}<i>${x.latDof||0} dof</i></span><span>length ${pc(x.dep)}<i>${x.depDof||0} dof</i></span><em>${new Date(x.at).toLocaleDateString([], {month:'short', day:'numeric'})}</em></div>`; };
+  return `<div class="pm-ds">
+      <div class="pm-ds-h"><span>The model now</span><b>width ${pc(cal.lat)} \u00b7 length ${pc(cal.dep)}</b><i>of the +3 curve</i></div>
+      ${['course','trackman'].filter(k=>S[k]).map(row).join('')}
+      <label class="pm-ds-mode">Use<select onchange="pmDispSetMode(this.value)">${PM_DISP_MODES.map(([v,l])=>`<option value="${v}"${pmDispMode()===v?' selected':''}>${l}</option>`).join('')}</select></label>
+      <p class="pm-note">Combined as variances, so each source counts in proportion to its degrees of freedom. TrackMan shots are off a mat, the best case; choose the course only once it has enough rounds behind it.</p>
+    </div>`;
 }
 function pmDispUndo(k){
   const L=pmState().dispLog||[], x=L[k]; if(!x||x.undone) return;
@@ -1213,6 +1275,8 @@ function pmDispUndo(k){
     return;
   }
   if(x.before.lat===1 && x.before.dep===1) delete STATE.dispCal; else STATE.dispCal=Object.assign({}, x.before);
+  if(x.src==='mode'){ if(x.beforeMode) STATE.dispCalMode=x.beforeMode; else delete STATE.dispCalMode; }
+  if(x.beforeSources!==undefined){ if(Object.keys(x.beforeSources||{}).length) STATE.dispCalSources=x.beforeSources; else delete STATE.dispCalSources; }
   x.undone=Date.now();
   pmDispChanged('Dispersion model put back');
 }
@@ -1248,7 +1312,7 @@ function pmDispCardHTML(){
   const P=pmDispPool(d), pc=x=>`${Math.round(x*100)}%`;
   const ax=(k,se,dof,lbl)=>k==null ? `<div><span>${lbl}</span><b>—</b><i>needs 2+ shots with a club</i></div>`
     : `<div><span>${lbl}</span><b class="${tone(k)}">${(k*cal[lbl==='Width'?'lat':'dep']).toFixed(2)}×</b><i>±${(se*cal[lbl==='Width'?'lat':'dep']).toFixed(2)} · ${dof} dof${dof<PM_DISP_MIN_DOF?` · ${PM_DISP_MIN_DOF-dof} more to apply`:''}</i></div>`;
-  const canApply=(P.latDof>=PM_DISP_MIN_DOF&&P.lat&&Math.abs(P.lat-1)>0.03)||(P.depDof>=PM_DISP_MIN_DOF&&P.dep&&Math.abs(P.dep-1)>0.03);
+  const canApply=pmDispProposal(d, 'course').changed;
   const calNote=(cal.lat!==1||cal.dep!==1)?`The model is already fitted to ${pc(cal.lat)} width and ${pc(cal.dep)} length; the ratios above are against the +3 curve.`:'Ratios are against the +3 model the app uses.';
   return `<div class="profile-card pm-dp-card">
       <h3>On-course dispersion</h3>
@@ -1256,6 +1320,7 @@ function pmDispCardHTML(){
       <div class="pm-dp-pool">${ax(P.lat,P.latSE,P.latDof,'Width')}${ax(P.dep,P.depSE,P.depDof,'Length')}
         ${P.bias!=null&&P.nBias>=3?`<div><span>Aim bias</span><b>${side(P.bias)}</b><i>average over ${P.nBias} shots</i></div>`:''}</div>
       <p class="pm-note">${calNote} Above 1 your pattern is wider or longer than the model's. Not applied: the aim bias. It is where you miss, not how widely.</p>
+      ${pmDispSourcesHTML()}
       ${canApply?`<button type="button" class="btn pm-dc-apply" onclick="pmDispApply(null)">Fit the model to this</button>`:''}
       <div class="pm-dp-list">${rows}</div>
       ${Lg.length?`<div class="pm-dc-log"><div class="pm-dc-log-h">Model fitted from the course</div>
@@ -2258,6 +2323,7 @@ Object.assign(window, { PM_RESUME_HOURS, PM_NEAR_HOLE_YD, PM_GPS_MAX_ERR_M,
   PM_AUTO_TEE_YD, PM_AUTO_NEAR_YD, PM_AUTO_FAR_YD, PM_AUTO_CONFIRM, PM_AUTO_HOLD_MS,
   pmHoleFit, pmRankHoles, pmAutoHold, pmAutoResume, pmAutoDetect, pmAutoBadge, pmAskSet, pmAskDone, pmAskHTML,
   pmShotAim, pmShotAimHere, pmShotAimClear, pmShotCommit, PM_COMMIT, pmFourWayJobs, pmFourWayOne, pmFourWayRun, pmFourWayHTML,
+  pmDispSources, pmDispMode, pmDispCombine, pmDispProposal, pmDispSetMode, pmDispSourcesHTML, PM_DISP_SRC, PM_DISP_MODES,
   pmDispChanged, PM_LEAN_MIN_DOF, pmLeanSide, pmLeanMeasure, pmLeanDeg, pmLeanHTML, pmLeanApply,
   PM_MAP_ERR_YD, PM_DISP_MIN_DOF, pmPtErrYd, pmShotTarget, pmDispClub, pmDispPool, pmDispCal, pmDispApply, pmDispUndo, pmDispCardHTML,
   PM_DIST_MIN_N, pmDistShots, pmDistClub, pmDistApply, pmDistUndo, pmDistCardHTML,

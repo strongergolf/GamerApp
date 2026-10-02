@@ -2416,3 +2416,16 @@ body.theme-dark .sg-src{color:#79e08d}
 .pf-drive-row{flex-direction:column;align-items:stretch}
 .pf-drive{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 8px;border-radius:10px;padding:6px 10px}
 .pf-drive i{flex-basis:100%;text-transform:none;letter-spacing:0;font-size:.62rem;line-height:1.45}
+
+/* ---- dispersion: the two sources and what the model uses ---- */
+.pm-ds{margin:8px 0;padding:8px 10px;border-radius:10px;background:var(--bg2);border:1px solid var(--border);display:flex;flex-direction:column;gap:4px}
+.pm-ds-h{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px;font-family:Arial,sans-serif;font-size:.74rem;color:var(--muted)}
+.pm-ds-h b{font-size:.92rem;color:var(--ink)}
+.pm-ds-h i{font-style:normal;font-family:ui-monospace,monospace;font-size:.58rem}
+.pm-ds-row{display:grid;grid-template-columns:6.5rem 1fr 1fr auto;gap:6px;align-items:baseline;font-family:Arial,sans-serif;font-size:.76rem;color:var(--ink2);border-top:1px solid var(--border);padding-top:4px}
+.pm-ds-row b{color:var(--ink)}
+.pm-ds-row i{display:block;font-style:normal;font-family:ui-monospace,monospace;font-size:.54rem;color:var(--muted)}
+.pm-ds-row em{font-style:normal;font-family:ui-monospace,monospace;font-size:.58rem;color:var(--muted)}
+.pm-ds-mode{display:flex;align-items:center;gap:8px;font-family:Arial,sans-serif;font-size:.74rem;font-weight:700;color:var(--ink2)}
+.pm-ds-mode select{min-height:34px;border-radius:7px;border:1px solid var(--border2);background:var(--surface);color:var(--ink);font-size:.8rem;padding:0 6px}
+.pm-ds .pm-note{margin:0}
