@@ -42,9 +42,16 @@ const imgY2Lat=(y,z)=>{ const n=Math.PI-2*Math.PI*y/Math.pow(2,z); return 180/Ma
    vb: the viewBox in field units; pxW: how many screen pixels wide it is drawn. */
 function imgTilesSVG(hole, vb, pxW){
   if(!imgOn(hole)) return '';
-  const g=hole.geo;
+  const T=imgTileList(hole, vb, pxW);
+  /* (0,0)->NW, (1,0)->NE, (0,1)->SW; a hair over 1 so neighbouring tiles never show a seam */
+  return `<g class="img-tiles">${T.map(t=>`<image href="${t.url}" x="0" y="0" width="1.004" height="1.004" preserveAspectRatio="none" transform="matrix(${t.a.toFixed(3)} ${t.b.toFixed(3)} ${t.c.toFixed(3)} ${t.d.toFixed(3)} ${t.e.toFixed(2)} ${t.f.toFixed(2)})"/>`).join('')}</g>`;
+}
+/* the tiles covering a field-unit box, each with the affine (a b c d e f) that maps its unit
+   square into the field frame — used by the map above and by the shape wand (markup.js) */
+function imgTileList(hole, vb, pxW){
+  const g=hole.geo; if(!g) return [];
   const corners=[[vb.x,vb.y],[vb.x+vb.w,vb.y],[vb.x,vb.y+vb.h],[vb.x+vb.w,vb.y+vb.h]].map(([x,y])=>cfFieldToLatLon(hole,{x,y})).filter(Boolean);
-  if(corners.length<4) return '';
+  if(corners.length<4) return [];
   const lats=corners.map(c=>c.lat), lons=corners.map(c=>c.lon);
   const la0=Math.min(...lats), la1=Math.max(...lats), lo0=Math.min(...lons), lo1=Math.max(...lons);
   /* resolution: screen metres per pixel, sharpened for high-density screens */
@@ -60,17 +67,15 @@ function imgTilesSVG(hole, vb, pxW){
     if((x1-x0+1)*(y1-y0+1)<=IMG_MAX_TILES || z<=IMG_ZMIN) break;
     z--;
   }
-  let s='';
+  const out=[];
   for(let ty=y0; ty<=y1; ty++) for(let tx=x0; tx<=x1; tx++){
     const nw=cfLatLonToField(hole, imgY2Lat(ty,z), imgX2Lon(tx,z)),
           ne=cfLatLonToField(hole, imgY2Lat(ty,z), imgX2Lon(tx+1,z)),
           sw=cfLatLonToField(hole, imgY2Lat(ty+1,z), imgX2Lon(tx,z));
     if(!nw||!ne||!sw) continue;
-    /* (0,0)->NW, (1,0)->NE, (0,1)->SW; a hair over 1 so neighbouring tiles never show a seam */
-    const a=ne.x-nw.x, b=ne.y-nw.y, c=sw.x-nw.x, d=sw.y-nw.y;
-    s+=`<image href="${imgTileUrl(z,tx,ty)}" x="0" y="0" width="1.004" height="1.004" preserveAspectRatio="none" transform="matrix(${a.toFixed(3)} ${b.toFixed(3)} ${c.toFixed(3)} ${d.toFixed(3)} ${nw.x.toFixed(2)} ${nw.y.toFixed(2)})"/>`;
+    out.push({url:imgTileUrl(z,tx,ty), a:ne.x-nw.x, b:ne.y-nw.y, c:sw.x-nw.x, d:sw.y-nw.y, e:nw.x, f:nw.y});
   }
-  return `<g class="img-tiles">${s}</g>`;
+  return out;
 }
 function imgAttrHTML(hole){ return imgOn(hole) ? `<div class="img-attr">${IMG_ATTR}</div>` : ''; }
 
@@ -117,4 +122,4 @@ function imgTest(){
 }
 
 Object.assign(window, { IMG_KEY_LS, IMG_URL, IMG_ZMIN, IMG_ZMAX, IMG_MAX_TILES, IMG_ATTR, imgAppKey, imgDeviceKey, imgKey, imgOn, imgTileUrl,
-  imgLon2X, imgLat2Y, imgX2Lon, imgY2Lat, imgTilesSVG, imgAttrHTML, buildImagery, imgSaveKey, imgClearKey, imgRefresh, imgTest });
+  imgLon2X, imgLat2Y, imgX2Lon, imgY2Lat, imgTilesSVG, imgTileList, imgAttrHTML, buildImagery, imgSaveKey, imgClearKey, imgRefresh, imgTest });

@@ -138,6 +138,8 @@ function pmMapHTML(h, r){
     ov+=tl(T.x, T.y-r0-fs*0.6, `${n(d1)} ${ydUnit()}`);
     if(d2!=null) ov+=tl(T.x, T.y+r0+fs*1.3, `${n(d2)} to middle`);
   }
+  /* your notes from the Plan page (yardage-book marks), under everything else drawn here */
+  if(typeof mkMarksSVG==='function') ov = mkMarksSVG(h, k) + ov;
   /* THE SHOTS logged on this hole, numbered, joined start to start and on to the hole */
   const Sx=(pmEntry(pmHoleNum(h,r.cur)).shots)||[];
   if(Sx.length){

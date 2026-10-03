@@ -2593,3 +2593,30 @@ body.theme-dark .sg-src{color:#79e08d}
   font-family:inherit;font-size:.78rem;font-weight:700;cursor:pointer}
 .ho-banner button.on{background:#f4f0e8;color:#0C2340;border-color:transparent}
 .ho-tee-btn{font-size:.78rem;font-weight:700}
+
+/* ---- MARK UP bar (features/markup.js): tabs, tools, colours ---- */
+.mk-bar{flex-direction:column;align-items:stretch;gap:6px;padding:8px 10px}
+.mk-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.mk-sp{flex:1}
+.mk-tab{border:0!important;background:transparent!important;color:rgba(244,240,232,.7)!important;padding:4px 8px!important;font-size:.82rem!important}
+.mk-tab.on{color:#f4f0e8!important;box-shadow:inset 0 -2px 0 #79e08d}
+.mk-b.on{background:#f4f0e8!important;color:#0C2340!important;border-color:transparent!important}
+.mk-dots{display:inline-flex;gap:6px;margin-left:4px}
+.mk-dot{width:24px!important;height:24px;padding:0!important;border-radius:50%!important;border:2px solid rgba(255,255,255,.35)!important}
+.mk-dot.on{border-color:#79e08d!important;box-shadow:0 0 0 2px rgba(121,224,141,.35)}
+.mk-spread{display:inline-flex;align-items:center;gap:6px;font-size:.78rem}
+.mk-spread button{width:28px;padding:4px 0!important}
+.mk-spread b{min-width:12px;text-align:center}
+.mk-hint{font-size:.76rem;color:rgba(244,240,232,.85)}
+.mk-hint2{opacity:.75;font-size:.7rem}
+.ho-mk-btn{font-size:1.1rem}
+/* compact: the bar sits over the map, so it takes as little of it as it can */
+.mk-bar{gap:4px;padding:6px 8px;top:6px;left:6px;right:6px}
+.mk-bar .mk-row{gap:4px;flex-wrap:wrap}
+.mk-bar .mk-tabs{flex-wrap:nowrap}
+.mk-bar button{padding:4px 9px;font-size:.72rem}
+.mk-bar .mk-tab{padding:3px 6px!important;font-size:.78rem!important}
+.mk-bar .mk-dot{width:20px!important;height:20px}
+.mk-bar .mk-spread button{width:24px;padding:2px 0!important}
+.mk-hint2{display:none}
+@media (min-width:700px){ .mk-hint2{display:block} }

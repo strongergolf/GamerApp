@@ -42,6 +42,7 @@ import './features/dplane-lab.js';
 import './features/courses.js';
 import './features/course-sync.js';
 import './features/imagery.js';
+import './features/markup.js';
 import './features/strategy.js';
 import './features/planshot.js';
 import './features/effyards.js';

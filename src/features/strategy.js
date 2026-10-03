@@ -756,7 +756,8 @@ const STRAT_LAYERS = [
   {key:'disp',  label:'Dispersion', def:true},
   {key:'cover', label:'Cover',      def:false},
   {key:'pin',   label:'Pin',        def:false},
-  {key:'photo', label:'Photo',      def:true}     /* only offered with an imagery key — see imgKey */
+  {key:'photo', label:'Photo',      def:true},    /* only offered with an imagery key — see imgKey */
+  {key:'notes', label:'Notes',      def:true}     /* only offered on a hole with notes — see markup.js */
 ];
 function stratLayers(){
   STATE.strategy=STATE.strategy||{};
@@ -794,13 +795,7 @@ function stratZoomGreen(hole){
    onto it. The tee is then the golfer's (src.tee='user'): a course-wide Back/Middle/Forward choice
    leaves it alone, a refresh from the map carries it across, and plans made before it go stale. */
 const STRAT_TEE_SNAP_YD = 10;
-function stratTeeMode(on){
-  const cur=stratCurrent(); if(!cur) return;
-  const S=window.stratShot; S.teeMode=!!on; if(on) S.pinMode=false;
-  const t=cur.hole.tee;
-  if(on && t) stratViewAt(cur.hole, t.x, t.y, 2.5); else window.stratView={cx:null, cy:null, z:1};
-  buildHoleOverlay();
-}
+function stratTeeMode(on){ if(typeof mkOpen==='function') mkOpen(on?'tee':null); }
 function stratSetTeeAt(p){
   const cur=stratCurrent(); if(!cur||!p) return;
   const h=cur.hole, ypu=cfYardsPerUnit(h)||1;
@@ -2045,7 +2040,8 @@ function buildHoleOverlay(){
                : prog ? `${escapeHtml(prog.name)}: middle` : 'pin: middle';
   const t2x = `${pinTxt}${ballWhere}`;   /* sits beside the course picker, or under it on a phone */
   const title = head.replace('<span class="ho-t2-x" id="ho-t2-x"></span>', `<span class="ho-t2-x">${t2x}</span>`);
-  const layers=`<div class="ho-layers ho-float-bl" role="group" aria-label="Map layers">${STRAT_LAYERS.filter(l=>l.key!=='photo'||(typeof imgKey==='function'&&(imgKey()||window.sgImageryUrlOverride))&&hole.geo).map(l=>
+  const layers=`<div class="ho-layers ho-float-bl" role="group" aria-label="Map layers">${STRAT_LAYERS.filter(l=>(l.key!=='photo'||(typeof imgKey==='function'&&(imgKey()||window.sgImageryUrlOverride))&&hole.geo)
+      && (l.key!=='notes'||(((STATE.play||{}).marks||{})[(course.id||course.name)+'|'+(hole.num||hi+1)]||[]).length)).map(l=>
       `<button type="button" class="ho-chip${L[l.key]?' on':''}" aria-pressed="${!!L[l.key]}" onclick="stratToggleLayer('${l.key}')">${l.label}</button>`).join('')}</div>`;
   /* The stepper: which shot of the plan you are looking at. Not a tap on the map — any touch
      there is an aim drag, and a tap that sometimes selects and sometimes aims is worse than a
@@ -2070,7 +2066,7 @@ function buildHoleOverlay(){
       <div class="ho-sheet-ctl">
         <button type="button" class="ho-icon${cmpOn?' on':''}" onclick="stratToggleCompare()" title="${cmpOn?'Stop scoring your line against the optimal one':'Score your line against the optimal one'}" aria-label="Compare" aria-pressed="${cmpOn}">⇄</button>
         <button type="button" class="ho-icon" onclick="stratResetAim()" title="Reset this hole to your strategy preferences" aria-label="Reset">↺</button>
-        <button type="button" class="ho-icon ho-tee-btn${S.teeMode?' on':''}" onclick="stratTeeMode(${!S.teeMode})" title="Move this hole's tee to where you play from" aria-pressed="${!!S.teeMode}">Tee</button>
+        <button type="button" class="ho-icon ho-mk-btn${S.edit?' on':''}" onclick="mkOpen(${S.edit?'null':"'notes'"})" title="Mark up this hole: notes, the tee, the shapes" aria-pressed="${!!S.edit}">✎</button>
         <button type="button" class="ho-icon ho-plan" onclick="stratPlanRound()" title="Build the round plan for this course in Play, with the lines you have dragged">Round plan${(()=>{ const n=stratAimsCount(course); return n?` <b>${n}</b>`:''; })()}</button>
         ${size.phone?`<button type="button" class="ho-expand" onclick="stratToggleSheet()" aria-expanded="${open}" aria-label="${open?'Collapse':'Expand'} details">${open?'▾':'▴'}</button>`:''}
       </div>
@@ -2094,10 +2090,7 @@ function buildHoleOverlay(){
   wrap.innerHTML=title+`
     ${L.pin?`<div class="ho-pin">${pinRow}</div>`:''}
     <div class="strat-hole-grid">
-      <div class="strat-hole-map" style="width:${size.w}px">${renderHoleSVG(hole,{viewBox:vbNow, pxW:size.w, overlay:`<g id="strat-overlay">${stratOverlay(hole,chains,n)}</g>`})}${S.teeMode?`<div class="ho-banner">
-        <span>Drag the tee to where you play from${(hole.src&&hole.src.tee==='user')?' · <b>yours</b>':''}</span>
-        ${(hole.src&&hole.src.tee==='user')?`<button type="button" onclick="stratTeeReset()">Map's tee</button>`:''}
-        <button type="button" class="on" onclick="stratTeeMode(false)">Done</button></div>`:''}${layers}${zoomCtl}${typeof imgAttrHTML==='function'?imgAttrHTML(hole):''}</div>
+      <div class="strat-hole-map" style="width:${size.w}px">${renderHoleSVG(hole,{viewBox:vbNow, pxW:size.w, k:window.stratLabelK, overlay:`<g id="strat-overlay">${typeof mkMarksSVG==='function'?mkMarksSVG(hole, window.stratLabelK):''}${stratOverlay(hole,chains,n)}${typeof mkDraftSVG==='function'?mkDraftSVG():''}</g>`})}${typeof mkBarHTML==='function'?mkBarHTML(hole):''}${layers}${zoomCtl}${typeof imgAttrHTML==='function'?imgAttrHTML(hole):''}</div>
       <div class="sh-side ho-sheet${open?' open':''}">
         ${sheetHead}
         ${size.phone&&!open?`<div class="ho-sum" onclick="stratToggleSheet()">${['O','S'].map(sumLine).join('')}</div>`:''}
@@ -2171,7 +2164,7 @@ function stratDragInit(wrap){
   };
   wrap.addEventListener('pointerdown',e=>{
     if(!e.target.closest||!e.target.closest('.strat-hole-map')) return;
-    if(e.target.closest('button')) return;              // the chips and zoom buttons on the map
+    if(e.target.closest('button')||e.target.closest('.ho-banner')) return;   // chips, zoom, the mark-up bar
     if(e.pointerType==='touch'){
       fingers.set(e.pointerId,{x:e.clientX,y:e.clientY});
       try{ wrap.setPointerCapture(e.pointerId); }catch(_){}
@@ -2185,6 +2178,7 @@ function stratDragInit(wrap){
        button had no job here, and a zoomed-in map with no way to move is a map of one corner.
        Middle-drag still pans too, for anyone already used to it. */
     if(e.pointerType==='mouse'&&(e.button===1||e.button===2)){ mode='pan'; panFrom={x:e.clientX,y:e.clientY}; }
+    else if(typeof mkEditing==='function'&&mkEditing()){ mode='mark'; try{ wrap.setPointerCapture(e.pointerId); }catch(_){} mkPointer('down', ptOf(e)); e.preventDefault(); return; }
     else { if(window.stratShot.active==='O'&&!window.stratShot.pinMode) return; mode='aim'; }
     try{ wrap.setPointerCapture(e.pointerId); }catch(_){}
     if(mode==='aim') setAim(e,true);
@@ -2203,8 +2197,11 @@ function stratDragInit(wrap){
       const vb=stratViewBox(); svg.setAttribute('viewBox', `${vb.x.toFixed(1)} ${vb.y.toFixed(1)} ${vb.w.toFixed(1)} ${vb.h.toFixed(1)}`);
       return;
     }
+    if(mode==='mark'){ mkPointer('move', ptOf(e)); return; }
     if(mode==='pending'){
       if(Math.hypot(e.clientX-panFrom.x, e.clientY-panFrom.y)<6) return;
+      /* marking up: a moving finger draws (from where it went down) */
+      if(typeof mkEditing==='function'&&mkEditing()){ mode='mark'; mkPointer('down', ptOf({clientX:panFrom.x, clientY:panFrom.y})); panFrom=null; mkPointer('move', ptOf(e)); return; }
       if(window.stratShot.active==='O'&&!window.stratShot.pinMode){ mode=null; return; }
       mode='aim'; panFrom=null; setAim(e,true); return;
     }
@@ -2212,7 +2209,9 @@ function stratDragInit(wrap){
   });
   const end=e=>{
     fingers.delete(e.pointerId);
-    if(mode==='pinch'){ if(fingers.size===0){ mode=null; pinch=null; buildHoleOverlay(); } return; }
+    if(mode==='pinch'){ if(fingers.size===0){ mode=null; pinch=null; window.mkDraft=null; buildHoleOverlay(); } return; }
+    if(mode==='pending' && typeof mkEditing==='function' && mkEditing()){ mode=null; panFrom=null; if(e.type==='pointerup') mkPointer('tap', ptOf(e)); return; }
+    if(mode==='mark'){ mode=null; mkPointer(e.type==='pointerup'?'up':'cancel', ptOf(e)); return; }
     /* a touch that never moved is a tap: the shot goes where it was tapped */
     if(mode==='pending'){ mode=(e.type==='pointerup'&&!(window.stratShot.active==='O'&&!window.stratShot.pinMode))?'aim':null; panFrom=null; }
     if(!mode) return; if(mode==='aim') setAim(e,true); mode=null; panFrom=null;

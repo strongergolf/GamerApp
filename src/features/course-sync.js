@@ -56,6 +56,7 @@ function csRefresh(c, fresh){
       if(plan&&plan.holes&&plan.holes[n]) moved+=csWalk(plan.holes[n],f);
       sheets.forEach(s=>{ if(s.pins&&s.pins[n]) moved+=csWalk(s.pins[n],f); });
       if(anchors[key+'|'+n]) moved+=csWalk(anchors[key+'|'+n],f);
+      const marks=(P.marks||{})[key+'|'+n]; if(marks) moved+=csWalk(marks,f);
     }
     /* the map's values replace the map's; a value the golfer typed, or one the map does not
        have, stays. A hole from before values were labelled counts as the map's, except a stroke
@@ -63,6 +64,12 @@ function csRefresh(c, fresh){
     const os=oh.src||{}, ns=nh.src||{}, h=Object.assign({}, nh), src=Object.assign({}, ns);
     ['par','yards'].forEach(k=>{ if(os[k]==='user' || ns[k]!=='map'){ if(oh[k]!=null) h[k]=oh[k]; src[k]=os[k]||'user'; } });
     if(oh.si!=null && (os.si!=='map' || nh.si==null)){ h.si=oh.si; src.si=os.si||'user'; }
+    /* shapes the golfer fixed from the photo are theirs: carried into the new frame, not replaced */
+    if(os.shapes==='user'){
+      const keep=JSON.parse(JSON.stringify({green:oh.green||[], fairway:oh.fairway||[], fairways:oh.fairways||[], hazards:oh.hazards||[]}));
+      if(f) csWalk(keep, f);
+      Object.assign(h, keep); src.shapes='user';
+    }
     if(os.tee==='user' && oh.tee){ const q=f?f(oh.tee):null; h.tee=q?{x:Math.round(q.x), y:Math.round(q.y)}:oh.tee; src.tee='user'; }
     h.src=src;
     Object.keys(oh).forEach(k=>{ if(!(k in h) && !CS_GEOM.has(k)) h[k]=oh[k]; });

@@ -154,9 +154,12 @@ function renderHoleSVG(hole, opts){
   const hazards = photo
     ? (hole.hazards||[]).filter(z=>z.type!=='trees').map(z=>line(z.pts,hzLine[z.type]||'#fff',0.7,z.type==='oob')).join('')
     : (hole.hazards||[]).map(z=>cfPoly(z.pts,hz[z.type]||'#999',null,z.type==='oob'?0.5:0.85)).join('');
-  const tee = hole.tee?`<rect x="${hole.tee.x-10}" y="${hole.tee.y-10}" width="20" height="20" rx="4" fill="#222" stroke="#fff" stroke-width="2"/>`:'';
+  /* opts.k (the overlay's label scale) keeps the flag and tee marker a constant size on screen;
+     without it they are drawn in field units, as before */
+  const u = opts.k>0 ? opts.k*2.4 : 1;
+  const tee = hole.tee?`<rect x="${hole.tee.x-10*u}" y="${hole.tee.y-10*u}" width="${20*u}" height="${20*u}" rx="${4*u}" fill="#222" stroke="#fff" stroke-width="${2*u}"/>`:'';
   const _pin = (typeof cfPin==='function'?cfPin(hole):null)||hole.pin;   // today's cut, not the map anchor
-  const pin = _pin?`<line x1="${_pin.x}" y1="${_pin.y}" x2="${_pin.x}" y2="${_pin.y-46}" stroke="#fff" stroke-width="2.5"/><polygon points="${_pin.x},${_pin.y-46} ${_pin.x+26},${_pin.y-38} ${_pin.x},${_pin.y-30}" fill="#d33"/><circle cx="${_pin.x}" cy="${_pin.y}" r="6" fill="#fff" stroke="#333"/>`:'';
+  const pin = _pin?`<line x1="${_pin.x}" y1="${_pin.y}" x2="${_pin.x}" y2="${_pin.y-46*u}" stroke="#fff" stroke-width="${2.5*u}"/><polygon points="${_pin.x},${_pin.y-46*u} ${_pin.x+26*u},${_pin.y-38*u} ${_pin.x},${_pin.y-30*u}" fill="#d33"/><circle cx="${_pin.x}" cy="${_pin.y}" r="${6*u}" fill="#fff" stroke="#333" stroke-width="${u}"/>`:'';
   const centerline = (hole.tee&&_pin)?`<line x1="${hole.tee.x}" y1="${hole.tee.y}" x2="${_pin.x}" y2="${_pin.y}" stroke="rgba(255,255,255,0.4)" stroke-width="2" stroke-dasharray="10,8"/>`:'';
   let draftSVG='';
   if(interactive && e.draft && e.draft.length){
