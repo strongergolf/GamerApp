@@ -2561,3 +2561,17 @@ body.theme-dark .sg-src{color:#79e08d}
 #hole-overlay-wrap .sh-strip-line{border-radius:12px}
 #hole-overlay-wrap .ss-pair span,#hole-overlay-wrap .ss-sub,#hole-overlay-wrap .ss-why{text-transform:none!important}
 #hole-overlay-wrap .strat-mode-btn{font-family:system-ui,-apple-system,'Segoe UI',Arial,sans-serif;text-transform:none;letter-spacing:0;border-radius:18px}
+
+/* ---- map imagery (features/imagery.js) ---- */
+.img-attr{position:absolute;top:6px;right:8px;z-index:2;max-width:70%;font-family:system-ui,-apple-system,'Segoe UI',Arial,sans-serif;
+  font-size:.56rem;line-height:1.25;color:rgba(255,255,255,.85);text-shadow:0 1px 2px rgba(0,0,0,.7);text-align:right;pointer-events:none}
+.pm-mapwrap .img-attr{top:auto;bottom:4px;right:6px}
+.img-card .set-sub{margin:4px 0 10px}
+.img-status{display:inline-block;font-family:system-ui,-apple-system,'Segoe UI',Arial,sans-serif;font-size:.78rem;font-weight:700;color:var(--muted);
+  background:var(--bg2);border-radius:14px;padding:4px 10px;margin-bottom:10px}
+.img-status.on{color:var(--green);background:var(--green-pale)}
+.img-row{display:flex;gap:8px;flex-wrap:wrap}
+.img-row .cf-name{flex:1;min-width:200px}
+.img-test{margin-top:8px;font-size:.78rem;color:var(--muted);display:flex;align-items:center;gap:10px}
+.img-test img{border-radius:8px}
+.img-test.ok{color:var(--green)} .img-test.bad{color:var(--gold)}

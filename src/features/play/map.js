@@ -178,7 +178,7 @@ function pmMapHTML(h, r){
        :placing?`<div class="pm-place-banner">Shot ${window.pmPlacing+1}: tap or drag on the hole
           <b>${PM_LIE_NAME[Sx[window.pmPlacing].lie]||''} \u00b7 ${Sx[window.pmPlacing].yd==null?'\u2014':(Sx[window.pmPlacing].lie==='green'?ftNum(Sx[window.pmPlacing].yd*3)+' '+ftUnit():ydNum(Sx[window.pmPlacing].yd)+' '+ydUnit())}</b>
           <button type="button" onclick="pmShotPlaceDone()">Done</button></div>`:fmb}
-      <div class="pm-map" id="pm-map">${renderHoleSVG(h,{viewBox:box, overlay:ov})}</div>
+      <div class="pm-map" id="pm-map">${renderHoleSVG(h,{viewBox:box, pxW:vw, overlay:ov})}</div>${typeof imgAttrHTML==='function'?imgAttrHTML(h):''}
       <div class="pm-src pm-src-float">${pmSrcText(h,pos)}${gpsBtn}</div>
       ${T?`<button type="button" class="pm-clear" onclick="pmClearTarget()" aria-label="Clear the measured spot">\u2715 target</button>`:
          `<div class="pm-hint">Tap the hole to measure${strat?' and score a shot':''}</div>`}

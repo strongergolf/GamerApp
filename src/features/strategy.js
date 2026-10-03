@@ -745,7 +745,8 @@ function stratStepHole(d){
 const STRAT_LAYERS = [
   {key:'disp',  label:'Dispersion', def:true},
   {key:'cover', label:'Cover',      def:false},
-  {key:'pin',   label:'Pin',        def:false}
+  {key:'pin',   label:'Pin',        def:false},
+  {key:'photo', label:'Photo',      def:true}     /* only offered with an imagery key — see imgKey */
 ];
 function stratLayers(){
   STATE.strategy=STATE.strategy||{};
@@ -770,8 +771,10 @@ function stratZoomGreen(hole){
   const g=hole&&hole.green; if(!g||g.length<3) return false;
   let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;
   g.forEach(p=>{ if(p.x<x0)x0=p.x; if(p.x>x1)x1=p.x; if(p.y<y0)y0=p.y; if(p.y>y1)y1=p.y; });
-  const span=Math.max(x1-x0, (y1-y0)*CF_W/CF_H, 40)*1.9;   // margin so the surrounds show
-  window.stratView={ cx:(x0+x1)/2, cy:(y0+y1)/2, z:Math.max(1, Math.min(STRAT_ZMAX, CF_W/span)) };
+  /* zoom is relative to the hole's own frame (stratHoleBox), not the whole field */
+  const B=stratHoleBox(hole);
+  const span=Math.max(x1-x0, (y1-y0)*B.w/B.h, 40)*1.9;   // margin so the surrounds show
+  window.stratView={ cx:(x0+x1)/2, cy:(y0+y1)/2, z:Math.max(1, Math.min(STRAT_ZMAX, B.w/span)) };
   return true;
 }
 function stratPinMode(on){
@@ -1965,7 +1968,7 @@ function buildHoleOverlay(){
                : prog ? `${escapeHtml(prog.name)}: middle` : 'pin: middle';
   const t2x = ` · ${pinTxt}${ballWhere}`;
   const title = head.replace('<span class="ho-t2-x" id="ho-t2-x"></span>', `<span class="ho-t2-x">${t2x}</span>`);
-  const layers=`<div class="ho-layers ho-float-bl" role="group" aria-label="Map layers">${STRAT_LAYERS.map(l=>
+  const layers=`<div class="ho-layers ho-float-bl" role="group" aria-label="Map layers">${STRAT_LAYERS.filter(l=>l.key!=='photo'||(typeof imgKey==='function'&&(imgKey()||window.sgImageryUrlOverride))&&hole.geo).map(l=>
       `<button type="button" class="ho-chip${L[l.key]?' on':''}" aria-pressed="${!!L[l.key]}" onclick="stratToggleLayer('${l.key}')">${l.label}</button>`).join('')}</div>`;
   /* The stepper: which shot of the plan you are looking at. Not a tap on the map — any touch
      there is an aim drag, and a tap that sometimes selects and sometimes aims is worse than a
@@ -2013,7 +2016,7 @@ function buildHoleOverlay(){
   wrap.innerHTML=title+`
     ${L.pin?`<div class="ho-pin">${pinRow}</div>`:''}
     <div class="strat-hole-grid">
-      <div class="strat-hole-map" style="width:${size.w}px">${renderHoleSVG(hole,{viewBox:vbNow, overlay:`<g id="strat-overlay">${stratOverlay(hole,chains,n)}</g>`})}${layers}${zoomCtl}</div>
+      <div class="strat-hole-map" style="width:${size.w}px">${renderHoleSVG(hole,{viewBox:vbNow, pxW:size.w, overlay:`<g id="strat-overlay">${stratOverlay(hole,chains,n)}</g>`})}${layers}${zoomCtl}${typeof imgAttrHTML==='function'?imgAttrHTML(hole):''}</div>
       <div class="sh-side ho-sheet${open?' open':''}">
         ${sheetHead}
         ${size.phone&&!open?`<div class="ho-sum" onclick="stratToggleSheet()">${['O','S'].map(sumLine).join('')}</div>`:''}

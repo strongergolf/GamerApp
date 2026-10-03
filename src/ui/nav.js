@@ -130,6 +130,7 @@ function refreshAll(){
   buildProfile();
   if(typeof buildImport==='function') buildImport();
   buildMyData();
+  if(typeof buildImagery==='function') buildImagery();
   if(typeof buildEsCompareToggle==='function') buildEsCompareToggle();
   buildGames();
   buildRoundGames();

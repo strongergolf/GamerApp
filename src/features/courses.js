@@ -136,12 +136,24 @@ function renderHoleSVG(hole, opts){
   if(!hole) return `<svg viewBox="0 0 ${CF_W} ${CF_H}" style="width:100%;display:block"><rect width="${CF_W}" height="${CF_H}" fill="var(--bg2)"/></svg>`;
   const hz={sand:'#d9c98a', water:'#3a78c0', oob:'#b85c5c', trees:'#1e5c2f'};
   const bg = hole.bg ? `<image href="${hole.bg}" x="0" y="0" width="${CF_W}" height="${CF_H}" preserveAspectRatio="xMidYMid slice" opacity="${interactive?0.85:0.55}"/>` : '';
-  const fairway = cfPoly(hole.fairway,'#3fa45a','#2e7d44',0.85) + (hole.fairways||[]).map(f=>cfPoly(f,'#3fa45a','#2e7d44',0.85)).join('');
+  /* With an aerial photo under the hole (features/imagery.js) the photo IS the picture: the
+     mapped shapes become thin outlines over it, trees are left to the photo, and nothing the
+     model reads changes — lies, distances and strokes gained still come from these shapes. */
+  const photo = typeof imgOn==='function' && imgOn(hole);
+  const vbIn = opts.viewBox||{x:0,y:0,w:CF_W,h:CF_H};
+  const tiles = photo ? imgTilesSVG(hole, vbIn, opts.pxW) : '';
+  const line=(pts,col,op,dash)=>(!pts||pts.length<2)?'':`<polygon points="${pts.map(p=>p.x+','+p.y).join(' ')}" fill="none" stroke="${col}" stroke-width="1.5" vector-effect="non-scaling-stroke" opacity="${op}"${dash?' stroke-dasharray="6,5"':''}/>`;
+  const fairway = photo
+    ? line(hole.fairway,'#ffffff',0.35) + (hole.fairways||[]).map(f=>line(f,'#ffffff',0.35)).join('')
+    : cfPoly(hole.fairway,'#3fa45a','#2e7d44',0.85) + (hole.fairways||[]).map(f=>cfPoly(f,'#3fa45a','#2e7d44',0.85)).join('');
   /* the course's other teeing grounds, as outlines: the filled one is the tee in use */
   const boxes = (hole.teeBoxes||[]).filter(b=>!hole.tee||Math.hypot(b.x-hole.tee.x,b.y-hole.tee.y)>6)
     .map(b=>`<rect x="${b.x-7}" y="${b.y-7}" width="14" height="14" rx="3" fill="none" stroke="#fff" stroke-width="2" opacity="0.6"/>`).join('');
-  const green = cfPoly(hole.green,'#5ec77a','#2e7d44',0.95);
-  const hazards = (hole.hazards||[]).map(z=>cfPoly(z.pts,hz[z.type]||'#999',null,z.type==='oob'?0.5:0.85)).join('');
+  const green = photo ? line(hole.green,'#ffffff',0.6) : cfPoly(hole.green,'#5ec77a','#2e7d44',0.95);
+  const hzLine={sand:'#f6e7a8', water:'#8cc4ff', oob:'#ff8a8a'};
+  const hazards = photo
+    ? (hole.hazards||[]).filter(z=>z.type!=='trees').map(z=>line(z.pts,hzLine[z.type]||'#fff',0.7,z.type==='oob')).join('')
+    : (hole.hazards||[]).map(z=>cfPoly(z.pts,hz[z.type]||'#999',null,z.type==='oob'?0.5:0.85)).join('');
   const tee = hole.tee?`<rect x="${hole.tee.x-10}" y="${hole.tee.y-10}" width="20" height="20" rx="4" fill="#222" stroke="#fff" stroke-width="2"/>`:'';
   const _pin = (typeof cfPin==='function'?cfPin(hole):null)||hole.pin;   // today's cut, not the map anchor
   const pin = _pin?`<line x1="${_pin.x}" y1="${_pin.y}" x2="${_pin.x}" y2="${_pin.y-46}" stroke="#fff" stroke-width="2.5"/><polygon points="${_pin.x},${_pin.y-46} ${_pin.x+26},${_pin.y-38} ${_pin.x},${_pin.y-30}" fill="#d33"/><circle cx="${_pin.x}" cy="${_pin.y}" r="6" fill="#fff" stroke="#333"/>`:'';
@@ -159,7 +171,7 @@ function renderHoleSVG(hole, opts){
      The turf rect is oversized so panning never exposes the page behind it. */
   const vb=opts.viewBox||{x:0,y:0,w:CF_W,h:CF_H};
   return `<svg viewBox="${vb.x.toFixed(1)} ${vb.y.toFixed(1)} ${vb.w.toFixed(1)} ${vb.h.toFixed(1)}" ${click} xmlns="http://www.w3.org/2000/svg">
-    <rect x="${-CF_W}" y="${-CF_H}" width="${CF_W*3}" height="${CF_H*3}" fill="#2f7a3f"/>${bg}
+    <rect x="${-CF_W}" y="${-CF_H}" width="${CF_W*3}" height="${CF_H*3}" fill="#2f7a3f"/>${tiles}${bg}
     ${fairway}${green}${hazards}${boxes}${centerline}${(opts.overlay||'')}${tee}${pin}${draftSVG}
   </svg>`;
 }
