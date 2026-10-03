@@ -671,14 +671,24 @@ function stratViewBox(){
   const v=window.stratView, B=stratHoleBox(window.stratBoxHole);
   const w=B.w/v.z, h=B.h/v.z;
   if(v.cx==null||v.boxKey!==`${B.x}|${B.y}|${B.w}`){ v.cx=B.x+B.w/2; v.cy=B.y+B.h/2; v.boxKey=`${B.x}|${B.y}|${B.w}`; }
-  /* keep the hole on screen — the centre can only roam by what the zoom hides */
-  const mx=Math.max(0,(B.w-w)/2), my=Math.max(0,(B.h-h)/2);
-  const cx0=B.x+B.w/2, cy0=B.y+B.h/2;
-  v.cx=Math.max(cx0-mx, Math.min(cx0+mx, v.cx));
-  v.cy=Math.max(cy0-my, Math.min(cy0+my, v.cy));
+  /* keep the hole on screen — the centre can only roam by what the zoom hides. Not while the tee
+     is being moved: the real tee can sit outside the mapped hole's frame, and the view has to
+     be able to go and find it. */
+  if(!window.stratShot.teeMode){
+    const mx=Math.max(0,(B.w-w)/2), my=Math.max(0,(B.h-h)/2);
+    const cx0=B.x+B.w/2, cy0=B.y+B.h/2;
+    v.cx=Math.max(cx0-mx, Math.min(cx0+mx, v.cx));
+    v.cy=Math.max(cy0-my, Math.min(cy0+my, v.cy));
+  }
   return { x:v.cx-w/2, y:v.cy-h/2, w, h };
 }
 function stratResetView(){ window.stratView={cx:null, cy:null, z:1}; buildHoleOverlay(); }
+/* a view centred on a point of THIS hole. stratViewBox re-centres any view not stamped with the
+   current hole's frame, which is right after a hole change and wrong for a deliberate zoom. */
+function stratViewAt(hole, cx, cy, z){
+  const B=stratHoleBox(hole);
+  window.stratView={cx, cy, z:Math.max(STRAT_ZMIN, Math.min(STRAT_ZMAX, z)), boxKey:`${B.x}|${B.y}|${B.w}`};
+}
 /* the + and − on the map: zoom about the centre of what is on screen */
 function stratZoomBy(f){
   const v=window.stratView; const z=Math.max(STRAT_ZMIN, Math.min(STRAT_ZMAX, v.z*f));
@@ -774,12 +784,48 @@ function stratZoomGreen(hole){
   /* zoom is relative to the hole's own frame (stratHoleBox), not the whole field */
   const B=stratHoleBox(hole);
   const span=Math.max(x1-x0, (y1-y0)*B.w/B.h, 40)*1.9;   // margin so the surrounds show
-  window.stratView={ cx:(x0+x1)/2, cy:(y0+y1)/2, z:Math.max(1, Math.min(STRAT_ZMAX, B.w/span)) };
+  stratViewAt(hole, (x0+x1)/2, (y0+y1)/2, B.w/span);
   return true;
+}
+/* ---------- TEE MODE: put the tee where you actually play from ----------
+   The map's tee is wherever OpenStreetMap starts the hole, and sometimes that is simply wrong
+   (Vancouver GC's 1st starts back by the 18th). On the photo the right spot is obvious, so the
+   golfer drags the tee there. Dropped within STRAT_TEE_SNAP_YD of a mapped teeing ground it snaps
+   onto it. The tee is then the golfer's (src.tee='user'): a course-wide Back/Middle/Forward choice
+   leaves it alone, a refresh from the map carries it across, and plans made before it go stale. */
+const STRAT_TEE_SNAP_YD = 10;
+function stratTeeMode(on){
+  const cur=stratCurrent(); if(!cur) return;
+  const S=window.stratShot; S.teeMode=!!on; if(on) S.pinMode=false;
+  const t=cur.hole.tee;
+  if(on && t) stratViewAt(cur.hole, t.x, t.y, 2.5); else window.stratView={cx:null, cy:null, z:1};
+  buildHoleOverlay();
+}
+function stratSetTeeAt(p){
+  const cur=stratCurrent(); if(!cur||!p) return;
+  const h=cur.hole, ypu=cfYardsPerUnit(h)||1;
+  let q={x:Math.round(p.x), y:Math.round(p.y)};
+  const near=(h.teeBoxes||[]).map(b=>({b, d:Math.hypot(b.x-p.x,b.y-p.y)*ypu})).sort((a,b)=>a.d-b.d)[0];
+  if(near && near.d<=STRAT_TEE_SNAP_YD) q={x:near.b.x, y:near.b.y};
+  h.tee=q; h.src=Object.assign({}, h.src, {tee:'user'});
+  if(typeof cfPinCacheClear==='function') cfPinCacheClear();
+  window.stratCacheEpoch=(window.stratCacheEpoch||0)+1;
+  buildHoleOverlay();
+}
+/* back to the map's tee (or the course's chosen set of boxes) */
+function stratTeeReset(){
+  const cur=stratCurrent(); if(!cur) return;
+  const h=cur.hole, c=cur.course;
+  if(h.src) delete h.src.tee;
+  const t=(typeof cfTeeBoxFor==='function') ? cfTeeBoxFor(h, (c&&c.teeBox)||'line') : h.teeLine;
+  if(t) h.tee={x:t.x, y:t.y};
+  if(typeof cfPinCacheClear==='function') cfPinCacheClear();
+  window.stratCacheEpoch=(window.stratCacheEpoch||0)+1;
+  saveState(); stratTeeMode(false);
 }
 function stratPinMode(on){
   const cur=stratCurrent(); if(!cur) return;
-  window.stratShot.pinMode=!!on;
+  window.stratShot.pinMode=!!on; if(on) window.stratShot.teeMode=false;
   if(on){ if(!stratZoomGreen(cur.hole)) { window.stratShot.pinMode=false; toast('Trace this green first'); return; } }
   else { window.stratView={cx:CF_W/2, cy:CF_H/2, z:1}; }
   buildHoleOverlay();
@@ -2024,6 +2070,7 @@ function buildHoleOverlay(){
       <div class="ho-sheet-ctl">
         <button type="button" class="ho-icon${cmpOn?' on':''}" onclick="stratToggleCompare()" title="${cmpOn?'Stop scoring your line against the optimal one':'Score your line against the optimal one'}" aria-label="Compare" aria-pressed="${cmpOn}">⇄</button>
         <button type="button" class="ho-icon" onclick="stratResetAim()" title="Reset this hole to your strategy preferences" aria-label="Reset">↺</button>
+        <button type="button" class="ho-icon ho-tee-btn${S.teeMode?' on':''}" onclick="stratTeeMode(${!S.teeMode})" title="Move this hole's tee to where you play from" aria-pressed="${!!S.teeMode}">Tee</button>
         <button type="button" class="ho-icon ho-plan" onclick="stratPlanRound()" title="Build the round plan for this course in Play, with the lines you have dragged">Round plan${(()=>{ const n=stratAimsCount(course); return n?` <b>${n}</b>`:''; })()}</button>
         ${size.phone?`<button type="button" class="ho-expand" onclick="stratToggleSheet()" aria-expanded="${open}" aria-label="${open?'Collapse':'Expand'} details">${open?'▾':'▴'}</button>`:''}
       </div>
@@ -2047,7 +2094,10 @@ function buildHoleOverlay(){
   wrap.innerHTML=title+`
     ${L.pin?`<div class="ho-pin">${pinRow}</div>`:''}
     <div class="strat-hole-grid">
-      <div class="strat-hole-map" style="width:${size.w}px">${renderHoleSVG(hole,{viewBox:vbNow, pxW:size.w, overlay:`<g id="strat-overlay">${stratOverlay(hole,chains,n)}</g>`})}${layers}${zoomCtl}${typeof imgAttrHTML==='function'?imgAttrHTML(hole):''}</div>
+      <div class="strat-hole-map" style="width:${size.w}px">${renderHoleSVG(hole,{viewBox:vbNow, pxW:size.w, overlay:`<g id="strat-overlay">${stratOverlay(hole,chains,n)}</g>`})}${S.teeMode?`<div class="ho-banner">
+        <span>Drag the tee to where you play from${(hole.src&&hole.src.tee==='user')?' · <b>yours</b>':''}</span>
+        ${(hole.src&&hole.src.tee==='user')?`<button type="button" onclick="stratTeeReset()">Map's tee</button>`:''}
+        <button type="button" class="on" onclick="stratTeeMode(false)">Done</button></div>`:''}${layers}${zoomCtl}${typeof imgAttrHTML==='function'?imgAttrHTML(hole):''}</div>
       <div class="sh-side ho-sheet${open?' open':''}">
         ${sheetHead}
         ${size.phone&&!open?`<div class="ho-sum" onclick="stratToggleSheet()">${['O','S'].map(sumLine).join('')}</div>`:''}
@@ -2065,7 +2115,7 @@ function stratDragInit(wrap){
   if(!wrap||wrap._stratDrag) return; wrap._stratDrag=true;
   /* Anchors persist, but writing the whole STATE to storage 20 times a second while a finger
      is down would stutter — so mark the drag dirty and commit it when the finger lifts. */
-  let mode=null, last=0, panFrom=null, anchorDirty=false, aimDirty=false;
+  let mode=null, last=0, panFrom=null, anchorDirty=false, aimDirty=false, teeDirty=false;
   /* TOUCH: fingers down, by pointer id. A single touch waits ('pending') until it moves or
      lifts before it aims, so a second finger arriving makes it a PINCH instead of moving the
      shot. A pinch zooms about the point between the fingers and pans with them; mid-pinch only
@@ -2087,7 +2137,8 @@ function stratDragInit(wrap){
     const p=ptOf(e); if(!p) return;
     const now=Date.now(); if(!force && now-last<50) return; last=now;
     const S=window.stratShot, n=S.shotNum;
-    /* In pin mode the drag is placing the flag, not aiming a shot. */
+    /* In pin mode the drag is placing the flag, not aiming a shot; in tee mode, the tee. */
+    if(S.teeMode){ stratSetTeeAt(p); teeDirty=true; return; }
     if(S.pinMode){ if(typeof stratSetPinAt==='function') stratSetPinAt(p); return; }
     if(S.active==='O') return;                       // the optimiser's line is not draggable
     /* One drag target at a time, and the panel says which: an anchored shot's finish is the
@@ -2165,7 +2216,7 @@ function stratDragInit(wrap){
     /* a touch that never moved is a tap: the shot goes where it was tapped */
     if(mode==='pending'){ mode=(e.type==='pointerup'&&!(window.stratShot.active==='O'&&!window.stratShot.pinMode))?'aim':null; panFrom=null; }
     if(!mode) return; if(mode==='aim') setAim(e,true); mode=null; panFrom=null;
-    if(anchorDirty||aimDirty){ anchorDirty=false; aimDirty=false; stratAimsPrune(); saveState(); } };
+    if(anchorDirty||aimDirty||teeDirty){ anchorDirty=false; aimDirty=false; teeDirty=false; stratAimsPrune(); saveState(); } };
   /* ...and the browser menu must not open on top of the pan it just started. */
   wrap.addEventListener('contextmenu',e=>{ if(e.target.closest&&e.target.closest('.strat-hole-map')) e.preventDefault(); });
   wrap.addEventListener('pointerup',end);
@@ -2208,5 +2259,5 @@ Object.assign(window, { stratScrollToTitle, stratMapSize, stratStepHole, stratLa
   stratPinSheetHoles, stratPinZone, stratPinThumbClick, stratSheetPaces, stratSheetClearHole, stratPinSheetGrid,
   ROUND_METHODS, ROUND_RES, stratRoundHole, stratRound, stratRoundTable,
   stratSheetSet, stratSheetDelete, stratSheetProgress,
-  stratShotSVG, stratOverlay, stratDragInit, stratZoomBy, stratCoursePickHTML, stratPickCourse, STRAT_CORRIDOR_YD, STRAT_MISS_YD, STRAT_END_YD, stratAimsFor, stratBindAims, stratAimsPrune, stratAimsCount, stratPlanRound
+  stratShotSVG, stratOverlay, stratDragInit, stratZoomBy, stratViewAt, STRAT_TEE_SNAP_YD, stratTeeMode, stratSetTeeAt, stratTeeReset, stratCoursePickHTML, stratPickCourse, STRAT_CORRIDOR_YD, STRAT_MISS_YD, STRAT_END_YD, stratAimsFor, stratBindAims, stratAimsPrune, stratAimsCount, stratPlanRound
 });

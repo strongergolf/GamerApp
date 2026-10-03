@@ -63,6 +63,7 @@ function csRefresh(c, fresh){
     const os=oh.src||{}, ns=nh.src||{}, h=Object.assign({}, nh), src=Object.assign({}, ns);
     ['par','yards'].forEach(k=>{ if(os[k]==='user' || ns[k]!=='map'){ if(oh[k]!=null) h[k]=oh[k]; src[k]=os[k]||'user'; } });
     if(oh.si!=null && (os.si!=='map' || nh.si==null)){ h.si=oh.si; src.si=os.si||'user'; }
+    if(os.tee==='user' && oh.tee){ const q=f?f(oh.tee):null; h.tee=q?{x:Math.round(q.x), y:Math.round(q.y)}:oh.tee; src.tee='user'; }
     h.src=src;
     Object.keys(oh).forEach(k=>{ if(!(k in h) && !CS_GEOM.has(k)) h[k]=oh[k]; });
     out.push(h);

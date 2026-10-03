@@ -1006,7 +1006,7 @@ function cfTeeBoxFor(h, set){
 function cfSetTeeBoxOn(c, set){
   if(!c) return;
   c.teeBox=set;
-  (c.holes||[]).forEach(h=>{ const t=cfTeeBoxFor(h, set); if(t) h.tee={x:t.x, y:t.y}; });
+  (c.holes||[]).forEach(h=>{ if(h.src&&h.src.tee==='user') return; const t=cfTeeBoxFor(h, set); if(t) h.tee={x:t.x, y:t.y}; });
   cfPinCacheClear();
 }
 function cfSetTeeBox(set){ const c=cfCur(); if(!c) return; cfSetTeeBoxOn(c, set); saveState(); buildCourses(); if(typeof buildCourseStrategy==='function') buildCourseStrategy(); }

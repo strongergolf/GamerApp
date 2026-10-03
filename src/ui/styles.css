@@ -2583,3 +2583,13 @@ body.theme-dark .sg-src{color:#79e08d}
   background-position:calc(100% - 13px) 55%,calc(100% - 9px) 55%;background-size:4px 4px;background-repeat:no-repeat}
 .ho-course:hover{border-color:var(--ink2)}
 .ho-plan{white-space:nowrap}
+/* tee mode: a banner across the top of the map while the tee is being moved */
+.ho-banner{position:absolute;top:8px;left:8px;right:8px;z-index:3;display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  padding:8px 10px 8px 14px;border-radius:14px;background:rgba(12,35,64,.88);color:#f4f0e8;
+  font-family:system-ui,-apple-system,'Segoe UI',Arial,sans-serif;font-size:.8rem;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.ho-banner span{flex:1;min-width:150px}
+.ho-banner b{color:#79e08d}
+.ho-banner button{border:1px solid rgba(255,255,255,.35);background:transparent;color:#f4f0e8;border-radius:16px;padding:6px 12px;
+  font-family:inherit;font-size:.78rem;font-weight:700;cursor:pointer}
+.ho-banner button.on{background:#f4f0e8;color:#0C2340;border-color:transparent}
+.ho-tee-btn{font-size:.78rem;font-weight:700}

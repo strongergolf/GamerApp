@@ -28,7 +28,8 @@ function pmPlanStamp(c){
   const bag=(typeof aimClubs==='function'?aimClubs():[]).map(x=>`${x.id}:${Math.round(x.carry)}/${Math.round(x.total)}`).join(',');
   return [k, (c.holes||[]).length, typeof stratPosture==='function'?stratPosture():'',
           typeof stratSkillKey==='function'?stratSkillKey():'', sh?sh.id+JSON.stringify(sh.pins||{}):'-',
-          JSON.stringify(STATE.strategy||{}), bag, pmAimsStamp(c)].join('|');
+          JSON.stringify(STATE.strategy||{}), bag, pmAimsStamp(c),
+          (c.holes||[]).map(h=>h.tee?`${Math.round(h.tee.x)},${Math.round(h.tee.y)}`:'').join(';')].join('|');
 }
 /* the lines dragged on the Hole Overlay for this course, so a plan made before one changed says so */
 function pmAimsStamp(c){
