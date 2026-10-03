@@ -55,7 +55,7 @@ function pmOptimal(h, P){
   if(PM_OPT_CACHE.has(key)) return PM_OPT_CACHE.get(key);
   let out;
   try{
-    const res=optimiseShot(h, P, {posture:stratPosture(), hcp:PLAYER});
+    const res=optimiseShot(h, P, {posture:'balanced', hcp:PLAYER});   /* optimal = lowest expected score */
     if(res && !res.blocked && res.best){
       const aim={x:Math.round(res.best.aim.x), y:Math.round(res.best.aim.y)};
       out={ r:stratScoreShot(h, P, aim), res };
@@ -195,18 +195,12 @@ function pmSheetHTML(h, r, c){
   const open=!!window.pmSheetOpen;
   const n=v=>v==null?'\u2014':ydNum(v);
   const sgTxt=x=>x==null?'':`${x>=0?'+':''}${x.toFixed(2)}`;
-  const plan=(lbl,cls,q)=>{
-    if(!q) return '';
-    const left=q.sgActual?q.expAfter:q.mean;
-    return `<div class="pm-plan ${cls}"><span class="pm-plan-k">${lbl}</span>
-      <span class="pm-plan-club">${escapeHtml(q.shot&&q.shot.label||'')}</span>
-      <span class="pm-plan-v">${n(q.geoYd)}</span>
-      <span class="pm-plan-left">${left!=null?left.toFixed(2):'\u2014'}<i>left</i></span>
-      <span class="pm-plan-sg${q.sg!=null&&q.sg<0?' neg':''}">${sgTxt(q.sg)}<i>SG</i></span></div>`;
-  };
+  /* the same expected-results rows as the Plan page: hole score, where it finishes, what it leaves */
+  const shotN=(S.length||0)+1;
+  const plan=(lbl,cls,q)=> q ? stratOutcomeHTML(lbl, cls==='ln-O'?'O':'S', q, shotN) : '';
   const blockedTxt = c.opt&&c.opt.blocked ? ({chip:'Inside 20 \u2014 a chip or pitch', green:'On the green', penalty:'Take relief', range:'Out of range for the bag'}[c.opt.blocked]||'') : '';
-  const plans = c.strat ? `${c.opt&&c.opt.r?plan(c.opt.r.planMatches?'Optimal = yours':'Optimal','ln-O',c.opt.r):(blockedTxt?`<div class="pm-plan-note">${blockedTxt}</div>`:'')}
-      ${plan(c.mine&&c.mine.src==='target'?'Your target':'Your plan','ln-S',c.mine)}` : '';
+  const plans = c.strat ? `<div class="oc-list pm-oc">${c.opt&&c.opt.r?plan(c.opt.r.planMatches?'Optimal = plan':'Optimal','ln-O',c.opt.r):(blockedTxt?`<div class="pm-plan-note">${blockedTxt}</div>`:'')}
+      ${plan(c.mine&&c.mine.src==='target'?'Target':'Your plan','ln-S',c.mine)}</div>` : '';
   const scoreLine=`<button type="button" class="pm-score-line" onclick="pmToggleSheet()" aria-expanded="${open}">
       ${S.length&&!e.done?`<span>Shots so far <b>${S.length}</b></span>`:`<span>Score <b>${e.s!=null?e.s:'\u2014'}</b></span><span>Putts <b>${e.p!=null?e.p:'\u2014'}</b></span>`}
       <span class="pm-score-caret">${open?'\u25be':'\u25b4'}</span></button>`;

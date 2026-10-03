@@ -549,6 +549,7 @@ const CF_RUNWAY_MAX = 40, CF_RUNWAY_TYP = 0.65, CF_RUNWAY_K = 0.25;
 /* Yards a punch-out from the trees typically advances the ball — sideways to very slight
    progress. PRESUMED; the whole recovery model hangs off this one number. */
 const CF_RECOVERY_ADV = 25;
+const CF_TREES_NEAR_YD = 20, CF_TREES_FULL_YD = 60, CF_TREES_NEAR_FRAC = 0.35;   /* PRESUMED — see cfExpectedStrokes */
 function cfRunwayAdj(hole,pt,distYd){
   if(distYd==null||distYd>CF_RUNWAY_MAX) return 0;
   const run=cfRunwayYd(hole,pt); if(run==null) return 0;
@@ -563,7 +564,12 @@ function cfRunwayAdj(hole,pt,distYd){
    surface is rough. */
 /* Overlapping polygons resolve WORST-FIRST, which is also the order a golfer avoids them:
    out of bounds, penalty area, trees, bunker, then the surfaces. */
-const CF_LIE_ORDER=['oob','water','trees','sand'];
+/* Where shapes overlap, which one the ball is in. Mapped woods are coarse and often spill over
+   the edge of a fairway or green; a ball on mown grass is not in the trees. So: out of bounds,
+   water and bunkers first (a bunker cut into a fairway is a bunker), then the green, then the
+   fairway, then the trees, and anything else is rough. (Trees used to come before green and
+   fairway, so a woods polygon overlapping a green turned part of the green into trees.) */
+const CF_LIE_ORDER=['oob','water','sand'];
 function cfLieAt(hole,pt){
   if(!hole||!pt) return 'rough';
   const hz=hole.hazards||[];
@@ -573,6 +579,7 @@ function cfLieAt(hole,pt){
   }
   if(cfPointInPoly(pt,hole.green)) return 'green';
   if(cfPointInPoly(pt,hole.fairway) || (hole.fairways||[]).some(f=>cfPointInPoly(pt,f))) return 'fairway';
+  for(let i=0;i<hz.length;i++) if(hz[i].type==='trees' && cfPointInPoly(pt,hz[i].pts)) return 'trees';
   return 'rough';
 }
 /* The lie a SHOT is played from, which is not always the lie the map reports. Teeing grounds
@@ -654,7 +661,17 @@ function cfExpectedStrokes(hole,pt,hcp,lieOverride){
                       should assume. */
   if(lie==='oob')   { const sr=srForPlayer('rough',Math.max(15,d),h); return sr==null?null:2+sr; }
   if(lie==='water') { const sr=srForPlayer('rough',Math.max(15,d),h); return sr==null?null:1+sr; }
-  if(lie==='trees') { const sr=srForPlayer('rough',Math.max(15,d-CF_RECOVERY_ADV),h); return sr==null?null:1+sr; }
+  if(lie==='trees') {
+    /* Far from the green, trees cost the full punch-out. Near it they do not: under the trees
+       beside a green there is still a chip or a pitch, just a harder one. PRESUMED taper: the
+       extra over rough is CF_TREES_NEAR_FRAC of the full punch-out inside CF_TREES_NEAR_YD of
+       the pin, rising linearly to all of it at CF_TREES_FULL_YD. */
+    const full=srForPlayer('rough',Math.max(15,d-CF_RECOVERY_ADV),h), rough=srForPlayer('rough',Math.max(1,d),h);
+    if(full==null) return null;
+    const f=d<=CF_TREES_NEAR_YD ? CF_TREES_NEAR_FRAC : d>=CF_TREES_FULL_YD ? 1
+          : CF_TREES_NEAR_FRAC+(1-CF_TREES_NEAR_FRAC)*(d-CF_TREES_NEAR_YD)/(CF_TREES_FULL_YD-CF_TREES_NEAR_YD);
+    return rough==null ? 1+full : rough+f*Math.max(0, 1+full-rough);
+  }
   const sgLie=cfSgLie(lie);
   const base=srForPlayer(sgLie, sgLie==='green'?Math.max(1,d*3):Math.max(1,d), h);
   if(base==null) return null;
@@ -1090,7 +1107,7 @@ Object.assign(window, {
   cfClearFeature, cfLoadBg, cfClearBg, renderHoleSVG, buildCourses, cfModeHint, cfRefreshCanvas,
   cfYardsPerUnit, cfHasScale, cfDistYd, cfDistToPinYd, cfDistFromTeeYd,
   cfFieldToLatLon, cfLatLonToField, cfPointInPoly, cfDistPtSeg, cfDistToPoly,
-  cfLieAt, cfShotLie, cfCarryLie, CF_TEE_TOL, cfSgLie, cfIsPenalty, cfIsRecovery, CF_LIE_LABEL, CF_LIE_ORDER, CF_RECOVERY_ADV,
+  cfLieAt, cfShotLie, cfCarryLie, CF_TEE_TOL, cfSgLie, cfIsPenalty, cfIsRecovery, CF_LIE_LABEL, CF_LIE_ORDER, CF_RECOVERY_ADV, CF_TREES_NEAR_YD, CF_TREES_FULL_YD, CF_TREES_NEAR_FRAC,
   osmSpanM, osmTreeCircle, cfDistToHazardYd, cfHcp,
   cfSegHit, cfSegPolyFirstHit, cfSegPolyAllHits, cfHazardSpan, cfCoverNumbers, CF_COVER_TYPES, cfRunwayYd, cfRunwayAdj, CF_RUNWAY_MAX,
   cfExpectedStrokes, cfShotContext,

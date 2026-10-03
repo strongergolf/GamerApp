@@ -2620,3 +2620,33 @@ body.theme-dark .sg-src{color:#79e08d}
 .mk-bar .mk-spread button{width:24px;padding:2px 0!important}
 .mk-hint2{display:none}
 @media (min-width:700px){ .mk-hint2{display:block} }
+
+/* ==================== EXPECTED RESULTS rows (stratOutcomeHTML): Plan page + Play map ==================== */
+.oc-list{display:flex;flex-direction:column;border:1px solid var(--border);border-radius:12px;background:var(--surface);overflow:hidden;margin-top:6px;cursor:pointer}
+.oc-row{padding:7px 12px 7px;font-family:system-ui,-apple-system,'Segoe UI',Arial,sans-serif;color:var(--ink)}
+.oc-row + .oc-row{border-top:1px solid var(--border)}
+.oc-top{display:flex;align-items:baseline;gap:6px;font-variant-numeric:tabular-nums}
+.oc-k{font-size:.78rem;font-weight:700;min-width:4.6rem}
+.ln-O .oc-k{color:var(--green)} .ln-S .oc-k{color:#a07a12}
+body.theme-dark .ln-S .oc-k{color:#f4d47a}
+.oc-club{font-size:.8rem;font-weight:700;color:var(--muted)}
+.oc-club small{font-weight:600;font-size:.68rem}
+.oc-yd{font-size:1.02rem;font-weight:800}
+.oc-u{font-size:.7rem;color:var(--muted)}
+.oc-over{font-size:.66rem;font-weight:700;color:var(--gold);margin-left:4px}
+.oc-exp{margin-left:auto;display:inline-flex;align-items:baseline;gap:3px}
+.oc-exp b{font-size:1.02rem;font-weight:800}
+.oc-exp i{font-style:normal;font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.oc-bar{display:flex;height:4px;border-radius:2px;overflow:hidden;margin:5px 0 3px;background:var(--bg2)}
+.oc-bar span{display:block;height:100%}
+.oc-sub{font-size:.72rem;color:var(--muted)}
+.oc-sub b{color:var(--ink);font-weight:700}
+.oc-dot{opacity:.5}
+.oc-none{font-size:.78rem;color:var(--muted)}
+/* the phone sheet: the rows ARE the collapsed answer */
+.ho-sum.oc-list{gap:0}
+/* Play: the rows sit in the sheet under the map */
+.pm-oc{margin:0 0 6px}
+.oc-top{flex-wrap:nowrap;white-space:nowrap;min-width:0}
+.oc-over{overflow:hidden;text-overflow:ellipsis;min-width:0}
+.oc-sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

@@ -30,6 +30,11 @@
    Rebuildable at runtime so the trade-off can be measured rather than guessed. */
 let AIM_NODES = 7, AIM_LIMIT = 2.4;
 let AIM_Z = [], AIM_W = [], AIM_WSUM = 0;
+/* The look-ahead (stratValueFn) scores an approach from hundreds of spots per hole; a 7x7
+   pattern is plenty for those averages and a third of the cost of the 11x11 one. */
+const AIM_Z7=[], AIM_W7=[];
+for(let i=0;i<7;i++){ const z=-2.4+4.8*i/6; AIM_Z7.push(z); AIM_W7.push(Math.exp(-z*z/2)); }
+const AIM_WSUM7=AIM_W7.reduce((a,b)=>a+b,0);
 function aimSetNodes(n, limit){
   AIM_NODES=Math.max(3, Math.min(41, Math.round(n)||7));
   AIM_LIMIT=limit||AIM_LIMIT;
@@ -177,15 +182,16 @@ function aimSamples(hole, from, aim, opt){
   const rho=aimRhoOf(slant+(opt.tiltDeg||0));
   const k=Math.sqrt(Math.max(0,1-rho*rho));
   const out=[];
-  for(let i=0;i<AIM_Z.length;i++) for(let j=0;j<AIM_Z.length;j++){
-    const el=AIM_Z[i], ed=AIM_Z[j]*sDist;          // el in sigmas, ed in yards
+  const Z=opt.coarse?AIM_Z7:AIM_Z, W=opt.coarse?AIM_W7:AIM_W, WS=opt.coarse?AIM_WSUM7:AIM_WSUM;
+  for(let i=0;i<Z.length;i++) for(let j=0;j<Z.length;j++){
+    const el=Z[i], ed=Z[j]*sDist;          // el in sigmas, ed in yards
     const dist=ed;
     /* +rho leans the pattern LEFT as it runs long; lateral is +right, hence the minus */
-    const lat=(-rho*AIM_Z[j] + k*el)*sLat;
+    const lat=(-rho*Z[j] + k*el)*sLat;
     const px=aim.x+(ux*lat+vx*dist)/ypu, py=aim.y+(uy*lat+vy*dist)/ypu;
     /* where it pitched: the finish pulled back down the shot line by this club's roll */
     const land=roll>0 ? { x:px-vx*roll/ypu, y:py-vy*roll/ypu } : null;
-    out.push({ pt:{x:px,y:py}, land, w:(AIM_W[i]*AIM_W[j])/(AIM_WSUM*AIM_WSUM) });
+    out.push({ pt:{x:px,y:py}, land, w:(W[i]*W[j])/(WS*WS) });
   }
   return out;
 }
@@ -228,12 +234,16 @@ function aimTail(rows, wsum, frac, fromWorst){
 /* Score one aim point over its whole landing distribution. */
 function aimScore(hole, from, aim, hcp, posture, opt){
   const s=aimSamples(hole,from,aim,opt); if(!s.length) return null;
-  let wsum=0, mean=0, pen=0, dsum=0; const rows=[], lieMix={};
+  let wsum=0, mean=0, pen=0, dsum=0; const rows=[], lieMix={}, dps=[];
   for(let i=0;i<s.length;i++){
     const lie=cfCarryLie(hole, s[i].land, s[i].pt), w=s[i].w;
-    const e=cfExpectedStrokes(hole,s[i].pt,hcp,lie); if(e==null) continue;
+    /* the look-ahead, where the caller supplies one: strokes to finish from this spot by playing
+       the next shot for real (stratValueFn); otherwise the expected-strokes table */
+    let e=(opt&&opt.valueFn)?opt.valueFn(s[i].pt, lie):null;
+    if(e==null) e=cfExpectedStrokes(hole,s[i].pt,hcp,lie);
+    if(e==null) continue;
     mean+=e*w; wsum+=w; if(cfIsPenalty(lie)) pen+=w;
-    const dp=cfDistToPinYd(hole,s[i].pt); if(dp!=null) dsum+=dp*w;   // where it leaves you
+    const dp=cfDistToPinYd(hole,s[i].pt); if(dp!=null){ dsum+=dp*w; dps.push({d:dp,w}); }   // where it leaves you
     lieMix[lie]=(lieMix[lie]||0)+w;
     rows.push({e,w});
   }
@@ -248,8 +258,13 @@ function aimScore(hole, from, aim, hcp, posture, opt){
   const best25=aimTail(rows,wsum,0.25,false)??mean, worst25=aimTail(rows,wsum,0.25,true)??mean;
   Object.keys(lieMix).forEach(k=>{ lieMix[k]=lieMix[k]/wsum; });
   const avoid=aimAvoidance(lieMix);
+  /* WHAT IT LEAVES, as a range: the distance to the pin at the 10th, 25th, 50th, 75th and 90th
+     percentile of where the pattern finishes. "Leaves 105-135" is the middle half of your shots. */
+  dps.sort((a,b)=>a.d-b.d);
+  const dw=dps.reduce((a,b)=>a+b.w,0), qAt=f=>{ let acc=0; for(const x of dps){ acc+=x.w; if(acc>=f*dw) return x.d; } return dps.length?dps[dps.length-1].d:null; };
+  const leaveQ = dps.length ? {p10:qAt(0.10), p25:qAt(0.25), p50:qAt(0.5), p75:qAt(0.75), p90:qAt(0.90)} : null;
   return { aim, mean, best25, worst25, variance, sd:Math.sqrt(variance),
-           penaltyRate:pen/wsum, lieMix, avoid, avgToPin,
+           penaltyRate:pen/wsum, lieMix, avoid, avgToPin, leaveQ,
            recoveryRate:lieMix.trees||0, greenRate:lieMix.green||0,
            score:aimObjective(mean,best25,worst25,posture)+AIM_AVOID_EPS*avoid };
 }
@@ -332,8 +347,11 @@ function approachShotName(effYd){
     }
   }
   if(!out){
-    let best=null,bd=1e9;
-    aimClubs().forEach(c=>{ const d=Math.abs(c.total-effYd); if(d<bd){bd=d;best=c;} });
+    /* Beyond the Approach tab's window: the SHORTEST club whose full total gets there. The old
+       nearest-club rule named a 3-wood (265) for a 282-yard shot it could not reach. */
+    const C=aimClubs(); let best=null;
+    C.forEach(c=>{ if(c.total>=effYd-0.5 && (!best || c.total<best.total)) best=c; });
+    if(!best && C.length) best=C[0];
     out = best?{id:best.id, label:best.label, detail:'full swing', effort:null}
               :{id:null, label:'—', detail:'', effort:null};
   }
@@ -487,6 +505,109 @@ function shotZ(r, ctx){
   return (ctx.budget-mu)/sd;
 }
 
+/* ---------- THE LOOK-AHEAD: what a spot is really worth ----------
+   A tee shot (or a lay-up) is not finished when it lands. Its value is the expected score for
+   the rest of the HOLE from there, and the rest of the hole is the next shot: from anywhere the
+   middle of the green is in range, Mark's rule is that shot aims at the middle of the green.
+   So each spot's value is that approach played for real — your club for the distance and lie,
+   your dispersion pattern, landing on green, fringe, bunker, water or trees at their real odds —
+   plus one for the approach itself. Out of range, in trouble, or inside 20 yd, it is the
+   expected-strokes table as before.
+
+   Computed on a grid of nodes STRAT_V_STEP_YD apart, lazily (only the nodes the samples touch)
+   and cached per hole until anything changes. Interpolation uses only nodes in the SAME lie as
+   the sample, so a fairway ball next to the trees is not charged for the trees. */
+/* bumped when the optimiser's answer changes, so plans made by an older engine say so */
+const STRAT_ENGINE = 4;
+const STRAT_V_STEP_YD = 6;
+let STRAT_V = new WeakMap();
+function stratValueFn(hole, hcp){
+  const ypu=cfYardsPerUnit(hole), mid=(typeof cfGreenMid==='function'?cfGreenMid(hole):null)||cfPin(hole);
+  if(ypu==null||!mid) return null;
+  const hk=(hcp&&typeof hcp==='object')?'P':String(hcp);
+  const key=(window.stratCacheEpoch||0)+'|'+hk;
+  let H=STRAT_V.get(hole); if(!H||H.key!==key){ H={key, nodes:new Map()}; STRAT_V.set(hole,H); }
+  const clubs=aimClubs().filter(c=>!stratIsDriver(c)); if(!clubs.length) return null;
+  const longest=clubs[0].total, step=STRAT_V_STEP_YD/ypu;
+  const node=(i,j)=>{
+    const k=i+','+j; let n=H.nodes.get(k); if(n) return n;
+    const p={x:i*step, y:j*step}, lie=cfShotLie(hole,p);
+    let v=null;
+    if(!cfIsPenalty(lie) && !cfIsRecovery(lie) && lie!=='green'){
+      const d=Math.hypot(mid.x-p.x, mid.y-p.y)*ypu, cost=approachLieCostYd(lie), eff=d+cost;
+      if(d>=20 && eff<=longest){
+        const mult=APPROACH_LIE[lie]||APPROACH_LIE.fairway;
+        const r=aimScore(hole,p,mid,hcp,'balanced',Object.assign({sigmaYd:eff, latMult:mult.lat, depthMult:mult.depth, coarse:true}, aimShotSig(eff)));
+        if(r) v=1+r.mean+stratCal(hole,p,lie,hcp);      /* on the table's level; see stratCal */
+      }
+    }
+    if(v==null) v=cfExpectedStrokes(hole,p,hcp,lie);
+    n={v, lie}; H.nodes.set(k,n); return n;
+  };
+  return (pt, lie)=>{
+    if(!pt || lie==='green' || cfIsPenalty(lie) || cfIsRecovery(lie)) return null;
+    const fx=pt.x/step, fy=pt.y/step, i=Math.floor(fx), j=Math.floor(fy), tx=fx-i, ty=fy-j;
+    const N=[[node(i,j),(1-tx)*(1-ty)],[node(i+1,j),tx*(1-ty)],[node(i,j+1),(1-tx)*ty],[node(i+1,j+1),tx*ty]];
+    let v=0, w=0; N.forEach(([n,wt])=>{ if(n && n.v!=null && n.lie===lie){ v+=n.v*wt; w+=wt; } });
+    return w>=0.15 ? v/w : null;          /* no node of this lie close enough: the table decides */
+  };
+}
+/* The clubs you can hit from HERE: the driver only off the tee. (aimClubs() is the whole bag;
+   it let the optimiser reach par 5s in two with driver off the fairway.) */
+function stratIsDriver(c){
+  const d=(typeof bagDriver==='function')?bagDriver():null;
+  return d ? d.id===c.id : (c.label==='D' || /driver/i.test(c.label||''));
+}
+function stratClubsFrom(hole, from){
+  const C=aimClubs();
+  const onTee=hole&&hole.tee&&from&&Math.abs(from.x-hole.tee.x)<CF_TEE_TOL&&Math.abs(from.y-hole.tee.y)<CF_TEE_TOL;
+  return onTee ? C : C.filter(c=>!stratIsDriver(c));
+}
+/* ---------- CALIBRATION: the level comes from the data, the hole's character from the look-ahead ----------
+   Played for real, an approach is scored on YOUR dispersion pattern (a clean +3 pattern, no
+   mishits) to a pin in the middle of the green. Both are kinder than real golf — real pins move,
+   real swings mishit — so the raw look-ahead reads every hole 0.1-0.3 easier than the scoring
+   data the expected-strokes table is built from (University GC: 64.1 against the table's 67.9 for
+   a +2). The comparison between options was right; the level was not.
+
+   So a spot's value is the TABLE's value there, plus how much harder (or easier) THIS green and
+   what surrounds it play than a plain reference green with nothing around it, both played with
+   the same pattern from the same distance and lie:
+       V(p) = table(p) + [ approach here(p) - approach on the reference green(d, lie) ]
+   What the two share (the middle pin, the clean pattern) cancels; what is particular to this hole
+   (trees to the green, a fronting bunker, a small green, a wide one) is what is left.
+   The reference green: 32 deep x 26 wide, about 650 sq yd, a typical green. PRESUMED. */
+const STRAT_REF_GREEN = { deep:32, wide:26 };
+let STRAT_REF_HOLE = null;
+function stratRefHole(){
+  if(STRAT_REF_HOLE) return STRAT_REF_HOLE;
+  const pts=[]; for(let a=0;a<360;a+=15){ const t=a*Math.PI/180; pts.push({x:Math.cos(t)*STRAT_REF_GREEN.wide/2, y:Math.sin(t)*STRAT_REF_GREEN.deep/2}); }
+  return (STRAT_REF_HOLE={ num:0, par:4, scaleYpu:1, tee:{x:0,y:600}, pin:{x:0,y:0}, green:pts, fairway:[], hazards:[] });
+}
+const STRAT_A0 = new Map();
+/* the approach on the reference green, from d yards on this lie (coarse pattern, cached) */
+function stratA0(d, lie, hcp){
+  const hk=(hcp&&typeof hcp==='object')?'P':String(hcp), dd=Math.max(20, Math.round(d/4)*4);
+  const key=(window.stratCacheEpoch||0)+'|'+hk+'|'+lie+'|'+dd;
+  if(STRAT_A0.has(key)) return STRAT_A0.get(key);
+  if(STRAT_A0.size>4000) STRAT_A0.clear();
+  const ref=stratRefHole(), cost=approachLieCostYd(lie), eff=dd+cost, mult=APPROACH_LIE[lie]||APPROACH_LIE.fairway;
+  const r=aimScore(ref, {x:0,y:dd}, {x:0,y:0}, hcp, 'balanced', Object.assign({sigmaYd:eff, latMult:mult.lat, depthMult:mult.depth, coarse:true}, aimShotSig(eff)));
+  const v=r?1+r.mean:null; STRAT_A0.set(key, v); return v;
+}
+/* the calibration at a spot: the table's value less the reference approach's — added to a
+   raw look-ahead value, it puts that value on the table's level */
+function stratCal(hole, p, lie, hcp){
+  const d=cfDistToPinYd(hole,p), t=cfExpectedStrokes(hole,p,hcp,lie), a0=d!=null?stratA0(d, lie, hcp):null;
+  return (t!=null && a0!=null) ? t-a0 : 0;
+}
+/* Whether the middle of the green is in range from here, on this lie, with your longest club */
+function stratReaches(hole, from){
+  const ypu=cfYardsPerUnit(hole), mid=(typeof cfGreenMid==='function'?cfGreenMid(hole):null)||cfPin(hole);
+  const clubs=stratClubsFrom(hole, from); if(ypu==null||!mid||!clubs.length||!from) return false;
+  const lie=cfShotLie(hole,from); if(cfIsRecovery(lie)) return false;
+  return Math.hypot(mid.x-from.x, mid.y-from.y)*ypu + approachLieCostYd(lie) <= clubs[0].total;
+}
 function optimiseShot(hole, from, opts){
   opts=opts||{};
   const ypu=cfYardsPerUnit(hole); if(ypu==null||!from||!cfPin(hole)) return null;
@@ -499,11 +620,12 @@ function optimiseShot(hole, from, opts){
   const hcp=cfHcp(opts.hcp), posture=opts.posture||'balanced';
   const mult=APPROACH_LIE[lie]||APPROACH_LIE.fairway;
   const cost=approachLieCostYd(lie);
-  const clubs=aimClubs(); if(!clubs.length) return null;
+  const clubs=stratClubsFrom(hole, from); if(!clubs.length) return null;
   const longest=Math.max.apply(null, clubs.map(c=>c.total));
   const recovery=cfIsRecovery(lie);
+  /* never past what your longest club totals, in standard conditions — your stock numbers */
   const maxGeo = recovery ? Math.min(SHOT_RECOVERY_MAX_YD, toPin+10)
-                          : Math.min(Math.max(30,longest-cost)+10, toPin+25);
+                          : Math.min(Math.max(30,longest-cost), toPin+25);
   const minGeo = Math.min(recovery?15:25, maxGeo);
   const dx=cfPin(hole).x-from.x, dy=cfPin(hole).y-from.y, L=Math.hypot(dx,dy)||1;
   const vx=dx/L, vy=dy/L, ux=-vy, uy=vx;
@@ -520,18 +642,38 @@ function optimiseShot(hole, from, opts){
 
      So the two aims every golfer actually considers — the flag, and the middle of the green
      — are added as explicit POINTS, not as distances paired with a coarse lateral grid. */
+  /* THE CANDIDATES (2026-10-03, Mark's rules):
+       in range of the green  -> the middle of the green, and nothing else: the shot into the
+                                  green aims at the middle (the second shot on a par 4, the tee
+                                  shot on a par 3, a par 5 you can reach in two)
+       out of range           -> each of your clubs at its REAL full distance (total, less what
+                                  the lie costs), across a sideways sweep; scored with the
+                                  look-ahead, so the winner is the lowest expected score for the
+                                  hole, not the nicest-looking spot
+       from the trees          -> the punch-out sweep, as before */
   const cand=[];
-  for(let i=0;i<=SHOT_ALONG_STEPS;i++){
-    const along=minGeo+(maxGeo-minGeo)*i/SHOT_ALONG_STEPS;
-    for(let lat=-SHOT_LAT_MAX; lat<=SHOT_LAT_MAX; lat+=SHOT_LAT_STEP)
-      cand.push({ x:from.x+(vx*along+ux*lat)/ypu, y:from.y+(vy*along+uy*lat)/ypu });
+  const midG=(typeof cfGreenMid==='function'?cfGreenMid(hole):null)||cfPin(hole);
+  /* the middle-of-the-green rule is for the shot INTO the green: never the tee shot on a par 4
+     or 5, even a driveable one (that is optimised like any tee shot); always on a par 3 */
+  const onTee=hole.tee&&Math.abs(from.x-hole.tee.x)<CF_TEE_TOL&&Math.abs(from.y-hole.tee.y)<CF_TEE_TOL;
+  const reach=!opts.noMidRule && (!onTee || (+hole.par||4)<=3) && stratReaches(hole, from);
+  if(reach){
+    cand.push({x:midG.x, y:midG.y, mid:true});
+  } else if(recovery){
+    for(let i=0;i<=SHOT_ALONG_STEPS;i++){
+      const along=minGeo+(maxGeo-minGeo)*i/SHOT_ALONG_STEPS;
+      for(let lat=-SHOT_LAT_MAX; lat<=SHOT_LAT_MAX; lat+=SHOT_LAT_STEP)
+        cand.push({ x:from.x+(vx*along+ux*lat)/ypu, y:from.y+(vy*along+uy*lat)/ypu });
+    }
+  } else {
+    clubs.forEach(c=>{
+      const along=c.total-cost;
+      if(along<minGeo || along>toPin+25) return;
+      for(let lat=-SHOT_LAT_MAX; lat<=SHOT_LAT_MAX; lat+=SHOT_LAT_STEP)
+        cand.push({ x:from.x+(vx*along+ux*lat)/ypu, y:from.y+(vy*along+uy*lat)/ypu, club:c });
+    });
   }
-  const named=[cfPin(hole), (typeof cfGreenMid==='function')?cfGreenMid(hole):null];
-  named.forEach(p=>{
-    if(!p) return;
-    const d=Math.hypot(p.x-from.x,p.y-from.y)*ypu;
-    if(d>=minGeo && d<=maxGeo) cand.push({x:p.x, y:p.y});
-  });
+  const valueFn = reach ? null : stratValueFn(hole, hcp);
   const results=[];
   for(let i=0;i<cand.length;i++){
     {
@@ -539,15 +681,21 @@ function optimiseShot(hole, from, opts){
       const geo=Math.hypot(aim.x-from.x,aim.y-from.y)*ypu;
       const along=geo, lat=((aim.x-from.x)*ux+(aim.y-from.y)*uy)*ypu;
       const eff=geo+cost;
-      if(eff>longest+10) continue;
-      const r=aimScore(hole,from,aim,hcp,posture,Object.assign({sigmaYd:eff,latMult:mult.lat,depthMult:mult.depth}, aimShotSig(eff)));
+      if(eff>longest+0.5) continue;
+      /* a full club is that club, full; the shot into the green is whatever plays the number */
+      const sig = aim.club ? (()=>{ const sh=aimClubShape(aim.club.id), p=perf(aim.club.id)||{};
+                    return {tiltDeg:sh?sh.tilt:0, clubType:aim.club.type||'iron', rollYd:Math.max(0,(p.total||0)-(p.carry||0))}; })()
+                           : aimShotSig(eff);
+      const r=aimScore(hole,from,aim,hcp,posture,Object.assign({sigmaYd:eff,latMult:mult.lat,depthMult:mult.depth, valueFn}, sig));
       if(!r) continue;
-      r.geoYd=geo; r.effYd=eff; r.latYd=lat; r.alongYd=along;
-      r.shot=approachShotName(eff);
+      r.geoYd=geo; r.effYd=eff; r.latYd=lat; r.alongYd=along; r.mid=!!aim.mid;
+      r.shot=aim.club ? {id:aim.club.id, label:aim.club.label, detail:'full swing', effort:null} : approachShotName(eff);
       results.push(r);
     }
   }
   if(!results.length) return {blocked:'range', lie, toPin};
+  /* the shot into the green is played for real too, so it is put on the table's level the same way */
+  if(reach){ const C=stratCal(hole, from, lie, hcp); results.forEach(r=>{ r.mean+=C; r.best25+=C; r.worst25+=C; r.cal=C; }); }
   /* A strategy changes the OBJECTIVE, not the sampling — so score every candidate once and
      re-rank the same list per posture. Comparing four strategies costs four passes over an
      array, not four solves, which is what makes live side-by-side comparison affordable. */
@@ -587,7 +735,7 @@ function optimiseShot(hole, from, opts){
   /* The naive alternative: everything you have, straight at the flag. Capped by the SAME
      range limit the optimiser is held to, or the comparison is against a shot it was never
      allowed to pick (from the trees that made the punch-out look worse than a fantasy). */
-  const naiveAlong=Math.min(Math.max(30,longest-cost), toPin, maxGeo);
+  const naiveAlong=Math.min(Math.max(30,longest-cost), toPin, maxGeo);   /* capped like the rest */
   const naiveAim={ x:from.x+vx*(naiveAlong/ypu), y:from.y+vy*(naiveAlong/ypu) };
   const naive=aimScore(hole,from,naiveAim,hcp,posture,Object.assign({sigmaYd:naiveAlong+cost,latMult:mult.lat,depthMult:mult.depth}, aimShotSig(naiveAlong+cost)));
   if(naive){ naive.geoYd=naiveAlong; naive.shot=approachShotName(naiveAlong+cost); }
@@ -704,7 +852,7 @@ function stratZoomBy(f){
 const STRAT_PHONE_MAX = 700;          /* wrap width below which the sheet goes under the map */
 const STRAT_CHROME_PX = 79;           /* the two sticky nav bars */
 const STRAT_TITLE_PX = 86;            /* the title line; the layer chips float on the map now */
-const STRAT_SHEET_PX = 132;           /* the collapsed sheet: controls + two summary lines, measured */
+const STRAT_SHEET_PX = 186;           /* the collapsed sheet: controls + two summary lines, measured */
 const STRAT_GAP_PX = 10;              /* map-to-sheet gap in the phone column */
 function stratMapSize(wrap){
   const W=Math.max(280, (wrap&&wrap.clientWidth)||375), vh=window.innerHeight||812;
@@ -770,6 +918,43 @@ function stratToggleLayer(k){
   /* the pin layer IS pin mode's control panel — closing it leaves pin mode */
   if(k==='pin'&&!L.pin&&window.stratShot.pinMode){ window.stratShot.pinMode=false; window.stratView={cx:null,cy:null,z:1}; }
   saveState(); buildHoleOverlay();
+}
+/* ---------- EXPECTED RESULTS: one row per option, the same on the Plan page and the Play map ----------
+   What a golfer weighs standing over the ball is not one number but what the shot USUALLY
+   does: where it finishes, what it leaves, and what the hole then costs. So each row says
+     the club and the distance;
+     the expected score for the HOLE (strokes so far + this one + what is left);
+     where it finishes, as a bar of surfaces in proportion;
+     what it leaves, as a range: the middle half of the pattern ("leaves 85–96 yd"), or in feet
+     with the chance of the green for a shot into the green. */
+const OC_MIX = [['fairway','#3fa45a','Fwy'],['green','#7fdc95','Green'],['rough','#93a35e','Rough'],['sand','#e3c76a','Bunker'],
+                ['trees','#1e5c2f','Trees'],['water','#3a78c0','Water'],['oob','#b85c5c','OB']];
+function stratOutcomeHTML(label, line, r, n, extra){
+  if(!r) return `<div class="oc-row ln-${line}"><div class="oc-top"><span class="oc-k">${label}</span><span class="oc-none">—</span></div></div>`;
+  if(r.blocked){
+    const t = r.blocked==='putt' ? `${Math.round((r.toPinFrom||0)*3)} ft putt` : r.blocked==='penalty' ? 'take relief' : r.blocked==='tap' ? 'tap-in'
+            : r.blocked==='chip' ? 'inside 20: chip or pitch' : r.blocked==='green' ? 'on the green' : r.blocked==='range' ? 'out of range for the bag' : 'no shot';
+    return `<div class="oc-row ln-${line}"><div class="oc-top"><span class="oc-k">${label}</span><span class="oc-none"><i>${t}</i></span></div></div>`;
+  }
+  const yd=v=>(typeof ydNum==='function')?ydNum(v):Math.round(v), yu=(typeof ydUnit==='function')?ydUnit():'yd';
+  const left = r.sgActual ? r.expAfter : r.mean;
+  const hole = left!=null ? (n||1) + left : null;
+  const mix=r.lieMix||{};
+  const bar=OC_MIX.filter(([k])=>mix[k]>0.004).map(([k,c])=>`<span style="flex:${mix[k].toFixed(3)};background:${c}" title="${k} ${Math.round(mix[k]*100)}%"></span>`).join('');
+  const top2=OC_MIX.filter(([k])=>mix[k]>0.004).sort((a,b)=>mix[b[0]]-mix[a[0]]).slice(0,2).map(([k,,l])=>`${l} ${Math.round(mix[k]*100)}%`).join(' · ');
+  const q=r.leaveQ, intoGreen=(mix.green||0)>0.15 || (q&&q.p75!=null&&q.p75<30);
+  const leaves = !q ? '' : intoGreen
+    ? `leaves <b>${Math.round(q.p25*3)}–${Math.round(q.p75*3)} ft</b>`
+    : `leaves <b>${yd(q.p25)}–${yd(q.p75)} ${yu}</b>`;
+  const over = r.overMax ? `<span class="oc-over">past your longest (${yd(r.maxYd)})</span>` : '';
+  const swing=(r.shot&&r.shot.detail&&r.shot.detail!=='full swing')?` <small>${escapeHtml(r.shot.detail.split(' ')[0])}</small>`:'';
+  return `<div class="oc-row ln-${line}"${extra&&extra.onclick?` onclick="${extra.onclick}"`:''}>
+      <div class="oc-top"><span class="oc-k">${label}</span><span class="oc-club">${escapeHtml((r.shot&&r.shot.label)||'')}${swing}</span>
+        <b class="oc-yd">${yd(r.geoYd)}</b><span class="oc-u">${yu}</span>${over}
+        <span class="oc-exp">${hole!=null?`<b>${hole.toFixed(2)}</b><i>hole</i>`:''}</span></div>
+      <div class="oc-bar">${bar}</div>
+      <div class="oc-sub">${top2}${leaves?` <span class="oc-dot">·</span> ${leaves}`:''}</div>
+    </div>`;
 }
 /* The phone's bottom sheet: collapsed to the answer, expanded for the working. */
 function stratToggleSheet(){ window.stratSheetOpen=!window.stratSheetOpen; buildHoleOverlay(); }
@@ -1320,9 +1505,17 @@ function stratScoreShot(hole, from, aim, end){
   const geo=Math.hypot(aim.x-from.x,aim.y-from.y)*ypu;
   if(geo<8) return {blocked:'tap', lie, from, toPinFrom};
   const mult=APPROACH_LIE[lie]||APPROACH_LIE.fairway, cost=approachLieCostYd(lie);
+  /* scored exactly as the optimal shot is — with the look-ahead whenever the green is out of
+     range from here — or the two numbers would not be comparable */
+  const onTeeS=hole.tee&&Math.abs(from.x-hole.tee.x)<CF_TEE_TOL&&Math.abs(from.y-hole.tee.y)<CF_TEE_TOL;
+  const valueFn = (stratReaches(hole, from) && (!onTeeS || (+hole.par||4)<=3)) ? null : stratValueFn(hole, stratSkill());
   const sig=Object.assign({sigmaYd:geo+cost, latMult:mult.lat, depthMult:mult.depth}, aimShotSig(geo+cost));
-  const r=aimScore(hole,from,aim,stratSkill(),stratPosture(),sig);
+  const r=aimScore(hole,from,aim,stratSkill(),stratPosture(),Object.assign({valueFn}, sig));
   if(!r) return null;
+  if(!valueFn){ const C=stratCal(hole, from, lie, stratSkill()); r.mean+=C; r.best25+=C; r.worst25+=C; r.cal=C; }
+  const longestT=(stratClubsFrom(hole, from)[0]||{}).total||0;
+  r.overMax = longestT>0 && geo+cost>longestT+3;     /* past what your longest club totals (3 yd of slack for an aim off the line) */
+  r.maxYd = longestT;
   const mid=stratGreenMid(hole);
   r.shot=approachShotName(geo+cost); r.from=from; r.aim=aim; r.sig=sig; r.lie=lie; r.lieCost=cost;
   r.geoYd=geo; r.playsYd=geo+cost;
@@ -1396,12 +1589,12 @@ function stratOChain(hole){
      "cIdx|hIdx|posture|skill", which is only correct while the hole being solved is the hole
      on screen — the moment anything iterates the course (the round walkthrough does) it
      hands back the selected hole's plan for every hole in turn. */
-  const key=stratPosture()+'|'+stratSkillKey()+'|'+(window.stratCacheEpoch||0);
+  const key='balanced|'+stratSkillKey()+'|'+(window.stratCacheEpoch||0);
   const hit=STRAT_CHAINS.get(hole);
   if(hit && hit.key===key) return hit.chain;
   const chain=[]; let from={x:hole.tee.x, y:hole.tee.y};
   for(let n=1;n<=SHOT_MAX;n++){
-    const res=optimiseShot(hole, from, {posture:stratPosture(), hcp:stratSkill()});
+    const res=optimiseShot(hole, from, {posture:'balanced', hcp:stratSkill()});
     if(!res){ break; }
     if(res.blocked){ chain.push({n, from, blocked:res.blocked, toPin:res.toPin, lie:res.lie}); break; }
     const aim={x:Math.round(res.best.aim.x), y:Math.round(res.best.aim.y)};
@@ -1698,8 +1891,11 @@ function stratShotSVG(hole, r, line, n, mode, place, k){
   /* 36 units between the two lines either way; below the aim the first line has to clear the
      oval by its own cap height (~30) before it starts. */
   s+=lbl(head, below?top+30*k:top-36*k, 30);
-  const tp=end?r.endToPinYd:r.toPinYd, rem=r.sgActual?r.expAfter:r.mean;
-  if(tp!=null&&rem!=null) s+=lbl(`${ydNum(tp)} to pin · ${rem.toFixed(2)} rem`, below?top+64*k:top, 27);
+  const tp=end?r.endToPinYd:r.toPinYd, q=r.leaveQ;
+  /* the middle half of where it leaves you — feet for a shot into the green */
+  const lv = end ? (tp!=null?`${ydNum(tp)} to pin`:'')
+           : q ? (((r.lieMix||{}).green||0)>0.15 || q.p75<30 ? `leaves ${Math.round(q.p25*3)}–${Math.round(q.p75*3)} ft` : `leaves ${ydNum(q.p25)}–${ydNum(q.p75)}`) : '';
+  if(lv) s+=lbl(lv, below?top+64*k:top, 27);
   return s;
 }
 function stratOverlay(hole, chains, n){
@@ -1876,7 +2072,7 @@ function buildHoleOverlay(){
      the dispersion gap, a chip per surface — told one of those five again in another
      currency. A shot that finds the fairway 60% of the time IS its dispersion cost, said in a
      unit you can picture. */
-  const CARD_LABEL={O:'Optimal', S:'Your shot'};
+  const CARD_LABEL={O:'Optimal', S:'Selected'};
   const oStep=chain[n-1];
   const oRes=(oStep&&oStep.res)?oStep.res:null;
   const CARD_ORDER=['O','S'];          /* the recommendation reads first; yours answers it */
@@ -1900,8 +2096,8 @@ function buildHoleOverlay(){
        average; naming its decision and posture keeps that from reading as a contradiction */
     const postureShort=stratLabel('riskPosture').split(/\s+\u2014\s+| \(/)[0].toLowerCase();
     const why=(l==='O')
-      ? `<span class="ss-why" title="The optimiser minimises a risk-weighted score under your posture \u2014 ${escapeHtml(stratLabel('riskPosture').toLowerCase())} \u2014 so it can sit a little behind on raw average to avoid the big miss.">${
-          oRes&&oRes.best&&oRes.best.category?escapeHtml(oRes.best.category.toLowerCase()):'best play'} \u00b7 ${escapeHtml(postureShort)}</span>`
+      ? `<span class="ss-why" title="Optimal is the lowest expected score for the hole, over your whole dispersion pattern, with each club at its real distance and the shot into the green aimed at the middle">${
+          oRes&&oRes.best&&oRes.best.category?escapeHtml(oRes.best.category.toLowerCase()):'best play'} · lowest expected score</span>`
       : '';
     return `<div class="sh-strip-line${l==='O'?' is-opt':''}">${head}
       <span class="ss-club">${r.shot.label}${swing}</span>
@@ -2072,6 +2268,7 @@ function buildHoleOverlay(){
       </div>
     </div>`;
   const detail=`<div class="ho-detail">
+      <div class="oc-list">${stratOutcomeHTML('Optimal','O',shots.O,n)}${stratOutcomeHTML('Selected','S',shots.S,n)}</div>
       ${table}
       ${verdict?`<div class="sh-below-notes">${verdict}</div>`:''}
       ${L.cover&&coverRow?coverRow:''}
@@ -2093,7 +2290,7 @@ function buildHoleOverlay(){
       <div class="strat-hole-map" style="width:${size.w}px">${renderHoleSVG(hole,{viewBox:vbNow, pxW:size.w, k:window.stratLabelK, overlay:`<g id="strat-overlay">${typeof mkMarksSVG==='function'?mkMarksSVG(hole, window.stratLabelK):''}${stratOverlay(hole,chains,n)}${typeof mkDraftSVG==='function'?mkDraftSVG():''}</g>`})}${typeof mkBarHTML==='function'?mkBarHTML(hole):''}${layers}${zoomCtl}${typeof imgAttrHTML==='function'?imgAttrHTML(hole):''}</div>
       <div class="sh-side ho-sheet${open?' open':''}">
         ${sheetHead}
-        ${size.phone&&!open?`<div class="ho-sum" onclick="stratToggleSheet()">${['O','S'].map(sumLine).join('')}</div>`:''}
+        ${size.phone&&!open?`<div class="ho-sum oc-list" onclick="stratToggleSheet()">${stratOutcomeHTML('Optimal','O',shots.O,n)}${stratOutcomeHTML('Selected','S',shots.S,n)}</div>`:''}
         ${open?detail:''}
       </div>
     </div>`;
@@ -2258,5 +2455,5 @@ Object.assign(window, { stratScrollToTitle, stratMapSize, stratStepHole, stratLa
   stratPinSheetHoles, stratPinZone, stratPinThumbClick, stratSheetPaces, stratSheetClearHole, stratPinSheetGrid,
   ROUND_METHODS, ROUND_RES, stratRoundHole, stratRound, stratRoundTable,
   stratSheetSet, stratSheetDelete, stratSheetProgress,
-  stratShotSVG, stratOverlay, stratDragInit, stratZoomBy, stratViewAt, STRAT_TEE_SNAP_YD, stratTeeMode, stratSetTeeAt, stratTeeReset, stratCoursePickHTML, stratPickCourse, STRAT_CORRIDOR_YD, STRAT_MISS_YD, STRAT_END_YD, stratAimsFor, stratBindAims, stratAimsPrune, stratAimsCount, stratPlanRound
+  stratShotSVG, stratOverlay, stratDragInit, stratZoomBy, OC_MIX, stratOutcomeHTML, STRAT_ENGINE, STRAT_V_STEP_YD, stratValueFn, STRAT_REF_GREEN, stratRefHole, stratA0, stratCal, stratIsDriver, stratClubsFrom, stratReaches, AIM_Z7, AIM_W7, stratViewAt, STRAT_TEE_SNAP_YD, stratTeeMode, stratSetTeeAt, stratTeeReset, stratCoursePickHTML, stratPickCourse, STRAT_CORRIDOR_YD, STRAT_MISS_YD, STRAT_END_YD, stratAimsFor, stratBindAims, stratAimsPrune, stratAimsCount, stratPlanRound
 });

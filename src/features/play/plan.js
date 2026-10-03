@@ -28,7 +28,7 @@ function pmPlanStamp(c){
   const bag=(typeof aimClubs==='function'?aimClubs():[]).map(x=>`${x.id}:${Math.round(x.carry)}/${Math.round(x.total)}`).join(',');
   return [k, (c.holes||[]).length, typeof stratPosture==='function'?stratPosture():'',
           typeof stratSkillKey==='function'?stratSkillKey():'', sh?sh.id+JSON.stringify(sh.pins||{}):'-',
-          JSON.stringify(STATE.strategy||{}), bag, pmAimsStamp(c),
+          JSON.stringify(STATE.strategy||{}), bag, pmAimsStamp(c), 'engine'+(window.STRAT_ENGINE||1),
           (c.holes||[]).map(h=>h.tee?`${Math.round(h.tee.x)},${Math.round(h.tee.y)}`:'').join(';')].join('|');
 }
 /* the lines dragged on the Hole Overlay for this course, so a plan made before one changed says so */
@@ -89,7 +89,7 @@ function pmPlanChain(h, mode){
     let aim=null;
     const mineOpt = mode==='mine' && dragged.length && k>dragged.length;
     if(mode==='opt' || mineOpt){
-      const res=optimiseShot(h, from, {posture:stratPosture(), hcp:PLAYER});
+      const res=optimiseShot(h, from, {posture:'balanced', hcp:PLAYER});   /* optimal = lowest expected score */
       if(!res||res.blocked||!res.best) break;
       aim={x:Math.round(res.best.aim.x), y:Math.round(res.best.aim.y)};
     } else if(dragged[k-1]){
