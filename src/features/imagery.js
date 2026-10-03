@@ -83,7 +83,7 @@ function buildImagery(){
                : 'Off · no key yet';
   w.innerHTML=`<div class="profile-card img-card">
       <h3>Map imagery</h3>
-      <p class="set-sub">Aerial photos under every georeferenced hole, on the Hole Overlay and the Play map: Esri World Imagery. The mapped shapes stay on top as outlines.</p>
+      <p class="set-sub">Aerial photos under every georeferenced hole, on the Plan page and the Play map: Esri World Imagery. The mapped shapes stay on top as outlines.</p>
       <div class="img-status${dev||app?' on':''}">${status}</div>
       <div class="img-row">
         <input type="password" id="img-key" class="cf-name" placeholder="${dev?'Saved on this device':'Paste a key to use on this device only (optional)'}" autocomplete="off" spellcheck="false">

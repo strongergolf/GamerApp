@@ -24,11 +24,10 @@ const GROUPS={
      leads because it's the tool actually used, not a reference section. (Was labelled
      "Strategy" itself before the main tab took that name — renamed to avoid the dupe.) */
   gameplan:[
-    {id:'gameplan',  label:'Hole Overlay'},
+    {id:'gameplan',  label:'Plan'},
     {id:'preshot',   label:'Pre-Shot'},
     {id:'postshot',  label:'Post-Shot'},
-    {id:'postround', label:'Post-Round'},
-    {id:'gpcourses', label:'My Courses'}
+    {id:'postround', label:'Post-Round'}
   ],
   diagnose:[
     {id:'chain',label:'The Chain'},
@@ -43,6 +42,9 @@ const GROUPS={
   setup:[
     {id:'specs',    label:'My Clubs'},
     {id:'profile',  label:'Golfer Profile'},
+    /* My Courses moved here from Strategy (2026-10-03): courses are set up once, like clubs;
+       picking one to plan is a dropdown on the Plan page itself. */
+    {id:'gpcourses',label:'My Courses'},
     {id:'reference',label:'The App'}
   ]
 };

@@ -58,7 +58,7 @@ function hmSetupItems(){
   return [
     { done:!!String(P.handicap||'').trim(), t:'Your Handicap Index', go:`hmGo('setup','profile')` },
     { done:hmBagIsYours(), t:'Your clubs and distances', go:`hmGo('setup','specs')` },
-    { done:(STATE.courses||[]).some(c=>(c.holes||[]).some(h=>h.geo)), t:'A course you play, with its map', go:`hmGo('gameplan','gpcourses')` }
+    { done:(STATE.courses||[]).some(c=>(c.holes||[]).some(h=>h.geo)), t:'A course you play, with its map', go:`hmGo('setup','gpcourses')` }
   ];
 }
 function hmFirstName(){ const n=String((STATE.profile||{}).name||'').trim(); return n ? n.split(/\s+/)[0] : ''; }

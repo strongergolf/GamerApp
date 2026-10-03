@@ -86,6 +86,7 @@ async function csPresetSync(){
   if(typeof fetch!=='function' || !window.STATE) return null;
   let list; try{ list=await cfFetchJSON('/preset-courses.json', 15000); }catch(_){ return null; }
   if(!Array.isArray(list)) return null;
+  window.cfPresetCache=list;                         /* the Plan page's course picker offers these */
   const cs=cfCourses(), seen=new Set(STATE.coursePresetsSeen||[]), gone=((STATE.meta||{}).deleted||{}).courses||{};
   const updated=[], added=[];
   list.forEach(p=>{
@@ -100,6 +101,7 @@ async function csPresetSync(){
     if(typeof buildCourses==='function') buildCourses();
     if(typeof buildCourseStrategy==='function') buildCourseStrategy();
     if(typeof buildHome==='function') buildHome();
+    if(typeof buildHoleOverlay==='function') buildHoleOverlay();
     if(typeof toast==='function') toast([added.length?`Added ${added.join(' and ')}`:'', updated.length?`Updated ${updated.join(' and ')} from the map`:''].filter(Boolean).join('. '));
   }
   return {updated, added};

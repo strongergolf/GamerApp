@@ -384,7 +384,7 @@ function pmSetupHTML(note){
       <button type="button" class="pm-x pm-x-abs" onclick="pmClose()" aria-label="Close">✕</button>
       <h2>Play golf now</h2>
       <p>Import a course first — Strategy → My Courses pulls one from OpenStreetMap in a few seconds.</p>
-      <button type="button" class="btn btn-primary" onclick="pmClose();showGroupPage('gameplan','gpcourses')">Go to My Courses</button></div>`;
+      <button type="button" class="btn btn-primary" onclick="pmClose();showGroupPage('setup','gpcourses')">Go to My Courses</button></div>`;
   const sel=window.pmSetupSel||(window.pmSetupSel={c:(window.stratSel&&window.stratSel.cIdx)||0, start:0, tourn:false});
   if(sel.c>=cs.length) sel.c=0;
   const cur=sel.c, c=cs[cur];

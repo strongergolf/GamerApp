@@ -271,7 +271,7 @@ function pmPlanHTML(){
   const d=t.exp-t.par;
   return `<div class="pm-setup pm-pv">${head}
       <div class="pm-pv-sum"><b>${t.exp.toFixed(1)}</b><span>${d>=0?'+':''}${d.toFixed(1)} vs par ${t.par} · made ${pmWhen(pl.madeAt)}${pl.sheet?` · ${escapeHtml(pl.sheet)}`:''}</span></div>
-      <p class="pm-note">Pick a line for each hole and add what you want to remember. The numbers are expected strokes for the hole. <b>✎</b> opens the hole on the Hole Overlay: drag your own shots there and they are saved as Your line (the model plays the rest of the hole from your last one); Rebuild to bring them in. At Start the plan is frozen onto the round, and nothing on the course works anything out again.</p>
+      <p class="pm-note">Pick a line for each hole and add what you want to remember. The numbers are expected strokes for the hole. <b>✎</b> opens the hole on the Plan page: drag your own shots there and they are saved as Your line (the model plays the rest of the hole from your last one); Rebuild to bring them in. At Start the plan is frozen onto the round, and nothing on the course works anything out again.</p>
       ${holes}
       <div class="pm-plan-row pm-pv-foot">
         <button type="button" class="btn pm-plan-btn" onclick="printScoringProfile(true)">⎙ Print</button>

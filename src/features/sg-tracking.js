@@ -477,7 +477,7 @@ function buildImport(){
   }
   wrap.innerHTML=`<div class="profile-card">
     <h3>Rounds &amp; Sessions <span class="card-sub">bring your scoring data in from wherever you track it</span></h3>
-    <p class="gen-note">Drop in a CSV of your rounds and StrongerGolf reads the columns it recognises, stores the rounds, and sets your Typical Round Stats from their averages \u2014 which is what drives &ldquo;Shots Expected&rdquo;, strokes gained and the Hole Overlay. ${
+    <p class="gen-note">Drop in a CSV of your rounds and StrongerGolf reads the columns it recognises, stores the rounds, and sets your Typical Round Stats from their averages \u2014 which is what drives &ldquo;Shots Expected&rdquo;, strokes gained and the Plan page. ${
       n?`<b>${n}</b> round${n===1?'':'s'} on file${pf.statsSource==='imported'&&pf.statsImportedAt?`, last import ${pf.statsImportedAt}`:''}.`:'No rounds on file yet.'}</p>
     <div class="btn-row">
       <button class="btn btn-primary" onclick="rdPickFile()">Import rounds (CSV)</button>

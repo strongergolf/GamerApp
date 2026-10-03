@@ -693,8 +693,8 @@ function stratZoomBy(f){
    this exact shape, so nothing is stretched and nothing is letterboxed. */
 const STRAT_PHONE_MAX = 700;          /* wrap width below which the sheet goes under the map */
 const STRAT_CHROME_PX = 79;           /* the two sticky nav bars */
-const STRAT_TITLE_PX = 58;            /* the title line; the layer chips float on the map now */
-const STRAT_SHEET_PX = 128;           /* the collapsed sheet: controls + two summary lines, measured */
+const STRAT_TITLE_PX = 86;            /* the title line; the layer chips float on the map now */
+const STRAT_SHEET_PX = 132;           /* the collapsed sheet: controls + two summary lines, measured */
 const STRAT_GAP_PX = 10;              /* map-to-sheet gap in the phone column */
 function stratMapSize(wrap){
   const W=Math.max(280, (wrap&&wrap.clientWidth)||375), vh=window.innerHeight||812;
@@ -1162,6 +1162,38 @@ function stratSetCourse(i){
   let hi=0,best=-1; hs.forEach((h,k)=>{ const s=stratHoleScore(h); if(s>best){best=s;hi=k;} });
   window.stratSel.hIdx=hi;
   stratClearLines(); stratSaveSel(true); buildHoleOverlay();
+}
+/* THE COURSE PICKER: your courses, then the sample courses not yet in your list (one tap adds
+   one), then a way into the importer. The preset list is fetched once at boot by csPresetSync. */
+function stratCoursePickHTML(ci){
+  const cs=STATE.courses||[], have=new Set(cs.map(c=>c.id));
+  const pre=(window.cfPresetCache||[]).filter(p=>p&&p.id&&!have.has(p.id));
+  return `<select class="ho-course" onchange="stratPickCourse(this.value)" aria-label="Course">
+      <optgroup label="Your courses">${cs.map((c,i)=>`<option value="c:${i}"${i===ci?' selected':''}>${escapeHtml(c.name||'Course')}</option>`).join('')}</optgroup>
+      ${pre.length?`<optgroup label="Add a sample course">${pre.map(p=>`<option value="p:${escapeHtml(p.id)}">+ ${escapeHtml(p.name)}</option>`).join('')}</optgroup>`:''}
+      <optgroup label="Elsewhere"><option value="import">+ Import another course…</option></optgroup>
+    </select>`;
+}
+async function stratPickCourse(v){
+  v=String(v||'');
+  if(v.startsWith('c:')) return stratSetCourse(+v.slice(2));
+  if(v==='import'){
+    showGroupPage('setup','gpcourses');
+    setTimeout(()=>{ const i=document.getElementById('osm-q'); if(i){ i.scrollIntoView({block:'center'}); i.focus(); } }, 60);
+    return;
+  }
+  if(v.startsWith('p:')){
+    const id=v.slice(2);
+    let list=window.cfPresetCache;
+    if(!list){ try{ list=await cfFetchJSON('/preset-courses.json', 15000); window.cfPresetCache=list; }catch(_){} }
+    const p=(list||[]).find(x=>x&&x.id===id);
+    if(!p){ toast('Could not load that course'); buildHoleOverlay(); return; }
+    const cs=cfCourses(); cs.push(JSON.parse(JSON.stringify(p)));
+    STATE.coursePresetsSeen=[...new Set([...(STATE.coursePresetsSeen||[]), id])];
+    saveState(); stratSetCourse(cs.length-1);
+    if(typeof buildCourses==='function') buildCourses();
+    toast(`Added ${p.name}`);
+  }
 }
 function stratSetHole(i){ window.stratSel.hIdx=+i; stratClearLines(); stratSaveSel(true); buildHoleOverlay(); }
 function stratSetShotNum(n){ window.stratShot.shotNum=Math.max(1,Math.min(SHOT_MAX,+n)); buildHoleOverlay(); }
@@ -1711,7 +1743,7 @@ function buildHoleOverlay(){
   const wrap=document.getElementById('hole-overlay-wrap'); if(!wrap) return;
   const courses=(STATE.courses||[]);
   if(!courses.length){
-    wrap.innerHTML=`<div class="section-label">Hole Overlays <span class="proto-badge">prototype</span></div>
+    wrap.innerHTML=`<div class="section-label">Plan <span class="proto-badge">prototype</span></div>
       <div class="lvl-soon-note">Import a course first — see the <b>My Courses</b> tab, where you can pull one from OpenStreetMap or trace it by hand. Then this shows each hole with your dispersion pattern, the recommended line and the alternatives.</div>`;
     return;
   }
@@ -1722,7 +1754,6 @@ function buildHoleOverlay(){
   const ci=Math.min(window.stratSel.cIdx, courses.length-1), course=courses[ci];
   const holes=course.holes||[];
   const hi=Math.min(window.stratSel.hIdx, Math.max(0,holes.length-1)), hole=holes[hi];
-  const cOpts=courses.map((c,i)=>`<option value="${i}"${i===ci?' selected':''}>${escapeHtml(c.name||'Course')}</option>`).join('');
   const hOpts=holes.map((h,i)=>`<option value="${i}"${i===hi?' selected':''}>Hole ${h.num||i+1} · par ${h.par||4}</option>`).join('');
   const S=window.stratShot;
   /* ONE TITLE LINE, where there were a section heading, two dropdowns and a caption repeating
@@ -1734,7 +1765,7 @@ function buildHoleOverlay(){
       <button type="button" class="ho-nav" onclick="stratStepHole(-1)" aria-label="Previous hole">‹</button>
       <div class="ho-title-main">
         <div class="ho-t1"><select class="ho-hole" onchange="stratSetHole(this.value)" aria-label="Hole">${hOpts}</select>${hYd!=null?`<span class="ho-yd">${fmtYd(hYd)}</span>`:''}</div>
-        <div class="ho-t2"><select class="ho-course" onchange="stratSetCourse(this.value)" aria-label="Course">${cOpts}</select><span class="ho-t2-x" id="ho-t2-x"></span></div>
+        <div class="ho-t2">${stratCoursePickHTML(ci)}<span class="ho-t2-x" id="ho-t2-x"></span></div>
       </div>
       <button type="button" class="ho-nav" onclick="stratStepHole(1)" aria-label="Next hole">›</button>
     </div>`;
@@ -1966,7 +1997,7 @@ function buildHoleOverlay(){
      left a separator dangling at the start of the second line. */
   const pinTxt = (cut&&paces) ? `pin ${ydNum(paces.fromFront)} on, ${ydNum(paces.fromLeft)} left`
                : prog ? `${escapeHtml(prog.name)}: middle` : 'pin: middle';
-  const t2x = ` · ${pinTxt}${ballWhere}`;
+  const t2x = `${pinTxt}${ballWhere}`;   /* sits beside the course picker, or under it on a phone */
   const title = head.replace('<span class="ho-t2-x" id="ho-t2-x"></span>', `<span class="ho-t2-x">${t2x}</span>`);
   const layers=`<div class="ho-layers ho-float-bl" role="group" aria-label="Map layers">${STRAT_LAYERS.filter(l=>l.key!=='photo'||(typeof imgKey==='function'&&(imgKey()||window.sgImageryUrlOverride))&&hole.geo).map(l=>
       `<button type="button" class="ho-chip${L[l.key]?' on':''}" aria-pressed="${!!L[l.key]}" onclick="stratToggleLayer('${l.key}')">${l.label}</button>`).join('')}</div>`;
@@ -1993,7 +2024,7 @@ function buildHoleOverlay(){
       <div class="ho-sheet-ctl">
         <button type="button" class="ho-icon${cmpOn?' on':''}" onclick="stratToggleCompare()" title="${cmpOn?'Stop scoring your line against the optimal one':'Score your line against the optimal one'}" aria-label="Compare" aria-pressed="${cmpOn}">⇄</button>
         <button type="button" class="ho-icon" onclick="stratResetAim()" title="Reset this hole to your strategy preferences" aria-label="Reset">↺</button>
-        <button type="button" class="ho-icon ho-plan" onclick="stratPlanRound()" title="Plan this course in Play, with the lines you have dragged">Plan${(()=>{ const n=stratAimsCount(course); return n?` <b>${n}</b>`:''; })()}</button>
+        <button type="button" class="ho-icon ho-plan" onclick="stratPlanRound()" title="Build the round plan for this course in Play, with the lines you have dragged">Round plan${(()=>{ const n=stratAimsCount(course); return n?` <b>${n}</b>`:''; })()}</button>
         ${size.phone?`<button type="button" class="ho-expand" onclick="stratToggleSheet()" aria-expanded="${open}" aria-label="${open?'Collapse':'Expand'} details">${open?'▾':'▴'}</button>`:''}
       </div>
     </div>`;
@@ -2177,5 +2208,5 @@ Object.assign(window, { stratScrollToTitle, stratMapSize, stratStepHole, stratLa
   stratPinSheetHoles, stratPinZone, stratPinThumbClick, stratSheetPaces, stratSheetClearHole, stratPinSheetGrid,
   ROUND_METHODS, ROUND_RES, stratRoundHole, stratRound, stratRoundTable,
   stratSheetSet, stratSheetDelete, stratSheetProgress,
-  stratShotSVG, stratOverlay, stratDragInit, stratZoomBy, STRAT_CORRIDOR_YD, STRAT_MISS_YD, STRAT_END_YD, stratAimsFor, stratBindAims, stratAimsPrune, stratAimsCount, stratPlanRound
+  stratShotSVG, stratOverlay, stratDragInit, stratZoomBy, stratCoursePickHTML, stratPickCourse, STRAT_CORRIDOR_YD, STRAT_MISS_YD, STRAT_END_YD, stratAimsFor, stratBindAims, stratAimsPrune, stratAimsCount, stratPlanRound
 });

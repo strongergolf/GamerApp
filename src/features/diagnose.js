@@ -344,7 +344,7 @@ const PRACTICE_AREAS=[
        <div class="chain-caption">Where every level above cashes out into a real decision on a real hole. Strategy synthesises ball-flight data (L2), dispersion patterns, and scoring tendencies (L1) into optimal targets, shot shapes, and risk/reward choices. The eventual home for course overlays and hole-by-hole planning.</div>
 
        ${buildStrategyPrefs()}
-       <div class="chain-caption" style="margin-top:6px">These are the same preferences that place line <strong>S</strong> on the Hole Overlay (<strong>Strategy → Hole Overlay</strong>) — editing here moves it there.</div>`,
+       <div class="chain-caption" style="margin-top:6px">These are the same preferences that place line <strong>S</strong> on the Plan page (<strong>Strategy → Plan</strong>) — editing here moves it there.</div>`,
      improve:()=>`
        <div class="lvl-subhead" style="margin-top:0">Strokes Gained — Decision Quality</div>
        <div class="lvl-soon-note">Future: flag shots where club or target selection cost strokes vs. the optimal decision, separate from execution error. A bad decision with a good swing still costs shots.</div>

@@ -910,7 +910,7 @@ const MY_DATA_SOURCES = [
     status:()=> (typeof chipCalibrated==='function'&&chipCalibrated())?'captured':'presumed',
     render:()=>{ if(typeof renderSgCal==='function') renderSgCal(); } },
   { id:'strike', title:'Dispersion — how your pattern leans',
-    drives:'The shape of every dispersion oval, and the aim optimiser behind the Hole Overlay.',
+    drives:'The shape of every dispersion oval, and the aim optimiser behind the Plan page.',
     host:'strike-cal-wrap',
     status:()=> Object.keys((STATE.dispersion&&STATE.dispersion.strikeCorr)||{}).length?'input':'presumed',
     render:()=>{ if(typeof renderStrikeCal==='function') renderStrikeCal(); } }

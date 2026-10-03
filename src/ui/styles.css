@@ -2575,3 +2575,11 @@ body.theme-dark .sg-src{color:#79e08d}
 .img-test{margin-top:8px;font-size:.78rem;color:var(--muted);display:flex;align-items:center;gap:10px}
 .img-test img{border-radius:8px}
 .img-test.ok{color:var(--green)} .img-test.bad{color:var(--gold)}
+/* the Plan page's course picker: a real dropdown, not a dotted link */
+.ho-t2{align-items:center;gap:4px 8px}
+.ho-course{font-family:system-ui,-apple-system,'Segoe UI',Arial,sans-serif;font-size:.8rem;font-weight:700;color:var(--ink);
+  background-color:var(--surface);border:1px solid var(--border2);border-radius:16px;padding:5px 26px 5px 12px;max-width:72vw;
+  background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);
+  background-position:calc(100% - 13px) 55%,calc(100% - 9px) 55%;background-size:4px 4px;background-repeat:no-repeat}
+.ho-course:hover{border-color:var(--ink2)}
+.ho-plan{white-space:nowrap}
