@@ -621,19 +621,37 @@ const STRAT_ZMIN = 1, STRAT_ZMAX = 8;
    margin for the miss) lets the same picture live in a much shorter box. Zoom and pan then
    work within that crop rather than the whole field. */
 const STRAT_BOX_RATIO = 0.95;      /* width : height of the map box */
+/* The CORRIDOR: an imported hole carries every tree polygon and stray fairway piece near it,
+   and framing all of them drew a straight hole as a thin strip down the middle of a wide map.
+   The frame now takes what is in play: the tee, the green, and the fairway, bunker and water
+   points within STRAT_CORRIDOR_YD of the tee-to-pin line, plus a STRAT_MISS_YD margin either
+   side for where a miss finishes. Trees are still drawn; they just do not set the zoom. */
+const STRAT_CORRIDOR_YD = 70, STRAT_MISS_YD = 35, STRAT_END_YD = 18;
 function stratHoleBox(hole){
   if(!hole) return {x:0,y:0,w:CF_W,h:CF_H};
   let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;
   const eat=p=>{ if(!p||p.x==null) return; if(p.x<x0)x0=p.x; if(p.x>x1)x1=p.x; if(p.y<y0)y0=p.y; if(p.y>y1)y1=p.y; };
-  eat(hole.tee); eat(hole.pin);
-  (hole.green||[]).forEach(eat);
-  (hole.fairway||[]).forEach(eat); (hole.fairways||[]).forEach(f=>f.forEach(eat));
-  (hole.hazards||[]).forEach(h=>(h.pts||[]).forEach(eat));
-  if(x1<x0||y1<y0) return {x:0,y:0,w:CF_W,h:CF_H};
-  /* Margin scales with the hole, because a miss scales with the hole: enough room either side
-     to see where a bad one finishes, which is the point of a dispersion pattern. */
-  const padX=Math.max(90,(x1-x0)*0.45), padY=Math.max(70,(y1-y0)*0.10);
-  x0-=padX; x1+=padX; y0-=padY; y1+=padY;
+  const ypu=(typeof cfYardsPerUnit==='function')?cfYardsPerUnit(hole):null;
+  const tee=hole.tee, pin=(typeof cfPin==='function'?cfPin(hole):null)||hole.pin;
+  if(ypu && tee && pin){
+    const dx=pin.x-tee.x, dy=pin.y-tee.y, L2=(dx*dx+dy*dy)||1;
+    const off=p=>{ const t=Math.max(0,Math.min(1,((p.x-tee.x)*dx+(p.y-tee.y)*dy)/L2)); return Math.hypot(p.x-(tee.x+t*dx), p.y-(tee.y+t*dy))*ypu; };
+    const near=p=>p && off(p)<=STRAT_CORRIDOR_YD;
+    eat(tee); eat(pin); (hole.green||[]).forEach(eat);
+    (hole.fairway||[]).filter(near).forEach(eat); (hole.fairways||[]).forEach(f=>f.filter(near).forEach(eat));
+    (hole.hazards||[]).filter(h=>h.type!=='trees').forEach(h=>(h.pts||[]).filter(near).forEach(eat));
+    const mx=STRAT_MISS_YD/ypu, my=STRAT_END_YD/ypu;
+    x0-=mx; x1+=mx; y0-=my; y1+=my;
+  } else {
+    eat(hole.tee); eat(hole.pin);
+    (hole.green||[]).forEach(eat);
+    (hole.fairway||[]).forEach(eat); (hole.fairways||[]).forEach(f=>f.forEach(eat));
+    (hole.hazards||[]).forEach(h=>(h.pts||[]).forEach(eat));
+    if(x1<x0||y1<y0) return {x:0,y:0,w:CF_W,h:CF_H};
+    /* no scale to measure a corridor with: the old margin, a share of the hole */
+    const padX=Math.max(90,(x1-x0)*0.45), padY=Math.max(70,(y1-y0)*0.10);
+    x0-=padX; x1+=padX; y0-=padY; y1+=padY;
+  }
   /* The picture must never be STRETCHED — the dispersion ovals and every yardage would then
      be drawn at two different scales — so the crop is padded to a target ratio rather than
      squeezed to it. The target is the box's shape, not the field's: the field is 1000x1400,
@@ -661,6 +679,11 @@ function stratViewBox(){
   return { x:v.cx-w/2, y:v.cy-h/2, w, h };
 }
 function stratResetView(){ window.stratView={cx:null, cy:null, z:1}; buildHoleOverlay(); }
+/* the + and − on the map: zoom about the centre of what is on screen */
+function stratZoomBy(f){
+  const v=window.stratView; const z=Math.max(STRAT_ZMIN, Math.min(STRAT_ZMAX, v.z*f));
+  if(Math.abs(z-v.z)<1e-6) return; v.z=z; buildHoleOverlay();
+}
 
 /* ---------- THE MAP'S SIZE, from the screen it is on ----------
    On a phone the title, the map and the collapsed decision sheet are sized to fit ONE screen,
@@ -670,15 +693,16 @@ function stratResetView(){ window.stratView={cx:null, cy:null, z:1}; buildHoleOv
    this exact shape, so nothing is stretched and nothing is letterboxed. */
 const STRAT_PHONE_MAX = 700;          /* wrap width below which the sheet goes under the map */
 const STRAT_CHROME_PX = 79;           /* the two sticky nav bars */
-const STRAT_TITLE_PX = 92;            /* title line + layer chips */
-const STRAT_SHEET_PX = 140;           /* the collapsed sheet: stepper + two summary lines, measured */
+const STRAT_TITLE_PX = 58;            /* the title line; the layer chips float on the map now */
+const STRAT_SHEET_PX = 128;           /* the collapsed sheet: controls + two summary lines, measured */
 const STRAT_GAP_PX = 10;              /* map-to-sheet gap in the phone column */
 function stratMapSize(wrap){
   const W=Math.max(280, (wrap&&wrap.clientWidth)||375), vh=window.innerHeight||812;
   const phone = W < STRAT_PHONE_MAX;
   let w, h;
   if(phone){
-    w=W;
+    /* edge to edge: the page's 16px gutters go to the map (see .ho-phone .strat-hole-map) */
+    w=W+32;
     h=Math.max(300, Math.min(660, vh-STRAT_CHROME_PX-STRAT_TITLE_PX-STRAT_SHEET_PX-STRAT_GAP_PX-6));
   } else {
     h=Math.max(380, Math.min(860, vh-STRAT_CHROME_PX-STRAT_TITLE_PX-24));
@@ -1548,7 +1572,7 @@ function stratShotSVG(hole, r, line, n, mode, place, k){
   /* k scales the LABELS only, for a caller drawing on a closer crop than the Hole Overlay's
      whole-hole view (Play follows the ball, so its field units are larger on screen and the
      overlay's 30-unit labels would be enormous). The shot geometry is never scaled. */
-  k=(k>0)?k:1;
+  k=(k>0)?k:(window.stratLabelK>0?window.stratLabelK:1);
   const ypu=cfYardsPerUnit(hole); if(ypu==null) return '';
   mode=mode||'full';
   const dim=(mode==='dim'), compact=(mode==='compact');
@@ -1570,16 +1594,18 @@ function stratShotSVG(hole, r, line, n, mode, place, k){
      room along it and none across it, and side labels ran off the edge of a phone-width crop. */
   const below=(place==='below');
   const at=end||aim, top=below ? (end?24*k:ry+13*k) : (end?-24*k:-ry-13*k);
-  const lbl=(txt,off,size)=>`<text x="${at.x.toFixed(1)}" y="${(at.y+off).toFixed(1)}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="${(size*k).toFixed(1)}" font-weight="700" fill="${col}" stroke="#14351d" stroke-width="${(8*k).toFixed(1)}" paint-order="stroke">${txt}</text>`;
-  let s=`<line x1="${from.x.toFixed(1)}" y1="${from.y.toFixed(1)}" x2="${aim.x.toFixed(1)}" y2="${aim.y.toFixed(1)}" stroke="${col}" stroke-width="${dim?2:compact?2.5:3.5}" stroke-dasharray="14,10" opacity="${(op*(end?0.45:0.9)).toFixed(2)}"/>`;
+  const lbl=(txt,off,size)=>`<text x="${at.x.toFixed(1)}" y="${(at.y+off).toFixed(1)}" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Arial,sans-serif" font-size="${(size*k).toFixed(1)}" font-weight="700" fill="${col}" stroke="#14351d" stroke-width="${(8*k).toFixed(1)}" paint-order="stroke">${txt}</text>`;
+  /* line weights in screen pixels (non-scaling), so a zoomed-in hole is not drawn in marker pen */
+  const NS='vector-effect="non-scaling-stroke"';
+  let s=`<line x1="${from.x.toFixed(1)}" y1="${from.y.toFixed(1)}" x2="${aim.x.toFixed(1)}" y2="${aim.y.toFixed(1)}" stroke="${col}" stroke-width="${dim?1.5:compact?2:2.5}" ${NS} stroke-dasharray="${(15*k).toFixed(1)},${(10*k).toFixed(1)}" opacity="${(op*(end?0.45:0.9)).toFixed(2)}"/>`;
   if(!dim&&!end&&stratLayers().disp) s+=`<g transform="rotate(${ang.toFixed(1)} ${aim.x.toFixed(1)} ${aim.y.toFixed(1)})">
       <ellipse cx="${aim.x.toFixed(1)}" cy="${aim.y.toFixed(1)}" rx="${rx.toFixed(1)}" ry="${ry.toFixed(1)}"
-        fill="${col}" fill-opacity="${compact?0.10:0.18}" stroke="${col}" stroke-opacity="${compact?0.6:0.95}" stroke-width="${compact?2.5:3.5}"/></g>`;
-  if(end) s+=`<line x1="${from.x.toFixed(1)}" y1="${from.y.toFixed(1)}" x2="${end.x.toFixed(1)}" y2="${end.y.toFixed(1)}" stroke="${col}" stroke-width="${compact?3:4.5}" opacity="${op}"/>
-      <circle cx="${end.x.toFixed(1)}" cy="${end.y.toFixed(1)}" r="${compact?9:12}" fill="${col}" stroke="#14351d" stroke-width="3"/>`;
+        fill="${col}" fill-opacity="${compact?0.10:0.18}" stroke="${col}" stroke-opacity="${compact?0.6:0.95}" stroke-width="${compact?1.5:2}" ${NS}/></g>`;
+  if(end) s+=`<line x1="${from.x.toFixed(1)}" y1="${from.y.toFixed(1)}" x2="${end.x.toFixed(1)}" y2="${end.y.toFixed(1)}" stroke="${col}" stroke-width="${compact?2:3}" ${NS} opacity="${op}"/>
+      <circle cx="${end.x.toFixed(1)}" cy="${end.y.toFixed(1)}" r="${((compact?9:12)*k).toFixed(1)}" fill="${col}" stroke="#14351d" stroke-width="1.5" ${NS}/>`;
   const aimOp=(op*(end?0.55:1)).toFixed(2);
-  s+=`<circle cx="${aim.x.toFixed(1)}" cy="${aim.y.toFixed(1)}" r="${dim?5:compact?7:9}" fill="none" stroke="#fff" stroke-width="${dim?2:3}" opacity="${aimOp}"/>
-      <circle cx="${aim.x.toFixed(1)}" cy="${aim.y.toFixed(1)}" r="3" fill="#fff" opacity="${aimOp}"/>`;
+  s+=`<circle cx="${aim.x.toFixed(1)}" cy="${aim.y.toFixed(1)}" r="${((dim?5:compact?7:9)*k).toFixed(1)}" fill="none" stroke="#fff" stroke-width="${dim?1.5:2}" ${NS} opacity="${aimOp}"/>
+      <circle cx="${aim.x.toFixed(1)}" cy="${aim.y.toFixed(1)}" r="${(2.5*k).toFixed(1)}" fill="#fff" opacity="${aimOp}"/>`;
   if(dim) return s;
   /* Two lines, and only the strokes-gained story:
          298 yd · SG +0.24          what the shot is, and what it was worth
@@ -1627,7 +1653,8 @@ function stratOverlay(hole, chains, n){
     const place = both && other.some(o=>yOf(o.r)<=yOf(act)) ? 'below' : 'above';
     s+=stratShotSVG(hole,act,S.active,n,'full',place);
   }
-  if(chains.__ball) s+=`<circle cx="${chains.__ball.x}" cy="${chains.__ball.y}" r="13" fill="#fff" stroke="#111" stroke-width="3"/>`;
+  const kb=window.stratLabelK>0?window.stratLabelK:1;
+  if(chains.__ball) s+=`<circle cx="${chains.__ball.x}" cy="${chains.__ball.y}" r="${(10*kb).toFixed(1)}" fill="#fff" stroke="#111" stroke-width="2" vector-effect="non-scaling-stroke"/>`;
   return s;
 }
 
@@ -1938,13 +1965,13 @@ function buildHoleOverlay(){
                : prog ? `${escapeHtml(prog.name)}: middle` : 'pin: middle';
   const t2x = ` · ${pinTxt}${ballWhere}`;
   const title = head.replace('<span class="ho-t2-x" id="ho-t2-x"></span>', `<span class="ho-t2-x">${t2x}</span>`);
-  const layers=`<div class="ho-layers" role="group" aria-label="Map layers">${STRAT_LAYERS.map(l=>
+  const layers=`<div class="ho-layers ho-float-bl" role="group" aria-label="Map layers">${STRAT_LAYERS.map(l=>
       `<button type="button" class="ho-chip${L[l.key]?' on':''}" aria-pressed="${!!L[l.key]}" onclick="stratToggleLayer('${l.key}')">${l.label}</button>`).join('')}</div>`;
   /* The stepper: which shot of the plan you are looking at. Not a tap on the map — any touch
      there is an aim drag, and a tap that sometimes selects and sometimes aims is worse than a
      row of three buttons. */
-  const stepper=`<div class="ho-steps" role="group" aria-label="Shot">${Array.from({length:maxShot},(_,i)=>i+1).map(i=>
-      `<button type="button" class="ho-step${i===n?' on':''}" onclick="stratSetShotNum(${i})" aria-label="Shot ${i}">${i}</button>`).join('')}</div>`;
+  const stepper=`<div class="ho-steps" role="group" aria-label="Shot"><span class="ho-steps-k">Shot</span>${Array.from({length:maxShot},(_,i)=>i+1).map(i=>
+      `<button type="button" class="ho-step${i===n?' on':''}" onclick="stratSetShotNum(${i})" aria-label="Shot ${i}" aria-pressed="${i===n}">${i}</button>`).join('')}</div>`;
   /* THE ANSWER, in two lines: what to hit and what it leaves, for each plan. This is the whole
      sheet when it is collapsed — the rest is the working, one tap away. */
   const sumLine=l=>{
@@ -1961,9 +1988,9 @@ function buildHoleOverlay(){
   const sheetHead=`<div class="ho-sheet-head">
       ${stepper}
       <div class="ho-sheet-ctl">
-        <button type="button" class="strat-mode-btn${cmpOn?' on':''}" onclick="stratToggleCompare()" title="${cmpOn?'Stop scoring your line against the optimal one':'Score your line against the optimal one'}">⇄ compare</button>
-        <button type="button" class="strat-mode-btn" onclick="stratResetAim()" title="Back to your strategy preferences">↺ reset</button>
-        <button type="button" class="strat-mode-btn" onclick="stratPlanRound()" title="Plan this course in Play, with the lines you have dragged">▤ plan${(()=>{ const n=stratAimsCount(course); return n?` · ${n} line${n===1?'':'s'}`:''; })()}</button>
+        <button type="button" class="ho-icon${cmpOn?' on':''}" onclick="stratToggleCompare()" title="${cmpOn?'Stop scoring your line against the optimal one':'Score your line against the optimal one'}" aria-label="Compare" aria-pressed="${cmpOn}">⇄</button>
+        <button type="button" class="ho-icon" onclick="stratResetAim()" title="Reset this hole to your strategy preferences" aria-label="Reset">↺</button>
+        <button type="button" class="ho-icon ho-plan" onclick="stratPlanRound()" title="Plan this course in Play, with the lines you have dragged">Plan${(()=>{ const n=stratAimsCount(course); return n?` <b>${n}</b>`:''; })()}</button>
         ${size.phone?`<button type="button" class="ho-expand" onclick="stratToggleSheet()" aria-expanded="${open}" aria-label="${open?'Collapse':'Expand'} details">${open?'▾':'▴'}</button>`:''}
       </div>
     </div>`;
@@ -1974,10 +2001,19 @@ function buildHoleOverlay(){
       ${anchorRow}
     </div>`;
   wrap.classList.toggle('ho-phone', size.phone);
-  wrap.innerHTML=title+layers+`
+  /* labels and markers at a constant size on screen, whatever the zoom (stratShotSVG's k) */
+  const vbNow=stratViewBox();
+  window.stratLabelK = 12/(30*(size.w/vbNow.w));
+  const zoomed=window.stratView.z>1.02;
+  const zoomCtl=`<div class="ho-zoom ho-float-br" role="group" aria-label="Zoom">
+      <button type="button" onclick="stratZoomBy(1.6)" aria-label="Zoom in">+</button>
+      <button type="button" onclick="stratZoomBy(1/1.6)" aria-label="Zoom out"${zoomed?'':' disabled'}>−</button>
+      ${zoomed?`<button type="button" onclick="stratResetView()" aria-label="Fit the hole" title="Fit the hole">⤢</button>`:''}
+    </div>`;
+  wrap.innerHTML=title+`
     ${L.pin?`<div class="ho-pin">${pinRow}</div>`:''}
     <div class="strat-hole-grid">
-      <div class="strat-hole-map" style="width:${size.w}px">${renderHoleSVG(hole,{viewBox:stratViewBox(), overlay:`<g id="strat-overlay">${stratOverlay(hole,chains,n)}</g>`})}</div>
+      <div class="strat-hole-map" style="width:${size.w}px">${renderHoleSVG(hole,{viewBox:vbNow, overlay:`<g id="strat-overlay">${stratOverlay(hole,chains,n)}</g>`})}${layers}${zoomCtl}</div>
       <div class="sh-side ho-sheet${open?' open':''}">
         ${sheetHead}
         ${size.phone&&!open?`<div class="ho-sum" onclick="stratToggleSheet()">${['O','S'].map(sumLine).join('')}</div>`:''}
@@ -1996,6 +2032,12 @@ function stratDragInit(wrap){
   /* Anchors persist, but writing the whole STATE to storage 20 times a second while a finger
      is down would stutter — so mark the drag dirty and commit it when the finger lifts. */
   let mode=null, last=0, panFrom=null, anchorDirty=false, aimDirty=false;
+  /* TOUCH: fingers down, by pointer id. A single touch waits ('pending') until it moves or
+     lifts before it aims, so a second finger arriving makes it a PINCH instead of moving the
+     shot. A pinch zooms about the point between the fingers and pans with them; mid-pinch only
+     the viewBox changes (cheap), and the map is rebuilt once when the last finger lifts. */
+  const fingers=new Map(); let pinch=null;
+  const mid=()=>{ const [a,b]=[...fingers.values()]; return {clientX:(a.x+b.x)/2, clientY:(a.y+b.y)/2, d:Math.hypot(a.x-b.x,a.y-b.y)||1}; };
   /* Client pixels → field units THROUGH the live viewBox, so aiming stays accurate at any
      zoom. Reading the viewBox off the element means it is always the one on screen. */
   const ptOf=e=>{
@@ -2044,6 +2086,16 @@ function stratDragInit(wrap){
   };
   wrap.addEventListener('pointerdown',e=>{
     if(!e.target.closest||!e.target.closest('.strat-hole-map')) return;
+    if(e.target.closest('button')) return;              // the chips and zoom buttons on the map
+    if(e.pointerType==='touch'){
+      fingers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+      try{ wrap.setPointerCapture(e.pointerId); }catch(_){}
+      if(fingers.size>=2){
+        const m=mid(); mode='pinch'; pinch={d0:m.d, z0:window.stratView.z, f:ptOf(m)};
+        e.preventDefault(); return;
+      }
+      mode='pending'; panFrom={x:e.clientX,y:e.clientY}; e.preventDefault(); return;
+    }
     /* Right-click pans, as in the D-Plane viewer. Left-click places the shot, so the right
        button had no job here, and a zoomed-in map with no way to move is a map of one corner.
        Middle-drag still pans too, for anyone already used to it. */
@@ -2054,9 +2106,31 @@ function stratDragInit(wrap){
     e.preventDefault();
   });
   wrap.addEventListener('pointermove',e=>{
+    if(fingers.has(e.pointerId)) fingers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(mode==='pinch'){
+      if(fingers.size<2||!pinch||!pinch.f) return;
+      const now=Date.now(); if(now-last<30) return; last=now;
+      const svg=wrap.querySelector('.strat-hole-map svg'); if(!svg) return;
+      const r=svg.getBoundingClientRect(), m=mid(), v=window.stratView, B=stratHoleBox(window.stratBoxHole);
+      v.z=Math.max(STRAT_ZMIN, Math.min(STRAT_ZMAX, pinch.z0*m.d/pinch.d0));
+      const w=B.w/v.z, h=B.h/v.z, fx=(m.clientX-r.left)/r.width, fy=(m.clientY-r.top)/r.height;
+      v.cx=pinch.f.x-fx*w+w/2; v.cy=pinch.f.y-fy*h+h/2;
+      const vb=stratViewBox(); svg.setAttribute('viewBox', `${vb.x.toFixed(1)} ${vb.y.toFixed(1)} ${vb.w.toFixed(1)} ${vb.h.toFixed(1)}`);
+      return;
+    }
+    if(mode==='pending'){
+      if(Math.hypot(e.clientX-panFrom.x, e.clientY-panFrom.y)<6) return;
+      if(window.stratShot.active==='O'&&!window.stratShot.pinMode){ mode=null; return; }
+      mode='aim'; panFrom=null; setAim(e,true); return;
+    }
     if(mode==='aim') setAim(e,false); else if(mode==='pan') panBy(e);
   });
-  const end=e=>{ if(!mode) return; if(mode==='aim') setAim(e,true); mode=null; panFrom=null;
+  const end=e=>{
+    fingers.delete(e.pointerId);
+    if(mode==='pinch'){ if(fingers.size===0){ mode=null; pinch=null; buildHoleOverlay(); } return; }
+    /* a touch that never moved is a tap: the shot goes where it was tapped */
+    if(mode==='pending'){ mode=(e.type==='pointerup'&&!(window.stratShot.active==='O'&&!window.stratShot.pinMode))?'aim':null; panFrom=null; }
+    if(!mode) return; if(mode==='aim') setAim(e,true); mode=null; panFrom=null;
     if(anchorDirty||aimDirty){ anchorDirty=false; aimDirty=false; stratAimsPrune(); saveState(); } };
   /* ...and the browser menu must not open on top of the pan it just started. */
   wrap.addEventListener('contextmenu',e=>{ if(e.target.closest&&e.target.closest('.strat-hole-map')) e.preventDefault(); });
@@ -2100,5 +2174,5 @@ Object.assign(window, { stratScrollToTitle, stratMapSize, stratStepHole, stratLa
   stratPinSheetHoles, stratPinZone, stratPinThumbClick, stratSheetPaces, stratSheetClearHole, stratPinSheetGrid,
   ROUND_METHODS, ROUND_RES, stratRoundHole, stratRound, stratRoundTable,
   stratSheetSet, stratSheetDelete, stratSheetProgress,
-  stratShotSVG, stratOverlay, stratDragInit, stratAimsFor, stratBindAims, stratAimsPrune, stratAimsCount, stratPlanRound
+  stratShotSVG, stratOverlay, stratDragInit, stratZoomBy, STRAT_CORRIDOR_YD, STRAT_MISS_YD, STRAT_END_YD, stratAimsFor, stratBindAims, stratAimsPrune, stratAimsCount, stratPlanRound
 });

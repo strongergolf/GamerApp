@@ -1,18 +1,18 @@
 // features/home.js — HOME: where the app opens, and what the logo goes back to.
 //
-// One column, phone first, four blocks, and everything that matters above the fold at 375px:
-//   DOORS        Play and Sim. While a round is open the Play door is the way back into it.
-//   WHERE YOU    the unofficial index, the last round's strokes gained by category, and the
-//   STAND        part of the game costing the most a round. Read live from the logged rounds,
-//                on the benchmark set now, by the same arithmetic as All rounds.
-//   WHAT'S NEXT  one card, and it changes with what there is: a setup checklist for a new
-//                player; plan the round, if the course has no plan; otherwise the next
-//                session of the practice plan and how far the goal is.
-//   THE REST     every page again, sorted by WHEN it is used (prepare, play, review, improve)
-//                rather than by what it is, which is how the nav sorts them. Nothing moved:
-//                these are links into the same pages, and every deep link still works.
+// A landing page, not a dashboard. One thing to do (Play), one quiet alternative (Sim), one
+// line saying what comes next, one line of numbers, and three ways into the rest of the app,
+// sorted by when they are used. Everything else lives one tap further in, where it was.
 //
-// Home is a group of its own ('home') that has no button in the nav: the five groups stay five.
+//   NEXT is a single line, chosen in this order:
+//     setup        a new player missing the basics (Index, clubs, a mapped course)
+//     your plan    the course you are preparing for has a plan, made since your last round
+//     plan it      the course you are preparing for has no plan: opens it on the Hole Overlay
+//     practice     the next session of the practice plan
+//   "The course you are preparing for" is the one last open on the Hole Overlay, else the last
+//   one played, else the first.
+//
+// Home is a group of its own ('home') with no button in the nav: the five groups stay five.
 
 /* ---------------- GETTING AROUND ---------------- */
 function goHome(){ showGroup('home'); window.scrollTo && window.scrollTo(0,0); }
@@ -27,17 +27,26 @@ function hmPost(view, sel, h4){
     if(el) el.scrollIntoView({block:'start'}); else window.scrollTo && window.scrollTo(0,0);
   }, 0);
 }
+/* the Hole Overlay, on a course (and its first hole) */
+function hmOverlay(ci){
+  const cs=STATE.courses||[];
+  if(ci!=null && cs[ci]){
+    window.stratSelRestored=true; window.stratSel={cIdx:ci, hIdx:0};
+    if(typeof stratClearLines==='function') stratClearLines();
+    if(typeof stratSaveSel==='function') stratSaveSel(true);
+  }
+  hmGo('gameplan','gameplan');
+}
 
 /* ---------------- WHAT THERE IS ---------------- */
 function hmRounds(){ return (typeof rdAll==='function') ? rdAll().slice().sort((a,b)=>(a.startedAt||0)-(b.startedAt||0)) : []; }
-/* The course in question: the one chosen at Play setup, else the one played last, else the first. */
 function hmCourse(){
   const cs=STATE.courses||[]; if(!cs.length) return null;
-  const sel=window.pmSetupSel;
-  if(sel && cs[sel.c]) return {c:cs[sel.c], i:sel.c};
-  const R=hmRounds(), last=R[R.length-1];
-  const i=last ? cs.findIndex(c=>(c.id||c.name)===last.courseKey) : -1;
-  return i>=0 ? {c:cs[i], i} : {c:cs[0], i:0};
+  const sel=(STATE.play||{}).sel;
+  let i=sel ? cs.findIndex(c=>(c.id||c.name)===sel.courseId) : -1;
+  if(i<0){ const R=hmRounds(), last=R[R.length-1]; if(last) i=cs.findIndex(c=>(c.id||c.name)===last.courseKey); }
+  if(i<0) i=0;
+  return {c:cs[i], i};
 }
 /* A new player starts on the sample bag. The default player's bag is the app's own, so it counts. */
 function hmBagIsYours(){
@@ -47,131 +56,98 @@ function hmBagIsYours(){
 function hmSetupItems(){
   const P=STATE.profile||{};
   return [
-    { done:!!String(P.handicap||'').trim(), t:'Your Handicap Index', d:'Sets the benchmark for strokes gained and your Course Handicap', go:`hmGo('setup','profile')` },
-    { done:hmBagIsYours(), t:'Your clubs and distances', d:'Every distance in the app starts from your stock shots', go:`hmGo('setup','specs')` },
-    { done:(STATE.courses||[]).some(c=>(c.holes||[]).some(h=>h.geo)), t:'A course you play, with its map', d:'Import it from OpenStreetMap for GPS distances in Play', go:`hmGo('gameplan','gpcourses')` },
-    { done:!!(((STATE.sim||{}).sessions)||[]).length, t:'A TrackMan session', d:'Captured launch data into your bag', go:`simOpen(); simSetView('tm')`, opt:true },
-    { done:hmRounds().length>0, t:'Your first round', d:'Score and shots in Play; strokes gained follows', go:`pmOpen()` }
+    { done:!!String(P.handicap||'').trim(), t:'Your Handicap Index', go:`hmGo('setup','profile')` },
+    { done:hmBagIsYours(), t:'Your clubs and distances', go:`hmGo('setup','specs')` },
+    { done:(STATE.courses||[]).some(c=>(c.holes||[]).some(h=>h.geo)), t:'A course you play, with its map', go:`hmGo('gameplan','gpcourses')` }
   ];
 }
+function hmFirstName(){ const n=String((STATE.profile||{}).name||'').trim(); return n ? n.split(/\s+/)[0] : ''; }
+function hmGreeting(){
+  const h=new Date().getHours(), part = h<5 ? 'evening' : h<12 ? 'morning' : h<18 ? 'afternoon' : 'evening';
+  const n=hmFirstName();
+  return `Good ${part}${n?', '+escapeHtml(n):''}`;
+}
 
-/* ---------------- 1. THE DOORS ---------------- */
-function hmDoorsHTML(){
+/* ---------------- NEXT: one line ---------------- */
+function hmNext(){
+  const setup=hmSetupItems().filter(x=>!x.done);
+  if(setup.length) return { k:'Set up', t:setup[0].t, sub:`${3-setup.length} of 3 done`, go:setup[0].go };
+  const C=hmCourse();
+  if(C && typeof pmPlans==='function'){
+    const pl=pmPlans()[pmCourseKey(C.c)], R=hmRounds(), last=R[R.length-1];
+    const fresh = pl && (!last || (pl.madeAt||0) > (last.startedAt||0));
+    if(fresh){
+      const t=(typeof pmPlanTotal==='function')?pmPlanTotal(pl):null;
+      return { k:'Your plan', t:C.c.name, sub:t&&t.n?`plays ${t.exp.toFixed(1)}`:'', go:`hmPlanRound(${C.i})` };
+    }
+    if(!pl){
+      const n=(typeof stratAimsCount==='function')?stratAimsCount(C.c):0;
+      return { k:'Plan', t:C.c.name, sub:n?`${n} hole${n===1?'':'s'} drawn`:'drag your shots on each hole', go:`hmOverlay(${C.i})` };
+    }
+  }
+  const P=STATE.practicePlan;
+  if(P && !P.draft && P.sessions && P.sessions.length){
+    const i=P.sessions.findIndex(s=>!s.done);
+    if(i>=0){ const S=P.sessions[i], min=S.blocks.reduce((a,b)=>a+b.min,0);
+      return { k:'Practice', t:S.blocks[0]?S.blocks[0].label:'Session', sub:`${min} min · session ${i+1} of ${P.sessions.length}`, go:`hmPost('all',null,'Practice plan')` }; }
+  }
+  return null;
+}
+function hmPlanRound(i){ window.pmSetupSel=Object.assign({}, window.pmSetupSel||{}, {c:i}); pmOpen(); pmPlanOpen(); }
+
+/* ---------------- THE NUMBERS: one muted line ---------------- */
+function hmStatLine(){
+  const fmtI=v=>v<0?`+${Math.abs(v).toFixed(1)}`:v.toFixed(1);
+  const bits=[];
+  let idx=null; try{ const E=rdIndexEst(); if(E.est!=null) idx=fmtI(E.est); }catch(_){}
+  if(idx==null){ const h=String((STATE.profile||{}).handicap||'').trim(); if(h) idx=h; }
+  if(idx!=null) bits.push(`Index <b>${escapeHtml(idx)}</b>`);
+  const R=hmRounds();
+  if(R.length && typeof rdRound==='function'){
+    const bench=(typeof esCmp==='function')?esCmp():{hcp:0};
+    const d=rdRound(R[R.length-1], bench);
+    if(d.per18) bits.push(`Last round <b class="${d.per18.total<0?'neg':''}">${rdSg(d.per18.total)}</b> SG`);
+  }
+  return bits.length ? `<button type="button" class="hm2-stat" onclick="hmPost('all')">${bits.join('<span>·</span>')}</button>` : '';
+}
+
+/* ---------------- THE PAGE ---------------- */
+function buildHome(){
+  const w=document.getElementById('home-wrap'); if(!w) return;
   const r=(typeof pmRound==='function')?pmRound():null;
   let play;
   if(r){
     const hs=pmHoles(), h=hs[Math.min(r.cur,hs.length-1)], t=pmTotals();
-    play=`<button type="button" class="hm-door hm-play live" onclick="pmOpen()">
-        <span class="hm-door-t"><span class="pm-dot"></span>Resume round</span>
-        <span class="hm-door-d">Hole ${h?pmHoleNum(h,r.cur):''}${t&&t.played?` · ${pmFmtToPar(t.toPar)}`:''} · ${escapeHtml(r.courseName||'')}${r.tournament&&r.tournament.on?' · tournament':''}</span></button>`;
+    play=`<button type="button" class="hm2-play live" onclick="pmOpen()">
+        <span class="hm2-play-k"><span class="pm-dot"></span>Round in progress</span>
+        <span class="hm2-play-t">Resume</span>
+        <span class="hm2-play-d">Hole ${h?pmHoleNum(h,r.cur):''}${t&&t.played?` · ${pmFmtToPar(t.toPar)}`:''} · ${escapeHtml(r.courseName||'')}</span></button>`;
   } else {
-    play=`<button type="button" class="hm-door hm-play" onclick="pmOpen()">
-        <span class="hm-door-t">▶ Play golf</span><span class="hm-door-d">GPS distances, the hole map, your card</span></button>`;
+    play=`<button type="button" class="hm2-play" onclick="pmOpen()">
+        <span class="hm2-play-k">On the course</span>
+        <span class="hm2-play-t">Play golf <span class="hm2-arrow">→</span></span>
+        <span class="hm2-play-d">Distances, the hole, your card</span></button>`;
   }
   const locked=!!(r&&r.tournament&&r.tournament.on);
-  const sim=locked?'':`<button type="button" class="hm-door hm-sim" onclick="simOpen()">
-        <span class="hm-door-t">⛳ Sim golf</span><span class="hm-door-d">TrackMan sessions and games for the bay</span></button>`;
-  return `<div class="hm-doors">${play}${sim}</div>`;
-}
-
-/* ---------------- 2. WHERE YOU STAND ---------------- */
-function hmStandHTML(){
-  const R=hmRounds();
-  const fmtI=v=>v<0?`+${Math.abs(v).toFixed(1)}`:v.toFixed(1);
-  let idx=null, idxLbl='';
-  try{ const E=rdIndexEst(); if(E.est!=null){ idx=fmtI(E.est); idxLbl='unofficial'; } }catch(_){}
-  if(idx==null){ const h=String((STATE.profile||{}).handicap||'').trim(); if(h){ idx=h; idxLbl='official'; } }
-  const index=`<div class="hm-st-idx"><span>Index</span><b>${idx!=null?escapeHtml(idx):'—'}</b><i>${idxLbl||'not set'}</i></div>`;
-  if(!R.length) return `<div class="hm-stand hm-stand-empty">${index}<p>Log a round in Play, with its shots, and your strokes gained shows here.</p></div>`;
-  const bench=(typeof esCmp==='function')?esCmp():{hcp:0, short:'scratch'};
-  const D=R.slice(-RD_PLAN_ROUNDS).map(r=>rdRound(r, bench)).filter(d=>d.per18);
-  if(!D.length) return `<div class="hm-stand hm-stand-empty" role="button" tabindex="0" onclick="hmPost('all')">${index}<p>${R.length} round${R.length===1?'':'s'} logged. Add each shot's situation and distance and strokes gained follows.</p></div>`;
-  const last=D[D.length-1], neg=x=>x!=null&&x<0?' neg':'';
-  const cats=RD_CATS.map(([k])=>`<span><i>${{ott:'Tee',app:'App',arg:'ARG',putt:'Putt'}[k]}</i><b class="${neg(last.per18[k])}">${rdSg(last.per18[k])}</b></span>`).join('');
-  const avg=RD_CATS.map(([k,l])=>({l, v:rdMean(D.map(d=>d.per18[k]))})).sort((a,b)=>a.v-b.v)[0];
-  const leak = avg && avg.v<0 ? `Biggest leak: <b>${avg.l}</b>, <b class="neg">${rdSg(avg.v)}</b> a round`
-             : avg ? `Weakest: <b>${avg.l}</b>, ${rdSg(avg.v)} a round` : '';
-  return `<div class="hm-stand" role="button" tabindex="0" onclick="hmPost('all')" aria-label="Open All rounds">
-      ${index}
-      <div class="hm-st-sg"><span class="hm-st-h">Last round <i>${new Date(last.date).toLocaleDateString([], {month:'short', day:'numeric'})} · per 18 vs ${escapeHtml(bench.short||'')}</i></span>
-        <span class="hm-st-tot"><b class="${neg(last.per18.total)}">${rdSg(last.per18.total)}</b></span>
-        <span class="hm-st-cats">${cats}</span></div>
-      ${leak?`<div class="hm-st-leak">${leak}<i>over the last ${D.length} round${D.length===1?'':'s'}</i></div>`:''}
+  let next=null; try{ next=hmNext(); }catch(e){ console.error(e); }
+  const nextHTML = (!r && next) ? `<button type="button" class="hm2-next" onclick="${next.go}">
+      <span class="hm2-next-k">${next.k}</span>
+      <span class="hm2-next-t">${escapeHtml(next.t)}${next.sub?`<small>${escapeHtml(next.sub)}</small>`:''}</span>
+      <span class="hm2-chev" aria-hidden="true">›</span></button>` : '';
+  let stat=''; try{ stat=hmStatLine(); }catch(e){ console.error(e); }
+  w.innerHTML=`<div class="hm2">
+      <div class="hm2-hello">${hmGreeting()}<span>${new Date().toLocaleDateString([], {weekday:'long', month:'long', day:'numeric'})}</span></div>
+      ${play}
+      ${locked?'':`<button type="button" class="hm2-sim" onclick="simOpen()">Sim golf <span>TrackMan sessions and bay games</span><span class="hm2-chev" aria-hidden="true">›</span></button>`}
+      ${nextHTML}
+      ${stat}
+      <nav class="hm2-ways" aria-label="The rest of the app">
+        <button type="button" onclick="hmGo('gameplan','gameplan')"><b>Prepare</b><span>Plan holes</span></button>
+        <button type="button" onclick="hmPost('round')"><b>Review</b><span>Your rounds</span></button>
+        <button type="button" onclick="hmPost('all',null,'Practice plan')"><b>Improve</b><span>Practice</span></button>
+      </nav>
     </div>`;
 }
 
-/* ---------------- 3. WHAT'S NEXT ---------------- */
-function hmGoalLine(){
-  const G=(typeof rdGoals==='function')?rdGoals():null; if(!G) return '';
-  const cur=rdCurrentAvgs(), total=RD_CATS.reduce((a,[k])=>a+(G.cats[k]||0),0);
-  if(cur.total==null) return `<p class="hm-goal">Goal <b>${rdSg(total)}</b> a round vs ${escapeHtml(G.bench)}</p>`;
-  return `<p class="hm-goal">Goal <b>${rdSg(total)}</b> a round · now <b class="${cur.total<0?'neg':''}">${rdSg(cur.total)}</b> over ${cur.n} · ${cur.total>=total?'<b>met</b>':`${(total-cur.total).toFixed(2)} to go`}</p>`;
-}
-function hmNextHTML(){
-  const R=hmRounds();
-  /* a new player: what the app needs to work for them */
-  if(!R.length){
-    const L=hmSetupItems(), done=L.filter(x=>x.done).length;
-    return `<div class="hm-next"><div class="hm-next-h">Get set up <span>${done} of ${L.length}</span></div>
-      ${L.map(x=>`<button type="button" class="hm-check${x.done?' done':''}" onclick="${x.go}">
-          <span class="hm-tick" aria-hidden="true">${x.done?'✓':''}</span>
-          <span class="hm-check-t">${x.t}${x.opt?' <i>optional</i>':''}<small>${x.d}</small></span><span class="hm-arrow" aria-hidden="true">›</span></button>`).join('')}
-    </div>`;
-  }
-  /* the course has no plan: plan it, and print the scoring profile */
-  const C=hmCourse(), plans=(typeof pmPlans==='function')?pmPlans():{};
-  if(C && !(typeof pmRound==='function'&&pmRound()) && !plans[pmCourseKey(C.c)]){
-    return `<div class="hm-next"><div class="hm-next-h">Next round <span>${escapeHtml(C.c.name||'')}</span></div>
-      <p>No plan yet for this course. Plan each hole on your own model, freeze it, and play to it; Post-Round then prices plan against played.</p>
-      <div class="hm-acts"><button type="button" class="btn btn-accent" onclick="hmPlanRound(${C.i})">Plan your round</button>
-        <button type="button" class="btn" onclick="printScoringProfile(false)">⎙ Scoring Profile</button></div>
-      ${hmGoalLine()}</div>`;
-  }
-  /* otherwise: practice */
-  const P=STATE.practicePlan;
-  if(P && !P.draft && P.sessions && P.sessions.length){
-    const i=P.sessions.findIndex(s=>!s.done), n=P.sessions.length, dn=P.sessions.filter(s=>s.done).length;
-    if(i<0) return `<div class="hm-next"><div class="hm-next-h">Practice plan <span>all ${n} sessions done</span></div>
-        <p>Play a few rounds and the plan measures whether those leaks closed; then build the next one.</p>
-        <div class="hm-acts"><button type="button" class="btn btn-accent" onclick="hmPost('all',null,'Practice plan')">See the plan</button></div>${hmGoalLine()}</div>`;
-    const S=P.sessions[i];
-    const rows=S.blocks.map(b=>{ const go=((RD_DRILLS[b.key]||{}).go||[])[0];
-      return `<div class="hm-block"><b>${b.min}′</b><span>${escapeHtml(b.label)}</span>${go?`<button type="button" class="btn lm-mini" onclick="rdPlanGo('${go[1]}')">${escapeHtml(go[0])}</button>`:''}</div>`; }).join('');
-    return `<div class="hm-next"><div class="hm-next-h">Today's practice <span>session ${i+1} of ${n} · ${dn} done</span></div>
-      ${rows}
-      <div class="hm-acts"><button type="button" class="btn btn-accent" onclick="hmPlanDone(${i})">Done</button>
-        <button type="button" class="btn" onclick="hmPost('all',null,'Practice plan')">The whole plan</button></div>
-      ${hmGoalLine()}</div>`;
-  }
-  return `<div class="hm-next"><div class="hm-next-h">Practice plan <span>none yet</span></div>
-      <p>Weighs every part of your game by what it costs a round, and shares out your practice time to match.</p>
-      <div class="hm-acts"><button type="button" class="btn btn-accent" onclick="hmPlanBuild()">Build my plan</button>
-        <button type="button" class="btn" onclick="hmPost('all',null,'Goals')">Goals</button></div>
-      ${hmGoalLine()}</div>`;
-}
-function hmPlanRound(i){ window.pmSetupSel=Object.assign({}, window.pmSetupSel||{}, {c:i}); pmOpen(); pmPlanOpen(); }
-function hmPlanDone(i){ rdPlanDone(i); buildHome(); }
-function hmPlanBuild(){ rdPlanBuild(); buildHome(); }
-
-/* ---------------- 4. THE REST, BY WHEN ---------------- */
-const HM_ROWS = [
-  ['Prepare', [['Plan my round',`hmPlanRound((hmCourse()||{i:0}).i)`],['Hole Overlay',`hmGo('gameplan','gameplan')`],['Pre-Shot',`hmGo('gameplan','preshot')`],['Print',`hmGo('gameplan','gpcourses')`]]],
-  ['Play',    [['On-Course Games',`hmGo('games','rgames')`],['Practice Games',`hmGo('games','games')`]]],
-  ['Review',  [['Post-Round',`hmPost('round')`],['All rounds',`hmPost('all')`],['Ready to post',`hmPost('round','.whs-card')`],['Post-Shot',`hmGo('gameplan','postshot')`]]],
-  ['Improve', [['Practice plan',`hmPost('all',null,'Practice plan')`],['Causation',`hmGo('diagnose','chain')`],['My numbers',`hmGo('play','bag')`]]]
-];
-function hmTilesHTML(){
-  return `<div class="hm-rows">${HM_ROWS.map(([h,L])=>`<div class="hm-row"><div class="hm-row-h">${h}</div>
-      <div class="hm-tiles">${L.map(([t,go])=>`<button type="button" class="hm-tile" onclick="${go}">${t}</button>`).join('')}</div></div>`).join('')}</div>`;
-}
-
-function buildHome(){
-  const w=document.getElementById('home-wrap'); if(!w) return;
-  let html='';
-  try{ html=hmDoorsHTML()+hmStandHTML()+hmNextHTML()+hmTilesHTML(); }
-  catch(e){ console.error(e); html=hmDoorsHTML()+hmTilesHTML(); }
-  w.innerHTML=html;
-}
-
-Object.assign(window, { goHome, hmGo, hmPost, hmRounds, hmCourse, hmBagIsYours, hmSetupItems, hmDoorsHTML, hmStandHTML,
-  hmGoalLine, hmNextHTML, hmPlanRound, hmPlanDone, hmPlanBuild, HM_ROWS, hmTilesHTML, buildHome });
+Object.assign(window, { goHome, hmGo, hmPost, hmOverlay, hmRounds, hmCourse, hmBagIsYours, hmSetupItems, hmFirstName, hmGreeting,
+  hmNext, hmPlanRound, hmStatLine, buildHome });
