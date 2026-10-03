@@ -166,6 +166,18 @@ function printCardHTML(sides){
     .prof .foot{margin-top:8px;padding-top:5px}
     table.ref.plan td{font-size:9px}
     .prof table.tr td.club{font-size:8.5px;font-weight:600;line-height:1.2}
+    .book .head{padding-bottom:5px;margin-bottom:8px}
+    .bk-row{display:flex;gap:7px;align-items:stretch}
+    .bk-tile{flex:1;min-width:0;border:1px solid #c0cedd;border-radius:6px;padding:4px 4px 5px;display:flex;flex-direction:column}
+    .bk-empty{border-color:transparent}
+    .bk-h{display:flex;align-items:baseline;gap:5px;margin-bottom:3px}
+    .bk-h b{font-size:15px;font-weight:800}
+    .bk-h span{font-size:8px;color:#3a5a7a}
+    .bk-h em{margin-left:auto;font-style:normal;font-size:9px;font-weight:700}
+    .bk-map svg{display:block;width:100%;height:118mm}
+    .bk-nomap{height:118mm;display:flex;align-items:center;justify-content:center;font-size:8px;color:#8aaac8;border:1px dashed #c0cedd}
+    .bk-chain{font-size:7.5px;margin-top:4px;line-height:1.3}
+    .bk-note{font-size:7.5px;color:#3a5a7a;line-height:1.3;margin-top:2px}
     @page{margin:12mm;size:landscape}@media print{.card{padding:0}}`;
   return `<!doctype html><html><head><meta charset="utf-8"><title>StrongerGolf — Reference Card</title><style>${css}</style></head><body>${sides.join('')}</body></html>`;
 }
@@ -299,6 +311,97 @@ function prPlanSide(course){
     <div class="foot">${prMark}<span>Prepared before the round &middot; Player&rsquo;s App &middot; ${new Date().toLocaleDateString()}</span></div>
   </section>`;
 }
+
+/* ============================================================
+   THE YARDAGE BOOK — the notes from the Plan page, on paper
+   ============================================================
+   Every hole as a clean diagram, six to a landscape page, tall and thin like the holes: the
+   shapes (as fixed on the Plan page), tee and flag, the planned line, and the golfer's marks —
+   the red X long left, the line, the few words. Printed in light fills so pencil notes can go on
+   top. Marks drawn in white or yellow on the photo print navy and gold, or they would vanish on
+   paper. Included whenever the course has notes. A whole-hole diagram is far smaller than the
+   3/8 in to 5 yd green-map limit, so it is a yardage book, not green-reading material. */
+const PR_BOOK_PER_PAGE = 6, PR_BOOK_W = 160, PR_BOOK_H = 470;
+const PR_INK = { '#ffffff':'#0C2340', '#ffd54f':'#b8860b' };
+function prBookMarks(c){ const M=(STATE.play||{}).marks||{}, pre=(c.id||c.name)+'|'; return Object.keys(M).filter(k=>k.startsWith(pre)&&(M[k]||[]).length).length; }
+/* the line to draw: the plan's chosen shots if there is a plan, else the line dragged on the Plan page */
+function prBookLine(c, h, pl){
+  const row=pl&&pl.holes&&pl.holes[h.num];
+  if(row && row.method==='model'){ const S=(row.pick==='mine'&&row.mine&&row.mine.length)?row.mine:(row.opt||[]); if(S.length) return S.map(s=>({from:s.from, aim:s.aim, club:s.club, yd:s.yd})); }
+  const A=(((STATE.play||{}).aims||{})[(c.id||c.name)+'|'+h.num]||[]).filter(Boolean);
+  let from=h.tee; return A.map(a=>{ const r={from, aim:a}; from=a; return r; });
+}
+function prHoleSVG(c, h, pl){
+  if(!h || !h.tee || !(typeof cfHasScale==='function'&&cfHasScale(h))) return `<div class="bk-nomap">No hole map</div>`;
+  const keep=window.stratMapRatio; window.stratMapRatio=PR_BOOK_W/PR_BOOK_H;
+  let B=stratHoleBox(h); window.stratMapRatio=keep;
+  /* the frame takes in the golfer's notes too — a note written just past the green, or out
+     beside the hole, must not be cut off at the edge of the paper */
+  const M=(((STATE.play||{}).marks||{})[(c.id||c.name)+'|'+h.num])||[];
+  if(M.length){
+    let x0=B.x, y0=B.y, x1=B.x+B.w, y1=B.y+B.h; const pad=B.w/PR_BOOK_W*14;
+    const eat=q=>{ x0=Math.min(x0,q.x-pad); x1=Math.max(x1,q.x+pad); y0=Math.min(y0,q.y-pad); y1=Math.max(y1,q.y+pad); };
+    M.forEach(m=>{ if(m.t==='line') m.pts.forEach(eat); else eat(m); if(m.t==='text'){ eat({x:m.x-pad*3,y:m.y}); eat({x:m.x+pad*3,y:m.y}); } });
+    let w=x1-x0, hh=y1-y0; const want=PR_BOOK_W/PR_BOOK_H;
+    if(w/hh>want){ const nh=w/want; y0-=(nh-hh)/2; hh=nh; } else { const nw=hh*want; x0-=(nw-w)/2; w=nw; }
+    B={x:x0, y:y0, w, h:hh};
+  }
+  const u=B.w/PR_BOOK_W;                       /* field units per printed px */
+  const pts=P=>P.map(q=>q.x+','+q.y).join(' ');
+  const poly=(P,fill,stroke,sw,dash)=>(P&&P.length>2)?`<polygon points="${pts(P)}" fill="${fill}" stroke="${stroke}" stroke-width="${sw*u}"${dash?` stroke-dasharray="${3*u},${2*u}"`:''}/>`:'';
+  const Z=h.hazards||[];
+  let s=`<rect x="${B.x-B.w}" y="${B.y-B.h}" width="${B.w*3}" height="${B.h*3}" fill="#ffffff"/>`;
+  s+=Z.filter(z=>z.type==='trees').map(z=>poly(z.pts,'#e8f0e8','none',0)).join('');
+  s+=[h.fairway].concat(h.fairways||[]).map(f=>poly(f,'#d6ecd8','#4f9a5f',0.7)).join('');
+  s+=poly(h.green,'#a9dcb2','#2e7d44',0.9);
+  s+=Z.filter(z=>z.type==='sand').map(z=>poly(z.pts,'#f6e7b2','#b8964a',0.7)).join('');
+  s+=Z.filter(z=>z.type==='water').map(z=>poly(z.pts,'#d3e6f8','#4a7fb8',0.7)).join('');
+  s+=Z.filter(z=>z.type==='oob').map(z=>poly(z.pts,'none','#c0392b',0.8,true)).join('');
+  /* the plan: dashed navy, a ring at each aim */
+  prBookLine(c,h,pl).forEach(r=>{ if(!r.from||!r.aim) return;
+    s+=`<line x1="${r.from.x}" y1="${r.from.y}" x2="${r.aim.x}" y2="${r.aim.y}" stroke="#0C2340" stroke-width="${1.1*u}" stroke-dasharray="${4*u},${3*u}"/>
+       <circle cx="${r.aim.x}" cy="${r.aim.y}" r="${2.6*u}" fill="#ffffff" stroke="#0C2340" stroke-width="${1*u}"/>`; });
+  /* tee and flag */
+  s+=`<rect x="${h.tee.x-3*u}" y="${h.tee.y-3*u}" width="${6*u}" height="${6*u}" fill="#0C2340"/>`;
+  const pin=(typeof cfPin==='function'?cfPin(h):null)||h.pin;
+  if(pin) s+=`<line x1="${pin.x}" y1="${pin.y}" x2="${pin.x}" y2="${pin.y-13*u}" stroke="#0C2340" stroke-width="${0.9*u}"/><polygon points="${pin.x},${pin.y-13*u} ${pin.x+7*u},${pin.y-10.5*u} ${pin.x},${pin.y-8*u}" fill="#d33"/>`;
+  /* the golfer's marks */
+  const ink=col=>PR_INK[col]||col;
+  M.forEach(m=>{
+    if(m.t==='x'){ const r=4.5*u; s+=`<path d="M${m.x-r},${m.y-r}L${m.x+r},${m.y+r}M${m.x+r},${m.y-r}L${m.x-r},${m.y+r}" stroke="${ink(m.c)}" stroke-width="${1.8*u}" stroke-linecap="round"/>`; }
+    else if(m.t==='line') s+=`<polyline points="${pts(m.pts)}" fill="none" stroke="${ink(m.c)}" stroke-width="${1.6*u}" stroke-linecap="round" stroke-linejoin="round"/>`;
+    else if(m.t==='text') s+=`<text x="${m.x}" y="${m.y}" text-anchor="middle" dominant-baseline="middle" font-family="Arial,Helvetica,sans-serif" font-weight="700" font-size="${7.5*u}" fill="${ink(m.c)}" stroke="#ffffff" stroke-width="${2*u}" paint-order="stroke">${String(m.s).replace(/</g,'&lt;')}</text>`;
+  });
+  return `<svg viewBox="${B.x} ${B.y} ${B.w} ${B.h}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">${s}</svg>`;
+}
+function prBookSides(course){
+  if(!course || !prBookMarks(course)) return [];
+  const pl=(typeof pmPlans==='function')?pmPlans()[course.id||course.name]:null;
+  const holes=(course.holes||[]).slice().sort((a,b)=>(a.num||0)-(b.num||0));
+  const yd=v=>(typeof ydNum==='function')?ydNum(v):Math.round(v), yu=(typeof ydUnit==='function')?ydUnit():'yd';
+  const tile=h=>{
+    const row=pl&&pl.holes&&pl.holes[h.num];
+    const e=(row&&typeof pmPlanExp==='function')?pmPlanExp(row):null;
+    const len=(h.tee&&typeof cfDistYd==='function'&&typeof cfPin==='function'&&cfPin(h))?cfDistYd(h,h.tee,cfPin(h)):h.yards;
+    const line=prBookLine(course,h,pl);
+    const chain=line.filter(r=>r.club).map(r=>`<b>${(typeof pmPlanClubTxt==='function'?pmPlanClubTxt(r):r.club)}</b> ${yd(r.yd)}`).join(' &rarr; ');
+    const note=((pl&&pl.notes)||{})[h.num]||'';
+    const n=(((STATE.play||{}).marks||{})[(course.id||course.name)+'|'+h.num]||[]).length;
+    return `<div class="bk-tile">
+        <div class="bk-h"><b>${h.num}</b><span>par ${h.par||4}${len?` &middot; ${yd(len)} ${yu}`:''}</span>${e!=null?`<em>${e.toFixed(2)}</em>`:''}</div>
+        <div class="bk-map">${prHoleSVG(course,h,pl)}</div>
+        <div class="bk-chain">${chain||'&nbsp;'}</div>
+        <div class="bk-note">${note.replace(/</g,'&lt;')}${n&&!note?'':''}</div>
+      </div>`;
+  };
+  const pages=[]; for(let i=0;i<holes.length;i+=PR_BOOK_PER_PAGE) pages.push(holes.slice(i,i+PR_BOOK_PER_PAGE));
+  return pages.map((P,pi)=>`<section class="card book" style="page-break-before:always">
+      <div class="head">${PR_ARC}${prMark}<div class="sub">Yardage Book &middot; ${(course.name||'').replace(/</g,'&lt;')} &middot; ${pi+1} of ${pages.length}</div>
+        <div class="cond-note">Your notes from the Plan page &middot; dashed: your planned line &middot; prepared before the round</div></div>
+      <div class="bk-row">${P.map(tile).join('')}${Array.from({length:PR_BOOK_PER_PAGE-P.length},()=>'<div class="bk-tile bk-empty"></div>').join('')}</div>
+      <div class="foot">${prMark}<span>Player&rsquo;s App &middot; ${new Date().toLocaleDateString()}</span></div>
+    </section>`);
+}
 /* course: the one being planned, if the call comes from the plan screen; otherwise the course
    selected on the Strategy tab */
 function printScoringProfile(fromPlan){
@@ -306,8 +409,8 @@ function printScoringProfile(fromPlan){
                : (typeof stratCurrent==='function' && stratCurrent()) ? stratCurrent().course : null;
   const w=window.open('','_blank');
   if(!w){ if(typeof toast==='function') toast('Allow pop-ups to print the profile'); return; }
-  w.document.open(); w.document.write(printCardHTML([prProfileSide(), prPlanSide(course)])); w.document.close();
+  w.document.open(); w.document.write(printCardHTML([prProfileSide(), prPlanSide(course)].concat(prBookSides(course)))); w.document.close();
   w.focus();
   setTimeout(()=>{ try{ w.print(); }catch(e){} }, 350);
 }
-Object.assign(window, { printScoringProfile, prProfileSide, prPlanSide, prE });
+Object.assign(window, { printScoringProfile, prProfileSide, prPlanSide, prE, PR_BOOK_PER_PAGE, PR_BOOK_W, PR_BOOK_H, PR_INK, prBookMarks, prBookLine, prHoleSVG, prBookSides });
